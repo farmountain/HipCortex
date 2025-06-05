@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use chrono::{DateTime, Utc};
+use std::path::{Path, PathBuf};
 
 use crate::memory_record::{MemoryRecord, MemoryType};
 use crate::memory_store::MemoryStore;
@@ -9,6 +10,9 @@ use crate::snapshot_manager::SnapshotManager;
 #[derive(Parser)]
 #[command(name = "hipcortex", version, about = "Minimal Memory CLI")]
 struct Cli {
+    /// Path to memory store file
+    #[arg(long, default_value = "memory.jsonl")]
+    store: String,
     #[command(subcommand)]
     command: Commands,
 }
@@ -37,11 +41,15 @@ enum Commands {
     Snapshot {
         tag: String,
     },
+    /// Restore snapshot
+    Restore {
+        tag: String,
+    },
 }
 
 pub fn run() -> Result<()> {
     let cli = Cli::parse();
-    let mut store = MemoryStore::new("memory.jsonl")?;
+    let mut store = MemoryStore::new(&cli.store)?;
     match cli.command {
         Commands::Add { actor, action, target } => {
             let record = MemoryRecord::new(
@@ -69,7 +77,11 @@ pub fn run() -> Result<()> {
             }
         }
         Commands::Snapshot { tag } => {
-            SnapshotManager::save("memory.jsonl", &tag)?;
+            SnapshotManager::save(&cli.store, &tag)?;
+        }
+        Commands::Restore { tag } => {
+            let archive = PathBuf::from(format!("{}.tar.gz", tag));
+            SnapshotManager::load(&archive, Path::new("."))?;
         }
     }
     Ok(())
