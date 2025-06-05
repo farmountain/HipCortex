@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 use crate::memory_record::{MemoryRecord, MemoryType};
 use crate::memory_store::MemoryStore;
 use crate::snapshot_manager::SnapshotManager;
+use crate::memory_query::MemoryQuery;
+use crate::memory_processor::MemoryProcessor;
 
 #[derive(Parser)]
 #[command(name = "hipcortex", version, about = "Minimal Memory CLI")]
@@ -60,19 +62,22 @@ pub fn run() -> Result<()> {
                 serde_json::json!({}),
             );
             store.add(record)?;
+            // Keep on-disk store deduplicated when adding records
+            let mut all = store.all().to_vec();
+            MemoryProcessor::deduplicate(&mut all);
         }
         Commands::Query { r#type, actor, since } => {
-            let mut results: Vec<&MemoryRecord> = store.all().iter().collect();
+            let mut data: Vec<MemoryRecord> = store.all().to_vec();
             if let Some(t) = r#type {
-                results = results.into_iter().filter(|r| r.record_type == t).collect();
+                data = MemoryQuery::by_type(&data, t).into_iter().cloned().collect();
             }
             if let Some(a) = actor {
-                results = results.into_iter().filter(|r| r.actor == a).collect();
+                data = MemoryQuery::by_actor(&data, &a).into_iter().cloned().collect();
             }
             if let Some(ts) = since {
-                results = results.into_iter().filter(|r| r.timestamp >= ts).collect();
+                data = MemoryQuery::since(&data, ts).into_iter().cloned().collect();
             }
-            for r in results {
+            for r in data {
                 println!("{:?}", r);
             }
         }
