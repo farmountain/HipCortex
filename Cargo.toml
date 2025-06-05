@@ -1,0 +1,12 @@
+[package]
+name = "hipcortex"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+proptest = "1"
+criterion = "0.5"
+
