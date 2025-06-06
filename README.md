@@ -7,12 +7,18 @@ Built in Rust, integrating temporal, procedural, and symbolic memory with agenti
 
 ## ✨ Features
 
-- **Temporal Indexer:** Decaying STM/LTM memory buffer
-- **Procedural FSM Cache:** Regenerative memory with finite state logic
-- **Symbolic Store:** Concept graph and semantic key-value store
-- **Perception Adapter:** Multimodal (text, vision, agent) input
-- **Integration Layer:** API stubs for OpenManus, MCP, REST/gRPC, AUREUS
-- **Fully Test-Driven:** Extensive test suite and CI-ready
+HipCortex is built from modular building blocks so you can mix and match memory
+and reasoning components.
+
+- **Temporal Indexer:** Short/long-term buffer with decay and LRU pruning.
+- **Procedural FSM Cache:** Regenerative memory driven by finite state logic for
+  workflows and actions.
+- **Symbolic Store:** Graph-based concept store with semantic key/value pairs.
+- **Perception Adapter:** Multimodal input handler (text, embeddings, agent
+  messages, vision—planned).
+- **Aureus Bridge:** Reflexion and reasoning hook for chain-of-thought engines.
+- **Integration Layer:** REST/gRPC and protocol stubs (OpenManus, MCP).
+- **Fully Test-Driven:** Extensive unit tests and Criterion benchmarks.
 
 ---
 
@@ -46,12 +52,20 @@ cargo build
 cargo test        # Run all tests
 cargo run         # Run the CLI demo
 cargo bench       # Run benchmarks
+```
 
 See examples/quickstart.rs for a minimal programmatic usage demo.
 
+## 🛠️ Use Cases
 
+HipCortex can serve a variety of scenarios:
+
+- **Agent Memory Engine:** manage conversation context and reasoning traces for single or multi-agent systems.
+- **Edge Workflow Execution:** run on resource-constrained hardware thanks to Rust's performance and small footprint.
+- **Search & Retrieval:** build knowledge graphs or retrieval-augmented generation pipelines using the SymbolicStore and TemporalIndexer.
+- **Real-Time Interfaces:** expose REST/gRPC APIs and upcoming CLI/web dashboards via the IntegrationLayer.
+- **Knowledge Export:** connect to Notion, PDF, or other backends for long-term persistence (planned).
 ## 🧪 Test & Automation
-
 - **Run all tests:**  
   `cargo test`
 

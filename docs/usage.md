@@ -1,10 +1,7 @@
-## **docs/usage.md**
-
-````markdown
 # HipCortex Usage Guide
 
-Welcome to the HipCortex AI Memory Engine!  
-This guide explains how to build, run, test, and extend the system for agentic, edge, or AI research use.
+Welcome to the HipCortex AI Memory Engine! This guide explains how to build, run,
+test, and extend the system for agentic, edge, or AI research use.
 
 ---
 
@@ -13,7 +10,7 @@ This guide explains how to build, run, test, and extend the system for agentic, 
 ```sh
 cargo build
 cargo run
-````
+```
 
 * `main.rs` demonstrates all major features and acts as a quickstart demo.
 
