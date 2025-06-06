@@ -5,7 +5,7 @@ HipCortex is a modular AI memory engine with these key principles:
 - **Temporal Memory:** Short-term and long-term memory, managed with decay and LRU.
 - **Procedural Memory:** FSM-driven, agentic "reasoning/action" traces, for procedural or regenerative workflows.
 - **Symbolic Memory:** Graph-based, human-interpretable key-value and concept memory.
-- **Perception Adapter:** Handles multimodal input (text, embeddings, agent messages, vision—future).
+- **Perception Adapter:** Handles multimodal input (text, embeddings, agent messages, vision via `VisionEncoder`).
 - **Aureus Bridge:** Reflexion and reasoning integration (for AUREUS, chain-of-thought, and agent feedback).
 - **Integration Layer:** Ready for REST/gRPC/agent protocols (OpenManus, MCP, etc).
 
@@ -26,8 +26,7 @@ flowchart TD
 Each component focuses on a single responsibility and can be replaced or
 extended as your use case grows.
 
-1. **Perception Adapter** – normalizes text, embeddings and future vision input
-   into memory traces.
+1. **Perception Adapter** – normalizes text, embeddings and vision input using `VisionEncoder` into memory traces.
 2. **Temporal Indexer** – stores recent traces with decay logic for short or
    long‑term retention.
 3. **Symbolic Store** – maintains a graph of concepts and relationships.

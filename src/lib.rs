@@ -13,3 +13,4 @@ pub mod symbolic_store;
 pub mod perception_adapter;
 pub mod integration_layer;
 pub mod aureus_bridge;
+pub mod vision_encoder;

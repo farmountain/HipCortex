@@ -32,6 +32,6 @@ fn travelg3n_store_and_retrieve_city() {
 #[test]
 fn athena_reflexion_placeholder() {
     use hipcortex::aureus_bridge::AureusBridge;
-    let aureus = AureusBridge::new();
+    let mut aureus = AureusBridge::new();
     aureus.reflexion_loop();
 }

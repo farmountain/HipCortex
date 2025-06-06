@@ -6,11 +6,11 @@
 - FSM procedural cache
 - Symbolic key-value and graph store
 - Multimodal perception adapter
+- Vision encoder module
 - Reflexion/agent integration stubs
 - TDD, benchmarks, VS Code dev config
 
 ## In Progress / Planned
-- Vision encoder module (DeepSeek, LLaVA, quantized models)
 - Semantic cache/compression
 - RAG (retrieval-augmented generation) adapters
 - Notion/PDF/CLI export
