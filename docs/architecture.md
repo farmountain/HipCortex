@@ -19,3 +19,5 @@ flowchart TD
     STM & Symb --> FSM[ProceduralCache (FSM)]
     FSM --> Reason[AureusBridge]
     Reason --> API[IntegrationLayer]
+```
+
