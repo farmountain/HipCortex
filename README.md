@@ -130,4 +130,5 @@ HipCortex can serve a variety of scenarios:
 | docs/integration.md  | Protocol/API plans, extension points                  |
 | docs/roadmap.md      | Completed, active, planned modules                    |
 | docs/contributing.md | Contribution guide, code/test policy                  |
+| docs/agent.md        | Codex agent workflow and contribution guide           |
 | LICENSE              | MIT License                                           |
