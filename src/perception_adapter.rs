@@ -28,7 +28,18 @@ impl PerceptionAdapter {
                 println!("[PerceptionAdapter] Embedding: {:?}", input.embedding);
             }
             Modality::Image => {
-                println!("[PerceptionAdapter] Image bytes: {}", input.image_data.map_or(0, |d| d.len()));
+                if let Some(bytes) = input.image_data {
+                    match crate::vision_encoder::VisionEncoder::encode_bytes(&bytes) {
+                        Ok(emb) => {
+                            println!("[PerceptionAdapter] Image embedding: {:?}", emb);
+                        }
+                        Err(e) => {
+                            println!("[PerceptionAdapter] Image encoding error: {}", e);
+                        }
+                    }
+                } else {
+                    println!("[PerceptionAdapter] No image data");
+                }
             }
             Modality::SymbolicConcept => {
                 println!("[PerceptionAdapter] Symbolic concept tags: {:?}", input.tags);

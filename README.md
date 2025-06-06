@@ -15,7 +15,7 @@ and reasoning components.
   workflows and actions.
 - **Symbolic Store:** Graph-based concept store with semantic key/value pairs.
 - **Perception Adapter:** Multimodal input handler (text, embeddings, agent
-  messages, vision—planned).
+  messages, vision). Includes a simple VisionEncoder for image embeddings.
 - **Aureus Bridge:** Reflexion and reasoning hook for chain-of-thought engines.
 - **Integration Layer:** REST/gRPC and protocol stubs (OpenManus, MCP).
 - **Fully Test-Driven:** Extensive unit tests and Criterion benchmarks.
@@ -34,6 +34,7 @@ and reasoning components.
 | `src/perception_adapter.rs`    | Multimodal input                        |
 | `src/integration_layer.rs`     | Agentic/REST/gRPC stubs                 |
 | `src/aureus_bridge.rs`         | Reflexion/reasoning loop                |
+| `src/vision_encoder.rs`        | Simple image to embedding converter     |
 | `tests/`                       | Integration and property tests          |
 | `benches/`                     | Criterion benchmarks                    |
 | `examples/`                    | Minimal runnable example                |

@@ -38,6 +38,15 @@ For a minimal working example of temporal, procedural, symbolic, and multimodal 
 cargo run
 ```
 
+### Encode an image
+
+Use the `VisionEncoder` to convert an image into a simple RGB embedding:
+
+```rust
+use hipcortex::vision_encoder::VisionEncoder;
+let embedding = VisionEncoder::encode_path("image.png")?;
+```
+
 The output will show insertions, FSM transitions, symbolic graph operations, and perception adapter traces.
 
 ## 5. VS Code Setup

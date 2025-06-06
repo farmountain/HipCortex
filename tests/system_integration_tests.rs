@@ -27,6 +27,7 @@ fn memory_round_trip() {
         modality: Modality::Text,
         text: Some("travel".to_string()),
         embedding: None,
+        image_data: None,
         tags: vec![],
     };
     PerceptionAdapter::adapt(input);
@@ -37,9 +38,9 @@ fn memory_round_trip() {
 
 #[test]
 fn integration_and_reflexion() {
-    let layer = IntegrationLayer::new();
+    let mut layer = IntegrationLayer::new();
     layer.connect();
-    let aureus = AureusBridge::new();
+    let mut aureus = AureusBridge::new();
     aureus.reflexion_loop();
 }
 
