@@ -40,7 +40,7 @@ Built in Rust, integrating temporal, procedural, and symbolic memory with agenti
 ## 🚀 Quickstart
 
 ```sh
-git clone <your-repo>
+git clone https://github.com/farmountain/HipCortex.git
 cd hipcortex
 cargo build
 cargo test        # Run all tests
@@ -48,6 +48,12 @@ cargo run         # Run the CLI demo
 cargo bench       # Run benchmarks
 
 See examples/quickstart.rs for a minimal programmatic usage demo.
+
+After cloning, the default `origin` remote points to:
+
+```
+https://github.com/farmountain/HipCortex.git
+```
 
 
 ## 🧪 Test & Automation
