@@ -47,6 +47,10 @@ enum Commands {
     Restore {
         tag: String,
     },
+    /// Send a prompt to OpenAI and store reflexion
+    Prompt {
+        prompt: String,
+    },
 }
 
 pub fn run() -> Result<()> {
@@ -87,6 +91,21 @@ pub fn run() -> Result<()> {
         Commands::Restore { tag } => {
             let archive = PathBuf::from(format!("{}.tar.gz", tag));
             SnapshotManager::load(&archive, Path::new("."))?;
+        }
+        Commands::Prompt { prompt } => {
+            use crate::llm_clients::openai::OpenAIClient;
+            let api_key = std::env::var("OPENAI_API_KEY").unwrap_or_default();
+            let client = OpenAIClient::new(api_key, "gpt-3.5-turbo");
+            let response = client.generate_response(&prompt);
+            let record = MemoryRecord::new(
+                MemoryType::Reflexion,
+                "cli".into(),
+                "prompt".into(),
+                response.clone(),
+                serde_json::json!({ "prompt": prompt }),
+            );
+            store.add(record)?;
+            println!("{}", response);
         }
     }
     Ok(())
