@@ -45,8 +45,19 @@ extensible for server deployments.
   Store and Temporal Indexer.
 - **Edge Automation:** embed the engine on resource‑constrained hardware to
   manage workflows locally.
-- **Real‑Time Interfaces:** build dashboards or CLI tools using the Integration
-  Layer.
+- **Real‑Time Interfaces:** build dashboards or CLI tools using the Integration Layer.
+
+## Key User Roles
+- **AI Agent** – interacts with the memory engine.
+- **Developer** – integrates modules and APIs.
+- **Architect** – designs workflows and world models.
+- **Researcher** – experiments with memory and reasoning techniques.
+
+## High-Level Use Case Map
+1. **Store reasoning trace** with PerceptionAdapter and TemporalIndexer.
+2. **Query symbols** from the SymbolicStore.
+3. **Update state** through ProceduralCache or AureusBridge.
+4. **Visualize world model** via planned CLI or web interfaces.
 
 See the [README](../README.md) and [Roadmap](./roadmap.md) for planned modules
 like vision encoding, semantic compression, and persistent world memory.
