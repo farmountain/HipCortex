@@ -7,6 +7,7 @@ use hipcortex::symbolic_store::SymbolicStore;
 use hipcortex::perception_adapter::{PerceptionAdapter, PerceptInput, Modality};
 use hipcortex::integration_layer::IntegrationLayer;
 use hipcortex::aureus_bridge::AureusBridge;
+use hipcortex::memory_store::MemoryStore;
 
 #[test]
 fn memory_round_trip() {
@@ -41,6 +42,8 @@ fn integration_and_reflexion() {
     let mut layer = IntegrationLayer::new();
     layer.connect();
     let mut aureus = AureusBridge::new();
-    aureus.reflexion_loop();
+    let mut store = MemoryStore::new("test_sys_mem.jsonl").unwrap();
+    store.clear();
+    aureus.reflexion_loop("ctx", &mut store);
 }
 

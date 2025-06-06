@@ -5,5 +5,4 @@ pub trait LLMClient: Send + Sync {
 pub mod openai;
 pub mod ollama;
 pub mod claude;
-#[cfg(test)]
 pub mod mock;
