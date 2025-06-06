@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TemporalEvent",
+  "type": "object",
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "content": {"type": "string"},
+    "agent_tags": {"type": "array", "items": {"type": "string"}},
+    "trigger_type": {"type": "string"},
+    "weight": {"type": "number"}
+  },
+  "required": ["id", "timestamp", "content"]
+}

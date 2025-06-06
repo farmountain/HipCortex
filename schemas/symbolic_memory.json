@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SymbolicNode",
+  "type": "object",
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "labels": {"type": "array", "items": {"type": "string"}},
+    "weight": {"type": "number"},
+    "metadata": {"type": "object"}
+  },
+  "required": ["id", "labels"]
+}

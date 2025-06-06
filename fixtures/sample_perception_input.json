@@ -1,0 +1,8 @@
+{
+  "id": "00000000-0000-0000-0000-000000000004",
+  "timestamp": "2023-01-01T00:00:00Z",
+  "source": "sensor",
+  "modality": "Text",
+  "data": {"text": "Hi"},
+  "meaning": "greeting"
+}

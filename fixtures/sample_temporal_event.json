@@ -1,0 +1,8 @@
+{
+  "id": "00000000-0000-0000-0000-000000000002",
+  "timestamp": "2023-01-01T00:00:00Z",
+  "content": "hello world",
+  "agent_tags": ["bot"],
+  "trigger_type": "message",
+  "weight": 1.0
+}

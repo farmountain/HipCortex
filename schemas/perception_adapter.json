@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PerceptionInput",
+  "type": "object",
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "source": {"type": "string"},
+    "modality": {"type": "string"},
+    "data": {"type": "object"},
+    "meaning": {"type": "string"}
+  },
+  "required": ["id", "timestamp", "modality"]
+}

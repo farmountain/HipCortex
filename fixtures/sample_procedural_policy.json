@@ -1,0 +1,9 @@
+{
+  "id": "00000000-0000-0000-0000-000000000003",
+  "current_state": "Start",
+  "trigger_condition": "on_start",
+  "effect": "init",
+  "next_state": "Observe",
+  "version": 1,
+  "reward": 0
+}
