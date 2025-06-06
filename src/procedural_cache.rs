@@ -47,6 +47,17 @@ impl ProceduralCache {
         self.transitions.push(transition);
     }
 
+    pub fn remove_trace(&mut self, trace_id: Uuid) -> bool {
+        self.traces.remove(&trace_id).is_some()
+    }
+
+    pub fn reset_trace(&mut self, trace_id: Uuid) -> Option<()> {
+        let trace = self.traces.get_mut(&trace_id)?;
+        trace.current_state = FSMState::Start;
+        trace.memory.clear();
+        Some(())
+    }
+
     pub fn advance(&mut self, trace_id: Uuid, condition: Option<&str>) -> Option<FSMState> {
         let trace = self.traces.get_mut(&trace_id)?;
         for trans in &self.transitions {
