@@ -50,3 +50,21 @@ extensible for server deployments.
 
 See the [README](../README.md) and [Roadmap](./roadmap.md) for planned modules
 like vision encoding, semantic compression, and persistent world memory.
+
+---
+
+## Extended Solution Architecture
+
+When compiled with the optional `web-server` feature, HipCortex exposes a minimal REST API using Axum. A Tauri-based GUI can also be enabled via the `gui` feature. The high level flow is shown below:
+
+```mermaid
+flowchart LR
+    subgraph Client
+        UI[Tauri/Yew Desktop]
+    end
+    UI -->|HTTP/Webview| API(Axum Web Server)
+    API --> Lib[HipCortex Library]
+    Lib --> DB[(MemoryStore)]
+```
+
+These components remain optional and are disabled by default to keep the core lightweight.

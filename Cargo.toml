@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+axum = { version = "0.6", optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
+tauri = { version = "1", optional = true }
 uuid = { version = "1", features = ["v4", "serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -22,3 +25,7 @@ criterion = "0.5"
 name = "temporal_indexer_bench"
 harness = false
 
+
+[features]
+web-server = ["axum", "tokio"]
+gui = ["tauri"]

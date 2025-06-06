@@ -3,6 +3,9 @@
 A modular, agentic AI memory engine for reasoning, edge, and multi-agent workflows.  
 Built in Rust, integrating temporal, procedural, and symbolic memory with agentic and multimodal APIs.
 
+## 📘 Business Context
+HipCortex enables persistent memory and reasoning for bots and edge automation. It can operate as a lightweight library, a REST microservice or a desktop app. See [docs/business_context.md](docs/business_context.md) for details.
+
 ---
 
 ## ✨ Features
@@ -19,6 +22,8 @@ and reasoning components.
 - **Aureus Bridge:** Reflexion and reasoning hook for chain-of-thought engines.
 - **Integration Layer:** REST/gRPC and protocol stubs (OpenManus, MCP).
 - **Fully Test-Driven:** Extensive unit tests and Criterion benchmarks.
+- **Optional Web Server:** compile with `--features web-server` for an Axum REST API.
+- **Optional GUI:** compile with `--features gui` to launch a Tauri desktop client.
 
 ---
 
@@ -56,6 +61,7 @@ cargo bench       # Run benchmarks
 ```
 
 See examples/quickstart.rs for a minimal programmatic usage demo.
+Detailed data model and extended architecture diagrams are available in [docs/data_model.md](docs/data_model.md) and [docs/architecture.md](docs/architecture.md).
 
 ## 🛠️ Use Cases
 
@@ -97,6 +103,8 @@ HipCortex can serve a variety of scenarios:
 | README.md            | Project overview, structure, TDD, quickstart, roadmap |
 | src/lib.rs           | Library entry (export modules)                        |
 | docs/architecture.md | System design, extensibility, diagram                 |
+| docs/business_context.md | Business requirements and use cases |
+| docs/data_model.md | MemoryRecord schema and API notes |
 | docs/usage.md        | Build, test, bench, example, import                   |
 | docs/integration.md  | Protocol/API plans, extension points                  |
 | docs/roadmap.md      | Completed, active, planned modules                    |
