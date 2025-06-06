@@ -17,3 +17,22 @@ impl MemoryQuery {
         records.iter().filter(|r| r.timestamp >= ts).collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn query_by_actor() {
+        let rec = MemoryRecord::new(
+            MemoryType::Temporal,
+            "actor".into(),
+            "do".into(),
+            "thing".into(),
+            serde_json::json!({}),
+        );
+        let vec = vec![rec];
+        let results = MemoryQuery::by_actor(&vec, "actor");
+        assert_eq!(results.len(), 1);
+    }
+}

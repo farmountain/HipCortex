@@ -73,3 +73,18 @@ impl AureusBridge {
         self.loops = 0;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::llm_clients::mock::MockClient;
+
+    #[test]
+    fn run_loop_increments_counter() {
+        let mut bridge = AureusBridge::with_client(Box::new(MockClient));
+        let mut store = MemoryStore::new("test_bridge.jsonl").unwrap();
+        store.clear();
+        bridge.reflexion_loop("ctx", &mut store);
+        assert_eq!(bridge.loops_run(), 1);
+    }
+}

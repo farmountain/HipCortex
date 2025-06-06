@@ -82,3 +82,26 @@ impl ProceduralCache {
         self.traces.get(&trace_id)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn simple_fsm_transition() {
+        let mut cache = ProceduralCache::new();
+        let trace = ProceduralTrace {
+            id: Uuid::new_v4(),
+            current_state: FSMState::Start,
+            memory: HashMap::new(),
+        };
+        cache.add_trace(trace.clone());
+        cache.add_transition(FSMTransition {
+            from: FSMState::Start,
+            to: FSMState::Observe,
+            condition: None,
+        });
+        let new_state = cache.advance(trace.id, None);
+        assert_eq!(new_state, Some(FSMState::Observe));
+    }
+}

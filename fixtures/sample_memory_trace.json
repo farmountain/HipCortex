@@ -1,0 +1,9 @@
+{
+  "id": "00000000-0000-0000-0000-000000000006",
+  "record_type": "Temporal",
+  "timestamp": "2023-01-02T00:00:00Z",
+  "actor": "system",
+  "action": "test",
+  "target": "example",
+  "metadata": {}
+}

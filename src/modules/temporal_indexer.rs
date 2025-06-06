@@ -76,7 +76,27 @@ impl<T> TemporalIndexer<T> {
         None
     }
 
-    pub fn get_recent(&self, n: usize) -> Vec<&TemporalTrace<T>> {
+pub fn get_recent(&self, n: usize) -> Vec<&TemporalTrace<T>> {
         self.buffer.iter().rev().take(n).collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn basic_insert_and_recent() {
+        let mut idx = TemporalIndexer::new(1, 10);
+        let trace = TemporalTrace {
+            id: uuid::Uuid::new_v4(),
+            timestamp: SystemTime::now(),
+            data: 42u32,
+            relevance: 1.0,
+            decay_factor: 1.0,
+            last_access: SystemTime::now(),
+        };
+        idx.insert(trace);
+        assert_eq!(idx.get_recent(1).len(), 1);
     }
 }
