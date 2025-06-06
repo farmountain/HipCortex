@@ -1,7 +1,15 @@
 # HipCortex
 
-A modular, agentic AI memory engine for reasoning, edge, and multi-agent workflows.  
+A modular, agentic AI memory engine for reasoning, edge, and multi-agent workflows.
 Built in Rust, integrating temporal, procedural, and symbolic memory with agentic and multimodal APIs.
+
+## 🔍 Problem
+AI agents often lack persistent, contextual memory. Without a unified engine it
+is difficult to reason over time or across modalities.
+
+## 🎯 Mission
+HipCortex aims to provide a memory engine that blends symbolic reasoning,
+temporal relevance, procedural logic and perception in one modular package.
 
 ## 📘 Business Context
 HipCortex enables persistent memory and reasoning for bots and edge automation. It can operate as a lightweight library, a REST microservice or a desktop app. See [docs/business_context.md](docs/business_context.md) for details.
@@ -67,11 +75,24 @@ Detailed data model and extended architecture diagrams are available in [docs/da
 
 HipCortex can serve a variety of scenarios:
 
-- **Agent Memory Engine:** manage conversation context and reasoning traces for single or multi-agent systems.
+- **Agentic AI via OpenManus:** manage conversation context and reasoning traces for single or multi-agent systems.
+- **AUREUS Reflexion loops:** integrate chain-of-thought feedback for deeper reasoning.
 - **Edge Workflow Execution:** run on resource-constrained hardware thanks to Rust's performance and small footprint.
-- **Search & Retrieval:** build knowledge graphs or retrieval-augmented generation pipelines using the SymbolicStore and TemporalIndexer.
-- **Real-Time Interfaces:** expose REST/gRPC APIs and upcoming CLI/web dashboards via the IntegrationLayer.
+- **Multimodal learning or smart glasses:** use the PerceptionAdapter to capture images and text.
+- **Real-Time Automation:** expose REST/gRPC APIs and upcoming CLI/web dashboards via the IntegrationLayer.
 - **Knowledge Export:** connect to Notion, PDF, or other backends for long-term persistence (planned).
+
+## 👥 Key User Roles
+- **AI Agent** – stores traces and retrieves context.
+- **Developer** – integrates the engine via REST/gRPC or protocol adapters.
+- **Architect** – designs workflows and multi-agent systems using the modules.
+- **Researcher** – experiments with new memory types or reasoning loops.
+
+## 🗺️ Use Case Map
+1. **Store reasoning trace** through the PerceptionAdapter and TemporalIndexer.
+2. **Query symbols** from the SymbolicStore.
+3. **Update state** via the ProceduralCache or AureusBridge.
+4. **Visualize world model** using upcoming CLI or web dashboards.
 ## 🧪 Test & Automation
 - **Run all tests:**  
   `cargo test`
