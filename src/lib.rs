@@ -11,6 +11,7 @@ pub mod memory_processor;
 pub mod memory_query;
 pub mod snapshot_manager;
 pub mod memory_cli;
+pub mod llm_clients;
 #[path = "modules/symbolic_store.rs"]
 pub mod symbolic_store;
 #[path = "modules/perception_adapter.rs"]

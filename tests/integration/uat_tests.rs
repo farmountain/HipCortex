@@ -4,6 +4,7 @@ use uuid::Uuid;
 
 use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
 use hipcortex::symbolic_store::SymbolicStore;
+use hipcortex::memory_store::MemoryStore;
 
 #[test]
 fn travelg3n_store_and_retrieve_city() {
@@ -33,5 +34,7 @@ fn travelg3n_store_and_retrieve_city() {
 fn athena_reflexion_placeholder() {
     use hipcortex::aureus_bridge::AureusBridge;
     let mut aureus = AureusBridge::new();
-    aureus.reflexion_loop();
+    let mut store = MemoryStore::new("test_uat_mem.jsonl").unwrap();
+    store.clear();
+    aureus.reflexion_loop("ctx", &mut store);
 }
