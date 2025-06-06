@@ -36,11 +36,33 @@ impl<T> TemporalIndexer<T> {
     pub fn decay_and_prune(&mut self) {
         let now = SystemTime::now();
         self.buffer.retain(|trace| {
-            let elapsed = now.duration_since(trace.last_access).unwrap_or(Duration::ZERO);
-            let decay = (-((elapsed.as_secs_f32() / self.decay_half_life.as_secs_f32()) * std::f32::consts::LN_2)).exp2();
+            let elapsed = now
+                .duration_since(trace.last_access)
+                .unwrap_or(Duration::ZERO);
+            // Each trace can have its own decay factor which adjusts the global
+            // half-life. This allows different memory types to fade at
+            // different rates.
+            let factor = if trace.decay_factor <= 0.0 { 1.0 } else { trace.decay_factor };
+            let half_life = self.decay_half_life.mul_f32(1.0 / factor);
+            let decay =
+                (-((elapsed.as_secs_f32() / half_life.as_secs_f32()) * std::f32::consts::LN_2))
+                    .exp2();
             let decayed_relevance = trace.relevance * decay;
             decayed_relevance > 0.01
         });
+    }
+
+    pub fn remove(&mut self, id: uuid::Uuid) -> bool {
+        if let Some(pos) = self.buffer.iter().position(|t| t.id == id) {
+            self.buffer.remove(pos);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn get_trace(&self, id: uuid::Uuid) -> Option<&TemporalTrace<T>> {
+        self.buffer.iter().find(|t| t.id == id)
     }
 
     pub fn access(&mut self, id: uuid::Uuid) -> Option<&mut TemporalTrace<T>> {

@@ -59,4 +59,42 @@ impl SymbolicStore {
             .filter_map(|e| self.nodes.get(&e.to))
             .collect()
     }
+
+    pub fn edges_from(&self, node_id: Uuid, relation: Option<&str>) -> Vec<&SymbolicEdge> {
+        self.edges
+            .iter()
+            .filter(|e| e.from == node_id && relation.map_or(true, |r| r == e.relation))
+            .collect()
+    }
+
+    pub fn update_property(&mut self, node_id: Uuid, key: &str, value: &str) -> bool {
+        if let Some(node) = self.nodes.get_mut(&node_id) {
+            node.properties.insert(key.to_string(), value.to_string());
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn find_by_label(&self, label: &str) -> Vec<&SymbolicNode> {
+        self.nodes
+            .values()
+            .filter(|n| n.label == label)
+            .collect()
+    }
+
+    pub fn find_by_property(&self, key: &str, value: &str) -> Vec<&SymbolicNode> {
+        self.nodes
+            .values()
+            .filter(|n| n.properties.get(key).map_or(false, |v| v == value))
+            .collect()
+    }
+
+    pub fn remove_node(&mut self, node_id: Uuid) -> bool {
+        let existed = self.nodes.remove(&node_id).is_some();
+        if existed {
+            self.edges.retain(|e| e.from != node_id && e.to != node_id);
+        }
+        existed
+    }
 }
