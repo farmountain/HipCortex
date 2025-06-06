@@ -111,10 +111,16 @@ HipCortex can serve a variety of scenarios:
 - **VS Code Integration:**  
   Open with VS Code. Test & bench tasks are already available via `.vscode/tasks.json` (Ctrl+Shift+B).
 
-- **Best Practices:**  
+- **Best Practices:**
   - Always write failing tests first (TDD)
   - Ensure all modules have coverage before merge
   - Add benchmarks for any new algorithm or data structure
+
+## \ud83d\udccb Roadmap
+
+The [roadmap document](docs/roadmap.md) lists completed modules and upcoming work.
+Highlights include semantic compression, RAG adapters, persistent world memory,
+real-time CLI/web tools, and expanded LLM connectors.
 
 
 

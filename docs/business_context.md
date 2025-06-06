@@ -14,6 +14,7 @@ Typical use cases include:
 - AUREUS Reflexion loops and chain-of-thought reasoning.
 - Multimodal learning or smart glasses capturing perception traces.
 - Workflow automation on resource constrained hardware.
+- LLM connectors (OpenAI, Claude, Ollama) enable prompt-based reflexion.
 - Knowledge graph or retrieval‑augmented pipelines.
 - Research platforms exploring symbolic and procedural memory.
 

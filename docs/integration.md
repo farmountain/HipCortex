@@ -25,6 +25,10 @@ This document describes how to integrate HipCortex with agent frameworks, APIs, 
 - AureusBridge connects to agentic/LLM reasoning modules.
 - Supports embedding AUREUS or other CoT frameworks for feedback loops.
 
+### LLM Connectors
+- Basic clients exist for OpenAI, Claude, and Ollama.
+- Planned support for additional open-source models and local inference.
+
 ### RAG & Notion/PDF Export (Planned)
 - SymbolicStore and ProceduralCache can be connected to Retrieval-Augmented Generation (RAG) backends.
 - Exporters for Notion/PDF will be implemented for memory tracing and reporting.

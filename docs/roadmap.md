@@ -8,6 +8,7 @@
 - Multimodal perception adapter
 - Vision encoder module
 - Reflexion/agent integration stubs
+- Initial LLM clients (OpenAI, Claude, Ollama)
 - TDD, benchmarks, VS Code dev config
 
 ## In Progress / Planned
@@ -16,6 +17,8 @@
 - Notion/PDF/CLI export
 - Persistent world model memory
 - Real-time agentic CLI and Web UI
+- Expanded open-source LLM connectors (Llama, DeepSeek, etc.)
+- Local inference via Ollama or custom backends
 
 ## Roadmap Highlights
 - **Vision encoder**: Integrate image/embedding modules for visual reasoning.

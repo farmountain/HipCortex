@@ -33,6 +33,7 @@ extended as your use case grows.
 4. **Procedural Cache** – drives FSM-based workflows and regenerative actions.
 5. **Aureus Bridge** – plugs in reflexion or chain‑of‑thought reasoning loops.
 6. **Integration Layer** – exposes REST/gRPC endpoints and protocol adapters.
+7. **LLM Connectors** – clients for OpenAI, Claude, and Ollama with more planned.
 
 This layered approach allows efficient reasoning on edge devices while remaining
 extensible for server deployments.
@@ -46,6 +47,7 @@ extensible for server deployments.
 - **Edge Automation:** embed the engine on resource‑constrained hardware to
   manage workflows locally.
 - **Real‑Time Interfaces:** build dashboards or CLI tools using the Integration Layer.
+- **Prompt-based Reflexion:** call LLM connectors (OpenAI, Claude, Ollama) for reasoning loops.
 
 ## Key User Roles
 - **AI Agent** – interacts with the memory engine.
