@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HipCortex UI</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="container">
+        <div id="graph" class="panel">
+            <h2>Symbolic Graph</h2>
+            <pre id="graph-data">Loading...</pre>
+        </div>
+        <div id="reflexion" class="panel">
+            <h2>Reflexion & FSM</h2>
+            <pre id="fsm-state">Idle</pre>
+            <button onclick="runReflexion()">Run Reflexion Loop</button>
+        </div>
+        <div id="perception" class="panel">
+            <h2>Perception Console</h2>
+            <textarea id="perception-input" rows="4" cols="30" placeholder="Type perception input"></textarea>
+            <button onclick="sendPerception()">Send</button>
+            <pre id="perception-log"></pre>
+        </div>
+        <div id="cli" class="panel">
+            <h2>CLI Shell</h2>
+            <input id="cli-cmd" type="text" placeholder="Command"/>
+            <button onclick="runCli()">Run</button>
+            <pre id="cli-out"></pre>
+        </div>
+    </div>
+    <script src="main.js"></script>
+</body>
+</html>
