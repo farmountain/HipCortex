@@ -37,3 +37,17 @@ impl VisionEncoder {
         Ok(Self::encode_image(&img))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{RgbImage, DynamicImage};
+
+    #[test]
+    fn encode_simple() {
+        let img = RgbImage::from_pixel(1,1, image::Rgb([0,0,0]));
+        let img_dyn = DynamicImage::ImageRgb8(img);
+        let emb = VisionEncoder::encode_image(&img_dyn);
+        assert_eq!(emb.len(),3);
+    }
+}

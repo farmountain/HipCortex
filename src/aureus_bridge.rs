@@ -20,3 +20,15 @@ impl AureusBridge {
         self.loops = 0;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn loop_counter() {
+        let mut a = AureusBridge::new();
+        a.reflexion_loop();
+        assert_eq!(a.loops_run(), 1);
+    }
+}

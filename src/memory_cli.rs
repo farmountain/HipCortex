@@ -49,9 +49,9 @@ enum Commands {
     },
 }
 
-pub fn run() -> Result<()> {
-    let cli = Cli::parse();
-    let mut store = MemoryStore::new(&cli.store)?;
+    pub fn run() -> Result<()> {
+        let cli = Cli::parse();
+        let mut store = MemoryStore::new(&cli.store)?;
     match cli.command {
         Commands::Add { actor, action, target } => {
             let record = MemoryRecord::new(
@@ -90,4 +90,18 @@ pub fn run() -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_add_args() {
+        let cli = Cli::try_parse_from(["hipcortex", "--store", "mem.jsonl", "add", "--actor", "a", "--action", "b", "--target", "c"]).unwrap();
+        match cli.command {
+            Commands::Add { actor, .. } => assert_eq!(actor, "a"),
+            _ => panic!("wrong command"),
+        }
+    }
 }

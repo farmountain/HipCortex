@@ -28,3 +28,22 @@ impl SnapshotManager {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn roundtrip() {
+        let path = "snap_src.txt";
+        std::fs::write(path, "hello").unwrap();
+        let archive = SnapshotManager::save(path, "unit").unwrap();
+        let dest = "snap_dest";
+        let _ = std::fs::create_dir(dest);
+        SnapshotManager::load(&archive, dest).unwrap();
+        assert!(std::fs::metadata(format!("{}/{}", dest, path)).is_ok());
+        std::fs::remove_file(path).unwrap();
+        std::fs::remove_file(archive).unwrap();
+        std::fs::remove_dir_all(dest).unwrap();
+    }
+}

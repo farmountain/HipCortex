@@ -98,3 +98,15 @@ impl SymbolicStore {
         existed
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_store_empty() {
+        let store = SymbolicStore::new();
+        assert!(store.nodes.is_empty());
+        assert!(store.edges.is_empty());
+    }
+}

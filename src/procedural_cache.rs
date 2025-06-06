@@ -82,3 +82,14 @@ impl ProceduralCache {
         self.traces.get(&trace_id)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_cache_empty() {
+        let cache = ProceduralCache::new();
+        assert!(cache.traces.is_empty());
+    }
+}

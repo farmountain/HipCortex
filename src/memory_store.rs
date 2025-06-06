@@ -47,3 +47,17 @@ impl MemoryStore {
         let _ = std::fs::remove_file(&self.path);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_empty_store() {
+        let path = "test_store.jsonl";
+        let _ = std::fs::remove_file(path);
+        let store = MemoryStore::new(path).unwrap();
+        assert!(store.records.is_empty());
+        std::fs::remove_file(path).ok();
+    }
+}

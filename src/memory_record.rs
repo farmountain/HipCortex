@@ -37,3 +37,14 @@ impl MemoryRecord {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn create_record() {
+        let rec = MemoryRecord::new(MemoryType::Symbolic, "a".into(), "b".into(), "c".into(), serde_json::json!({}));
+        assert_eq!(rec.record_type, MemoryType::Symbolic);
+    }
+}

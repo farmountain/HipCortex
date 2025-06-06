@@ -80,3 +80,14 @@ impl<T> TemporalIndexer<T> {
         self.buffer.iter().rev().take(n).collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_indexer_capacity() {
+        let indexer: TemporalIndexer<i32> = TemporalIndexer::new(5, 60);
+        assert_eq!(indexer.capacity, 5);
+    }
+}

@@ -29,3 +29,14 @@ impl IntegrationLayer {
         self.connected
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_disconnected() {
+        let layer = IntegrationLayer::new();
+        assert!(!layer.is_connected());
+    }
+}

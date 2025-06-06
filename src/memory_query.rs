@@ -17,3 +17,14 @@ impl MemoryQuery {
         records.iter().filter(|r| r.timestamp >= ts).collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn query_empty() {
+        let res = MemoryQuery::by_actor(&[], "none");
+        assert!(res.is_empty());
+    }
+}
