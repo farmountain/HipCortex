@@ -98,3 +98,17 @@ impl SymbolicStore {
         existed
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn add_node_and_edge() {
+        let mut store = SymbolicStore::new();
+        let id_a = store.add_node("A", HashMap::new());
+        let id_b = store.add_node("B", HashMap::new());
+        store.add_edge(id_a, id_b, "rel");
+        assert_eq!(store.neighbors(id_a, Some("rel")).len(), 1);
+    }
+}

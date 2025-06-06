@@ -50,3 +50,20 @@ impl PerceptionAdapter {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn adapt_text() {
+        let input = PerceptInput {
+            modality: Modality::Text,
+            text: Some("hi".to_string()),
+            embedding: None,
+            image_data: None,
+            tags: vec![],
+        };
+        PerceptionAdapter::adapt(input);
+    }
+}

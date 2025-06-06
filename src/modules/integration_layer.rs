@@ -58,3 +58,25 @@ impl IntegrationLayer {
         self.connected
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct DummyLLM;
+    impl LLMClient for DummyLLM {
+        fn generate_response(&self, _prompt: &str) -> String {
+            "ok".to_string()
+        }
+    }
+
+    #[test]
+    fn connect_and_invoke() {
+        let mut layer = IntegrationLayer::new();
+        layer.connect();
+        layer.set_client(Box::new(DummyLLM));
+        assert!(layer.is_connected());
+        let resp = layer.invoke_llm("hi");
+        assert_eq!(resp.unwrap(), "ok");
+    }
+}

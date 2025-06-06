@@ -47,3 +47,25 @@ impl MemoryStore {
         let _ = std::fs::remove_file(&self.path);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn add_and_read() {
+        let path = "test_store.jsonl";
+        let _ = std::fs::remove_file(path);
+        let mut store = MemoryStore::new(path).unwrap();
+        let rec = MemoryRecord::new(
+            crate::memory_record::MemoryType::Symbolic,
+            "a".into(),
+            "b".into(),
+            "c".into(),
+            serde_json::json!({}),
+        );
+        store.add(rec).unwrap();
+        assert_eq!(store.all().len(), 1);
+        std::fs::remove_file(path).unwrap();
+    }
+}

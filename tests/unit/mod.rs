@@ -5,3 +5,5 @@ mod perception_adapter_tests;
 mod snapshot_manager_tests;
 mod symbolic_store_tests;
 mod vision_encoder_tests;
+mod temporal_indexer_tests;
+mod procedural_cache_tests;
