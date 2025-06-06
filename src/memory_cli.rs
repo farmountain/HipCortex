@@ -1,13 +1,14 @@
 use anyhow::Result;
-use clap::{Parser, Subcommand};
 use chrono::{DateTime, Utc};
+use clap::{Parser, Subcommand};
 use std::path::{Path, PathBuf};
 
+use crate::llm_clients::LLMClient;
+use crate::memory_processor::MemoryProcessor;
+use crate::memory_query::MemoryQuery;
 use crate::memory_record::{MemoryRecord, MemoryType};
 use crate::memory_store::MemoryStore;
 use crate::snapshot_manager::SnapshotManager;
-use crate::memory_query::MemoryQuery;
-use crate::memory_processor::MemoryProcessor;
 
 #[derive(Parser)]
 #[command(name = "hipcortex", version, about = "Minimal Memory CLI")]
@@ -40,24 +41,22 @@ enum Commands {
         since: Option<DateTime<Utc>>,
     },
     /// Save snapshot
-    Snapshot {
-        tag: String,
-    },
+    Snapshot { tag: String },
     /// Restore snapshot
-    Restore {
-        tag: String,
-    },
+    Restore { tag: String },
     /// Send a prompt to OpenAI and store reflexion
-    Prompt {
-        prompt: String,
-    },
+    Prompt { prompt: String },
 }
 
 pub fn run() -> Result<()> {
     let cli = Cli::parse();
     let mut store = MemoryStore::new(&cli.store)?;
     match cli.command {
-        Commands::Add { actor, action, target } => {
+        Commands::Add {
+            actor,
+            action,
+            target,
+        } => {
             let record = MemoryRecord::new(
                 MemoryType::Temporal,
                 actor,
@@ -70,13 +69,23 @@ pub fn run() -> Result<()> {
             let mut all = store.all().to_vec();
             MemoryProcessor::deduplicate(&mut all);
         }
-        Commands::Query { r#type, actor, since } => {
+        Commands::Query {
+            r#type,
+            actor,
+            since,
+        } => {
             let mut data: Vec<MemoryRecord> = store.all().to_vec();
             if let Some(t) = r#type {
-                data = MemoryQuery::by_type(&data, t).into_iter().cloned().collect();
+                data = MemoryQuery::by_type(&data, t)
+                    .into_iter()
+                    .cloned()
+                    .collect();
             }
             if let Some(a) = actor {
-                data = MemoryQuery::by_actor(&data, &a).into_iter().cloned().collect();
+                data = MemoryQuery::by_actor(&data, &a)
+                    .into_iter()
+                    .cloned()
+                    .collect();
             }
             if let Some(ts) = since {
                 data = MemoryQuery::since(&data, ts).into_iter().cloned().collect();
