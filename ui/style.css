@@ -1,0 +1,24 @@
+body {
+    margin: 0;
+    font-family: sans-serif;
+}
+#container {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    height: 100vh;
+}
+.panel {
+    border-right: 1px solid #555;
+    padding: 10px;
+    overflow: auto;
+}
+.panel:last-child {
+    border-right: none;
+}
+pre {
+    background: #1e1e1e;
+    color: #c9d1d9;
+    padding: 8px;
+    height: 60vh;
+    overflow: auto;
+}

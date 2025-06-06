@@ -1,0 +1,22 @@
+{
+  "package": {
+    "productName": "HipCortex",
+    "version": "0.1.0"
+  },
+  "build": {
+    "distDir": "ui",
+    "devPath": "ui"
+  },
+  "tauri": {
+    "windows": [
+      {
+        "title": "HipCortex UI",
+        "width": 1200,
+        "height": 800
+      }
+    ],
+    "allowlist": {
+      "all": true
+    }
+  }
+}
