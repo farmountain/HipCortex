@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ProceduralPolicy",
+  "type": "object",
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "current_state": {"type": "string"},
+    "trigger_condition": {"type": "string"},
+    "effect": {"type": "string"},
+    "next_state": {"type": "string"},
+    "version": {"type": "integer"},
+    "reward": {"type": "number"}
+  },
+  "required": ["id", "current_state"]
+}

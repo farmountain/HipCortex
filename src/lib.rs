@@ -14,6 +14,8 @@ pub mod perception_adapter;
 pub mod integration_layer;
 pub mod aureus_bridge;
 pub mod vision_encoder;
+pub mod memory;
+pub mod schema;
 #[cfg(feature = "web-server")]
 pub mod web_server;
 #[cfg(feature = "gui")]

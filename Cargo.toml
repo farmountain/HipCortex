@@ -16,6 +16,7 @@ anyhow = "1"
 flate2 = "1"
 tar = "0.4"
 image = { version = "0.24", default-features = false, features = ["png", "jpeg"] }
+diesel = { version = "2", features = ["postgres", "sqlite", "serde_json"] }
 
 [dev-dependencies]
 proptest = "1"
