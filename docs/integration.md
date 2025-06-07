@@ -16,6 +16,8 @@ This document describes how to integrate HipCortex with agent frameworks, APIs, 
 - IntegrationLayer (`src/integration_layer.rs`) is structured to expose REST/gRPC endpoints.
 - To implement a REST server: use [actix-web](https://actix.rs/) or [axum](https://github.com/tokio-rs/axum).
 - To implement gRPC: use [tonic](https://github.com/hyperium/tonic).
+  When the `grpc-server` feature is enabled, `grpc_server::serve` runs a basic
+  MemoryService for adding and listing memory records.
 
 ### Agent Protocols (Planned)
 - OpenManus and MCP: Protocol stubs ready; bridge implementation in IntegrationLayer and AureusBridge.

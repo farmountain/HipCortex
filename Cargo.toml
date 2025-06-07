@@ -39,6 +39,8 @@ indexmap = "1"
 rayon = { version = "1", optional = true }
 async-trait = { version = "0.1", optional = true }
 wgpu = { version = "0.16", optional = true }
+tonic = { version = "0.9", features = ["transport"], optional = true }
+prost = { version = "0.11", optional = true }
 
 [dev-dependencies]
 proptest = "1"
@@ -46,6 +48,9 @@ criterion = "0.5"
 assert_cmd = "2"
 predicates = "3"
 pollster = "0.3"
+
+[build-dependencies]
+tonic-build = { version = "0.9", optional = true }
 
 [[bench]]
 name = "temporal_indexer_bench"
@@ -63,3 +68,4 @@ plugin = ["wasmtime", "wat"]
 async-store = ["tokio", "async-trait"]
 parallel = ["rayon"]
 gpu = ["wgpu"]
+grpc-server = ["tonic", "prost", "tokio", "tonic-build"]

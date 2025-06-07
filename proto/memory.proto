@@ -1,0 +1,31 @@
+syntax = "proto3";
+package hipcortex;
+
+message MemoryRecord {
+  string id = 1;
+  string record_type = 2;
+  int64 timestamp = 3;
+  string actor = 4;
+  string action = 5;
+  string target = 6;
+  string metadata = 7;
+}
+
+message AddRecordRequest {
+  MemoryRecord record = 1;
+}
+
+message AddRecordResponse {
+  bool ok = 1;
+}
+
+message ListRecordsRequest {}
+
+message ListRecordsResponse {
+  repeated MemoryRecord records = 1;
+}
+
+service MemoryService {
+  rpc AddRecord(AddRecordRequest) returns (AddRecordResponse);
+  rpc ListRecords(ListRecordsRequest) returns (ListRecordsResponse);
+}
