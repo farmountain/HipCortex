@@ -29,7 +29,8 @@ extended as your use case grows.
 1. **Perception Adapter** – normalizes text, embeddings and vision input using `VisionEncoder` into memory traces.
 2. **Temporal Indexer** – stores recent traces with decay logic for short or
    long‑term retention.
-3. **Symbolic Store** – maintains a graph of concepts and relationships.
+3. **Symbolic Store** – maintains a graph of concepts and relationships via a
+   pluggable `GraphDatabase` backend.
 4. **Procedural Cache** – drives FSM-based workflows and regenerative actions.
 5. **Aureus Bridge** – plugs in reflexion or chain‑of‑thought reasoning loops.
 6. **Integration Layer** – exposes REST/gRPC endpoints and protocol adapters.

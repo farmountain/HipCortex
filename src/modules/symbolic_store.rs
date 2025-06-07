@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::num::NonZeroUsize;
 use uuid::Uuid;
 
+/// Node within the symbolic graph.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SymbolicNode {
     pub id: Uuid,
@@ -10,6 +11,7 @@ pub struct SymbolicNode {
     pub properties: HashMap<String, String>,
 }
 
+/// Directed edge between two nodes.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct SymbolicEdge {
     pub from: Uuid,
@@ -17,13 +19,27 @@ pub struct SymbolicEdge {
     pub relation: String,
 }
 
-pub struct SymbolicStore {
-    pub nodes: HashMap<Uuid, SymbolicNode>,
-    pub edges: HashSet<SymbolicEdge>,
+/// Abstraction over a graph database used by `SymbolicStore`.
+pub trait GraphDatabase {
+    fn add_node(&mut self, label: &str, properties: HashMap<String, String>) -> Uuid;
+    fn add_edge(&mut self, from: Uuid, to: Uuid, relation: &str);
+    fn get_node(&self, node_id: Uuid) -> Option<&SymbolicNode>;
+    fn neighbors(&self, node_id: Uuid, relation: Option<&str>) -> Vec<&SymbolicNode>;
+    fn edges_from(&self, node_id: Uuid, relation: Option<&str>) -> Vec<&SymbolicEdge>;
+    fn update_property(&mut self, node_id: Uuid, key: &str, value: &str) -> bool;
+    fn find_by_label(&mut self, label: &str) -> Vec<&SymbolicNode>;
+    fn find_by_property(&self, key: &str, value: &str) -> Vec<&SymbolicNode>;
+    fn remove_node(&mut self, node_id: Uuid) -> bool;
+}
+
+/// Simple in-memory graph backend with an LRU cache for label lookups.
+pub struct InMemoryGraph {
+    nodes: HashMap<Uuid, SymbolicNode>,
+    edges: HashSet<SymbolicEdge>,
     label_cache: LruCache<String, Vec<Uuid>>,
 }
 
-impl SymbolicStore {
+impl InMemoryGraph {
     pub fn new() -> Self {
         Self {
             nodes: HashMap::new(),
@@ -31,8 +47,10 @@ impl SymbolicStore {
             label_cache: LruCache::new(NonZeroUsize::new(32).unwrap()),
         }
     }
+}
 
-    pub fn add_node(&mut self, label: &str, properties: HashMap<String, String>) -> Uuid {
+impl GraphDatabase for InMemoryGraph {
+    fn add_node(&mut self, label: &str, properties: HashMap<String, String>) -> Uuid {
         let node = SymbolicNode {
             id: Uuid::new_v4(),
             label: label.to_string(),
@@ -43,7 +61,7 @@ impl SymbolicStore {
         node_id
     }
 
-    pub fn add_edge(&mut self, from: Uuid, to: Uuid, relation: &str) {
+    fn add_edge(&mut self, from: Uuid, to: Uuid, relation: &str) {
         let edge = SymbolicEdge {
             from,
             to,
@@ -52,11 +70,11 @@ impl SymbolicStore {
         self.edges.insert(edge);
     }
 
-    pub fn get_node(&self, node_id: Uuid) -> Option<&SymbolicNode> {
+    fn get_node(&self, node_id: Uuid) -> Option<&SymbolicNode> {
         self.nodes.get(&node_id)
     }
 
-    pub fn neighbors(&self, node_id: Uuid, relation: Option<&str>) -> Vec<&SymbolicNode> {
+    fn neighbors(&self, node_id: Uuid, relation: Option<&str>) -> Vec<&SymbolicNode> {
         self.edges
             .iter()
             .filter(|e| e.from == node_id && relation.map_or(true, |r| r == e.relation))
@@ -64,14 +82,14 @@ impl SymbolicStore {
             .collect()
     }
 
-    pub fn edges_from(&self, node_id: Uuid, relation: Option<&str>) -> Vec<&SymbolicEdge> {
+    fn edges_from(&self, node_id: Uuid, relation: Option<&str>) -> Vec<&SymbolicEdge> {
         self.edges
             .iter()
             .filter(|e| e.from == node_id && relation.map_or(true, |r| r == e.relation))
             .collect()
     }
 
-    pub fn update_property(&mut self, node_id: Uuid, key: &str, value: &str) -> bool {
+    fn update_property(&mut self, node_id: Uuid, key: &str, value: &str) -> bool {
         if let Some(node) = self.nodes.get_mut(&node_id) {
             node.properties.insert(key.to_string(), value.to_string());
             true
@@ -80,7 +98,7 @@ impl SymbolicStore {
         }
     }
 
-    pub fn find_by_label(&mut self, label: &str) -> Vec<&SymbolicNode> {
+    fn find_by_label(&mut self, label: &str) -> Vec<&SymbolicNode> {
         if let Some(ids) = self.label_cache.get(label).cloned() {
             return ids
                 .into_iter()
@@ -99,19 +117,84 @@ impl SymbolicStore {
             .collect()
     }
 
-    pub fn find_by_property(&self, key: &str, value: &str) -> Vec<&SymbolicNode> {
+    fn find_by_property(&self, key: &str, value: &str) -> Vec<&SymbolicNode> {
         self.nodes
             .values()
             .filter(|n| n.properties.get(key).map_or(false, |v| v == value))
             .collect()
     }
 
-    pub fn remove_node(&mut self, node_id: Uuid) -> bool {
+    fn remove_node(&mut self, node_id: Uuid) -> bool {
         let existed = self.nodes.remove(&node_id).is_some();
         if existed {
             self.edges.retain(|e| e.from != node_id && e.to != node_id);
         }
         existed
+    }
+}
+
+/// High level store that delegates operations to a chosen backend.
+pub struct SymbolicStore<B: GraphDatabase> {
+    backend: B,
+}
+
+impl SymbolicStore<InMemoryGraph> {
+    /// Create a new store using the default in-memory backend.
+    pub fn new() -> Self {
+        Self {
+            backend: InMemoryGraph::new(),
+        }
+    }
+}
+
+impl<B: GraphDatabase> SymbolicStore<B> {
+    /// Instantiate a store with a custom graph backend.
+    pub fn from_backend(backend: B) -> Self {
+        Self { backend }
+    }
+
+    pub fn add_node(&mut self, label: &str, properties: HashMap<String, String>) -> Uuid {
+        self.backend.add_node(label, properties)
+    }
+
+    pub fn add_edge(&mut self, from: Uuid, to: Uuid, relation: &str) {
+        self.backend.add_edge(from, to, relation)
+    }
+
+    pub fn get_node(&self, node_id: Uuid) -> Option<&SymbolicNode> {
+        self.backend.get_node(node_id)
+    }
+
+    pub fn neighbors(&self, node_id: Uuid, relation: Option<&str>) -> Vec<&SymbolicNode> {
+        self.backend.neighbors(node_id, relation)
+    }
+
+    pub fn edges_from(&self, node_id: Uuid, relation: Option<&str>) -> Vec<&SymbolicEdge> {
+        self.backend.edges_from(node_id, relation)
+    }
+
+    pub fn update_property(&mut self, node_id: Uuid, key: &str, value: &str) -> bool {
+        self.backend.update_property(node_id, key, value)
+    }
+
+    pub fn find_by_label(&mut self, label: &str) -> Vec<&SymbolicNode> {
+        self.backend.find_by_label(label)
+    }
+
+    pub fn find_by_property(&self, key: &str, value: &str) -> Vec<&SymbolicNode> {
+        self.backend.find_by_property(key, value)
+    }
+
+    pub fn remove_node(&mut self, node_id: Uuid) -> bool {
+        self.backend.remove_node(node_id)
+    }
+
+    pub fn backend(&self) -> &B {
+        &self.backend
+    }
+
+    pub fn backend_mut(&mut self) -> &mut B {
+        &mut self.backend
     }
 }
 
