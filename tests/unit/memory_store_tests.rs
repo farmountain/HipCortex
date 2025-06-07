@@ -99,7 +99,7 @@ fn test_encrypted_memory_store() {
 
 #[test]
 fn test_snapshot_and_rollback() {
-    let path = "snap_memory.jsonl";
+    let path = "snap_memory_store.jsonl";
     let _ = fs::remove_file(path);
     let mut store = MemoryStore::new(path).unwrap();
     let rec = MemoryRecord::new(

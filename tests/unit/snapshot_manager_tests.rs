@@ -5,7 +5,7 @@ use std::fs;
 
 #[test]
 fn test_snapshot_save_and_load() {
-    let path = "snap_memory.jsonl";
+    let path = "snap_manager.jsonl";
     let _ = fs::remove_file(path);
     let mut store = MemoryStore::new(path).unwrap();
     let record = MemoryRecord::new(
