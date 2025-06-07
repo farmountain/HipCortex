@@ -1,5 +1,5 @@
-use std::collections::VecDeque;
-use std::time::{SystemTime, Duration};
+use crate::segmented_buffer::SegmentedRingBuffer;
+use std::time::{Duration, SystemTime};
 
 #[derive(Clone, Debug)]
 pub struct TemporalTrace<T> {
@@ -12,7 +12,7 @@ pub struct TemporalTrace<T> {
 }
 
 pub struct TemporalIndexer<T> {
-    buffer: VecDeque<TemporalTrace<T>>,
+    buffer: SegmentedRingBuffer<TemporalTrace<T>>,
     capacity: usize,
     decay_half_life: Duration,
 }
@@ -20,16 +20,13 @@ pub struct TemporalIndexer<T> {
 impl<T> TemporalIndexer<T> {
     pub fn new(capacity: usize, decay_half_life_secs: u64) -> Self {
         Self {
-            buffer: VecDeque::with_capacity(capacity),
+            buffer: SegmentedRingBuffer::new(capacity, 64),
             capacity,
             decay_half_life: Duration::from_secs(decay_half_life_secs),
         }
     }
 
     pub fn insert(&mut self, trace: TemporalTrace<T>) {
-        if self.buffer.len() == self.capacity {
-            self.buffer.pop_front();
-        }
         self.buffer.push_back(trace);
     }
 
@@ -42,19 +39,23 @@ impl<T> TemporalIndexer<T> {
             // Each trace can have its own decay factor which adjusts the global
             // half-life. This allows different memory types to fade at
             // different rates.
-            let factor = if trace.decay_factor <= 0.0 { 1.0 } else { trace.decay_factor };
+            let factor = if trace.decay_factor <= 0.0 {
+                1.0
+            } else {
+                trace.decay_factor
+            };
             let half_life = self.decay_half_life.mul_f32(1.0 / factor);
-            let decay =
-                (-((elapsed.as_secs_f32() / half_life.as_secs_f32()) * std::f32::consts::LN_2))
-                    .exp2();
+            let decay = (-((elapsed.as_secs_f32() / half_life.as_secs_f32())
+                * std::f32::consts::LN_2))
+                .exp2();
             let decayed_relevance = trace.relevance * decay;
             decayed_relevance > 0.01
         });
     }
 
     pub fn remove(&mut self, id: uuid::Uuid) -> bool {
-        if let Some(pos) = self.buffer.iter().position(|t| t.id == id) {
-            self.buffer.remove(pos);
+        if let Some((seg, pos)) = self.buffer.position(|t| t.id == id) {
+            self.buffer.remove_at(seg, pos);
             true
         } else {
             false
@@ -76,8 +77,9 @@ impl<T> TemporalIndexer<T> {
         None
     }
 
-pub fn get_recent(&self, n: usize) -> Vec<&TemporalTrace<T>> {
-        self.buffer.iter().rev().take(n).collect()
+    pub fn get_recent(&self, n: usize) -> Vec<&TemporalTrace<T>> {
+        let vec: Vec<&TemporalTrace<T>> = self.buffer.iter().collect();
+        vec.into_iter().rev().take(n).collect()
     }
 }
 
@@ -98,5 +100,21 @@ mod tests {
         };
         idx.insert(trace);
         assert_eq!(idx.get_recent(1).len(), 1);
+    }
+
+    #[test]
+    fn segmented_buffer_wraps() {
+        let mut idx = TemporalIndexer::new(3, 10);
+        for _ in 0..5 {
+            idx.insert(TemporalTrace {
+                id: uuid::Uuid::new_v4(),
+                timestamp: SystemTime::now(),
+                data: 0u8,
+                relevance: 1.0,
+                decay_factor: 1.0,
+                last_access: SystemTime::now(),
+            });
+        }
+        assert_eq!(idx.get_recent(5).len(), 3);
     }
 }

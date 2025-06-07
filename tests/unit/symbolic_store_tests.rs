@@ -1,6 +1,6 @@
+use hipcortex::symbolic_store::SymbolicStore;
 use std::collections::HashMap;
 use uuid::Uuid;
-use hipcortex::symbolic_store::SymbolicStore;
 
 #[test]
 fn add_and_get_node() {

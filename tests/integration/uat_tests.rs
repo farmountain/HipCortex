@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::time::SystemTime;
 use uuid::Uuid;
 
-use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
-use hipcortex::symbolic_store::SymbolicStore;
 use hipcortex::memory_store::MemoryStore;
+use hipcortex::symbolic_store::SymbolicStore;
+use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
 
 #[test]
 fn travelg3n_store_and_retrieve_city() {

@@ -81,3 +81,26 @@ flowchart LR
 ```
 
 These components remain optional and are disabled by default to keep the core lightweight.
+
+## Security and Integrity
+
+HipCortex now includes optional AES-GCM encryption for memory files. `MemoryStore::new_encrypted` loads and writes encrypted JSONL where each record is protected with a per-entry nonce. `new_encrypted_envelope` adds envelope encryption by storing a per-file session key sealed with a master key. Each `MemoryRecord` carries a SHA-256 integrity hash which is verified when loading from disk.
+An append-only `audit.log` is written next to the memory file. Each entry is chained with a Merkle-style hash so tampering is detectable. `MemoryStore` also maintains a small write-ahead log for crash recovery, supports snapshot rollback with integrity checks, and batches writes for performance.
+`MemoryStore` can operate with asynchronous buffered writes when compiled with the `async-store` feature for high-throughput ingestion. The async variant mirrors the synchronous file backend with AES-GCM encryption, envelope keys, compression and crash-recovery WAL so large event streams can be ingested without blocking.
+An IndexMap based lookup table accelerates queries by actor.
+`VisionEncoder` supports parallel batch encoding via Rayon and an optional GPU path built on `wgpu`.
+`ProceduralCache` provides `advance_batch` to step multiple FSM traces at once, and the CLI offers paginated queries.
+
+`PerceptionAdapter` now enforces a simple rate limiter to avoid abuse, while `IntegrationLayer` checks API keys before forwarding messages or invoking LLMs.
+`IntegrationLayer` can also register OAuth2 bearer tokens. Incoming JSON payloads are validated with Serde custom validators to reject malformed input.
+`AuditLog::verify` can be used to confirm the Merkle chain has not been tampered with.
+
+The new `MemoryBackend` trait enables pluggable persistence layers (file-based by default). `TemporalIndexer` now uses a segmented ring buffer for better scalability. `SymbolicStore` caches recent label lookups with an LRU cache to speed up graph queries. `ProceduralCache` can save and load checkpoints for resilience. Optional WASM plugins run through a `PluginHost` when compiled with the `plugin` feature.
+
+Additional modules extend HipCortex further:
+
+- **Semantic Compression**: `semantic_compression::compress_embedding` reduces embedding dimensionality for cost efficiency.
+- **Memory Diff**: `memory_diff::diff_snapshots` compares snapshot files to visualize evolution over time.
+- **A2A Protocol**: simple peer clients implement `A2AClient` to exchange procedural traces.
+- **Secure LLM Sandbox**: `sandbox::SecureLLMSandbox` renders templates with whitelisted variables before sending to LLMs.
+- **World Model Dashboard**: when the `web-server` feature is enabled, `dashboard::routes` exposes memory data for a lightweight web UI.

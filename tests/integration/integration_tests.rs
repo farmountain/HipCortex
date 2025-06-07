@@ -1,8 +1,8 @@
+use std::time::{Duration, SystemTime};
 use uuid::Uuid;
-use std::time::{SystemTime, Duration};
 
+use hipcortex::procedural_cache::{FSMState, FSMTransition, ProceduralCache, ProceduralTrace};
 use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
-use hipcortex::procedural_cache::{ProceduralCache, ProceduralTrace, FSMState, FSMTransition};
 
 #[test]
 fn test_temporal_indexer_insert_and_retrieve() {
@@ -15,7 +15,10 @@ fn test_temporal_indexer_insert_and_retrieve() {
         decay_factor: 0.5,
         last_access: SystemTime::now(),
     };
-    let trace2 = TemporalTrace { data: "trace2", ..trace1.clone() };
+    let trace2 = TemporalTrace {
+        data: "trace2",
+        ..trace1.clone()
+    };
     indexer.insert(trace1.clone());
     indexer.insert(trace2.clone());
     let recents = indexer.get_recent(2);
@@ -35,7 +38,10 @@ fn test_temporal_indexer_buffer_overflow() {
         decay_factor: 0.5,
         last_access: SystemTime::now(),
     };
-    let trace2 = TemporalTrace { data: "trace2", ..trace1.clone() };
+    let trace2 = TemporalTrace {
+        data: "trace2",
+        ..trace1.clone()
+    };
     indexer.insert(trace1);
     indexer.insert(trace2.clone());
     let recents = indexer.get_recent(2);
@@ -123,10 +129,7 @@ fn test_procedural_cache_fsm_transitions() {
         to: FSMState::Reason,
         condition: Some("trigger".to_string()),
     });
-    assert_eq!(
-        proc_cache.advance(trace.id, None),
-        Some(FSMState::Observe)
-    );
+    assert_eq!(proc_cache.advance(trace.id, None), Some(FSMState::Observe));
     assert_eq!(
         proc_cache.advance(trace.id, Some("trigger")),
         Some(FSMState::Reason)
