@@ -1,7 +1,8 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum FSMState {
     Start,
     Observe,
@@ -12,14 +13,14 @@ pub enum FSMState {
     Custom(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FSMTransition {
     pub from: FSMState,
     pub to: FSMState,
     pub condition: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProceduralTrace {
     pub id: Uuid,
     pub current_state: FSMState,
@@ -78,8 +79,43 @@ impl ProceduralCache {
         None
     }
 
+    pub fn advance_batch<'a, I>(
+        &mut self,
+        traces: I,
+        condition: Option<&'a str>,
+    ) -> Vec<(Uuid, FSMState)>
+    where
+        I: IntoIterator<Item = Uuid>,
+    {
+        let mut results = Vec::new();
+        for id in traces {
+            if let Some(state) = self.advance(id, condition) {
+                results.push((id, state));
+            }
+        }
+        results
+    }
+
     pub fn get_trace(&self, trace_id: Uuid) -> Option<&ProceduralTrace> {
         self.traces.get(&trace_id)
+    }
+
+    pub fn save_checkpoint<P: AsRef<std::path::Path>>(&self, path: P) -> anyhow::Result<()> {
+        let file = std::fs::File::create(path)?;
+        serde_json::to_writer_pretty(file, &self.traces)?;
+        Ok(())
+    }
+
+    pub fn load_checkpoint<P: AsRef<std::path::Path>>(path: P) -> anyhow::Result<Self> {
+        if !path.as_ref().exists() {
+            return Ok(Self::new());
+        }
+        let file = std::fs::File::open(path)?;
+        let traces: HashMap<Uuid, ProceduralTrace> = serde_json::from_reader(file)?;
+        Ok(Self {
+            traces,
+            transitions: vec![],
+        })
     }
 }
 
@@ -103,5 +139,29 @@ mod tests {
         });
         let new_state = cache.advance(trace.id, None);
         assert_eq!(new_state, Some(FSMState::Observe));
+    }
+
+    #[test]
+    fn batch_transition() {
+        let mut cache = ProceduralCache::new();
+        let t1 = ProceduralTrace {
+            id: Uuid::new_v4(),
+            current_state: FSMState::Start,
+            memory: HashMap::new(),
+        };
+        let t2 = ProceduralTrace {
+            id: Uuid::new_v4(),
+            current_state: FSMState::Start,
+            memory: HashMap::new(),
+        };
+        cache.add_trace(t1.clone());
+        cache.add_trace(t2.clone());
+        cache.add_transition(FSMTransition {
+            from: FSMState::Start,
+            to: FSMState::Observe,
+            condition: None,
+        });
+        let res = cache.advance_batch(vec![t1.id, t2.id], None);
+        assert_eq!(res.len(), 2);
     }
 }

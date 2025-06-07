@@ -1,10 +1,11 @@
 use hipcortex::aureus_bridge::{AureusBridge, AureusConfig};
-use hipcortex::memory_store::MemoryStore;
 use hipcortex::llm_clients::mock::MockClient;
+use hipcortex::memory_store::MemoryStore;
 
 #[test]
 fn reflexion_loop_stores_response() {
     let path = "test_llm_mem.jsonl";
+    let _ = std::fs::remove_file(path);
     let mut store = MemoryStore::new(path).unwrap();
     store.clear();
     let mut bridge = AureusBridge::with_client(Box::new(MockClient));

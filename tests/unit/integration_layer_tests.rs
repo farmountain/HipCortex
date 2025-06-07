@@ -17,9 +17,18 @@ fn integration_layer_multiple_connects() {
 fn integration_layer_send_disconnect() {
     let mut integration = IntegrationLayer::new();
     integration.connect();
-    integration.send_message("hello");
+    integration.add_api_key("k".into());
+    integration.send_message_json("k", "{\"text\": \"hello\"}");
     integration.disconnect();
     integration.connect();
+}
+
+#[test]
+fn oauth_authentication() {
+    let mut integration = IntegrationLayer::new();
+    integration.connect();
+    integration.add_oauth_token("token".into());
+    integration.send_message("token", "hi");
 }
 
 #[test]

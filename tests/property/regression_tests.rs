@@ -1,5 +1,5 @@
-use uuid::Uuid;
 use std::time::SystemTime;
+use uuid::Uuid;
 
 use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
 

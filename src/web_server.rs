@@ -1,5 +1,5 @@
 #[cfg(feature = "web-server")]
-use axum::{Router, routing::get};
+use axum::{routing::get, Router};
 #[cfg(feature = "web-server")]
 use std::net::SocketAddr;
 
