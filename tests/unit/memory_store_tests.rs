@@ -100,7 +100,6 @@ fn test_encrypted_memory_store() {
 
 #[test]
 fn test_snapshot_and_rollback() {
-
     let path = "snap_memory_store.jsonl";
 
     let _ = fs::remove_file(path);
@@ -152,4 +151,23 @@ fn test_envelope_encryption() {
     drop(store);
     fs::remove_file(path).unwrap();
     fs::remove_file("test_memory_env.sk").unwrap();
+}
+
+#[test]
+fn test_rocksdb_backend() {
+    let path = "rocks_test";
+    let _ = std::fs::remove_dir_all(path);
+    let mut store = MemoryStore::new_rocksdb(path, 1).unwrap();
+    store
+        .add(MemoryRecord::new(
+            MemoryType::Symbolic,
+            "x".into(),
+            "y".into(),
+            "z".into(),
+            serde_json::json!({}),
+        ))
+        .unwrap();
+    assert_eq!(store.all().len(), 1);
+    std::fs::remove_dir_all(path).unwrap();
+    std::fs::remove_file("rocks_test.audit.log").unwrap();
 }

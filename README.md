@@ -32,6 +32,7 @@ and reasoning components.
 - **Fully Test-Driven:** Extensive unit tests and Criterion benchmarks.
 - **Optional Web Server:** compile with `--features web-server` for an Axum REST API.
 - **Optional GUI:** compile with `--features gui` to launch a Tauri desktop client.
+- **RocksDB Backend:** use `MemoryStore::new_rocksdb` for an embedded key-value database.
 
 ---
 

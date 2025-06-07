@@ -97,7 +97,7 @@ IndexMap based lookup tables accelerate queries by actor, action and target.
 `IntegrationLayer` can also register OAuth2 bearer tokens. Incoming JSON payloads are validated with Serde custom validators to reject malformed input.
 `AuditLog::verify` can be used to confirm the Merkle chain has not been tampered with.
 
-The new `MemoryBackend` trait enables pluggable persistence layers (file-based by default). `TemporalIndexer` now uses a segmented ring buffer for better scalability. `SymbolicStore` caches recent label lookups with an LRU cache to speed up graph queries. `ProceduralCache` can save and load checkpoints for resilience. Optional WASM plugins run through a `PluginHost` when compiled with the `plugin` feature.
+The new `MemoryBackend` trait enables pluggable persistence layers. A RocksDB-backed implementation is provided in addition to the default file backend so deployments can use an embedded key-value store without code changes. `TemporalIndexer` now uses a segmented ring buffer for better scalability. `SymbolicStore` caches recent label lookups with an LRU cache to speed up graph queries. `ProceduralCache` can save and load checkpoints for resilience. Optional WASM plugins run through a `PluginHost` when compiled with the `plugin` feature.
 
 Additional modules extend HipCortex further:
 
