@@ -79,6 +79,7 @@ fn test_find_by_action_and_target() {
 }
 
 #[test]
+
 fn test_encrypted_memory_store() {
     let path = "test_memory_enc1.jsonl";
     let _ = fs::remove_file(path);
@@ -99,7 +100,9 @@ fn test_encrypted_memory_store() {
 
 #[test]
 fn test_snapshot_and_rollback() {
+
     let path = "snap_memory_store.jsonl";
+
     let _ = fs::remove_file(path);
     let mut store = MemoryStore::new(path).unwrap();
     let rec = MemoryRecord::new(

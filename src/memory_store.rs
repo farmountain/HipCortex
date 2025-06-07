@@ -15,8 +15,10 @@ pub struct MemoryStore<B: MemoryBackend> {
     buffer: VecDeque<MemoryRecord>,
     batch_size: usize,
     index_actor: IndexMap<String, Vec<usize>>,
+
     index_action: IndexMap<String, Vec<usize>>,
     index_target: IndexMap<String, Vec<usize>>,
+
 }
 
 impl MemoryStore<FileBackend> {
@@ -38,8 +40,10 @@ impl MemoryStore<FileBackend> {
             buffer: VecDeque::new(),
             batch_size: batch,
             index_actor: IndexMap::new(),
+
             index_action: IndexMap::new(),
             index_target: IndexMap::new(),
+
         };
         store.load()?;
         Ok(store)
@@ -55,8 +59,10 @@ impl MemoryStore<FileBackend> {
             buffer: VecDeque::new(),
             batch_size: 8,
             index_actor: IndexMap::new(),
+
             index_action: IndexMap::new(),
             index_target: IndexMap::new(),
+
         };
         store.load()?;
         Ok(store)
@@ -76,8 +82,10 @@ impl MemoryStore<FileBackend> {
             buffer: VecDeque::new(),
             batch_size: 8,
             index_actor: IndexMap::new(),
+
             index_action: IndexMap::new(),
             index_target: IndexMap::new(),
+
         };
         store.load()?;
         Ok(store)
@@ -86,13 +94,16 @@ impl MemoryStore<FileBackend> {
     fn load(&mut self) -> Result<()> {
         self.records = self.backend.load()?;
         self.index_actor.clear();
+
         self.index_action.clear();
         self.index_target.clear();
+
         for (i, rec) in self.records.iter().enumerate() {
             self.index_actor
                 .entry(rec.actor.clone())
                 .or_default()
                 .push(i);
+
             self.index_action
                 .entry(rec.action.clone())
                 .or_default()
@@ -101,6 +112,7 @@ impl MemoryStore<FileBackend> {
                 .entry(rec.target.clone())
                 .or_default()
                 .push(i);
+
         }
         Ok(())
     }
@@ -115,6 +127,7 @@ impl<B: MemoryBackend> MemoryStore<B> {
             .entry(record.actor.clone())
             .or_default()
             .push(idx);
+
         self.index_action
             .entry(record.action.clone())
             .or_default()
@@ -123,6 +136,7 @@ impl<B: MemoryBackend> MemoryStore<B> {
             .entry(record.target.clone())
             .or_default()
             .push(idx);
+
         self.audit
             .append(&record.actor, &record.action, &record.target)?;
         if self.buffer.len() >= self.batch_size {
@@ -151,6 +165,7 @@ impl<B: MemoryBackend> MemoryStore<B> {
         }
     }
 
+
     pub fn find_by_action(&self, action: &str) -> Vec<&MemoryRecord> {
         if let Some(ids) = self.index_action.get(action) {
             ids.iter().filter_map(|&i| self.records.get(i)).collect()
@@ -177,6 +192,7 @@ impl<B: MemoryBackend> MemoryStore<B> {
 
     pub fn snapshot<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
         self.flush()?;
+
         let mut file = std::fs::File::create(path)?;
         for rec in &self.records {
             serde_json::to_writer(&mut file, rec)?;
@@ -204,13 +220,16 @@ impl<B: MemoryBackend> MemoryStore<B> {
         }
         self.records = records.clone();
         self.index_actor.clear();
+
         self.index_action.clear();
         self.index_target.clear();
+
         for (i, rec) in self.records.iter().enumerate() {
             self.index_actor
                 .entry(rec.actor.clone())
                 .or_default()
                 .push(i);
+
             self.index_action
                 .entry(rec.action.clone())
                 .or_default()
@@ -219,6 +238,7 @@ impl<B: MemoryBackend> MemoryStore<B> {
                 .entry(rec.target.clone())
                 .or_default()
                 .push(i);
+
         }
         self.backend.clear()?;
         for rec in &records {

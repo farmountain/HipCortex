@@ -38,6 +38,7 @@ fn parallel_encoding_matches() {
     assert_eq!(par[0], seq);
 }
 
+
 #[cfg(feature = "gpu")]
 #[test]
 fn gpu_encoding_fallbacks() {
@@ -54,3 +55,4 @@ fn gpu_encoding_fallbacks() {
         assert!((a - b).abs() < 1e-3);
     }
 }
+
