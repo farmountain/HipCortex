@@ -32,6 +32,7 @@ lazy_static = "1"
 lru = "0.12"
 futures = "0.3"
 bytemuck = "1"
+rocksdb = "0.21"
 wasmtime = { version = "8", optional = true }
 wat = { version = "1", optional = true }
 mustache = "0.9"

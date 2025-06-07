@@ -6,6 +6,7 @@ use std::path::Path;
 use crate::audit_log::AuditLog;
 use crate::memory_record::MemoryRecord;
 use crate::persistence::{FileBackend, MemoryBackend};
+use crate::rocksdb_backend::RocksDbBackend;
 use anyhow::Result;
 
 pub struct MemoryStore<B: MemoryBackend> {
@@ -18,7 +19,6 @@ pub struct MemoryStore<B: MemoryBackend> {
 
     index_action: IndexMap<String, Vec<usize>>,
     index_target: IndexMap<String, Vec<usize>>,
-
 }
 
 impl MemoryStore<FileBackend> {
@@ -43,7 +43,6 @@ impl MemoryStore<FileBackend> {
 
             index_action: IndexMap::new(),
             index_target: IndexMap::new(),
-
         };
         store.load()?;
         Ok(store)
@@ -62,7 +61,6 @@ impl MemoryStore<FileBackend> {
 
             index_action: IndexMap::new(),
             index_target: IndexMap::new(),
-
         };
         store.load()?;
         Ok(store)
@@ -85,7 +83,6 @@ impl MemoryStore<FileBackend> {
 
             index_action: IndexMap::new(),
             index_target: IndexMap::new(),
-
         };
         store.load()?;
         Ok(store)
@@ -112,9 +109,27 @@ impl MemoryStore<FileBackend> {
                 .entry(rec.target.clone())
                 .or_default()
                 .push(i);
-
         }
         Ok(())
+    }
+}
+
+impl MemoryStore<RocksDbBackend> {
+    pub fn new_rocksdb<P: AsRef<Path>>(path: P, batch: usize) -> Result<Self> {
+        let backend = RocksDbBackend::new(&path)?;
+        let audit_path = path.as_ref().with_extension("audit.log");
+        let mut store = Self {
+            backend,
+            records: Vec::new(),
+            audit: AuditLog::new(&audit_path)?,
+            buffer: VecDeque::new(),
+            batch_size: batch,
+            index_actor: IndexMap::new(),
+            index_action: IndexMap::new(),
+            index_target: IndexMap::new(),
+        };
+        store.load()?;
+        Ok(store)
     }
 }
 
@@ -164,7 +179,6 @@ impl<B: MemoryBackend> MemoryStore<B> {
             Vec::new()
         }
     }
-
 
     pub fn find_by_action(&self, action: &str) -> Vec<&MemoryRecord> {
         if let Some(ids) = self.index_action.get(action) {
@@ -238,7 +252,6 @@ impl<B: MemoryBackend> MemoryStore<B> {
                 .entry(rec.target.clone())
                 .or_default()
                 .push(i);
-
         }
         self.backend.clear()?;
         for rec in &records {

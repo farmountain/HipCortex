@@ -27,6 +27,7 @@ pub mod persistence;
 pub mod plugin_host;
 #[path = "modules/procedural_cache.rs"]
 pub mod procedural_cache;
+pub mod rocksdb_backend;
 pub mod sandbox;
 pub mod schema;
 pub mod segmented_buffer;

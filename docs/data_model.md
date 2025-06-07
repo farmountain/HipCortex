@@ -24,7 +24,7 @@ pub struct MemoryRecord {
 }
 ```
 
-Records are stored line by line in a JSONL file by `MemoryStore`. Queries are provided by `MemoryQuery` for filtering by type, actor or time. API endpoints (via the optional Axum server) expose these operations as JSON over HTTP.
+Records are stored either line by line in a JSONL file or in an embedded RocksDB database by `MemoryStore`. Queries are provided by `MemoryQuery` for filtering by type, actor or time. API endpoints (via the optional Axum server) expose these operations as JSON over HTTP.
 
 `MemoryStore` can optionally encrypt records at rest using AES-GCM when created with `new_encrypted`. `new_encrypted_envelope` further protects the session key with a master key. Each record's SHA-256 integrity hash is computed on creation and verified on load.
 An `audit.log` chain records actor, action and outcome for every write. A write-ahead log ensures records aren't lost during crashes.
