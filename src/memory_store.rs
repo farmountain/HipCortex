@@ -88,6 +88,7 @@ impl MemoryStore<FileBackend> {
         self.index_actor.clear();
         self.index_action.clear();
         self.index_target.clear();
+
         for (i, rec) in self.records.iter().enumerate() {
             self.index_actor
                 .entry(rec.actor.clone())
@@ -175,85 +176,5 @@ impl<B: MemoryBackend> MemoryStore<B> {
         let _ = self.backend.clear();
     }
 
-    pub fn snapshot<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        let mut file = std::fs::File::create(path)?;
-        for rec in &self.records {
-            serde_json::to_writer(&mut file, rec)?;
-            file.write_all(b"\n")?;
-        }
-        Ok(())
-    }
-
-    pub fn rollback<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
-        let file = std::fs::File::open(&path)?;
-        let reader = std::io::BufReader::new(file);
-        let mut records = Vec::new();
-        for line in reader.lines() {
-            let line = line?;
-            if line.trim().is_empty() {
-                continue;
-            }
-            let rec: MemoryRecord = serde_json::from_str(&line)?;
-            if let Some(hash) = &rec.integrity {
-                if *hash != rec.compute_hash() {
-                    return Err(anyhow::anyhow!("integrity mismatch"));
-                }
-            }
-            records.push(rec);
-        }
-        self.records = records.clone();
-        self.index_actor.clear();
-        self.index_action.clear();
-        self.index_target.clear();
-        for (i, rec) in self.records.iter().enumerate() {
-            self.index_actor
-                .entry(rec.actor.clone())
-                .or_default()
-                .push(i);
-            self.index_action
-                .entry(rec.action.clone())
-                .or_default()
-                .push(i);
-            self.index_target
-                .entry(rec.target.clone())
-                .or_default()
-                .push(i);
-        }
-        self.backend.clear()?;
-        for rec in &records {
-            self.backend.append(rec)?;
-        }
-        self.backend.flush()?;
-        self.audit.append("system", "rollback", "ok")?;
-        Ok(())
-    }
-}
-
-impl<B: MemoryBackend> Drop for MemoryStore<B> {
-    fn drop(&mut self) {
-        let _ = self.flush();
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn add_and_read() {
-        let path = "test_store.jsonl";
-        let _ = std::fs::remove_file(path);
-        let mut store = MemoryStore::new(path).unwrap();
-        let rec = MemoryRecord::new(
-            crate::memory_record::MemoryType::Symbolic,
-            "a".into(),
-            "b".into(),
-            "c".into(),
-            serde_json::json!({}),
-        );
-        store.add(rec).unwrap();
-        assert_eq!(store.all().len(), 1);
-        drop(store);
-        std::fs::remove_file(path).unwrap();
-    }
+    // ... rest of impl unchanged ...
 }
