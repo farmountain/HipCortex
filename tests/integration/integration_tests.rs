@@ -52,7 +52,7 @@ fn test_temporal_indexer_buffer_overflow() {
 #[test]
 fn test_temporal_indexer_decay_and_prune() {
     let mut indexer = TemporalIndexer::new(2, 1); // decay half-life 1s
-    let mut trace = TemporalTrace {
+    let trace = TemporalTrace {
         id: Uuid::new_v4(),
         timestamp: SystemTime::now(),
         data: "decay",

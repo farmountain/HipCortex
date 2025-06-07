@@ -1,6 +1,5 @@
 use hipcortex::vision_encoder::VisionEncoder;
 use image::{DynamicImage, ImageOutputFormat, RgbImage};
-use pollster;
 use std::io::Cursor;
 
 #[test]
