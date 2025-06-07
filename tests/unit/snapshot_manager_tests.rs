@@ -5,10 +5,16 @@ use std::fs;
 
 #[test]
 fn test_snapshot_save_and_load() {
-    let path = "snap_memory.jsonl";
+    let path = "snap_manager.jsonl";
     let _ = fs::remove_file(path);
     let mut store = MemoryStore::new(path).unwrap();
-    let record = MemoryRecord::new(MemoryType::Temporal, "agent".into(), "do".into(), "something".into(), serde_json::json!({}));
+    let record = MemoryRecord::new(
+        MemoryType::Temporal,
+        "agent".into(),
+        "do".into(),
+        "something".into(),
+        serde_json::json!({}),
+    );
     store.add(record.clone()).unwrap();
     let archive = SnapshotManager::save(path, "testsnap").unwrap();
     fs::remove_file(path).unwrap();
@@ -18,4 +24,3 @@ fn test_snapshot_save_and_load() {
     fs::remove_file(path).unwrap();
     fs::remove_file(archive).unwrap();
 }
-

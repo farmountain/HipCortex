@@ -21,12 +21,31 @@ tar = "0.4"
 image = { version = "0.24", default-features = false, features = ["png", "jpeg"] }
 diesel = { version = "2", features = ["postgres", "sqlite", "serde_json"] }
 reqwest = { version = "0.11", features = ["blocking", "json"] }
+sha2 = "0.10"
+hex = "0.4"
+aes-gcm = "0.10"
+aead = "0.5"
+rand = "0.8"
+base64 = "0.21"
+zstd = "0.13"
+lazy_static = "1"
+lru = "0.12"
+futures = "0.3"
+bytemuck = "1"
+wasmtime = { version = "8", optional = true }
+wat = { version = "1", optional = true }
+mustache = "0.9"
+indexmap = "1"
+rayon = { version = "1", optional = true }
+async-trait = { version = "0.1", optional = true }
+wgpu = { version = "0.16", optional = true }
 
 [dev-dependencies]
 proptest = "1"
 criterion = "0.5"
 assert_cmd = "2"
 predicates = "3"
+pollster = "0.3"
 
 [[bench]]
 name = "temporal_indexer_bench"
@@ -40,3 +59,7 @@ harness = false
 [features]
 web-server = ["axum", "tokio"]
 gui = ["tauri"]
+plugin = ["wasmtime", "wat"]
+async-store = ["tokio", "async-trait"]
+parallel = ["rayon"]
+gpu = ["wgpu"]

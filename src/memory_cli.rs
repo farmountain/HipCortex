@@ -39,6 +39,10 @@ enum Commands {
         actor: Option<String>,
         #[arg(long)]
         since: Option<DateTime<Utc>>,
+        #[arg(long)]
+        page: Option<usize>,
+        #[arg(long, default_value_t = 10)]
+        page_size: usize,
     },
     /// Save snapshot
     Snapshot { tag: String },
@@ -73,6 +77,8 @@ pub fn run() -> Result<()> {
             r#type,
             actor,
             since,
+            page,
+            page_size,
         } => {
             let mut data: Vec<MemoryRecord> = store.all().to_vec();
             if let Some(t) = r#type {
@@ -90,7 +96,10 @@ pub fn run() -> Result<()> {
             if let Some(ts) = since {
                 data = MemoryQuery::since(&data, ts).into_iter().cloned().collect();
             }
-            for r in data {
+            let page = page.unwrap_or(1).saturating_sub(1);
+            let start = page * page_size;
+            let end = (start + page_size).min(data.len());
+            for r in data[start..end].iter() {
                 println!("{:?}", r);
             }
         }

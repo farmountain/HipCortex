@@ -1,5 +1,5 @@
 use hipcortex::vision_encoder::VisionEncoder;
-use image::{DynamicImage, RgbImage, ImageOutputFormat};
+use image::{DynamicImage, ImageOutputFormat, RgbImage};
 use std::io::Cursor;
 
 #[test]
@@ -16,12 +16,41 @@ fn encode_image_returns_average_rgb() {
 fn encode_bytes_matches_encode_image() {
     let img = RgbImage::from_pixel(1, 1, image::Rgb([0, 255, 0]));
     let mut buf = Cursor::new(Vec::new());
-    DynamicImage::ImageRgb8(img.clone()).write_to(&mut buf, ImageOutputFormat::Png).unwrap();
+    DynamicImage::ImageRgb8(img.clone())
+        .write_to(&mut buf, ImageOutputFormat::Png)
+        .unwrap();
     let bytes = buf.into_inner();
     let emb_bytes = VisionEncoder::encode_bytes(&bytes).unwrap();
     let emb_image = VisionEncoder::encode_image(&DynamicImage::ImageRgb8(img));
     assert_eq!(emb_bytes.len(), 3);
-    for (a,b) in emb_bytes.iter().zip(emb_image.iter()) {
+    for (a, b) in emb_bytes.iter().zip(emb_image.iter()) {
         assert!((a - b).abs() < 1e-6);
+    }
+}
+
+#[cfg(feature = "parallel")]
+#[test]
+fn parallel_encoding_matches() {
+    let img = RgbImage::from_pixel(1, 1, image::Rgb([10, 20, 30]));
+    let dynimg = DynamicImage::ImageRgb8(img);
+    let seq = VisionEncoder::encode_image(&dynimg);
+    let par = VisionEncoder::encode_images_parallel(&[dynimg]);
+    assert_eq!(par[0], seq);
+}
+
+#[cfg(feature = "gpu")]
+#[test]
+fn gpu_encoding_fallbacks() {
+    let img = RgbImage::from_pixel(2, 2, image::Rgb([10, 20, 30]));
+    let mut buf = Cursor::new(Vec::new());
+    DynamicImage::ImageRgb8(img.clone())
+        .write_to(&mut buf, ImageOutputFormat::Png)
+        .unwrap();
+    let bytes = buf.into_inner();
+    let gpu = pollster::block_on(VisionEncoder::encode_image_gpu(&bytes)).unwrap();
+    let cpu = VisionEncoder::encode_image(&DynamicImage::ImageRgb8(img));
+    assert_eq!(gpu.len(), 3);
+    for (a, b) in gpu.iter().zip(cpu.iter()) {
+        assert!((a - b).abs() < 1e-3);
     }
 }

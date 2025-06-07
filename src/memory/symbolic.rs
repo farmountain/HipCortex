@@ -11,7 +11,9 @@ pub struct SymbolicNode {
     pub metadata: serde_json::Value,
 }
 
-fn default_weight() -> f32 { 1.0 }
+fn default_weight() -> f32 {
+    1.0
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SymbolicEdge {

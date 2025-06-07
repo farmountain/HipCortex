@@ -1,13 +1,13 @@
-use hipcortex::symbolic_store::SymbolicStore;
-use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
-use hipcortex::procedural_cache::{ProceduralCache, ProceduralTrace, FSMState, FSMTransition};
 use hipcortex::aureus_bridge::AureusBridge;
 use hipcortex::llm_clients::mock::MockClient;
 use hipcortex::memory_store::MemoryStore;
+use hipcortex::procedural_cache::{FSMState, FSMTransition, ProceduralCache, ProceduralTrace};
 use hipcortex::snapshot_manager::SnapshotManager;
-use uuid::Uuid;
+use hipcortex::symbolic_store::SymbolicStore;
+use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
 use std::collections::HashMap;
 use std::time::SystemTime;
+use uuid::Uuid;
 
 #[test]
 fn full_memory_flow() {
@@ -29,14 +29,23 @@ fn full_memory_flow() {
 
     // procedural cache
     let mut proc = ProceduralCache::new();
-    let ptrace = ProceduralTrace { id: Uuid::new_v4(), current_state: FSMState::Start, memory: HashMap::new() };
+    let ptrace = ProceduralTrace {
+        id: Uuid::new_v4(),
+        current_state: FSMState::Start,
+        memory: HashMap::new(),
+    };
     proc.add_trace(ptrace.clone());
-    proc.add_transition(FSMTransition { from: FSMState::Start, to: FSMState::Observe, condition: None });
+    proc.add_transition(FSMTransition {
+        from: FSMState::Start,
+        to: FSMState::Observe,
+        condition: None,
+    });
     assert_eq!(proc.advance(ptrace.id, None), Some(FSMState::Observe));
 
     // reflexion loop and persistence
     let mut bridge = AureusBridge::with_client(Box::new(MockClient));
     let path = "end_to_end.jsonl";
+    let _ = std::fs::remove_file(path);
     let mut mem = MemoryStore::new(path).unwrap();
     mem.clear();
     bridge.reflexion_loop("context", &mut mem);
