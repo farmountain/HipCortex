@@ -21,4 +21,6 @@ pub enum TriggerType {
     Custom(String),
 }
 
-fn default_weight() -> f32 { 1.0 }
+fn default_weight() -> f32 {
+    1.0
+}

@@ -1,7 +1,7 @@
-use criterion::{black_box, Criterion, criterion_group, criterion_main};
-use uuid::Uuid;
-use std::time::SystemTime;
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
+use std::time::SystemTime;
+use uuid::Uuid;
 
 fn bench_insert(c: &mut Criterion) {
     c.bench_function("insert 100 traces", |b| {

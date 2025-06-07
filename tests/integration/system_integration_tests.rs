@@ -2,12 +2,12 @@ use std::collections::HashMap;
 use std::time::SystemTime;
 use uuid::Uuid;
 
-use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
-use hipcortex::symbolic_store::SymbolicStore;
-use hipcortex::perception_adapter::{PerceptionAdapter, PerceptInput, Modality};
-use hipcortex::integration_layer::IntegrationLayer;
 use hipcortex::aureus_bridge::AureusBridge;
+use hipcortex::integration_layer::IntegrationLayer;
 use hipcortex::memory_store::MemoryStore;
+use hipcortex::perception_adapter::{Modality, PerceptInput, PerceptionAdapter};
+use hipcortex::symbolic_store::SymbolicStore;
+use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
 
 #[test]
 fn memory_round_trip() {
@@ -46,4 +46,3 @@ fn integration_and_reflexion() {
     store.clear();
     aureus.reflexion_loop("ctx", &mut store);
 }
-

@@ -1,6 +1,6 @@
-use std::fs::{File};
-use std::path::{Path, PathBuf};
 use flate2::read::GzDecoder;
+use std::fs::File;
+use std::path::{Path, PathBuf};
 use tar::Archive;
 
 use anyhow::Result;

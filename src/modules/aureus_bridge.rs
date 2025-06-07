@@ -1,6 +1,7 @@
-use crate::memory_store::MemoryStore;
-use crate::memory_record::{MemoryRecord, MemoryType};
 use crate::llm_clients::LLMClient;
+use crate::memory_record::{MemoryRecord, MemoryType};
+use crate::memory_store::MemoryStore;
+use crate::persistence::MemoryBackend;
 
 pub struct AureusConfig {
     pub enable_cot: bool,
@@ -43,7 +44,7 @@ impl AureusBridge {
         self.config = cfg;
     }
 
-    pub fn reflexion_loop(&mut self, context: &str, store: &mut MemoryStore) {
+    pub fn reflexion_loop<B: MemoryBackend>(&mut self, context: &str, store: &mut MemoryStore<B>) {
         self.loops += 1;
         if let Some(client) = &self.llm {
             let prompt = if self.config.enable_cot {
@@ -82,9 +83,13 @@ mod tests {
     #[test]
     fn run_loop_increments_counter() {
         let mut bridge = AureusBridge::with_client(Box::new(MockClient));
-        let mut store = MemoryStore::new("test_bridge.jsonl").unwrap();
+        let path = "test_bridge.jsonl";
+        let _ = std::fs::remove_file(path);
+        let mut store = MemoryStore::new(path).unwrap();
         store.clear();
         bridge.reflexion_loop("ctx", &mut store);
         assert_eq!(bridge.loops_run(), 1);
+        drop(store);
+        let _ = std::fs::remove_file(path);
     }
 }

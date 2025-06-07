@@ -1,4 +1,4 @@
-use hipcortex::perception_adapter::{PerceptionAdapter, PerceptInput, Modality};
+use hipcortex::perception_adapter::{Modality, PerceptInput, PerceptionAdapter};
 
 #[test]
 fn adapt_text_input() {

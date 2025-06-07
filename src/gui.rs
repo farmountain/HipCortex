@@ -1,19 +1,19 @@
 #[cfg(feature = "gui")]
+use serde::Serialize;
+#[cfg(feature = "gui")]
 use std::sync::Mutex;
 #[cfg(feature = "gui")]
 use tauri::State;
-#[cfg(feature = "gui")]
-use serde::Serialize;
 
 #[cfg(feature = "gui")]
 use crate::{
-    symbolic_store::SymbolicStore,
-    procedural_cache::ProceduralCache,
-    temporal_indexer::TemporalIndexer,
     aureus_bridge::AureusBridge,
-    perception_adapter::{PerceptionAdapter, PerceptInput, Modality},
-    memory_store::MemoryStore,
     memory_record::{MemoryRecord, MemoryType},
+    memory_store::MemoryStore,
+    perception_adapter::{Modality, PerceptInput, PerceptionAdapter},
+    procedural_cache::ProceduralCache,
+    symbolic_store::SymbolicStore,
+    temporal_indexer::TemporalIndexer,
 };
 
 #[cfg(feature = "gui")]

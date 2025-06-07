@@ -1,4 +1,6 @@
+use lru::LruCache;
 use std::collections::{HashMap, HashSet};
+use std::num::NonZeroUsize;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -15,17 +17,18 @@ pub struct SymbolicEdge {
     pub relation: String,
 }
 
-#[derive(Default)]
 pub struct SymbolicStore {
     pub nodes: HashMap<Uuid, SymbolicNode>,
     pub edges: HashSet<SymbolicEdge>,
+    label_cache: LruCache<String, Vec<Uuid>>,
 }
 
 impl SymbolicStore {
     pub fn new() -> Self {
-        Self { 
+        Self {
             nodes: HashMap::new(),
             edges: HashSet::new(),
+            label_cache: LruCache::new(NonZeroUsize::new(32).unwrap()),
         }
     }
 
@@ -54,7 +57,8 @@ impl SymbolicStore {
     }
 
     pub fn neighbors(&self, node_id: Uuid, relation: Option<&str>) -> Vec<&SymbolicNode> {
-        self.edges.iter()
+        self.edges
+            .iter()
             .filter(|e| e.from == node_id && relation.map_or(true, |r| r == e.relation))
             .filter_map(|e| self.nodes.get(&e.to))
             .collect()
@@ -76,10 +80,22 @@ impl SymbolicStore {
         }
     }
 
-    pub fn find_by_label(&self, label: &str) -> Vec<&SymbolicNode> {
-        self.nodes
+    pub fn find_by_label(&mut self, label: &str) -> Vec<&SymbolicNode> {
+        if let Some(ids) = self.label_cache.get(label).cloned() {
+            return ids
+                .into_iter()
+                .filter_map(|id| self.nodes.get(&id))
+                .collect();
+        }
+        let ids: Vec<Uuid> = self
+            .nodes
             .values()
             .filter(|n| n.label == label)
+            .map(|n| n.id)
+            .collect();
+        self.label_cache.put(label.to_string(), ids.clone());
+        ids.into_iter()
+            .filter_map(|id| self.nodes.get(&id))
             .collect()
     }
 

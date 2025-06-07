@@ -18,8 +18,45 @@ pub struct PerceptInput {
 
 pub struct PerceptionAdapter;
 
+struct RateLimiter {
+    capacity: u32,
+    tokens: std::sync::Mutex<(u32, std::time::Instant)>,
+}
+
+impl RateLimiter {
+    fn new(capacity: u32) -> Self {
+        Self {
+            capacity,
+            tokens: std::sync::Mutex::new((capacity, std::time::Instant::now())),
+        }
+    }
+
+    fn allow(&self) -> bool {
+        let mut guard = self.tokens.lock().unwrap();
+        let now = std::time::Instant::now();
+        let elapsed = now.duration_since(guard.1);
+        if elapsed.as_secs() >= 60 {
+            guard.0 = self.capacity;
+            guard.1 = now;
+        }
+        if guard.0 == 0 {
+            return false;
+        }
+        guard.0 -= 1;
+        true
+    }
+}
+
+lazy_static::lazy_static! {
+    static ref ADAPTER_LIMITER: RateLimiter = RateLimiter::new(10);
+}
+
 impl PerceptionAdapter {
     pub fn adapt(input: PerceptInput) {
+        if !ADAPTER_LIMITER.allow() {
+            println!("[PerceptionAdapter] rate limit exceeded");
+            return;
+        }
         match input.modality {
             Modality::Text => {
                 println!("[PerceptionAdapter] Text: {:?}", input.text);
@@ -42,7 +79,10 @@ impl PerceptionAdapter {
                 }
             }
             Modality::SymbolicConcept => {
-                println!("[PerceptionAdapter] Symbolic concept tags: {:?}", input.tags);
+                println!(
+                    "[PerceptionAdapter] Symbolic concept tags: {:?}",
+                    input.tags
+                );
             }
             _ => {
                 println!("[PerceptionAdapter] Input: {:?}", input);
@@ -65,5 +105,18 @@ mod tests {
             tags: vec![],
         };
         PerceptionAdapter::adapt(input);
+    }
+
+    #[test]
+    fn rate_limit() {
+        for _ in 0..12 {
+            PerceptionAdapter::adapt(PerceptInput {
+                modality: Modality::Text,
+                text: Some("x".into()),
+                embedding: None,
+                image_data: None,
+                tags: vec![],
+            });
+        }
     }
 }
