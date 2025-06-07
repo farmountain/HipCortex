@@ -49,6 +49,37 @@ fn test_find_by_actor_index() {
 }
 
 #[test]
+fn test_find_by_action_and_target() {
+    let path = "test_index2.jsonl";
+    let _ = fs::remove_file(path);
+    let mut store = MemoryStore::new(path).unwrap();
+    let r1 = MemoryRecord::new(
+        MemoryType::Symbolic,
+        "user1".into(),
+        "a".into(),
+        "b".into(),
+        serde_json::json!({}),
+    );
+    let r2 = MemoryRecord::new(
+        MemoryType::Symbolic,
+        "user2".into(),
+        "x".into(),
+        "y".into(),
+        serde_json::json!({}),
+    );
+    store.add(r1).unwrap();
+    store.add(r2).unwrap();
+    let by_action = store.find_by_action("x");
+    assert_eq!(by_action.len(), 1);
+    assert_eq!(by_action[0].actor, "user2");
+    let by_target = store.find_by_target("b");
+    assert_eq!(by_target.len(), 1);
+    assert_eq!(by_target[0].actor, "user1");
+    fs::remove_file(path).unwrap();
+}
+
+#[test]
+
 fn test_encrypted_memory_store() {
     let path = "test_memory_enc1.jsonl";
     let _ = fs::remove_file(path);
@@ -69,7 +100,9 @@ fn test_encrypted_memory_store() {
 
 #[test]
 fn test_snapshot_and_rollback() {
-    let path = "snap_memory.jsonl";
+
+    let path = "snap_memory_store.jsonl";
+
     let _ = fs::remove_file(path);
     let mut store = MemoryStore::new(path).unwrap();
     let rec = MemoryRecord::new(

@@ -36,10 +36,18 @@ impl VisionEncoder {
     pub async fn encode_image_gpu(bytes: &[u8]) -> Result<Vec<f32>> {
         use wgpu::util::DeviceExt;
         let instance = wgpu::Instance::default();
-        let adapter = instance
+
+        let adapter = match instance
             .request_adapter(&wgpu::RequestAdapterOptions::default())
             .await
-            .ok_or_else(|| anyhow::anyhow!("no adapter"))?;
+        {
+            Some(a) => a,
+            None => {
+                let img = image::load_from_memory(bytes)?;
+                return Ok(Self::encode_image(&img));
+            }
+        };
+
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor::default(), None)
             .await?;
@@ -123,7 +131,11 @@ impl VisionEncoder {
         queue.submit(Some(encoder.finish()));
         let buffer_slice = output.slice(..);
         let (tx, rx) = futures::channel::oneshot::channel();
-        buffer_slice.map_async(wgpu::MapMode::Read, move |v| tx.send(v).ok());
+
+        buffer_slice.map_async(wgpu::MapMode::Read, move |v| {
+            let _ = tx.send(v);
+        });
+
         device.poll(wgpu::Maintain::Wait);
         rx.await.unwrap()?;
         let data = buffer_slice.get_mapped_range();
