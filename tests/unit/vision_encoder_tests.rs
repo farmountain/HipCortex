@@ -1,5 +1,6 @@
 use hipcortex::vision_encoder::VisionEncoder;
 use image::{DynamicImage, ImageOutputFormat, RgbImage};
+use pollster;
 use std::io::Cursor;
 
 #[test]
@@ -36,4 +37,21 @@ fn parallel_encoding_matches() {
     let seq = VisionEncoder::encode_image(&dynimg);
     let par = VisionEncoder::encode_images_parallel(&[dynimg]);
     assert_eq!(par[0], seq);
+}
+
+#[cfg(feature = "gpu")]
+#[test]
+fn gpu_encoding_fallbacks() {
+    let img = RgbImage::from_pixel(2, 2, image::Rgb([10, 20, 30]));
+    let mut buf = Cursor::new(Vec::new());
+    DynamicImage::ImageRgb8(img.clone())
+        .write_to(&mut buf, ImageOutputFormat::Png)
+        .unwrap();
+    let bytes = buf.into_inner();
+    let gpu = pollster::block_on(VisionEncoder::encode_image_gpu(&bytes)).unwrap();
+    let cpu = VisionEncoder::encode_image(&DynamicImage::ImageRgb8(img));
+    assert_eq!(gpu.len(), 3);
+    for (a, b) in gpu.iter().zip(cpu.iter()) {
+        assert!((a - b).abs() < 1e-3);
+    }
 }

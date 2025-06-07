@@ -152,7 +152,8 @@ impl<B: MemoryBackend> MemoryStore<B> {
         }
     }
 
-    pub fn find_by_action(&self, action: &str) -> Vec<&MemoryRecord> {
+    pub fn snapshot<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
+        self.flush()?;
         if let Some(ids) = self.index_action.get(action) {
             ids.iter().filter_map(|&i| self.records.get(i)).collect()
         } else {

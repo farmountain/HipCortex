@@ -87,7 +87,7 @@ These components remain optional and are disabled by default to keep the core li
 HipCortex now includes optional AES-GCM encryption for memory files. `MemoryStore::new_encrypted` loads and writes encrypted JSONL where each record is protected with a per-entry nonce. `new_encrypted_envelope` adds envelope encryption by storing a per-file session key sealed with a master key. Each `MemoryRecord` carries a SHA-256 integrity hash which is verified when loading from disk.
 An append-only `audit.log` is written next to the memory file. Each entry is chained with a Merkle-style hash so tampering is detectable. `MemoryStore` also maintains a small write-ahead log for crash recovery, supports snapshot rollback with integrity checks, and batches writes for performance.
 `MemoryStore` can operate with asynchronous buffered writes when compiled with the `async-store` feature for high-throughput ingestion. The async variant mirrors the synchronous file backend with AES-GCM encryption, envelope keys, compression and crash-recovery WAL so large event streams can be ingested without blocking.
-
+`VisionEncoder` supports parallel batch encoding via Rayon and an optional GPU path built on `wgpu`. When no compatible device is detected, the GPU encoder gracefully falls back to the CPU implementation so tests and headless deployments still succeed.
 IndexMap based lookup tables accelerate queries by actor, action and target.
 
 `VisionEncoder` supports parallel batch encoding via Rayon and an optional GPU path built on `wgpu`.
