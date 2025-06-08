@@ -30,6 +30,7 @@ base64 = "0.21"
 zstd = "0.13"
 lazy_static = "1"
 lru = "0.12"
+sled = "0.34"
 futures = "0.3"
 bytemuck = "1"
 rocksdb = "0.21"
@@ -49,6 +50,7 @@ criterion = "0.5"
 assert_cmd = "2"
 predicates = "3"
 pollster = "0.3"
+tempfile = "3"
 
 [build-dependencies]
 tonic-build = { version = "0.9", optional = true }

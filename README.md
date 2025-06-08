@@ -25,6 +25,8 @@ and reasoning components.
 - **Procedural FSM Cache:** Regenerative memory driven by finite state logic for
   workflows and actions.
 - **Symbolic Store:** Graph-based concept store with semantic key/value pairs.
+  Backed by a pluggable `GraphDatabase` trait for in-memory or persistent graphs
+  (via the optional `SledGraph` backend).
 - **Perception Adapter:** Multimodal input handler (text, embeddings, agent
   messages, vision). Includes a simple VisionEncoder for image embeddings.
 - **Aureus Bridge:** Reflexion and reasoning hook for chain-of-thought engines.
