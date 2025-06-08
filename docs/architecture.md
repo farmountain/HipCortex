@@ -30,7 +30,8 @@ extended as your use case grows.
 2. **Temporal Indexer** – stores recent traces with decay logic for short or
    long‑term retention.
 3. **Symbolic Store** – maintains a graph of concepts and relationships via a
-   pluggable `GraphDatabase` backend.
+   pluggable `GraphDatabase` backend. Supports both in-memory graphs and the
+   persistent `SledGraph` implementation for durability.
 4. **Procedural Cache** – drives FSM-based workflows and regenerative actions.
 5. **Aureus Bridge** – plugs in reflexion or chain‑of‑thought reasoning loops.
 6. **Integration Layer** – exposes REST/gRPC endpoints and protocol adapters.
