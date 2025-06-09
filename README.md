@@ -71,6 +71,8 @@ cargo run         # Run the CLI demo
 cargo bench       # Run benchmarks
 ```
 
+If you encounter Codex container timeouts, run `scripts/codex_startup.sh` before heavy builds to prefetch dependencies and perform a quick `cargo check --all-features`.
+
 See examples/quickstart.rs for a minimal programmatic usage demo.
 Detailed data model and extended architecture diagrams are available in [docs/data_model.md](docs/data_model.md) and [docs/architecture.md](docs/architecture.md).
 

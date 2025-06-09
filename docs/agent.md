@@ -30,3 +30,9 @@ This repository is configured for use with the OpenAI Codex agent. The agent sho
 - When adding new modules, include accompanying tests in `tests/`.
 
 Following these steps will help the Codex agent produce consistent contributions to HipCortex.
+
+## Fast Startup in Codex
+
+The default Codex container may time out if it builds HipCortex in release mode during initialization.
+To avoid this, point the container's startup script to `scripts/codex_startup.sh`.
+The script fetches dependencies and runs `cargo check --all-features` for a lightweight compile step.
