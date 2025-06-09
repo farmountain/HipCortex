@@ -6,17 +6,14 @@ use aes_gcm::{
 use anyhow::Result;
 #[cfg(feature = "async-store")]
 use async_trait::async_trait;
-use base64::engine::general_purpose;
 use base64::Engine as _;
 use rand::RngCore;
-use std::io::{BufRead, BufReader, BufWriter, Write};
 #[cfg(feature = "async-store")]
 use tokio::fs::File as AsyncFile;
 #[cfg(feature = "async-store")]
 use tokio::io::{
     AsyncBufReadExt, AsyncWriteExt, BufReader as AsyncBufReader, BufWriter as AsyncBufWriter,
 };
-use zstd::stream::encode_all;
 
 pub trait MemoryBackend {
     fn load(&mut self) -> Result<Vec<MemoryRecord>>;
