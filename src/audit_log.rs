@@ -58,7 +58,12 @@ impl AuditLog {
         hasher.update(actor.as_bytes());
         hasher.update(action.as_bytes());
         hasher.update(outcome.as_bytes());
-        hasher.update(timestamp.timestamp_nanos().to_be_bytes());
+        hasher.update(
+            timestamp
+                .timestamp_nanos_opt()
+                .unwrap_or_default()
+                .to_be_bytes(),
+        );
         let hash = hex::encode(hasher.finalize());
         let entry = AuditEntry {
             timestamp,
@@ -98,7 +103,13 @@ impl AuditLog {
             hasher.update(entry.actor.as_bytes());
             hasher.update(entry.action.as_bytes());
             hasher.update(entry.outcome.as_bytes());
-            hasher.update(entry.timestamp.timestamp_nanos().to_be_bytes());
+            hasher.update(
+                entry
+                    .timestamp
+                    .timestamp_nanos_opt()
+                    .unwrap_or_default()
+                    .to_be_bytes(),
+            );
             let hash = hex::encode(hasher.finalize());
             if hash != entry.hash {
                 return Ok(false);

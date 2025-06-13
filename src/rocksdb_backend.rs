@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 pub struct RocksDbBackend {
     path: PathBuf,
-    db: DB,
+    db: Option<DB>,
 }
 
 impl RocksDbBackend {
@@ -15,12 +15,12 @@ impl RocksDbBackend {
         let db = DB::open(&opts, &path)?;
         Ok(Self {
             path: path.as_ref().to_path_buf(),
-            db,
+            db: Some(db),
         })
     }
 
     fn next_key(&self) -> Result<u64> {
-        if let Some(value) = self.db.get(b"__counter__")? {
+        if let Some(value) = self.db.as_ref().unwrap().get(b"__counter__")? {
             let s = std::str::from_utf8(&value)?;
             Ok(s.parse().unwrap_or(0))
         } else {
@@ -32,7 +32,8 @@ impl RocksDbBackend {
 impl crate::persistence::MemoryBackend for RocksDbBackend {
     fn load(&mut self) -> Result<Vec<MemoryRecord>> {
         let mut vec = Vec::new();
-        for (key, value) in self.db.iterator(IteratorMode::Start) {
+        for item in self.db.as_ref().unwrap().iterator(IteratorMode::Start) {
+            let (key, value) = item?;
             if key.as_ref() == b"__counter__" {
                 continue;
             }
@@ -46,22 +47,27 @@ impl crate::persistence::MemoryBackend for RocksDbBackend {
         let mut counter = self.next_key()?;
         let key = counter.to_le_bytes();
         let value = serde_json::to_vec(record)?;
-        self.db.put(key, value)?;
+        self.db.as_ref().unwrap().put(key, value)?;
         counter += 1;
-        self.db.put(b"__counter__", counter.to_string())?;
+        self.db
+            .as_ref()
+            .unwrap()
+            .put(b"__counter__", counter.to_string())?;
         Ok(())
     }
 
     fn flush(&mut self) -> Result<()> {
-        self.db.flush()?;
+        self.db.as_ref().unwrap().flush()?;
         Ok(())
     }
 
     fn clear(&mut self) -> Result<()> {
-        self.db.flush()?;
-        drop(std::mem::take(&mut self.db));
+        if let Some(mut db) = self.db.take() {
+            db.flush()?;
+            drop(db);
+        }
         DB::destroy(&Options::default(), &self.path)?;
-        self.db = DB::open_default(&self.path)?;
+        self.db = Some(DB::open_default(&self.path)?);
         Ok(())
     }
 }

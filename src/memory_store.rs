@@ -87,7 +87,28 @@ impl MemoryStore<FileBackend> {
         store.load()?;
         Ok(store)
     }
+}
 
+impl MemoryStore<RocksDbBackend> {
+    pub fn new_rocksdb<P: AsRef<Path>>(path: P, batch: usize) -> Result<Self> {
+        let backend = RocksDbBackend::new(&path)?;
+        let audit_path = path.as_ref().with_extension("audit.log");
+        let mut store = Self {
+            backend,
+            records: Vec::new(),
+            audit: AuditLog::new(&audit_path)?,
+            buffer: VecDeque::new(),
+            batch_size: batch,
+            index_actor: IndexMap::new(),
+            index_action: IndexMap::new(),
+            index_target: IndexMap::new(),
+        };
+        store.load()?;
+        Ok(store)
+    }
+}
+
+impl<B: MemoryBackend> MemoryStore<B> {
     fn load(&mut self) -> Result<()> {
         self.records = self.backend.load()?;
         self.index_actor.clear();
@@ -112,28 +133,7 @@ impl MemoryStore<FileBackend> {
         }
         Ok(())
     }
-}
 
-impl MemoryStore<RocksDbBackend> {
-    pub fn new_rocksdb<P: AsRef<Path>>(path: P, batch: usize) -> Result<Self> {
-        let backend = RocksDbBackend::new(&path)?;
-        let audit_path = path.as_ref().with_extension("audit.log");
-        let mut store = Self {
-            backend,
-            records: Vec::new(),
-            audit: AuditLog::new(&audit_path)?,
-            buffer: VecDeque::new(),
-            batch_size: batch,
-            index_actor: IndexMap::new(),
-            index_action: IndexMap::new(),
-            index_target: IndexMap::new(),
-        };
-        store.load()?;
-        Ok(store)
-    }
-}
-
-impl<B: MemoryBackend> MemoryStore<B> {
     pub fn add(&mut self, record: MemoryRecord) -> Result<()> {
         self.records.push(record.clone());
         self.buffer.push_back(record.clone());

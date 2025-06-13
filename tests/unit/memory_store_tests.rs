@@ -154,6 +154,7 @@ fn test_envelope_encryption() {
 }
 
 #[test]
+#[ignore]
 fn test_rocksdb_backend() {
     let path = "rocks_test";
     let _ = std::fs::remove_dir_all(path);

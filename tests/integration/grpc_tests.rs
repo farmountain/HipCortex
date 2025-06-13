@@ -1,13 +1,16 @@
 #[cfg(feature = "grpc-server")]
-use hipcortex::grpc_server::grpc::{memory_service_client::MemoryServiceClient, MemoryRecord as ProtoRecord, AddRecordRequest, ListRecordsRequest};
+use hipcortex::grpc_server::grpc::{
+    memory_service_client::MemoryServiceClient, AddRecordRequest, ListRecordsRequest,
+    MemoryRecord as ProtoRecord,
+};
 #[cfg(feature = "grpc-server")]
 use hipcortex::grpc_server::serve;
 #[cfg(feature = "grpc-server")]
 use hipcortex::memory_store::MemoryStore;
 #[cfg(feature = "grpc-server")]
-use tokio::time::{sleep, Duration};
-#[cfg(feature = "grpc-server")]
 use std::sync::{Arc, Mutex};
+#[cfg(feature = "grpc-server")]
+use tokio::time::{sleep, Duration};
 
 #[cfg(feature = "grpc-server")]
 #[tokio::test]
