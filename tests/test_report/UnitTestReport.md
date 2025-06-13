@@ -67,8 +67,10 @@ This report summarizes the unit tests implemented and passed for the HipCortex M
   Tests that the reflexion loop can be started.
 - **Multiple reflexion loops:**
   Ensures that calling the reflexion loop multiple times is safe.
- - **Loop counter reset:**
+- **Loop counter reset:**
    Verifies loop counting and reset functionality.
+- **Chain-of-thought prompt:**
+  Ensures enabling CoT prefixes the prompt and stores the result.
 
 ## 7. Reasoning trace store (in `reasoning_trace_store_tests.rs`)
 - **Store trace after perception:**

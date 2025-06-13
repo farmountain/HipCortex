@@ -6,6 +6,7 @@ This report summarizes the system integration tests validating interactions acro
 
 - **memory_round_trip:** inserts a symbolic node, stores it in temporal memory, adapts a perception input, and verifies retrieval.
 - **integration_and_reflexion:** initializes the IntegrationLayer and AureusBridge together without errors.
+- **integration_chain_of_thought:** verifies CoT prompts are stored when triggered via the IntegrationLayer.
 - **store_reasoning_trace_via_adapter_and_indexer:** validates storing a text percept as a temporal trace.
 - **query_symbol_via_indexer:** verifies querying nodes via label and property after retrieval from TemporalIndexer.
 

@@ -40,6 +40,21 @@ fn athena_reflexion_placeholder() {
 }
 
 #[test]
+fn athena_chain_of_thought_reasoning() {
+    use hipcortex::aureus_bridge::{AureusBridge, AureusConfig};
+    use hipcortex::llm_clients::mock::MockClient;
+    let path = "test_uat_cot.jsonl";
+    let _ = std::fs::remove_file(path);
+    let mut aureus = AureusBridge::with_client(Box::new(MockClient));
+    aureus.configure(AureusConfig { enable_cot: true });
+    let mut store = MemoryStore::new(path).unwrap();
+    store.clear();
+    aureus.reflexion_loop("ctx", &mut store);
+    assert!(store.all()[0].target.contains("Think step by step."));
+    std::fs::remove_file(path).ok();
+}
+
+#[test]
 fn user_store_reasoning_trace() {
     use hipcortex::perception_adapter::{Modality, PerceptInput, PerceptionAdapter};
 
