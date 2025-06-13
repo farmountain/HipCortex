@@ -109,3 +109,6 @@ Additional modules extend HipCortex further:
 - **Secure LLM Sandbox**: `sandbox::SecureLLMSandbox` renders templates with whitelisted variables before sending to LLMs.
 - **World Model Dashboard**: when the `web-server` feature is enabled, `dashboard::routes` exposes memory data for a lightweight web UI.
 - **gRPC Server**: enabling the `grpc-server` feature spins up a Tonic-based service for adding and listing memory records.
+- **Effort Evaluator & Confidence Regulator (planned)**: measure reasoning effort and confidence decay to avoid collapse.
+- **Hypothesis Manager (planned)**: maintain multiple reasoning branches and a quantized state tree for backtracking.
+- **Puzzle Benchmark Suite (planned)**: verifies complex planning algorithms to gauge collapse resilience.

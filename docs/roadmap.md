@@ -19,6 +19,10 @@
 - Real-time agentic CLI and Web UI
 - Expanded open-source LLM connectors (Llama, DeepSeek, etc.)
 - Local inference via Ollama or custom backends
+- EffortEvaluator & ConfidenceRegulator for collapse resistance metrics
+- HypothesisManager and quantized state tree for multi-path reasoning
+- Procedural backtracking and fallback logic
+- Puzzle benchmark harness for algorithmic planning tasks
 
 ## Roadmap Highlights
 - **Vision encoder**: Integrate image/embedding modules for visual reasoning.
@@ -26,6 +30,8 @@
 - **RAG/Notion export**: Connect to retrieval backends and Notion for knowledge sync.
 - **World model memory**: Store agent/environment state and simulate context.
 - **Real-time CLI/Web**: Manage, debug, and visualize agentic memory interactively.
+- **Collapse metrics**: EffortEvaluator and ConfidenceRegulator measure reasoning fatigue and collapse_score.
+- **Puzzle benchmark suite**: Validate complex planning tasks like Tower of Hanoi for regression testing.
 
 ---
 
