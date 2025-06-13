@@ -5,5 +5,7 @@ mod integration_tests;
 mod llm_integration_tests;
 mod reasoning_trace_sit_tests;
 mod system_integration_tests;
+mod world_model_cli_sit;
+mod world_model_uat;
 mod test_end_to_end;
 mod uat_tests;

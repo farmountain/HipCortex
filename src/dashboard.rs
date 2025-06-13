@@ -6,7 +6,7 @@ use crate::persistence::MemoryBackend;
 use axum::{routing::get, Json, Router};
 
 #[cfg(feature = "web-server")]
-pub fn routes<B: MemoryBackend + 'static>(
+pub fn routes<B: MemoryBackend + Send + 'static>(
     store: std::sync::Arc<std::sync::Mutex<MemoryStore<B>>>,
 ) -> Router {
     Router::new().route(
@@ -33,6 +33,6 @@ mod tests {
         let store = MemoryStore::new(path).unwrap();
         let arc = std::sync::Arc::new(std::sync::Mutex::new(store));
         let _app = routes(arc);
-        std::fs::remove_file(path).unwrap();
+        let _ = std::fs::remove_file(path);
     }
 }

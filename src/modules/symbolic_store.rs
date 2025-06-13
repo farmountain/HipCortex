@@ -31,6 +31,10 @@ pub trait GraphDatabase {
     fn find_by_label(&mut self, label: &str) -> Vec<SymbolicNode>;
     fn find_by_property(&self, key: &str, value: &str) -> Vec<SymbolicNode>;
     fn remove_node(&mut self, node_id: Uuid) -> bool;
+    /// Return all nodes in the graph.
+    fn all_nodes(&self) -> Vec<SymbolicNode>;
+    /// Return all edges in the graph.
+    fn all_edges(&self) -> Vec<SymbolicEdge>;
 }
 
 /// Simple in-memory graph backend with an LRU cache for label lookups.
@@ -133,6 +137,14 @@ impl GraphDatabase for InMemoryGraph {
             self.edges.retain(|e| e.from != node_id && e.to != node_id);
         }
         existed
+    }
+
+    fn all_nodes(&self) -> Vec<SymbolicNode> {
+        self.nodes.values().cloned().collect()
+    }
+
+    fn all_edges(&self) -> Vec<SymbolicEdge> {
+        self.edges.iter().cloned().collect()
     }
 }
 
@@ -258,6 +270,22 @@ impl GraphDatabase for SledGraph {
         }
         existed
     }
+
+    fn all_nodes(&self) -> Vec<SymbolicNode> {
+        self.nodes
+            .iter()
+            .filter_map(|res| res.ok())
+            .filter_map(|(_, v)| serde_json::from_slice::<SymbolicNode>(&v).ok())
+            .collect()
+    }
+
+    fn all_edges(&self) -> Vec<SymbolicEdge> {
+        self.edges
+            .iter()
+            .filter_map(|res| res.ok())
+            .filter_map(|(_, v)| serde_json::from_slice::<SymbolicEdge>(&v).ok())
+            .collect()
+    }
 }
 
 /// High level store that delegates operations to a chosen backend.
@@ -322,6 +350,14 @@ impl<B: GraphDatabase> SymbolicStore<B> {
 
     pub fn backend_mut(&mut self) -> &mut B {
         &mut self.backend
+    }
+
+    /// Export the entire graph as lists of nodes and edges.
+    pub fn export_graph(&self) -> (Vec<SymbolicNode>, Vec<SymbolicEdge>) {
+        (
+            self.backend.all_nodes(),
+            self.backend.all_edges(),
+        )
     }
 }
 
