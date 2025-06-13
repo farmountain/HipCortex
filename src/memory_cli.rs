@@ -50,6 +50,11 @@ enum Commands {
     Restore { tag: String },
     /// Send a prompt to OpenAI and store reflexion
     Prompt { prompt: String },
+    /// Export symbolic world model as JSON
+    Graph {
+        #[arg(long, default_value = "graph.db")]
+        db: String,
+    },
 }
 
 pub fn run() -> Result<()> {
@@ -124,6 +129,13 @@ pub fn run() -> Result<()> {
             );
             store.add(record)?;
             println!("{}", response);
+        }
+        Commands::Graph { db } => {
+            use crate::symbolic_store::{SledGraph, SymbolicStore};
+            let backend = SledGraph::open(db)?;
+            let store = SymbolicStore::from_backend(backend);
+            let graph = store.export_graph();
+            println!("{}", serde_json::to_string(&graph)?);
         }
     }
     Ok(())
