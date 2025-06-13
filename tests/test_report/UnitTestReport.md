@@ -37,6 +37,8 @@ This report summarizes the unit tests implemented and passed for the HipCortex M
   Confirms that adding nodes with the same label creates unique nodes.
 - **Edges from query:**
   Tests retrieving outgoing edges for a node.
+- **Query by label and property:**
+  Verifies retrieving nodes via label and property filters.
 
 ## 4. PerceptionAdapter (in `perception_adapter_tests.rs`)
 - **Adapt text input:**

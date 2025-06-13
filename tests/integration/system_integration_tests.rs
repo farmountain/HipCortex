@@ -46,3 +46,27 @@ fn integration_and_reflexion() {
     store.clear();
     aureus.reflexion_loop("ctx", &mut store);
 }
+
+#[test]
+fn query_symbol_via_indexer() {
+    let mut store = SymbolicStore::new();
+    let mut indexer = TemporalIndexer::new(2, 3600);
+    let mut props = HashMap::new();
+    props.insert("kind".to_string(), "planet".to_string());
+    let node_id = store.add_node("Mars", props.clone());
+    let trace = TemporalTrace {
+        id: Uuid::new_v4(),
+        timestamp: SystemTime::now(),
+        data: node_id,
+        relevance: 1.0,
+        decay_factor: 1.0,
+        last_access: SystemTime::now(),
+    };
+    indexer.insert(trace);
+    let recent = indexer.get_recent(1)[0].data;
+    let node = store.get_node(recent).unwrap();
+    assert_eq!(node.label, "Mars");
+    let by_prop = store.find_by_property("kind", "planet");
+    assert_eq!(by_prop.len(), 1);
+    assert_eq!(by_prop[0].id, node_id);
+}
