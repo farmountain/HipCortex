@@ -15,6 +15,7 @@ pub mod gui;
 pub mod integration_layer;
 pub mod llm_clients;
 pub mod memory;
+pub mod conversation_memory;
 pub mod memory_cli;
 pub mod memory_diff;
 pub mod memory_processor;
