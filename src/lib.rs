@@ -39,6 +39,7 @@ pub mod snapshot_manager;
 pub mod symbolic_store;
 #[path = "modules/temporal_indexer.rs"]
 pub mod temporal_indexer;
+pub mod retrieval_pipeline;
 #[cfg(feature = "async-store")]
 pub use persistence::{AsyncFileBackend, AsyncMemoryBackend};
 #[cfg(feature = "grpc-server")]
