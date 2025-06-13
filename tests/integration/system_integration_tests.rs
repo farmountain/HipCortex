@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::time::SystemTime;
 use uuid::Uuid;
 
-use hipcortex::aureus_bridge::AureusBridge;
+use hipcortex::aureus_bridge::{AureusBridge, AureusConfig};
+use hipcortex::llm_clients::mock::MockClient;
 use hipcortex::integration_layer::IntegrationLayer;
 use hipcortex::memory_store::MemoryStore;
 use hipcortex::perception_adapter::{Modality, PerceptInput, PerceptionAdapter};
@@ -45,6 +46,23 @@ fn integration_and_reflexion() {
     let mut store = MemoryStore::new("test_sys_mem.jsonl").unwrap();
     store.clear();
     aureus.reflexion_loop("ctx", &mut store);
+}
+
+#[test]
+fn integration_chain_of_thought() {
+    let path = "test_sit_cot.jsonl";
+    let _ = std::fs::remove_file(path);
+    let mut layer = IntegrationLayer::new();
+    layer.connect();
+    let mut aureus = AureusBridge::with_client(Box::new(MockClient));
+    aureus.configure(AureusConfig { enable_cot: true });
+    let mut store = MemoryStore::new(path).unwrap();
+    store.clear();
+    layer.trigger_reflexion(&mut aureus, "ctx", &mut store);
+    let recs = store.all();
+    assert_eq!(recs.len(), 1);
+    assert!(recs[0].target.contains("Think step by step."));
+    std::fs::remove_file(path).ok();
 }
 
 #[test]
