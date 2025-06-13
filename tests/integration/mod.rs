@@ -11,3 +11,5 @@ mod conversation_memory_sit;
 mod conversation_memory_uat;
 mod test_end_to_end;
 mod uat_tests;
+mod retrieval_pipeline_sit;
+mod retrieval_pipeline_uat;
