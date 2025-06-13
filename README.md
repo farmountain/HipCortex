@@ -34,7 +34,7 @@ and reasoning components.
 - **Fully Test-Driven:** Extensive unit tests and Criterion benchmarks.
 - **Optional Web Server:** compile with `--features web-server` for an Axum REST API.
 - **Optional GUI:** compile with `--features gui` to launch a Tauri desktop client.
-- **RocksDB Backend:** use `MemoryStore::new_rocksdb` for an embedded key-value database.
+- **RocksDB Backend:** compile with `--features rocksdb-backend` and use `MemoryStore::new_rocksdb` for an embedded key-value database.
 - **Effort Evaluator & Confidence Regulator (planned):** track reasoning fatigue and decay to prevent collapse.
 - **Hypothesis Manager (planned):** maintain multiple reasoning paths and a quantized state tree for backtracking.
 - **Puzzle Benchmark Suite (planned):** validates complex planning algorithms like Tower of Hanoi and 8-puzzle.

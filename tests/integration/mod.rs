@@ -3,6 +3,7 @@ mod cli_tests;
 mod grpc_tests;
 mod integration_tests;
 mod llm_integration_tests;
+mod reasoning_trace_sit_tests;
 mod system_integration_tests;
 mod test_end_to_end;
 mod uat_tests;
