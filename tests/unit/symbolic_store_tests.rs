@@ -80,3 +80,17 @@ fn edges_from_query() {
     let edges = store.edges_from(a, Some("rel"));
     assert_eq!(edges.len(), 2);
 }
+
+#[test]
+fn query_by_label_and_property() {
+    let mut store = SymbolicStore::new();
+    let mut props = HashMap::new();
+    props.insert("category".to_string(), "tool".to_string());
+    let node_id = store.add_node("Hammer", props.clone());
+    let by_label = store.find_by_label("Hammer");
+    assert_eq!(by_label.len(), 1);
+    assert_eq!(by_label[0].id, node_id);
+    let by_prop = store.find_by_property("category", "tool");
+    assert_eq!(by_prop.len(), 1);
+    assert_eq!(by_prop[0].id, node_id);
+}

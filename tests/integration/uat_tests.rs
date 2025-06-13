@@ -67,3 +67,14 @@ fn user_store_reasoning_trace() {
     let last_trace = indexer.get_recent(1)[0];
     assert_eq!(last_trace.data, "UAT reasoning");
 }
+
+#[test]
+fn user_query_city_by_label() {
+    let mut store = SymbolicStore::new();
+    let mut props = HashMap::new();
+    props.insert("type".to_string(), "city".to_string());
+    store.add_node("London", props.clone());
+    let results = store.find_by_label("London");
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].properties.get("type").unwrap(), "city");
+}
