@@ -153,6 +153,7 @@ fn test_envelope_encryption() {
     fs::remove_file("test_memory_env.sk").unwrap();
 }
 
+#[cfg(feature = "rocksdb-backend")]
 #[test]
 #[ignore]
 fn test_rocksdb_backend() {

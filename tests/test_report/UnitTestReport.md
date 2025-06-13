@@ -65,8 +65,12 @@ This report summarizes the unit tests implemented and passed for the HipCortex M
   Tests that the reflexion loop can be started.
 - **Multiple reflexion loops:**
   Ensures that calling the reflexion loop multiple times is safe.
-- **Loop counter reset:**
-  Verifies loop counting and reset functionality.
+ - **Loop counter reset:**
+   Verifies loop counting and reset functionality.
+
+## 7. Reasoning trace store (in `reasoning_trace_store_tests.rs`)
+- **Store trace after perception:**
+  Confirms that adapting a percept and inserting it into the TemporalIndexer retains the trace.
 
 ---
 

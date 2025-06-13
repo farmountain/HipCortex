@@ -6,6 +6,7 @@ use std::path::Path;
 use crate::audit_log::AuditLog;
 use crate::memory_record::MemoryRecord;
 use crate::persistence::{FileBackend, MemoryBackend};
+#[cfg(feature = "rocksdb-backend")]
 use crate::rocksdb_backend::RocksDbBackend;
 use anyhow::Result;
 
@@ -89,6 +90,7 @@ impl MemoryStore<FileBackend> {
     }
 }
 
+#[cfg(feature = "rocksdb-backend")]
 impl MemoryStore<RocksDbBackend> {
     pub fn new_rocksdb<P: AsRef<Path>>(path: P, batch: usize) -> Result<Self> {
         let backend = RocksDbBackend::new(&path)?;

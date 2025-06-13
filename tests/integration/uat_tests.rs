@@ -38,3 +38,32 @@ fn athena_reflexion_placeholder() {
     store.clear();
     aureus.reflexion_loop("ctx", &mut store);
 }
+
+#[test]
+fn user_store_reasoning_trace() {
+    use hipcortex::perception_adapter::{Modality, PerceptInput, PerceptionAdapter};
+
+    let mut indexer = TemporalIndexer::new(4, 3600);
+
+    let input = PerceptInput {
+        modality: Modality::Text,
+        text: Some("UAT reasoning".to_string()),
+        embedding: None,
+        image_data: None,
+        tags: vec!["uat".into()],
+    };
+    PerceptionAdapter::adapt(input.clone());
+
+    let trace = TemporalTrace {
+        id: Uuid::new_v4(),
+        timestamp: SystemTime::now(),
+        data: input.text.unwrap(),
+        relevance: 1.0,
+        decay_factor: 0.5,
+        last_access: SystemTime::now(),
+    };
+    indexer.insert(trace);
+
+    let last_trace = indexer.get_recent(1)[0];
+    assert_eq!(last_trace.data, "UAT reasoning");
+}
