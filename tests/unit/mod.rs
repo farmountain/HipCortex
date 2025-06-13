@@ -15,3 +15,4 @@ mod retrieval_pipeline_tests;
 mod vision_encoder_tests;
 mod world_model_export_tests;
 mod conversation_memory_tests;
+mod edge_workflow_small;

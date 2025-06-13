@@ -13,3 +13,5 @@ mod test_end_to_end;
 mod uat_tests;
 mod retrieval_pipeline_sit;
 mod retrieval_pipeline_uat;
+mod edge_workflow_sit;
+mod edge_workflow_uat;
