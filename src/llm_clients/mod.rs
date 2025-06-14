@@ -3,6 +3,7 @@ pub trait LLMClient: Send + Sync {
 }
 
 pub mod claude;
+pub mod llama;
 pub mod mock;
 pub mod ollama;
 pub mod openai;

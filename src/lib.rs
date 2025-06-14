@@ -10,8 +10,12 @@ pub mod aureus_bridge;
 pub mod conversation_memory;
 #[cfg(feature = "web-server")]
 pub mod dashboard;
+#[path = "modules/effort.rs"]
+pub mod effort;
 #[cfg(feature = "gui")]
 pub mod gui;
+#[path = "modules/hypothesis_manager.rs"]
+pub mod hypothesis_manager;
 #[path = "modules/integration_layer.rs"]
 pub mod integration_layer;
 pub mod knowledge_export;
@@ -29,6 +33,8 @@ pub mod persistence;
 pub mod plugin_host;
 #[path = "modules/procedural_cache.rs"]
 pub mod procedural_cache;
+#[path = "modules/puzzle.rs"]
+pub mod puzzle;
 pub mod rag_adapter;
 pub mod retrieval_pipeline;
 #[cfg(feature = "rocksdb-backend")]
@@ -42,6 +48,8 @@ pub mod snapshot_manager;
 pub mod symbolic_store;
 #[path = "modules/temporal_indexer.rs"]
 pub mod temporal_indexer;
+#[path = "modules/world_model.rs"]
+pub mod world_model;
 #[cfg(feature = "async-store")]
 pub use persistence::{AsyncFileBackend, AsyncMemoryBackend};
 #[cfg(feature = "grpc-server")]
