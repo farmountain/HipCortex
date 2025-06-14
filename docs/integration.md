@@ -22,8 +22,9 @@ This document describes how to integrate HipCortex with agent frameworks, APIs, 
   This provides a basic `MemoryService` for adding and listing memory records.
 
 ### Agent Protocols (Planned)
-- OpenManus and MCP: Protocol stubs ready; bridge implementation in IntegrationLayer and AureusBridge.
-- Accept agent messages via PerceptionAdapter, return actions/results via IntegrationLayer.
+- **OpenManus** and **MCP** adapters will translate their native message formats into the internal `PerceptInput` structure. A small protocol bridge will live in `IntegrationLayer` so agents can talk to HipCortex directly over these protocols.
+- Agent messages flow **into** the engine through `PerceptionAdapter` which normalizes text, embeddings or structured agent events.
+- `IntegrationLayer` then exposes the results back over the same channel (or via REST/gRPC) so the calling agent receives the action or trace response.
 
 ### Chain-of-Thought & Reflexion
 - AureusBridge connects to agentic/LLM reasoning modules.
