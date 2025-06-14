@@ -21,12 +21,16 @@ HipCortex enables persistent memory and reasoning for bots and edge automation. 
 HipCortex is built from modular building blocks so you can mix and match memory
 and reasoning components.
 
-- **Temporal Indexer:** Short/long-term buffer with decay and LRU pruning.
+- **AuditLog:** Hash-chained entries provide tamper-evident persistence for all
+  memory writes.
+- **Temporal Indexer:** Segmented ring buffer with per-trace decay factors and
+  LRU pruning for short/long-term memory.
 - **Procedural FSM Cache:** Regenerative memory driven by finite state logic for
-  workflows and actions.
+  workflows and actions. Supports batch advancement of traces.
 - **Symbolic Store:** Graph-based concept store with semantic key/value pairs.
-  Backed by a pluggable `GraphDatabase` trait for in-memory or persistent graphs
-  (via the optional `SledGraph` backend).
+  Caches recent label lookups with an LRU cache. Backed by a pluggable
+  `GraphDatabase` trait for in-memory or persistent graphs (via the optional
+  `SledGraph` backend).
 - **Perception Adapter:** Multimodal input handler (text, embeddings, agent
   messages, vision). Includes a simple VisionEncoder for image embeddings.
 - **Aureus Bridge:** Reflexion and reasoning hook for chain-of-thought engines.
