@@ -9,5 +9,7 @@ These tests validate end user workflows using the memory engine.
 - **athena_chain_of_thought_reasoning:** validates CoT reflexion results are persisted for user review.
 - **user_store_reasoning_trace:** captures a user message and persists it in temporal memory.
 - **user_query_city_by_label:** ensures cities can be retrieved by label for end-user exploration.
+- **web_server_graph_endpoint:** confirms the REST API returns the symbolic
+  graph for user inspection when the web server is enabled.
 
 All user acceptance tests pass, demonstrating typical user scenarios complete successfully.
