@@ -53,9 +53,9 @@ let mut bridge = AureusBridge::with_client(Box::new(openai));
 The CLI uses `OPENAI_API_KEY` automatically for the `prompt` command. Other
 connectors can be configured similarly in your application.
 
-### RAG & Notion/PDF Export (Planned)
-- SymbolicStore and ProceduralCache can be connected to Retrieval-Augmented Generation (RAG) backends.
-- Exporters for Notion/PDF will be implemented for memory tracing and reporting.
+### RAG & Notion/PDF Export
+- `rag_adapter` provides local and HTTP retrieval adapters.
+- `knowledge_export` includes `NotionExporter` and `PdfExporter` for memory tracing and reporting.
 
 ### Real-Time CLI/Web (Planned)
 - CLI and web server interface planned for live agentic memory debugging and management.

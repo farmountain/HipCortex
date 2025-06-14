@@ -83,7 +83,8 @@ cargo bench       # Run benchmarks
 
 If you encounter Codex container timeouts, run `scripts/codex_startup.sh` before heavy builds to prefetch dependencies and perform a quick `cargo check --all-features`.
 
-See examples/quickstart.rs for a minimal programmatic usage demo.
+See `examples/quickstart.rs` for a minimal programmatic usage demo.
+The new `examples/rag_export.rs` shows retrieving content via the RAG adapter and exporting it to PDF.
 For WebAssembly extension, see `examples/plugin_host.rs` and run:
 `cargo run --example plugin_host --features plugin`.
 Detailed data model and extended architecture diagrams are available in [docs/data_model.md](docs/data_model.md) and [docs/architecture.md](docs/architecture.md).
@@ -97,7 +98,7 @@ HipCortex can serve a variety of scenarios:
 - **Edge Workflow Execution:** run on resource-constrained hardware thanks to Rust's performance and small footprint.
 - **Multimodal learning or smart glasses:** use the PerceptionAdapter to capture images and text.
 - **Real-Time Automation:** expose REST/gRPC APIs and upcoming CLI/web dashboards via the IntegrationLayer.
-- **Knowledge Export:** connect to Notion, PDF, or other backends for long-term persistence (planned).
+- **Knowledge Export:** use `rag_adapter` with `PdfExporter` or `NotionExporter` for long-term persistence.
 
 ## 👥 Key User Roles
 - **AI Agent** – stores traces and retrieves context.

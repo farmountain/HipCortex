@@ -78,6 +78,11 @@ This report summarizes the unit tests implemented and passed for the HipCortex M
 - **PerceptionAdapter compression:**
   Verifies `PerceptionAdapter::adapt` returns a compressed embedding when given raw image data.
 
+## 8. RAG and Export Modules (in `rag_adapter_tests.rs` and `knowledge_export_tests.rs`)
+- **local_rag_retrieve_match:** validates the local adapter returns matching labels.
+- **pdf_export_creates_file:** ensures PDF export writes output successfully.
+- **notion_export_sends_request:** verifies an HTTP request is sent when exporting to Notion.
+
 ---
 
 **Result:**  

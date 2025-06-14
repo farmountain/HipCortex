@@ -38,6 +38,7 @@ wasmtime = { version = "8", optional = true }
 wat = { version = "1", optional = true }
 mustache = "0.9"
 indexmap = "1"
+printpdf = "0.3"
 rayon = { version = "1", optional = true }
 async-trait = { version = "0.1", optional = true }
 wgpu = { version = "0.16", optional = true }
@@ -51,6 +52,7 @@ assert_cmd = "2"
 predicates = "3"
 pollster = "0.3"
 tempfile = "3"
+mockito = "1"
 
 [build-dependencies]
 tonic-build = { version = "0.9", optional = true }
