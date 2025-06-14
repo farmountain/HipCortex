@@ -30,4 +30,4 @@ The project is written in Rust to ensure performance and safety, with optional w
 1. **Store reasoning trace** – capture input via the PerceptionAdapter and persist it with the TemporalIndexer and SymbolicStore.
 2. **Query symbols** – explore the graph-based SymbolicStore for concepts and relationships.
 3. **Update state** – manage FSM transitions or Reflexion loops with the ProceduralCache and AureusBridge.
-4. **Visualize world model** – planned CLI or web dashboards will show stored state and reasoning traces.
+4. **Visualize world model** – real-time CLI and web dashboards show stored state and reasoning traces.

@@ -13,10 +13,12 @@
 
 ## In Progress / Planned
 - Semantic cache/compression
+- Local inference via Ollama or custom backends
+
+## Completed Enhancements
 - Persistent world model memory
 - Real-time agentic CLI and Web UI
 - Expanded open-source LLM connectors (Llama, DeepSeek, etc.)
-- Local inference via Ollama or custom backends
 - EffortEvaluator & ConfidenceRegulator for collapse resistance metrics
 - HypothesisManager and quantized state tree for multi-path reasoning
 - Procedural backtracking and fallback logic

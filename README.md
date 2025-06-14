@@ -42,9 +42,9 @@ and reasoning components.
 - **Optional GUI:** compile with `--features gui` to launch a Tauri desktop client.
 - **RocksDB Backend:** compile with `--features rocksdb-backend` and use `MemoryStore::new_rocksdb` for an embedded key-value database.
 - **WASM Plugin Host:** compile with `--features plugin` to run custom WebAssembly extensions via `PluginHost`.
-- **Effort Evaluator & Confidence Regulator (planned):** track reasoning fatigue and decay to prevent collapse.
-- **Hypothesis Manager (planned):** maintain multiple reasoning paths and a quantized state tree for backtracking.
-- **Puzzle Benchmark Suite (planned):** validates complex planning algorithms like Tower of Hanoi and 8-puzzle.
+- **Effort Evaluator & Confidence Regulator:** monitor reasoning effort and confidence to avoid collapse.
+- **Hypothesis Manager:** maintain multiple reasoning paths and a quantized state tree for backtracking.
+- **Puzzle Benchmark Suite:** validates complex planning algorithms like Tower of Hanoi and 8-puzzle.
 
 ---
 
@@ -84,6 +84,7 @@ cargo bench       # Run benchmarks
 If you encounter Codex container timeouts, run `scripts/codex_startup.sh` before heavy builds to prefetch dependencies and perform a quick `cargo check --all-features`.
 
 See `examples/quickstart.rs` for a minimal programmatic usage demo.
+`examples/world_model_example.rs` demonstrates the persistent world model API.
 The new `examples/rag_export.rs` shows retrieving content via the RAG adapter and exporting it to PDF.
 For WebAssembly extension, see `examples/plugin_host.rs` and run:
 `cargo run --example plugin_host --features plugin`.
@@ -110,7 +111,7 @@ HipCortex can serve a variety of scenarios:
 1. **Store reasoning trace** through the PerceptionAdapter and TemporalIndexer.
 2. **Query symbols** from the SymbolicStore.
 3. **Update state** via the ProceduralCache or AureusBridge.
-4. **Visualize world model** using upcoming CLI or web dashboards.
+4. **Visualize world model** using real-time CLI and web dashboards.
 ## 🧪 Test & Automation
 - **Run all tests:**  
   `cargo test`

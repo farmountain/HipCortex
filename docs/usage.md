@@ -92,4 +92,4 @@ use hipcortex::temporal_indexer::TemporalIndexer;
 * For architecture and design, see `docs/architecture.md`.
 * For integration/API details, see `docs/integration.md`.
 * To contribute, see `docs/contributing.md`.
-* For roadmap and planned modules, see `docs/roadmap.md`.
+* For the roadmap and additional modules, see `docs/roadmap.md`.

@@ -57,8 +57,8 @@ connectors can be configured similarly in your application.
 - `rag_adapter` provides local and HTTP retrieval adapters.
 - `knowledge_export` includes `NotionExporter` and `PdfExporter` for memory tracing and reporting.
 
-### Real-Time CLI/Web (Planned)
-- CLI and web server interface planned for live agentic memory debugging and management.
+### Real-Time CLI/Web
+- CLI and web server interfaces provide live agentic memory debugging and management.
 
 ---
 
