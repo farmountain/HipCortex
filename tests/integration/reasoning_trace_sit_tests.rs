@@ -13,7 +13,8 @@ fn store_reasoning_trace_via_adapter_and_indexer() {
         image_data: None,
         tags: vec!["sit".into()],
     };
-    PerceptionAdapter::adapt(input.clone());
+    let out = PerceptionAdapter::adapt(input.clone());
+    assert!(out.is_none());
     let trace = TemporalTrace {
         id: Uuid::new_v4(),
         timestamp: SystemTime::now(),

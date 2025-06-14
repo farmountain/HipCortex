@@ -37,7 +37,8 @@ fn smart_glasses_capture_and_retrieve() {
         image_data: Some(bytes),
         tags: vec!["glasses".into()],
     };
-    PerceptionAdapter::adapt(input);
+    let out = PerceptionAdapter::adapt(input).unwrap();
+    assert!(out.len() <= 4);
 
     let nodes = recent_symbols(&store, &indexer, 1);
     assert_eq!(nodes[0].label, "View");

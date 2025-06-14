@@ -45,6 +45,8 @@ Use the `VisionEncoder` to convert an image into a simple RGB embedding:
 ```rust
 use hipcortex::vision_encoder::VisionEncoder;
 let embedding = VisionEncoder::encode_path("image.png")?;
+// Compress to 4 dimensions
+let compressed = hipcortex::semantic_compression::compress_embedding(&embedding, 4);
 ```
 
 The output will show insertions, FSM transitions, symbolic graph operations, and perception adapter traces.

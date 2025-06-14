@@ -11,5 +11,6 @@ These tests validate end user workflows using the memory engine.
 - **user_query_city_by_label:** ensures cities can be retrieved by label for end-user exploration.
 - **web_server_graph_endpoint:** confirms the REST API returns the symbolic
   graph for user inspection when the web server is enabled.
+- **store_compressed_embedding:** user stores a compressed embedding as metadata in the memory store.
 
 All user acceptance tests pass, demonstrating typical user scenarios complete successfully.

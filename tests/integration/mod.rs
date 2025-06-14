@@ -15,6 +15,8 @@ mod reasoning_trace_sit_tests;
 mod retrieval_pipeline_sit;
 mod retrieval_pipeline_uat;
 mod smart_glasses_sit;
+mod semantic_compression_sit;
+mod semantic_compression_uat;
 mod system_integration_tests;
 mod test_end_to_end;
 mod uat_tests;

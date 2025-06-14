@@ -75,6 +75,8 @@ This report summarizes the unit tests implemented and passed for the HipCortex M
 ## 7. Reasoning trace store (in `reasoning_trace_store_tests.rs`)
 - **Store trace after perception:**
   Confirms that adapting a percept and inserting it into the TemporalIndexer retains the trace.
+- **PerceptionAdapter compression:**
+  Verifies `PerceptionAdapter::adapt` returns a compressed embedding when given raw image data.
 
 ---
 

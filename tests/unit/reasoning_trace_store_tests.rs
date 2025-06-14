@@ -13,7 +13,8 @@ fn store_trace_after_perception() {
         image_data: None,
         tags: vec!["unit".to_string()],
     };
-    PerceptionAdapter::adapt(input.clone());
+    let out = PerceptionAdapter::adapt(input.clone());
+    assert!(out.is_none());
     let trace = TemporalTrace {
         id: Uuid::new_v4(),
         timestamp: SystemTime::now(),

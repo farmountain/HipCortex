@@ -13,5 +13,6 @@ This report summarizes the system integration tests validating interactions acro
   symbolic graph when running with the `web-server` feature.
 - **store_reasoning_trace_via_adapter_and_indexer:** validates storing a text percept as a temporal trace.
 - **query_symbol_via_indexer:** verifies querying nodes via label and property after retrieval from TemporalIndexer.
+- **vision_compress_round_trip:** encodes an image and compresses the embedding using the semantic compression module.
 
 All system integration tests pass, confirming basic cross-module functionality.
