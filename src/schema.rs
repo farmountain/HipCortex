@@ -1,5 +1,5 @@
 // @generated automatically by Diesel CLI.
-use diesel::{allow_tables_to_appear_in_same_query, joinable, table};
+use diesel::{allow_tables_to_appear_in_same_query, table};
 
 table! {
     symbolic_nodes (id) {

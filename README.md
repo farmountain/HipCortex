@@ -108,10 +108,12 @@ HipCortex can serve a variety of scenarios:
 - **Run benchmarks:**  
   `cargo bench`
 
-- **Test suite:**  
+- **Test suite:**
   - Unit and integration tests: `/tests/integration_tests.rs`
   - Property-based/fuzz tests: integrated using [proptest](https://docs.rs/proptest)
   - Add new test files to `/tests/` as needed
+  - Additional examples cover multimodal smart-glasses and humanoid robotics perception traces
+  - Recent perception tests: `multimodal_perception_tests.rs`, `smart_glasses_sit.rs`, `humanoid_perception_uat.rs`
 
 - **CI/CD Ready:**  
   You can use GitHub Actions or any CI provider—add `.github/workflows/ci.yml` (see Rust starter templates) to run on every PR or push.

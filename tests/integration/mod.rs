@@ -15,3 +15,5 @@ mod retrieval_pipeline_sit;
 mod retrieval_pipeline_uat;
 mod edge_workflow_sit;
 mod edge_workflow_uat;
+mod smart_glasses_sit;
+mod humanoid_perception_uat;
