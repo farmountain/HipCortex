@@ -49,6 +49,16 @@ let embedding = VisionEncoder::encode_path("image.png")?;
 
 The output will show insertions, FSM transitions, symbolic graph operations, and perception adapter traces.
 
+### Run a WASM plugin
+
+Compile with the `plugin` feature to enable the `PluginHost` and execute WebAssembly extensions:
+
+```sh
+cargo run --example plugin_host --features plugin
+```
+
+This runs `examples/plugin_host.rs` which loads a tiny WAT module and prints the returned value.
+
 ## 5. VS Code Setup
 
 * Open project root in VS Code.
