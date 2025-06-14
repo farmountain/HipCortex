@@ -13,8 +13,6 @@
 
 ## In Progress / Planned
 - Semantic cache/compression
-- RAG (retrieval-augmented generation) adapters
-- Notion/PDF/CLI export
 - Persistent world model memory
 - Real-time agentic CLI and Web UI
 - Expanded open-source LLM connectors (Llama, DeepSeek, etc.)
@@ -27,7 +25,7 @@
 ## Roadmap Highlights
 - **Vision encoder**: Integrate image/embedding modules for visual reasoning.
 - **Semantic compression**: Memory-efficient summary/compression for long-term storage.
-- **RAG/Notion export**: Connect to retrieval backends and Notion for knowledge sync.
+- **RAG/Notion export**: Retrieval adapters and Notion/PDF exporters implemented.
 - **World model memory**: Store agent/environment state and simulate context.
 - **Real-time CLI/Web**: Manage, debug, and visualize agentic memory interactively.
 - **Collapse metrics**: EffortEvaluator and ConfidenceRegulator measure reasoning fatigue and collapse_score.

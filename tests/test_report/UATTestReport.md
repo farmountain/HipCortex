@@ -12,5 +12,6 @@ These tests validate end user workflows using the memory engine.
 - **web_server_graph_endpoint:** confirms the REST API returns the symbolic
   graph for user inspection when the web server is enabled.
 - **store_compressed_embedding:** user stores a compressed embedding as metadata in the memory store.
+- **user_export_to_notion:** retrieves recent content and exports it to Notion.
 
 All user acceptance tests pass, demonstrating typical user scenarios complete successfully.
