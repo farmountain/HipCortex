@@ -33,6 +33,25 @@ This document describes how to integrate HipCortex with agent frameworks, APIs, 
 ### LLM Connectors
 - Basic clients exist for OpenAI, Claude, and Ollama.
 - Planned support for additional open-source models and local inference.
+- Expose prompt-based reflexion by creating a client and passing it to
+  `AureusBridge`:
+
+```rust
+use hipcortex::aureus_bridge::AureusBridge;
+use hipcortex::llm_clients::{openai::OpenAIClient, claude::ClaudeClient, ollama::OllamaClient};
+
+// Choose a client. Environment variables can store credentials.
+let openai = OpenAIClient::new(std::env::var("OPENAI_API_KEY")?, "gpt-3.5-turbo");
+let claude = ClaudeClient::new(std::env::var("CLAUDE_API_KEY")?, "claude-3-sonnet");
+let ollama = OllamaClient::new(std::env::var("OLLAMA_URL")?, "llama3");
+
+// Attach to AureusBridge for reflexion loops
+let mut bridge = AureusBridge::with_client(Box::new(openai));
+// bridge.set_client(Box::new(claude)); // swap if desired
+```
+
+The CLI uses `OPENAI_API_KEY` automatically for the `prompt` command. Other
+connectors can be configured similarly in your application.
 
 ### RAG & Notion/PDF Export (Planned)
 - SymbolicStore and ProceduralCache can be connected to Retrieval-Augmented Generation (RAG) backends.
