@@ -103,7 +103,7 @@ The new `MemoryBackend` trait enables pluggable persistence layers. A RocksDB-ba
 
 Additional modules extend HipCortex further:
 
-- **Semantic Compression**: `semantic_compression::compress_embedding` reduces embedding dimensionality for cost efficiency.
+- **Semantic Compression**: `semantic_compression::compress_embedding` reduces embedding dimensionality for cost efficiency and is used by `PerceptionAdapter` when handling embeddings.
 - **Memory Diff**: `memory_diff::diff_snapshots` compares snapshot files to visualize evolution over time.
 - **A2A Protocol**: simple peer clients implement `A2AClient` to exchange procedural traces.
 - **Secure LLM Sandbox**: `sandbox::SecureLLMSandbox` renders templates with whitelisted variables before sending to LLMs.

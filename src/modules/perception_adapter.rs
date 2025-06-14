@@ -18,6 +18,8 @@ pub struct PerceptInput {
 
 pub struct PerceptionAdapter;
 
+const COMPRESS_DIM: usize = 4;
+
 struct RateLimiter {
     capacity: u32,
     tokens: std::sync::Mutex<(u32, std::time::Instant)>,
@@ -52,30 +54,42 @@ lazy_static::lazy_static! {
 }
 
 impl PerceptionAdapter {
-    pub fn adapt(input: PerceptInput) {
+    pub fn adapt(input: PerceptInput) -> Option<Vec<f32>> {
         if !ADAPTER_LIMITER.allow() {
             println!("[PerceptionAdapter] rate limit exceeded");
-            return;
+            return None;
         }
         match input.modality {
             Modality::Text => {
                 println!("[PerceptionAdapter] Text: {:?}", input.text);
+                None
             }
             Modality::ImageEmbedding => {
-                println!("[PerceptionAdapter] Embedding: {:?}", input.embedding);
+                if let Some(embed) = input.embedding {
+                    let comp = crate::semantic_compression::compress_embedding(&embed, COMPRESS_DIM);
+                    println!("[PerceptionAdapter] Embedding: {:?}", comp);
+                    Some(comp)
+                } else {
+                    println!("[PerceptionAdapter] Embedding: None");
+                    None
+                }
             }
             Modality::Image => {
                 if let Some(bytes) = input.image_data {
                     match crate::vision_encoder::VisionEncoder::encode_bytes(&bytes) {
                         Ok(emb) => {
-                            println!("[PerceptionAdapter] Image embedding: {:?}", emb);
+                            let comp = crate::semantic_compression::compress_embedding(&emb, COMPRESS_DIM);
+                            println!("[PerceptionAdapter] Image embedding: {:?}", comp);
+                            Some(comp)
                         }
                         Err(e) => {
                             println!("[PerceptionAdapter] Image encoding error: {}", e);
+                            None
                         }
                     }
                 } else {
                     println!("[PerceptionAdapter] No image data");
+                    None
                 }
             }
             Modality::SymbolicConcept => {
@@ -83,9 +97,11 @@ impl PerceptionAdapter {
                     "[PerceptionAdapter] Symbolic concept tags: {:?}",
                     input.tags
                 );
+                None
             }
             _ => {
                 println!("[PerceptionAdapter] Input: {:?}", input);
+                None
             }
         }
     }

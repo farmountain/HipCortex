@@ -9,7 +9,8 @@ fn adapt_text_input() {
         image_data: None,
         tags: vec!["tag1".to_string()],
     };
-    PerceptionAdapter::adapt(input);
+    let out = PerceptionAdapter::adapt(input);
+    assert!(out.is_none());
 }
 
 #[test]
@@ -21,7 +22,8 @@ fn adapt_embedding_input() {
         image_data: None,
         tags: vec![],
     };
-    PerceptionAdapter::adapt(input);
+    let out = PerceptionAdapter::adapt(input);
+    assert!(out.is_some());
 }
 
 #[test]
@@ -33,7 +35,8 @@ fn adapt_invalid_input() {
         image_data: None,
         tags: vec![],
     };
-    PerceptionAdapter::adapt(input);
+    let out = PerceptionAdapter::adapt(input);
+    assert!(out.is_none());
 }
 
 #[test]
@@ -45,7 +48,8 @@ fn adapt_image_input() {
         image_data: Some(vec![1, 2, 3]),
         tags: vec!["img".to_string()],
     };
-    PerceptionAdapter::adapt(input);
+    let out = PerceptionAdapter::adapt(input);
+    assert!(out.is_none());
 }
 
 #[test]
@@ -57,5 +61,6 @@ fn adapt_symbolic_concept() {
         image_data: None,
         tags: vec!["concept".to_string()],
     };
-    PerceptionAdapter::adapt(input);
+    let out = PerceptionAdapter::adapt(input);
+    assert!(out.is_none());
 }

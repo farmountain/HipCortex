@@ -33,6 +33,8 @@ and reasoning components.
   `SledGraph` backend).
 - **Perception Adapter:** Multimodal input handler (text, embeddings, agent
   messages, vision). Includes a simple VisionEncoder for image embeddings.
+- **Semantic Compression:** Reduce embedding dimensionality with
+  `semantic_compression::compress_embedding` for efficient storage.
 - **Aureus Bridge:** Reflexion and reasoning hook for chain-of-thought engines.
 - **Integration Layer:** REST/gRPC and protocol stubs (OpenManus, MCP).
 - **Fully Test-Driven:** Extensive unit tests and Criterion benchmarks.

@@ -1,6 +1,7 @@
-// This file contained markdown and non-Rust content. All non-Rust content is commented out or removed.
-// For a minimal working example, see main.rs or the README.
+use hipcortex::semantic_compression::compress_embedding;
 
-// (If you want a real Rust quickstart example, add valid Rust code here.)
-
-fn main() {}
+fn main() {
+    let embedding: Vec<f32> = (0..16).map(|v| v as f32).collect();
+    let compressed = compress_embedding(&embedding, 4);
+    println!("compressed embedding: {:?}", compressed);
+}

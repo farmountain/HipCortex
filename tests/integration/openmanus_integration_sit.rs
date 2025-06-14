@@ -16,7 +16,8 @@ fn openmanus_message_through_adapter_and_layer() {
         image_data: None,
         tags: vec!["sit".into()],
     };
-    PerceptionAdapter::adapt(input);
+    let out = PerceptionAdapter::adapt(input);
+    assert!(out.is_none());
 
     let mut layer = IntegrationLayer::new();
     layer.connect();
