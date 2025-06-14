@@ -35,6 +35,7 @@ and reasoning components.
 - **Optional Web Server:** compile with `--features web-server` for an Axum REST API.
 - **Optional GUI:** compile with `--features gui` to launch a Tauri desktop client.
 - **RocksDB Backend:** compile with `--features rocksdb-backend` and use `MemoryStore::new_rocksdb` for an embedded key-value database.
+- **WASM Plugin Host:** compile with `--features plugin` to run custom WebAssembly extensions via `PluginHost`.
 - **Effort Evaluator & Confidence Regulator (planned):** track reasoning fatigue and decay to prevent collapse.
 - **Hypothesis Manager (planned):** maintain multiple reasoning paths and a quantized state tree for backtracking.
 - **Puzzle Benchmark Suite (planned):** validates complex planning algorithms like Tower of Hanoi and 8-puzzle.
@@ -77,6 +78,8 @@ cargo bench       # Run benchmarks
 If you encounter Codex container timeouts, run `scripts/codex_startup.sh` before heavy builds to prefetch dependencies and perform a quick `cargo check --all-features`.
 
 See examples/quickstart.rs for a minimal programmatic usage demo.
+For WebAssembly extension, see `examples/plugin_host.rs` and run:
+`cargo run --example plugin_host --features plugin`.
 Detailed data model and extended architecture diagrams are available in [docs/data_model.md](docs/data_model.md) and [docs/architecture.md](docs/architecture.md).
 
 ## 🛠️ Use Cases
