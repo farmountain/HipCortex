@@ -44,6 +44,7 @@ and reasoning components.
 - **WASM Plugin Host:** compile with `--features plugin` to run custom WebAssembly extensions via `PluginHost`.
 - **Effort Evaluator & Confidence Regulator:** monitor reasoning effort and confidence to avoid collapse.
 - **Hypothesis Manager:** maintain multiple reasoning paths and a quantized state tree for backtracking.
+- **Enhancement Advisor:** analyze module metrics and recommend improvements for human review.
 - **Puzzle Benchmark Suite:** validates complex planning algorithms like Tower of Hanoi and 8-puzzle.
 
 ---

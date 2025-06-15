@@ -12,6 +12,8 @@ pub mod conversation_memory;
 pub mod dashboard;
 #[path = "modules/effort.rs"]
 pub mod effort;
+#[path = "modules/enhancement_advisor.rs"]
+pub mod enhancement_advisor;
 #[cfg(feature = "gui")]
 pub mod gui;
 #[path = "modules/hypothesis_manager.rs"]
