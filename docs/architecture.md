@@ -111,4 +111,29 @@ Additional modules extend HipCortex further:
 - **gRPC Server**: enabling the `grpc-server` feature spins up a Tonic-based service for adding and listing memory records.
  - **Effort Evaluator & Confidence Regulator**: measure reasoning effort and confidence decay to avoid collapse.
  - **Hypothesis Manager**: maintain multiple reasoning branches and a quantized state tree for backtracking.
- - **Puzzle Benchmark Suite**: verifies complex planning algorithms to gauge collapse resilience.
+- **Puzzle Benchmark Suite**: verifies complex planning algorithms to gauge collapse resilience.
+
+## Value Stream Data Collection
+
+Each module gathers metrics to validate behavior and ensure consistency:
+
+| Component | Critical Data | Mathematical Foundation |
+|-----------|---------------|-------------------------|
+| PerceptionAdapter | Input embeddings, vision outputs | Signal processing, PCA/ICA |
+| TemporalIndexer | Timestamps, actor/action tuples | Markov chains |
+| SymbolicStore | Graph nodes and edge counts | Graph theory, centrality |
+| ProceduralCache | FSM transitions, execution counts | Automata theory |
+| AureusBridge | Reasoning steps and convergence stats | Bayesian inference |
+| IntegrationLayer | API latency, error rates | Queuing theory |
+| AuditLog | Event logs and anomaly flags | Log likelihood estimation |
+| HypothesisManager | Hypothesis counts and scores | Hypothesis testing |
+| Dashboard/GUI | Real-time graphs | Visualization algorithms |
+| SemanticCompression | Compression ratio | Information theory |
+| MemoryDiff | Snapshot differences | Diff algorithms |
+
+## Mathematical Foundations
+
+HipCortex relies on well-defined models. Temporal buffers use sequence modeling,
+symbolic graphs apply clustering coefficients, and FSM caches compute transition
+matrices. Stats collectors calculate moving averages and standard deviation for
+each module so anomalies can be detected early.

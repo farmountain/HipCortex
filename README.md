@@ -137,6 +137,43 @@ HipCortex can serve a variety of scenarios:
   - Ensure all modules have coverage before merge
   - Add benchmarks for any new algorithm or data structure
 
+## 🏆 Project Success Criteria
+
+HipCortex aims to remain stable and extensible as the ecosystem grows. The core
+success criteria include:
+
+- **Technical Architecture** – all modules compile cleanly and interoperate as
+  described in the architecture diagram.
+- **Data Integrity & Consistency** – no reasoning traces or symbolic graphs are
+  lost or corrupted across sessions.
+- **Scalability & Performance** – memory usage and runtime must support edge
+  constraints while scaling horizontally on servers.
+- **Extensibility** – pluggable perception encoders, symbolic stores and caches
+  should be swappable without modifying core logic.
+- **Observability & Debugging** – real-time logging and dashboards provide a
+  clear view of every state transition.
+- **Math & Statistical Soundness** – temporal indexes, concept graphs and FSM
+  transitions follow well-defined models validated by tests or simulation.
+- **Integration with LLMs** – connectors and protocols handle context without
+  hallucination drift.
+- **Documentation & Community** – README, architecture docs and examples remain
+  up to date for contributors.
+
+## 📊 Critical Data & Math Foundation
+
+Each value stream collects metrics that align with solid statistical models.
+Examples include:
+
+- *PerceptionAdapter* – input token entropy and PCA/ICA statistics.
+- *TemporalIndexer* – trace lifetimes modeled with Markov chains.
+- *SymbolicStore* – graph degree variance and clustering coefficients.
+- *ProceduralCache* – FSM state transition matrices and ergodicity checks.
+- *AureusBridge* – Bayesian inference metrics for reasoning loops.
+- *IntegrationLayer* – API latency and queuing statistics.
+
+See [docs/architecture.md](docs/architecture.md) for the complete mapping of
+value stream activities to data collection targets and mathematical foundations.
+
 ## \ud83d\udccb Roadmap
 
 The [roadmap document](docs/roadmap.md) lists completed modules and upcoming work.
