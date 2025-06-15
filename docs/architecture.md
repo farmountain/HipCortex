@@ -111,6 +111,7 @@ Additional modules extend HipCortex further:
 - **gRPC Server**: enabling the `grpc-server` feature spins up a Tonic-based service for adding and listing memory records.
  - **Effort Evaluator & Confidence Regulator**: measure reasoning effort and confidence decay to avoid collapse.
  - **Hypothesis Manager**: maintain multiple reasoning branches and a quantized state tree for backtracking.
+- **Enhancement Advisor**: evaluate module metrics and suggest improvements for human operators.
 - **Puzzle Benchmark Suite**: verifies complex planning algorithms to gauge collapse resilience.
 
 ## Value Stream Data Collection
@@ -130,6 +131,7 @@ Each module gathers metrics to validate behavior and ensure consistency:
 | Dashboard/GUI | Real-time graphs | Visualization algorithms |
 | SemanticCompression | Compression ratio | Information theory |
 | MemoryDiff | Snapshot differences | Diff algorithms |
+| EnhancementAdvisor | Optimization hints | Heuristic analysis |
 
 ## Mathematical Foundations
 

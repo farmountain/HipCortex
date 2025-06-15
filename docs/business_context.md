@@ -31,3 +31,4 @@ The project is written in Rust to ensure performance and safety, with optional w
 2. **Query symbols** – explore the graph-based SymbolicStore for concepts and relationships.
 3. **Update state** – manage FSM transitions or Reflexion loops with the ProceduralCache and AureusBridge.
 4. **Visualize world model** – real-time CLI and web dashboards show stored state and reasoning traces.
+5. **Review suggestions** – the Enhancement Advisor analyzes metrics from every component and recommends improvements that users can approve.
