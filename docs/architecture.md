@@ -139,3 +139,17 @@ HipCortex relies on well-defined models. Temporal buffers use sequence modeling,
 symbolic graphs apply clustering coefficients, and FSM caches compute transition
 matrices. Stats collectors calculate moving averages and standard deviation for
 each module so anomalies can be detected early.
+
+## Memory Design Guarantees
+
+HipCortex now exposes a unified memory model backed by mathematics, logic and symbolic reasoning.
+Each component records a verifiable chain of thought:
+
+- **PerceptionAdapter** decorrelates inputs with PCA and verifies schema rules.
+- **TemporalIndexer** uses Markov assumptions to maintain causal order.
+- **SymbolicStore** stores typed predicates in a connected graph.
+- **ProceduralCache** executes FSM transitions validated against rewrite rules.
+- **AureusBridge** prunes inconsistent hypotheses via Bayesian updates.
+- **AuditLog** hashes every action for tamper evidence.
+
+These guarantees are described in [docs/memory_design.md](memory_design.md).

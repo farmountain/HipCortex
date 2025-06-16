@@ -10,6 +10,8 @@ is difficult to reason over time or across modalities.
 ## 🎯 Mission
 HipCortex aims to provide a memory engine that blends symbolic reasoning,
 temporal relevance, procedural logic and perception in one modular package.
+**HipCortex Memory: Math, Logic, Symbolic Guarantees** – reasoning steps follow proven models with logic checks. See [docs/memory_design.md](docs/memory_design.md).
+
 
 ## 📘 Business Context
 HipCortex enables persistent memory and reasoning for bots and edge automation. It can operate as a lightweight library, a REST microservice or a desktop app. See [docs/business_context.md](docs/business_context.md) for details.
@@ -37,6 +39,7 @@ and reasoning components.
   `semantic_compression::compress_embedding` for efficient storage.
 - **Aureus Bridge:** Reflexion and reasoning hook for chain-of-thought engines.
 - **Integration Layer:** REST/gRPC and protocol stubs (OpenManus, MCP).
+- **Math & Logic Guarantees:** memory operations validated with formal proofs and symbolic checks.
 - **Fully Test-Driven:** Extensive unit tests and Criterion benchmarks.
 - **Optional Web Server:** compile with `--features web-server` for an Axum REST API.
 - **Optional GUI:** compile with `--features gui` to launch a Tauri desktop client.
@@ -93,7 +96,6 @@ Detailed data model and extended architecture diagrams are available in [docs/da
 
 ## 🛠️ Use Cases
 
-HipCortex can serve a variety of scenarios:
 
 - **Agentic AI via OpenManus:** manage conversation context and reasoning traces for single or multi-agent systems.
 - **AUREUS Reflexion loops:** integrate chain-of-thought feedback for deeper reasoning.
@@ -173,6 +175,7 @@ Examples include:
 - *IntegrationLayer* – API latency and queuing statistics.
 
 See [docs/architecture.md](docs/architecture.md) for the complete mapping of
+| docs/memory_design.md | Math, logic and symbolic reasoning extension |
 value stream activities to data collection targets and mathematical foundations.
 
 ## \ud83d\udccb Roadmap
@@ -189,6 +192,7 @@ real-time CLI/web tools, and expanded LLM connectors.
 | README.md            | Project overview, structure, TDD, quickstart, roadmap |
 | src/lib.rs           | Library entry (export modules)                        |
 | docs/architecture.md | System design, extensibility, diagram                 |
+| docs/memory_design.md | Math, logic and symbolic reasoning extension |
 | docs/business_context.md | Business requirements and use cases |
 | docs/data_model.md | MemoryRecord schema and API notes |
 | docs/usage.md        | Build, test, bench, example, import                   |

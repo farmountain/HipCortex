@@ -1,3 +1,5 @@
+/// Chain-of-Thought: input -> symbol parse -> PCA -> compressed vector
+
 #[derive(Debug, Clone)]
 pub enum Modality {
     Text,
@@ -66,7 +68,8 @@ impl PerceptionAdapter {
             }
             Modality::ImageEmbedding => {
                 if let Some(embed) = input.embedding {
-                    let comp = crate::semantic_compression::compress_embedding(&embed, COMPRESS_DIM);
+                    let comp =
+                        crate::semantic_compression::compress_embedding(&embed, COMPRESS_DIM);
                     println!("[PerceptionAdapter] Embedding: {:?}", comp);
                     Some(comp)
                 } else {
@@ -78,7 +81,8 @@ impl PerceptionAdapter {
                 if let Some(bytes) = input.image_data {
                     match crate::vision_encoder::VisionEncoder::encode_bytes(&bytes) {
                         Ok(emb) => {
-                            let comp = crate::semantic_compression::compress_embedding(&emb, COMPRESS_DIM);
+                            let comp =
+                                crate::semantic_compression::compress_embedding(&emb, COMPRESS_DIM);
                             println!("[PerceptionAdapter] Image embedding: {:?}", comp);
                             Some(comp)
                         }

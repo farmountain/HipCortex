@@ -1,3 +1,4 @@
+/// Chain-of-Thought: insert node -> link edges -> query predicates
 use lru::LruCache;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -354,10 +355,7 @@ impl<B: GraphDatabase> SymbolicStore<B> {
 
     /// Export the entire graph as lists of nodes and edges.
     pub fn export_graph(&self) -> (Vec<SymbolicNode>, Vec<SymbolicEdge>) {
-        (
-            self.backend.all_nodes(),
-            self.backend.all_edges(),
-        )
+        (self.backend.all_nodes(), self.backend.all_edges())
     }
 }
 
