@@ -38,27 +38,93 @@ Here’s a step-by-step plan for you (as an external tester) to validate HipCort
 
 ## 3. CLI Demo & Core Modules
 
-1. **Launch the built-in CLI demo**
+Usage: cli.exe add --actor <ACTOR> --action <ACTION> --target <TARGET>
 
-   ```bash
-   cargo run
-   ```
+---
 
-   * You should see a simple REPL that logs a sample “reasoning trace” via the PerceptionAdapter → TemporalIndexer → SymbolicStore ([github.com][1]).
+         ## 1. Using `cargo run`
+         
+         From your project root:
+         
+         ```powershell
+         cargo run -- add --actor "tester" --action "remember" --target "The Eiffel Tower is in Paris"
+         ```
+         
+         * `--actor`  : who is performing the action (you can put anything, e.g. `"tester"`)
+         * `--action` : the verb, e.g. `"remember"`
+         * `--target` : the fact or data to store, e.g. `"The Eiffel Tower is in Paris"`
+         
+         The `--` after `cargo run` tells Cargo “everything that follows is for the binary, not for Cargo itself.”
+         
+         You should see something like:
+         
+         ```
+         ✔️ Added memory record: tester – remember – “The Eiffel Tower is in Paris”
+         ```
+         
+         ---
+         
+         ## 2. Directly invoking the built executable
+         
+         If you’ve already built it once (`cargo build`), you can call the `.exe` directly:
+         
+         ```powershell
+         .\target\debug\cli.exe add --actor tester --action remember --target "The Eiffel Tower is in Paris"
+         ```
+         
+         ---
+         
+         ## 3. Verify it stored correctly
+         
+         Once it returns successfully, peek at your default store (`memory.jsonl`):
+         
+         ```powershell
+         Get-Content .\memory.jsonl | Select-Object -Last 3
+         ```
+         
+         You should see a JSON line with your new record.
+         
+         ---
+         
+         ## 4. Next steps
+         
+         Now that `add` works, you can exercise the other commands:
+         
+         * **Query**:
+         
+           ```powershell
+           cargo run -- query --q "Eiffel Tower"
+           ```
+         * **Snapshot / Restore**:
+         
+           ```powershell
+           cargo run -- snapshot --output snap.jsonl
+           cargo run -- add --actor tester --action temp --target "dummy"
+           cargo run -- restore --input snap.jsonl
+           ```
+         * **Prompt** (reflexion):
+         
+           ```powershell
+           cargo run -- prompt --text "Why is the Eiffel Tower famous?"
+           ```
+         * **Graph export**:
+         
+           ```powershell
+           cargo run -- graph --output world.json
+           ```
+         
+         Each of those subcommands has its own `--help` you can inspect:
+         
+         ```powershell
+         cargo run -- query --help
+         cargo run -- prompt --help
+         cargo run -- graph --help
+         ```
+         
+         ---
+         
+         With that, you’ll be able to continue through your manual tests for Hanoi, multi-agent scenarios, etc., using the correct flag-based syntax.
 
-2. **Exercise key commands**:
-
-   * **Store a new fact**
-
-     ```text
-     > remember “The Eiffel Tower is in Paris”
-     ```
-   * **Query symbols**
-
-     ```text
-     > lookup “Eiffel Tower”
-     ```
-   * **Advance a procedural workflow** (e.g., Tower of Hanoi example)
 
 
 ######################################### Others Tests ######################################################
