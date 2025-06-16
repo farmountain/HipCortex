@@ -7,3 +7,4 @@ Cargo.lock
 src/grpc
 *.audit.log
 
+*.exe

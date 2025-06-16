@@ -121,7 +121,7 @@ pub fn run() -> Result<()> {
             SnapshotManager::save(&cli.store, &tag)?;
         }
         Commands::Restore { tag } => {
-            let archive = PathBuf::from(format!("{}.tar.gz", tag));
+            let archive = PathBuf::from(&cli.store).with_extension(format!("{}.tar.gz", tag));
             SnapshotManager::load(&archive, Path::new("."))?;
         }
         Commands::Prompt { prompt } => {
