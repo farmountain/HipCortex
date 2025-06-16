@@ -162,3 +162,120 @@ By following these steps—from cloning through CLI, examples, REST/gRPC, GUI, a
 Feel free to adapt or extend these manual tests as new features land.
 
 [1]: https://github.com/farmountain/HipCortex "GitHub - farmountain/HipCortex: LLM AI Memory system"
+
+
+
+Here are some **advanced use-case tests** you can tack onto the end of your manual test plan:
+
+---
+
+## 11. Advanced Use-Case Testing
+
+### 11.1 Multi-Agent Orchestration Simulation
+
+* **Goal**: Validate HipCortex’s memory & reasoning under a chain of collaborating agents (e.g., OpenManus + HipCortex).
+* **Steps**:
+
+  1. Spin up two processes: one running HipCortex’s REST API (`--port 8080`), another emulating a simple “agent” that calls `POST /memory/trace` → receives retrieved context → acts → writes back a new trace.
+  2. Write a shell script or tiny Python loop that alternates these calls for 50 iterations, passing each agent’s trace as the next input.
+  3. After completion, inspect the TemporalIndexer and HypothesisManager logs to ensure:
+
+     * No context drift (each agent picks up the right latest context).
+     * HypothesisManager maintains a bounded set of active threads.
+
+### 11.2 Chain-of-Thought Consistency & Contradiction Detection
+
+* **Goal**: Stress-test the symbolic contradiction detection on long CoT sequences.
+* **Steps**:
+
+  1. Craft a scripted sequence of facts with a built-in contradiction (e.g., “A is taller than B”, later “B is taller than A”).
+  2. Feed these via the CLI:
+
+     ```text
+     > remember "A is taller than B"
+     > remember "B is taller than A"
+     ```
+  3. Expect the system to:
+
+     * Flag a conflict in the AuditLog.
+     * Auto-resolve or prompt (based on config) via the HypothesisManager.
+
+### 11.3 Semantic Compression & Retrieval Latency Benchmark
+
+* **Goal**: Measure impact of semantic compression on retrieval speed/accuracy.
+* **Steps**:
+
+  1. Generate 10,000 synthetic “reasoning traces” using the `quickstart` example in a loop.
+  2. Run two retrievals of a semantically similar query—one with compression enabled, one disabled:
+
+     ```bash
+     RUST_LOG=debug cargo run --example quickstart -- --compress on
+     RUST_LOG=debug cargo run --example quickstart -- --compress off
+     ```
+  3. Compare wall-clock times and inspect similarity scores in logs.
+
+### 11.4 Long-Term Memory Recall & Decay Testing
+
+* **Goal**: Ensure temporal decay rules correctly expire old memories.
+* **Steps**:
+
+  1. Insert a fact with an artificially back-dated timestamp (use direct DB write or modify in-memory trace timestamp).
+  2. Trigger a retrieval query and confirm that, once past the decay threshold (e.g., 30 days), the fact is no longer returned by TemporalIndexer.
+
+### 11.5 Real-World “Travel Itinerary” RAG Workflow
+
+* **Goal**: Validate the RAG export & multi-modal pipeline in a realistic scenario.
+* **Steps**:
+
+  1. Run the `rag_export` example with a prompt like:
+
+     ```bash
+     cargo run --example rag_export -- \
+       --prompt "Plan a 3-day Singapore itinerary for a foodie" \
+       --output plan.pdf
+     ```
+  2. Inspect the PDF/Notion export for:
+
+     * Correct embedded location images.
+     * Consistency between retrieved travel facts and generated itinerary steps.
+
+### 11.6 WASM Plugin Hot-Swap under Load
+
+* **Goal**: Ensure plugin isolation and safe hot-reload.
+* **Steps**:
+
+  1. Launch the `plugin_host` example and point it at a “monitoring” WASM plugin.
+  2. In rapid succession (100+ times), swap out the `.wasm` binary on disk and invoke the plugin API.
+  3. Confirm no host crashes, and that each version of the plugin responds according to its own embedded logic.
+
+### 11.7 gRPC Streaming & Back-Pressure Handling
+
+* **Goal**: Test gRPC stream memory trace ingestion under high throughput.
+* **Steps**:
+
+  1. Use a gRPC client to open a `StreamTraces` bi-directional call.
+  2. In a tight loop, send >1,000 `StoreTrace` messages and intersperse `QuerySymbols` calls.
+  3. Watch for client/server errors, buffer overflows, or unexpected delays; verify HipCortex logs back-pressure warnings when queue thresholds are hit.
+
+### 11.8 GUI Stress Test
+
+* **Goal**: Push the Tauri client UI with large graph visualizations.
+* **Steps**:
+
+  1. Load a JSON dump of 5,000 symbolic nodes (from `tests/large_graph.json`) via the GUI’s import feature.
+  2. Interact with pan/zoom and node-click handlers.
+  3. Confirm UI remains responsive and doesn’t leak memory (monitor via devtools).
+
+---
+
+With these advanced scenarios you’ll cover:
+
+* **Multi-agent chaining** and context hand-offs
+* **Formal logic** & conflict resolution
+* **Performance & scalability** of compression, decay, and streaming
+* **Realistic RAG** and multimodal workflows
+* **Plugin robustness** under hot-swap and load
+* **UI resilience** with large-scale graphs
+
+Feel free to adapt thresholds or iterate on scripts—these tests will help you uncover edge-case bugs before rolling HipCortex into production.
+
