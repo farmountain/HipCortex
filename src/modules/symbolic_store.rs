@@ -151,7 +151,7 @@ impl GraphDatabase for InMemoryGraph {
 
 /// Persistent graph backend backed by a `sled` key-value store.
 pub struct SledGraph {
-    db: sled::Db,
+    _db: sled::Db,
     nodes: sled::Tree,
     edges: sled::Tree,
 }
@@ -162,7 +162,11 @@ impl SledGraph {
         let db = sled::open(path)?;
         let nodes = db.open_tree("nodes")?;
         let edges = db.open_tree("edges")?;
-        Ok(Self { db, nodes, edges })
+        Ok(Self {
+            _db: db,
+            nodes,
+            edges,
+        })
     }
 
     fn edge_key(from: Uuid, relation: &str, to: Uuid) -> Vec<u8> {

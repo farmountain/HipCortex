@@ -37,6 +37,8 @@ enum Commands {
         r#type: Option<MemoryType>,
         #[arg(long)]
         actor: Option<String>,
+        #[arg(short = 'q', long = "query")]
+        query: Option<String>,
         #[arg(long)]
         since: Option<DateTime<Utc>>,
         #[arg(long)]
@@ -81,6 +83,7 @@ pub fn run() -> Result<()> {
         Commands::Query {
             r#type,
             actor,
+            query,
             since,
             page,
             page_size,
@@ -94,6 +97,12 @@ pub fn run() -> Result<()> {
             }
             if let Some(a) = actor {
                 data = MemoryQuery::by_actor(&data, &a)
+                    .into_iter()
+                    .cloned()
+                    .collect();
+            }
+            if let Some(q) = query {
+                data = MemoryQuery::search(&data, &q)
                     .into_iter()
                     .cloned()
                     .collect();

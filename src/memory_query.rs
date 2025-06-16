@@ -21,6 +21,19 @@ impl MemoryQuery {
         records.iter().filter(|r| r.target == target).collect()
     }
 
+    /// Perform a case-insensitive substring search across actor, action and target fields.
+    pub fn search<'a>(records: &'a [MemoryRecord], query: &str) -> Vec<&'a MemoryRecord> {
+        let q = query.to_lowercase();
+        records
+            .iter()
+            .filter(|r| {
+                r.actor.to_lowercase().contains(&q)
+                    || r.action.to_lowercase().contains(&q)
+                    || r.target.to_lowercase().contains(&q)
+            })
+            .collect()
+    }
+
     pub fn since<'a>(records: &'a [MemoryRecord], ts: DateTime<Utc>) -> Vec<&'a MemoryRecord> {
         records.iter().filter(|r| r.timestamp >= ts).collect()
     }

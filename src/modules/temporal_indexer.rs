@@ -14,7 +14,7 @@ pub struct TemporalTrace<T> {
 
 pub struct TemporalIndexer<T> {
     buffer: SegmentedRingBuffer<TemporalTrace<T>>,
-    capacity: usize,
+    _capacity: usize,
     decay_half_life: Duration,
 }
 
@@ -22,7 +22,7 @@ impl<T> TemporalIndexer<T> {
     pub fn new(capacity: usize, decay_half_life_secs: u64) -> Self {
         Self {
             buffer: SegmentedRingBuffer::new(capacity, 64),
-            capacity,
+            _capacity: capacity,
             decay_half_life: Duration::from_secs(decay_half_life_secs),
         }
     }
