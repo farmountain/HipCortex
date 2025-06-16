@@ -1,3 +1,4 @@
+/// Chain-of-Thought: add root -> branch hypotheses -> backtrack
 use std::collections::HashMap;
 
 /// Maintains a quantized tree of hypothesis states for backtracking.

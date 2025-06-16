@@ -1,3 +1,4 @@
+/// Chain-of-Thought: append trace -> decay -> predict next state
 use crate::segmented_buffer::SegmentedRingBuffer;
 use std::time::{Duration, SystemTime};
 

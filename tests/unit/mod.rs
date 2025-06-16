@@ -6,6 +6,7 @@ mod conversation_memory_tests;
 mod edge_workflow_small;
 mod effort_tests;
 mod enhancement_advisor_tests;
+mod graph_connectivity_tests;
 mod hypothesis_manager_tests;
 mod integration_layer_tests;
 mod knowledge_export_tests;

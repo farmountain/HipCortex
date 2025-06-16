@@ -1,3 +1,4 @@
+/// Chain-of-Thought: event -> match transition -> new state
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;

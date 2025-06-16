@@ -1,3 +1,4 @@
+/// Chain-of-Thought: belief -> evidence -> Bayesian update
 use crate::llm_clients::LLMClient;
 use crate::memory_record::{MemoryRecord, MemoryType};
 use crate::memory_store::MemoryStore;
