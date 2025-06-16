@@ -71,17 +71,17 @@ Here’s a step-by-step plan for you (as an external tester) to validate HipCort
             1. **Inspect usage**
             
                ```powershell
-               cargo run cli add --help
+               cargo run -- add --help
                ```
             2. **Add a new fact**
             
                ```powershell
-               cargo run cli add --text "The Merlion is in Singapore" --tags location,landmark
+               cargo run -- add --actor tester --action remember --target "The Merlion is in Singapore" --tags location,landmark
                ```
             3. **Verify it was written** (peek at the store file)
             
                ```powershell
-               cargo run Get-Content .\memory.jsonl -Tail 5
+               Get-Content .\memory.jsonl -Tail 5
                ```
             
             ---
@@ -91,18 +91,18 @@ Here’s a step-by-step plan for you (as an external tester) to validate HipCort
             1. **Inspect usage**
             
                ```powershell
-               cargo run Get-Content .\memory.jsonl -Tail 5
-               cargo run cli query --help
+               Get-Content .\memory.jsonl -Tail 5
+               cargo run -- query --help
                ```
             2. **Run a full-text query**
             
                ```powershell
-               cargo run cli query --q "Singapore"
+               cargo run -- query -q "Singapore"
                ```
             3. **Filter by tag**
             
                ```powershell
-               cargo run cli query --q "landmark" --tags landmark
+               cargo run -- query -q "landmark" --tags landmark
                ```
             
             ---
@@ -112,23 +112,23 @@ Here’s a step-by-step plan for you (as an external tester) to validate HipCort
             1. **Take a snapshot**
             
                ```powershell
-               cargo run cli snapshot --output hipcortex-snap.jsonl
+               cargo run -- snapshot --output hipcortex-snap.jsonl
                ```
             2. **Add a “bad” record**
             
                ```powershell
-               cargo run cli add --text "This should be rolled back" --tags temp
-               cargo run cli query --q "rolled back"   # you’ll see it
+               cargo run -- add --actor tester --action remember --target "This should be rolled back" --tags temp
+               cargo run -- query -q "rolled back"   # you’ll see it
                ```
             3. **Restore your snapshot**
             
                ```powershell
-               cargo run cli restore --input hipcortex-snap.jsonl
+               cargo run -- restore --input hipcortex-snap.jsonl
                ```
             4. **Confirm rollback**
             
                ```powershell
-               cargo run cli query --q "rolled back"   # should return nothing
+               cargo run -- query -q "rolled back"   # should return nothing
                ```
             
             ---
@@ -140,17 +140,17 @@ Here’s a step-by-step plan for you (as an external tester) to validate HipCort
             1. **Inspect usage**
             
                ```powershell
-              cargo run cli prompt --help
+              cargo run -- prompt --help
                ```
             2. **Send a question**
             
                ```powershell
-              cargo run cli prompt --text "Why is the Merlion famous?"
+              cargo run -- prompt "Why is the Merlion famous?"
                ```
             3. **Verify reflexion stored**
             
                ```powershell
-              cargo run cli query --q "Merlion" --tags reflexion
+              cargo run -- query -q "Merlion" --tags reflexion
                ```
             
             ---
@@ -160,12 +160,12 @@ Here’s a step-by-step plan for you (as an external tester) to validate HipCort
             1. **Inspect usage**
             
                ```powershell
-              cargo run cli graph --help
+              cargo run -- graph --help
                ```
             2. **Dump to JSON**
             
                ```powershell
-              cargo run cli graph --output world-model.json
+              cargo run -- graph --output world-model.json
                ```
             3. **Open & inspect**
             
@@ -187,8 +187,8 @@ Here’s a step-by-step plan for you (as an external tester) to validate HipCort
             * **Specify an alternate store** (to test isolation)
             
               ```powershell
-             cargo run cli --store test-store.jsonl add --text "Test fact"  
-             cargo run cli --store test-store.jsonl query --q "Test"
+             cargo run -- --store test-store.jsonl add --actor tester --action remember --target "Test fact"
+             cargo run -- --store test-store.jsonl query -q "Test"
               ```
             
             ---
@@ -214,8 +214,8 @@ Here’s a step-by-step plan for you (as an external tester) to validate HipCort
             ```powershell
             # Test 3, 5, 7, and 10 disks
             for ($n in 3,5,7,10) {
-              cargo run cli run-hanoi --disks $n --help   # confirm options
-              Measure-Command { cli run-hanoi --disks $n }
+              cargo run -- run-hanoi --disks $n --help   # confirm options
+              Measure-Command { cargo run -- run-hanoi --disks $n }
             }
             ```
          
@@ -226,7 +226,7 @@ Here’s a step-by-step plan for you (as an external tester) to validate HipCort
          
             ```powershell
             # Simulate abort on long runs
-            $job = Start-Job { cargo run cli run-hanoi --disks 15 }
+            $job = Start-Job { cargo run -- run-hanoi --disks 15 }
             Start-Sleep -Seconds 5
             Stop-Job $job
             ```
@@ -241,8 +241,8 @@ Here’s a step-by-step plan for you (as an external tester) to validate HipCort
          
             ```powershell
             # Advance one move at a time
-            cargo run cli hanoi-step --next     # perform and print the next move
-            cargo run cli hanoi-status         # show current peg contents
+            cargo run -- hanoi-step --next     # perform and print the next move
+            cargo run -- hanoi-status         # show current peg contents
             ```
          
             • Repeat until completion and validate that no illegal moves ever occur (larger-on-smaller).
@@ -251,9 +251,9 @@ Here’s a step-by-step plan for you (as an external tester) to validate HipCort
          
             ```powershell
             # After 10 moves, roll back 5
-            1..10 | ForEach-Object { cli hanoi-step --next }
-            cargo run cli hanoi-step --undo 5
-            cargo run cli hanoi-status
+            1..10 | ForEach-Object { cargo run -- hanoi-step --next }
+            cargo run -- hanoi-step --undo 5
+            cargo run -- hanoi-status
             ```
          
             • Ensure the last 5 moves are undone accurately and state consistency is maintained.
@@ -266,7 +266,7 @@ Here’s a step-by-step plan for you (as an external tester) to validate HipCort
          
             ```powershell
             # Manually issue an illegal move
-            cargo run cli hanoi-force-move --from A --to C --disk 3
+            cargo run -- hanoi-force-move --from A --to C --disk 3
             ```
          
             • Expect the system to reject it, log an error in AuditLog, and preserve state.
@@ -276,7 +276,7 @@ Here’s a step-by-step plan for you (as an external tester) to validate HipCort
             ```powershell
             # Manually tamper with memory.jsonl (remove a disk move)
             (Get-Content memory.jsonl) | Where-Object { $_ -notmatch "Hanoi" } | Set-Content memory.jsonl
-           cargo run cli hanoi-status
+           cargo run -- hanoi-status
             ```
          
             • Verify that when you detect missing/invalid moves, the HypothesisManager proposes a repair or flags a contradiction.
@@ -289,8 +289,8 @@ Here’s a step-by-step plan for you (as an external tester) to validate HipCort
          
             ```powershell
             # Launch two concurrent solvers on the same store
-            Start-Job { cargo run cli run-hanoi --disks 8 }
-            Start-Job { cargo run cli run-hanoi --disks 8 }
+            Start-Job { cargo run -- run-hanoi --disks 8 }
+            Start-Job { cargo run -- run-hanoi --disks 8 }
             ```
          
             • Observe how TemporalIndexer queues traces: ensure moves don’t interleave in a way that breaks disk rules.
@@ -303,12 +303,12 @@ Here’s a step-by-step plan for you (as an external tester) to validate HipCort
          1. **Snapshot Mid-Solution**
          
             ```powershell
-            1..20 | ForEach-Object { cli hanoi-step --next }
-            cargo run cli snapshot --output hanoi-20.jsonl
+            1..20 | ForEach-Object { cargo run -- hanoi-step --next }
+            cargo run -- snapshot --output hanoi-20.jsonl
             # Simulate crash
-            cargo run cli hanoi-status  # empty or reset
-            cargo run cli restore --input hanoi-20.jsonl
-            cargo run cli hanoi-status  # should reflect exactly 20 moves played
+            cargo run -- hanoi-status  # empty or reset
+            cargo run -- restore --input hanoi-20.jsonl
+            cargo run -- hanoi-status  # should reflect exactly 20 moves played
             ```
          
             • Ensure you can pause, snapshot, and fully resume the puzzle from an arbitrary point.
@@ -320,7 +320,7 @@ Here’s a step-by-step plan for you (as an external tester) to validate HipCort
          1. **Graph JSON of Current State**
          
             ```powershell
-            cargo run cli hanoi-graph --output hanoi-state.json
+            cargo run -- hanoi-graph --output hanoi-state.json
             ```
          
             • Confirm the JSON includes nodes for each peg and disk, plus a “next\_move” edge.
