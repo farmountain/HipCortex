@@ -1,0 +1,164 @@
+Here’s a step-by-step plan for you (as an external tester) to validate HipCortex’s core modules and use cases manually—both via the CLI/UI and with simple HTTP/gRPC calls.
+
+---
+
+## 1. Prerequisites & Setup
+
+1. **Install Rust toolchain** (≥ 1.70), Cargo, and (for the GUI) Tauri prerequisites (Node.js, Yarn)
+2. **Clone & enter repo**
+
+   ```bash
+   git clone https://github.com/farmountain/HipCortex.git
+   cd HipCortex
+   ```
+3. **Fetch dependencies & build**
+
+   ```bash
+   cargo build
+   scripts/codex_startup.sh   # optional pre-fetch
+   ```
+
+---
+
+## 2. Verify Build & Tests
+
+* **Run all unit/integration tests**
+
+  ```bash
+  cargo test
+  ```
+* **Run benchmarks**
+
+  ```bash
+  cargo bench
+  ```
+* **Confirm coverage of key components** (audit\_log, temporal\_indexer, symbolic\_store, procedural\_cache, perception\_adapter) ([github.com][1])
+
+---
+
+## 3. CLI Demo & Core Modules
+
+1. **Launch the built-in CLI demo**
+
+   ```bash
+   cargo run
+   ```
+
+   * You should see a simple REPL that logs a sample “reasoning trace” via the PerceptionAdapter → TemporalIndexer → SymbolicStore ([github.com][1]).
+
+2. **Exercise key commands**:
+
+   * **Store a new fact**
+
+     ```text
+     > remember “The Eiffel Tower is in Paris”
+     ```
+   * **Query symbols**
+
+     ```text
+     > lookup “Eiffel Tower”
+     ```
+   * **Advance a procedural workflow** (e.g., Tower of Hanoi example)
+
+---
+
+## 4. Examples Suite
+
+HipCortex ships several `examples/`—run them via Cargo to validate specific APIs:
+
+| Example                     | Command                                             | What to check                                    |
+| --------------------------- | --------------------------------------------------- | ------------------------------------------------ |
+| `quickstart.rs`             | `cargo run --example quickstart`                    | Minimal programmatic usage: insert/query traces  |
+| `world_model_example.rs`    | `cargo run --example world_model_example`           | Persistent world-model CRUD                      |
+| `rag_export.rs`             | `cargo run --example rag_export`                    | RAG adapter → PDF/Notion export (inspect output) |
+| `plugin_host.rs` *(plugin)* | `cargo run --example plugin_host --features plugin` | Load a simple WASM extension and observe hooks   |
+
+---
+
+## 5. REST API (web-server feature)
+
+1. **Build with the web-server feature**
+
+   ```bash
+   cargo run --features web-server -- --port 8080
+   ```
+2. **Smoke-test endpoints** with `curl` or Postman:
+
+   ```bash
+   # Store a trace
+   curl -X POST http://localhost:8080/memory/trace \
+     -H "Content-Type: application/json" \
+     -d '{"text":"Hello agents"}'
+
+   # Query symbols
+   curl http://localhost:8080/memory/symbols?q=agentic
+   ```
+3. Confirm JSON schema matches `docs/data_model.md` and operations align with `docs/architecture.md` ([github.com][1]).
+
+---
+
+## 6. GUI (Tauri desktop client)
+
+1. **Build & launch**
+
+   ```bash
+   cargo tauri dev --features gui
+   ```
+2. **Walk through the UI**:
+
+   * **Visualize world model** in real time
+   * **Inspect trace logs** and graph views (symbolic store)
+   * **Trigger procedural workflows** via buttons
+
+---
+
+## 7. gRPC & Protocol Adapters
+
+1. **Inspect `proto/` definitions** and generate stubs (e.g., with `tonic-build`).
+2. **Run the CLI demo or web-server** with gRPC enabled.
+3. **Use a gRPC client** (e.g., BloomRPC) to:
+
+   * Call `StoreTrace(…)`
+   * Call `QuerySymbols(…)`
+4. Validate round-trip requests/responses match the proto spec.
+
+---
+
+## 8. Edge & WASM Plugin
+
+* **Compile for WebAssembly**
+
+  ```bash
+  cargo build --target wasm32-unknown-unknown --features plugin
+  ```
+* **Run the `plugin_host` example** to confirm the `PluginHost` API loads and invokes your `.wasm` module.
+
+---
+
+## 9. Smart-Glasses / Multimodal Tests
+
+* **Use fixture scripts** in `fixtures/` and tests in `tests/multimodal_perception_tests.rs` to confirm image→embedding conversions.
+* **Manually feed an image** via the CLI demo (if supported) or by sending a base64 payload to the REST endpoint.
+
+---
+
+## 10. Observability & Metrics
+
+* **Enable logging** (set `RUST_LOG=debug`) and confirm timeline traces, FSM state transitions, and confidence/eﬀort metrics appear in stdout or in a log file.
+* **Inspect benchmarks** for temporal decay and semantic compression performance.
+
+---
+
+### Summary
+
+By following these steps—from cloning through CLI, examples, REST/gRPC, GUI, and plugin tests—you’ll systematically validate each HipCortex module and its intended use cases. This approach ensures you cover:
+
+* **Persistence & Retrieval** (PerceptionAdapter, TemporalIndexer, SymbolicStore)
+* **Procedural Logic** (FSM cache, puzzle benchmarks)
+* **Reasoning Loops** (AureusBridge, HypothesisManager)
+* **Integration** (REST/gRPC, WASM, Tauri GUI)
+* **Multimodal** (vision encoder, RAG export)
+
+Feel free to adapt or extend these manual tests as new features land.
+
+[1]: https://github.com/farmountain/HipCortex "GitHub - farmountain/HipCortex: LLM AI Memory system"
