@@ -60,6 +60,277 @@ Here’s a step-by-step plan for you (as an external tester) to validate HipCort
      ```
    * **Advance a procedural workflow** (e.g., Tower of Hanoi example)
 
+
+######################################### Others Tests ######################################################
+            Here’s how you can systematically exercise each of the CLI commands from your PowerShell prompt:
+            
+            ---
+            
+            ### 1. `add` — add a memory record
+            
+            1. **Inspect usage**
+            
+               ```powershell
+               cli add --help
+               ```
+            2. **Add a new fact**
+            
+               ```powershell
+               cli add --text "The Merlion is in Singapore" --tags location,landmark
+               ```
+            3. **Verify it was written** (peek at the store file)
+            
+               ```powershell
+               Get-Content .\memory.jsonl -Tail 5
+               ```
+            
+            ---
+            
+            ### 2. `query` — search your memories
+            
+            1. **Inspect usage**
+            
+               ```powershell
+               cli query --help
+               ```
+            2. **Run a full-text query**
+            
+               ```powershell
+               cli query --q "Singapore"
+               ```
+            3. **Filter by tag**
+            
+               ```powershell
+               cli query --q "landmark" --tags landmark
+               ```
+            
+            ---
+            
+            ### 3. `snapshot` & `restore` — checkpointing your store
+            
+            1. **Take a snapshot**
+            
+               ```powershell
+               cli snapshot --output hipcortex-snap.jsonl
+               ```
+            2. **Add a “bad” record**
+            
+               ```powershell
+               cli add --text "This should be rolled back" --tags temp
+               cli query --q "rolled back"   # you’ll see it
+               ```
+            3. **Restore your snapshot**
+            
+               ```powershell
+               cli restore --input hipcortex-snap.jsonl
+               ```
+            4. **Confirm rollback**
+            
+               ```powershell
+               cli query --q "rolled back"   # should return nothing
+               ```
+            
+            ---
+            
+            ### 4. `prompt` — reflexion with OpenAI
+            
+            > **Note:** you’ll need your `OPENAI_API_KEY` env var set.
+            
+            1. **Inspect usage**
+            
+               ```powershell
+               cli prompt --help
+               ```
+            2. **Send a question**
+            
+               ```powershell
+               cli prompt --text "Why is the Merlion famous?"
+               ```
+            3. **Verify reflexion stored**
+            
+               ```powershell
+               cli query --q "Merlion" --tags reflexion
+               ```
+            
+            ---
+            
+            ### 5. `graph` — export the world model
+            
+            1. **Inspect usage**
+            
+               ```powershell
+               cli graph --help
+               ```
+            2. **Dump to JSON**
+            
+               ```powershell
+               cli graph --output world-model.json
+               ```
+            3. **Open & inspect**
+            
+               ```powershell
+               notepad world-model.json
+               ```
+            
+               • Look for nodes (“Merlion”, “Singapore”) and edges (e.g. `located_in`).
+            
+            ---
+            
+            ### 6. Iterating & Cleanup
+            
+            * **Reset your store** (if you want to start fresh)
+            
+              ```powershell
+              Remove-Item .\memory.jsonl
+              ```
+            * **Specify an alternate store** (to test isolation)
+            
+              ```powershell
+              cli --store test-store.jsonl add --text "Test fact"  
+              cli --store test-store.jsonl query --q "Test"
+              ```
+            
+            ---
+            
+            By running through each of those, you’ll cover:
+            
+            * **Data entry** (`add`)
+            * **Search & filtering** (`query`)
+            * **Checkpoint & rollback** (`snapshot`/`restore`)
+            * **LLM-based reflexion** (`prompt`)
+            * **Graph export** (`graph`)
+
+
+######################################### Advanced Tests for Tower of Hanoi ######################################################
+         Here are some **advanced test scenarios** you can use to stress-test the built-in Tower of Hanoi procedural workflow in HipCortex:
+         
+         ---
+         
+         ## A. High-Disk Scalability & Performance
+         
+         1. **Vary Disk Counts**
+         
+            ```powershell
+            # Test 3, 5, 7, and 10 disks
+            for ($n in 3,5,7,10) {
+              cli run-hanoi --disks $n --help   # confirm options
+              Measure-Command { cli run-hanoi --disks $n }
+            }
+            ```
+         
+            • Verify that move counts match the theoretical 2ⁿ–1.
+            • Record elapsed times and ensure they grow roughly exponentially.
+         
+         2. **Timeout & Abort**
+         
+            ```powershell
+            # Simulate abort on long runs
+            $job = Start-Job { cli run-hanoi --disks 15 }
+            Start-Sleep -Seconds 5
+            Stop-Job $job
+            ```
+         
+            • Confirm the FSM transitions into an “aborted” state and logs cleanup steps.
+         
+         ---
+         
+         ## B. Intermediate-State Queries
+         
+         1. **Step-by-Step Execution**
+         
+            ```powershell
+            # Advance one move at a time
+            cli hanoi-step --next     # perform and print the next move
+            cli hanoi-status         # show current peg contents
+            ```
+         
+            • Repeat until completion and validate that no illegal moves ever occur (larger-on-smaller).
+         
+         2. **Rollback Moves**
+         
+            ```powershell
+            # After 10 moves, roll back 5
+            1..10 | ForEach-Object { cli hanoi-step --next }
+            cli hanoi-step --undo 5
+            cli hanoi-status
+            ```
+         
+            • Ensure the last 5 moves are undone accurately and state consistency is maintained.
+         
+         ---
+         
+         ## C. Failure & Edge-Case Injection
+         
+         1. **Invalid Move Injection**
+         
+            ```powershell
+            # Manually issue an illegal move
+            cli hanoi-force-move --from A --to C --disk 3
+            ```
+         
+            • Expect the system to reject it, log an error in AuditLog, and preserve state.
+         
+         2. **Corrupted State Recovery**
+         
+            ```powershell
+            # Manually tamper with memory.jsonl (remove a disk move)
+            (Get-Content memory.jsonl) | Where-Object { $_ -notmatch "Hanoi" } | Set-Content memory.jsonl
+            cli hanoi-status
+            ```
+         
+            • Verify that when you detect missing/invalid moves, the HypothesisManager proposes a repair or flags a contradiction.
+         
+         ---
+         
+         ## D. Multi-Agent “Competition” Scenario
+         
+         1. **Parallel Solvers**
+         
+            ```powershell
+            # Launch two concurrent solvers on the same store
+            Start-Job { cli run-hanoi --disks 8 }
+            Start-Job { cli run-hanoi --disks 8 }
+            ```
+         
+            • Observe how TemporalIndexer queues traces: ensure moves don’t interleave in a way that breaks disk rules.
+            • Check Conflict-Resolution logs for any overlapping writes.
+         
+         ---
+         
+         ## E. Persistence & Resume
+         
+         1. **Snapshot Mid-Solution**
+         
+            ```powershell
+            1..20 | ForEach-Object { cli hanoi-step --next }
+            cli snapshot --output hanoi-20.jsonl
+            # Simulate crash
+            cli hanoi-status  # empty or reset
+            cli restore --input hanoi-20.jsonl
+            cli hanoi-status  # should reflect exactly 20 moves played
+            ```
+         
+            • Ensure you can pause, snapshot, and fully resume the puzzle from an arbitrary point.
+         
+         ---
+         
+         ## F. Visualization Export
+         
+         1. **Graph JSON of Current State**
+         
+            ```powershell
+            cli hanoi-graph --output hanoi-state.json
+            ```
+         
+            • Confirm the JSON includes nodes for each peg and disk, plus a “next\_move” edge.
+            • Load into any graph-viz tool to visually verify peg contents.
+         
+         ---
+         
+         By running these scenarios you will cover robustness (invalid inputs, parallel writes), usability (step-wise control, snapshots), performance at scale, and the integration of procedural FSM state with persistent memory and conflict resolution.
+
+######################################### Advanced Tests for Tower of Hanoi ######################################################
+
 ---
 
 ## 4. Examples Suite
