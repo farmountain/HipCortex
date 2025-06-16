@@ -85,6 +85,9 @@ cargo run         # Run the CLI demo
 cargo bench       # Run benchmarks
 ```
 
+How to Test as User:
+https://github.com/farmountain/HipCortex/blob/main/How%20to%20Test%20as%20a%20User
+
 If you encounter Codex container timeouts, run `scripts/codex_startup.sh` before heavy builds to prefetch dependencies and perform a quick `cargo check --all-features`.
 
 See `examples/quickstart.rs` for a minimal programmatic usage demo.
