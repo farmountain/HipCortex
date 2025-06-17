@@ -203,4 +203,4 @@ real-time CLI/web tools, and expanded LLM connectors.
 | docs/roadmap.md      | Completed, active, planned modules                    |
 | docs/contributing.md | Contribution guide, code/test policy                  |
 | docs/agent.md        | Codex agent workflow and contribution guide           |
-| LICENSE              | MIT License                                           |
+| LICENSE              | Apache License 2.0                                           |
