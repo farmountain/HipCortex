@@ -94,3 +94,24 @@ fn query_by_label_and_property() {
     assert_eq!(by_prop.len(), 1);
     assert_eq!(by_prop[0].id, node_id);
 }
+
+#[test]
+fn graph_algorithms() {
+    let mut store = SymbolicStore::new();
+    let a = store.add_node("A", HashMap::new());
+    let b = store.add_node("B", HashMap::new());
+    let c = store.add_node("C", HashMap::new());
+    store.add_edge(a, b, "rel");
+    store.add_edge(b, c, "rel");
+
+    store.assert_graph_invariants();
+
+    let path = store.shortest_path(a, c).unwrap();
+    assert_eq!(path.len(), 3);
+
+    let comps = store.connected_components();
+    assert_eq!(comps.len(), 1);
+
+    let depth_neighbors = store.neighbors_depth(a, 2);
+    assert_eq!(depth_neighbors.len(), 2);
+}

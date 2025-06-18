@@ -88,7 +88,33 @@ let batch = buf.flush_front_segment().unwrap();
 assert_eq!(batch, vec![1, 2, 3]);
 ```
 
-## 7. Import as a Library
+## 7. Graph Backend Options
+
+`SymbolicStore` works with multiple graph backends. By default the in-memory
+backend uses the `petgraph` crate. Enable others via Cargo features:
+
+```toml
+[features]
+neo4j_backend = ["reqwest"]
+postgres_backend = ["sqlx"]
+```
+
+Switch backends in code:
+
+```rust
+use hipcortex::symbolic_store::{SymbolicStore, InMemoryGraph};
+let store = SymbolicStore::<InMemoryGraph>::new();
+```
+
+For Neo4j, you can execute Cypher queries:
+
+```cypher
+MATCH (a)-[:REL]->(b) RETURN a,b
+```
+
+Call `assert_graph_invariants()` to verify edges reference existing nodes.
+
+## 8. Import as a Library
 
 Add this project as a dependency in your own Rust project (`Cargo.toml`):
 
@@ -102,7 +128,7 @@ Import modules in your code:
 use hipcortex::temporal_indexer::TemporalIndexer;
 ```
 
-## 8. Get Help
+## 9. Get Help
 
 * For architecture and design, see `docs/architecture.md`.
 * For integration/API details, see `docs/integration.md`.

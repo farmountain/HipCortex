@@ -1,7 +1,9 @@
 /// Chain-of-Thought: insert node -> link edges -> query predicates
+use anyhow::Result;
 use lru::LruCache;
+use petgraph::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::num::NonZeroUsize;
 use uuid::Uuid;
 
@@ -21,6 +23,13 @@ pub struct SymbolicEdge {
     pub relation: String,
 }
 
+/// Generic query result returned from `GraphDatabase::run_query`.
+pub enum GraphResult {
+    Nodes(Vec<SymbolicNode>),
+    Edges(Vec<SymbolicEdge>),
+    Count(usize),
+}
+
 /// Abstraction over a graph database used by `SymbolicStore`.
 pub trait GraphDatabase {
     fn add_node(&mut self, label: &str, properties: HashMap<String, String>) -> Uuid;
@@ -36,20 +45,98 @@ pub trait GraphDatabase {
     fn all_nodes(&self) -> Vec<SymbolicNode>;
     /// Return all edges in the graph.
     fn all_edges(&self) -> Vec<SymbolicEdge>;
+
+    /// Verify basic graph invariants such as edge endpoints existing.
+    fn assert_graph_invariants(&self) {
+        let nodes: HashSet<Uuid> = self.all_nodes().iter().map(|n| n.id).collect();
+        for e in self.all_edges() {
+            assert!(nodes.contains(&e.from), "edge from missing node");
+            assert!(nodes.contains(&e.to), "edge to missing node");
+        }
+    }
+
+    /// Compute the shortest path between two nodes using BFS by default.
+    fn shortest_path(&self, from: Uuid, to: Uuid) -> Option<Vec<Uuid>> {
+        let mut visited = HashSet::new();
+        let mut q: VecDeque<(Uuid, Vec<Uuid>)> = VecDeque::new();
+        q.push_back((from, vec![from]));
+        while let Some((cur, path)) = q.pop_front() {
+            if cur == to {
+                return Some(path);
+            }
+            if visited.insert(cur) {
+                for n in self.neighbors(cur, None) {
+                    let mut next_path = path.clone();
+                    next_path.push(n.id);
+                    q.push_back((n.id, next_path));
+                }
+            }
+        }
+        None
+    }
+
+    /// Return all connected components via BFS.
+    fn connected_components(&self) -> Vec<Vec<Uuid>> {
+        let mut comps = Vec::new();
+        let mut visited = HashSet::new();
+        for node in self.all_nodes() {
+            if visited.contains(&node.id) {
+                continue;
+            }
+            let mut comp = Vec::new();
+            let mut q = VecDeque::new();
+            q.push_back(node.id);
+            while let Some(cur) = q.pop_front() {
+                if visited.insert(cur) {
+                    comp.push(cur);
+                    for n in self.neighbors(cur, None) {
+                        q.push_back(n.id);
+                    }
+                }
+            }
+            comps.push(comp);
+        }
+        comps
+    }
+
+    /// Collect neighbors up to a given depth using BFS.
+    fn neighbors_depth(&self, node: Uuid, depth: usize) -> Vec<Uuid> {
+        let mut out = Vec::new();
+        let mut q = VecDeque::new();
+        q.push_back((node, 0usize));
+        let mut visited = HashSet::new();
+        while let Some((cur, d)) = q.pop_front() {
+            if d == depth {
+                continue;
+            }
+            if visited.insert(cur) {
+                for n in self.neighbors(cur, None) {
+                    out.push(n.id);
+                    q.push_back((n.id, d + 1));
+                }
+            }
+        }
+        out
+    }
+
+    /// Execute a backend specific query if supported.
+    fn run_query(&self, _query: &str) -> Result<GraphResult> {
+        Err(anyhow::anyhow!("query not supported"))
+    }
 }
 
-/// Simple in-memory graph backend with an LRU cache for label lookups.
+/// Simple in-memory graph backend using `petgraph` with an LRU cache for label lookups.
 pub struct InMemoryGraph {
-    nodes: HashMap<Uuid, SymbolicNode>,
-    edges: HashSet<SymbolicEdge>,
+    graph: petgraph::Graph<SymbolicNode, String>,
+    id_map: HashMap<Uuid, petgraph::prelude::NodeIndex>,
     label_cache: LruCache<String, Vec<Uuid>>,
 }
 
 impl InMemoryGraph {
     pub fn new() -> Self {
         Self {
-            nodes: HashMap::new(),
-            edges: HashSet::new(),
+            graph: petgraph::Graph::new(),
+            id_map: HashMap::new(),
             label_cache: LruCache::new(NonZeroUsize::new(32).unwrap()),
         }
     }
@@ -62,90 +149,121 @@ impl GraphDatabase for InMemoryGraph {
             label: label.to_string(),
             properties,
         };
-        let node_id = node.id;
-        self.nodes.insert(node_id, node);
-        node_id
+        let idx = self.graph.add_node(node.clone());
+        self.id_map.insert(node.id, idx);
+        node.id
     }
 
     fn add_edge(&mut self, from: Uuid, to: Uuid, relation: &str) {
-        let edge = SymbolicEdge {
-            from,
-            to,
-            relation: relation.to_string(),
-        };
-        self.edges.insert(edge);
+        if let (Some(f), Some(t)) = (self.id_map.get(&from), self.id_map.get(&to)) {
+            self.graph.add_edge(*f, *t, relation.to_string());
+        }
     }
 
     fn get_node(&self, node_id: Uuid) -> Option<SymbolicNode> {
-        self.nodes.get(&node_id).cloned()
+        self.id_map
+            .get(&node_id)
+            .and_then(|idx| self.graph.node_weight(*idx).cloned())
     }
 
     fn neighbors(&self, node_id: Uuid, relation: Option<&str>) -> Vec<SymbolicNode> {
-        self.edges
-            .iter()
-            .filter(|e| e.from == node_id && relation.map_or(true, |r| r == e.relation))
-            .filter_map(|e| self.nodes.get(&e.to).cloned())
-            .collect()
+        if let Some(idx) = self.id_map.get(&node_id) {
+            self.graph
+                .edges(*idx)
+                .filter(|e| relation.map_or(true, |r| r == e.weight()))
+                .filter_map(|e| self.graph.node_weight(e.target()).cloned())
+                .collect()
+        } else {
+            Vec::new()
+        }
     }
 
     fn edges_from(&self, node_id: Uuid, relation: Option<&str>) -> Vec<SymbolicEdge> {
-        self.edges
-            .iter()
-            .filter(|e| e.from == node_id && relation.map_or(true, |r| r == e.relation))
-            .cloned()
-            .collect()
+        if let Some(idx) = self.id_map.get(&node_id) {
+            self.graph
+                .edges(*idx)
+                .filter(|e| relation.map_or(true, |r| r == e.weight()))
+                .map(|e| SymbolicEdge {
+                    from: node_id,
+                    to: self.graph[e.target()].id,
+                    relation: e.weight().clone(),
+                })
+                .collect()
+        } else {
+            Vec::new()
+        }
     }
 
     fn update_property(&mut self, node_id: Uuid, key: &str, value: &str) -> bool {
-        if let Some(node) = self.nodes.get_mut(&node_id) {
-            node.properties.insert(key.to_string(), value.to_string());
+        if let Some(idx) = self.id_map.get(&node_id) {
+            if let Some(node) = self.graph.node_weight_mut(*idx) {
+                node.properties.insert(key.to_string(), value.to_string());
+                return true;
+            }
+        }
+        false
+    }
+
+    fn find_by_label(&mut self, label: &str) -> Vec<SymbolicNode> {
+        if let Some(ids) = self.label_cache.get(label).cloned() {
+            return ids.into_iter().filter_map(|id| self.get_node(id)).collect();
+        }
+        let ids: Vec<Uuid> = self
+            .graph
+            .node_indices()
+            .filter_map(|i| {
+                let n = &self.graph[i];
+                if n.label == label {
+                    Some(n.id)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        self.label_cache.put(label.to_string(), ids.clone());
+        ids.into_iter().filter_map(|id| self.get_node(id)).collect()
+    }
+
+    fn find_by_property(&self, key: &str, value: &str) -> Vec<SymbolicNode> {
+        self.graph
+            .node_indices()
+            .filter_map(|i| {
+                let n = &self.graph[i];
+                if n.properties.get(key).map_or(false, |v| v == value) {
+                    Some(n.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    fn remove_node(&mut self, node_id: Uuid) -> bool {
+        if let Some(idx) = self.id_map.remove(&node_id) {
+            self.graph.remove_node(idx);
+            // petgraph removes incident edges automatically
             true
         } else {
             false
         }
     }
 
-    fn find_by_label(&mut self, label: &str) -> Vec<SymbolicNode> {
-        if let Some(ids) = self.label_cache.get(label).cloned() {
-            return ids
-                .into_iter()
-                .filter_map(|id| self.nodes.get(&id).cloned())
-                .collect();
-        }
-        let ids: Vec<Uuid> = self
-            .nodes
-            .values()
-            .filter(|n| n.label == label)
-            .map(|n| n.id)
-            .collect();
-        self.label_cache.put(label.to_string(), ids.clone());
-        ids.into_iter()
-            .filter_map(|id| self.nodes.get(&id).cloned())
-            .collect()
-    }
-
-    fn find_by_property(&self, key: &str, value: &str) -> Vec<SymbolicNode> {
-        self.nodes
-            .values()
-            .filter(|n| n.properties.get(key).map_or(false, |v| v == value))
-            .cloned()
-            .collect()
-    }
-
-    fn remove_node(&mut self, node_id: Uuid) -> bool {
-        let existed = self.nodes.remove(&node_id).is_some();
-        if existed {
-            self.edges.retain(|e| e.from != node_id && e.to != node_id);
-        }
-        existed
-    }
-
     fn all_nodes(&self) -> Vec<SymbolicNode> {
-        self.nodes.values().cloned().collect()
+        self.graph
+            .node_indices()
+            .map(|i| self.graph[i].clone())
+            .collect()
     }
 
     fn all_edges(&self) -> Vec<SymbolicEdge> {
-        self.edges.iter().cloned().collect()
+        self.graph
+            .edge_references()
+            .map(|e| SymbolicEdge {
+                from: self.graph[e.source()].id,
+                to: self.graph[e.target()].id,
+                relation: e.weight().clone(),
+            })
+            .collect()
     }
 }
 
@@ -360,6 +478,26 @@ impl<B: GraphDatabase> SymbolicStore<B> {
     /// Export the entire graph as lists of nodes and edges.
     pub fn export_graph(&self) -> (Vec<SymbolicNode>, Vec<SymbolicEdge>) {
         (self.backend.all_nodes(), self.backend.all_edges())
+    }
+
+    /// Check basic graph invariants.
+    pub fn assert_graph_invariants(&self) {
+        self.backend.assert_graph_invariants()
+    }
+
+    /// Find the shortest path between two nodes.
+    pub fn shortest_path(&self, from: Uuid, to: Uuid) -> Option<Vec<Uuid>> {
+        self.backend.shortest_path(from, to)
+    }
+
+    /// Compute connected components.
+    pub fn connected_components(&self) -> Vec<Vec<Uuid>> {
+        self.backend.connected_components()
+    }
+
+    /// Retrieve neighbors up to a given depth.
+    pub fn neighbors_depth(&self, node: Uuid, depth: usize) -> Vec<Uuid> {
+        self.backend.neighbors_depth(node, depth)
     }
 }
 
