@@ -73,6 +73,21 @@ This runs `examples/plugin_host.rs` which loads a tiny WAT module and prints the
 * Write new tests in `/tests/` for TDD (Test-Driven Development).
 * See `README.md` and `docs/architecture.md` for module roles.
 
+### Segmented Ring Buffer Example
+
+Efficiently batch and flush streaming data:
+
+```rust
+use hipcortex::segmented_buffer::SegmentedRingBuffer;
+
+let mut buf = SegmentedRingBuffer::new(8, 4);
+buf.push_back(1);
+buf.push_back(2);
+buf.push_back(3);
+let batch = buf.flush_front_segment().unwrap();
+assert_eq!(batch, vec![1, 2, 3]);
+```
+
 ## 7. Import as a Library
 
 Add this project as a dependency in your own Rust project (`Cargo.toml`):
