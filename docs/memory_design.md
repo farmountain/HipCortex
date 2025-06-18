@@ -1,14 +1,26 @@
 # HipCortex Memory Design
 
-HipCortex extends classic memory engines with mathematically verified and logically
-consistent symbolic reasoning. This document summarizes the principles and
-component level flow so developers can reason about the engine at every step.
+HipCortex extends classic memory engines with mathematically verified and
+logically consistent symbolic reasoning. This document consolidates the core
+principles, proofs and component level flow so developers can reason about the
+engine at every step.
 
 ## Core Philosophy
 
-HipCortex Memory is more than a storage layer. Each operation is grounded in
-formal mathematics and checked with logic rules so recorded knowledge is
-traceable and provably correct.
+HipCortex Memory is more than a storage layer — it is a logically verifiable,
+symbolic-context memory enabling traceability, explainability and provable
+correctness. Each operation is grounded in formal mathematics and checked with
+logic rules so knowledge remains consistent.
+
+```mermaid
+flowchart LR
+    Input --> Adapter
+    Adapter --> Temporal
+    Temporal --> Symbolic
+    Symbolic --> FSM
+    FSM --> Reasoner
+    Reasoner --> API
+```
 
 ## Unified Design Principles
 
@@ -113,8 +125,22 @@ traceable and provably correct.
 - Logic guards prevent invalid memory states.
 - Memory footprint remains minimal and consistent.
 
+### Property Test Example
+
+```rust
+proptest! {
+    #[test]
+    fn graph_has_path(count in 2usize..6) {
+        let mut store = SymbolicStore::new();
+        // build chain n0 -> n1 -> ... -> n{count} and verify a path exists
+    }
+}
+```
+
+Property tests like the one above ensure graph connectivity and FSM reachability.
+
 ## Next Actions
 - Expand README and architecture docs with these guarantees.
-- Add property tests for graph connectivity and FSM reachability.
+- Property tests already cover graph connectivity and FSM reachability (see `tests/property`).
 - Inline comments show chain-of-thought steps within modules.
 

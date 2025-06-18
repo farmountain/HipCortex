@@ -153,3 +153,20 @@ Each component records a verifiable chain of thought:
 - **AuditLog** hashes every action for tamper evidence.
 
 These guarantees are described in [docs/memory_design.md](memory_design.md).
+
+## Chain-of-Thought Memory Flow
+
+```mermaid
+flowchart LR
+    Input --> Adapter
+    Adapter --> Temporal
+    Temporal --> Symbolic
+    Symbolic --> FSM
+    FSM --> Reasoner
+    Reasoner --> API
+```
+
+Each stage is backed by a mathematical model: PCA for perception, Markov chains
+for temporal order, graph theory for symbolic context, automata for procedural
+logic and Bayesian updates for reasoning. Property-based tests verify graph
+connectivity and FSM reachability.

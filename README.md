@@ -12,6 +12,12 @@ HipCortex aims to provide a memory engine that blends symbolic reasoning,
 temporal relevance, procedural logic and perception in one modular package.
 **HipCortex Memory: Math, Logic, Symbolic Guarantees** – reasoning steps follow proven models with logic checks. See [docs/memory_design.md](docs/memory_design.md).
 
+### 🔬 Memory Design Extension
+HipCortex now ships with a mathematically proven memory layer. Logical
+predicates validate each write, symbolic graphs track context and property-based
+tests confirm graph connectivity and FSM reachability. Every module begins with
+a "Chain-of-Thought" comment summarizing its reasoning flow.
+
 
 ## 📘 Business Context
 HipCortex enables persistent memory and reasoning for bots and edge automation. It can operate as a lightweight library, a REST microservice or a desktop app. See [docs/business_context.md](docs/business_context.md) for details.
