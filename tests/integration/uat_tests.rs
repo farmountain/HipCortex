@@ -67,8 +67,8 @@ fn user_store_reasoning_trace() {
         image_data: None,
         tags: vec!["uat".into()],
     };
-    let out = PerceptionAdapter::adapt(input.clone());
-    assert!(out.is_none());
+    let out = PerceptionAdapter::adapt(input.clone()).unwrap();
+    assert_eq!(out.len(), 4);
 
     let trace = TemporalTrace {
         id: Uuid::new_v4(),
