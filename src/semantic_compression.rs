@@ -7,7 +7,8 @@ pub fn compress_embedding(vec: &[f32], new_dim: usize) -> Vec<f32> {
     for i in 0..new_dim {
         let start = i * chunk;
         if start >= vec.len() {
-            break;
+            result.push(0.0);
+            continue;
         }
         let end = ((i + 1) * chunk).min(vec.len());
         let slice = &vec[start..end];
