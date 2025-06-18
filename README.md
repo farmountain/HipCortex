@@ -39,6 +39,7 @@ and reasoning components.
   `semantic_compression::compress_embedding` for efficient storage.
 - **Aureus Bridge:** Reflexion and reasoning hook for chain-of-thought engines.
 - **Integration Layer:** REST/gRPC and protocol stubs (OpenManus, MCP).
+- **MCP Server:** run both REST and gRPC endpoints to orchestrate symbolic context for multiple agents.
 - **Math & Logic Guarantees:** memory operations validated with formal proofs and symbolic checks.
 - **Fully Test-Driven:** Extensive unit tests and Criterion benchmarks.
 - **Optional Web Server:** compile with `--features web-server` for an Axum REST API.
@@ -63,6 +64,7 @@ and reasoning components.
 | `src/symbolic_store.rs`        | Symbolic graph & key-value memory       |
 | `src/perception_adapter.rs`    | Multimodal input                        |
 | `src/integration_layer.rs`     | Agentic/REST/gRPC stubs                 |
+| `src/mcp_server.rs`            | Combined REST + gRPC MCP server         |
 | `src/aureus_bridge.rs`         | Reflexion/reasoning loop                |
 | `src/vision_encoder.rs`        | Simple image to embedding converter     |
 | `tests/`                       | Integration and property tests          |
@@ -83,6 +85,12 @@ cargo build
 cargo test        # Run all tests
 cargo run         # Run the CLI demo
 cargo bench       # Run benchmarks
+```
+
+Launch the combined MCP server (REST + gRPC) with:
+
+```sh
+cargo run --example mcp_server --features "web-server,grpc-server"
 ```
 
 How to Test as User:
