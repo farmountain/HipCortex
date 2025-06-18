@@ -56,6 +56,8 @@ pub mod world_model;
 pub use persistence::{AsyncFileBackend, AsyncMemoryBackend};
 #[cfg(feature = "grpc-server")]
 pub mod grpc_server;
+#[cfg(all(feature = "web-server", feature = "grpc-server"))]
+pub mod mcp_server;
 pub mod vision_encoder;
 #[cfg(feature = "web-server")]
 pub mod web_server;

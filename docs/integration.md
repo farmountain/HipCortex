@@ -20,6 +20,16 @@ This document describes how to integrate HipCortex with agent frameworks, APIs, 
 - To run the gRPC service, compile with the `grpc-server` feature and call
   `grpc_server::serve(addr, store).await`.
   This provides a basic `MemoryService` for adding and listing memory records.
+  The new `McpServer` bundles both endpoints so agents can speak MCP directly:
+
+```rust
+use hipcortex::mcp_server::McpServer;
+use hipcortex::memory_store::MemoryStore;
+
+let store = MemoryStore::new("memory.jsonl")?;
+let server = McpServer::new(store);
+server.serve("127.0.0.1:8080".parse()?, "127.0.0.1:50051".parse()?).await?;
+```
 
 ### Agent Protocols (Planned)
 - **OpenManus** and **MCP** adapters will translate their native message formats into the internal `PerceptInput` structure. A small protocol bridge will live in `IntegrationLayer` so agents can talk to HipCortex directly over these protocols.

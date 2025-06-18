@@ -11,6 +11,7 @@ These tests validate end user workflows using the memory engine.
 - **user_query_city_by_label:** ensures cities can be retrieved by label for end-user exploration.
 - **web_server_graph_endpoint:** confirms the REST API returns the symbolic
   graph for user inspection when the web server is enabled.
+- **user_launches_combined_mcp_server:** starts the MCP server and exercises both gRPC and HTTP.
 - **store_compressed_embedding:** user stores a compressed embedding as metadata in the memory store.
 - **user_export_to_notion:** retrieves recent content and exports it to Notion.
 
