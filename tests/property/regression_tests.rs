@@ -1,7 +1,8 @@
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 use uuid::Uuid;
 
 use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
+use hipcortex::decay::DecayType;
 
 #[test]
 fn get_recent_zero_returns_empty() {
@@ -20,6 +21,7 @@ fn inserting_trace_preserves_id() {
         relevance: 1.0,
         decay_factor: 0.5,
         last_access: SystemTime::now(),
+        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
     };
     let expected_id = trace.id;
     indexer.insert(trace);

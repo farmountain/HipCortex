@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 use uuid::Uuid;
 
 use hipcortex::aureus_bridge::{AureusBridge, AureusConfig};
@@ -9,6 +9,7 @@ use hipcortex::memory_store::MemoryStore;
 use hipcortex::perception_adapter::{Modality, PerceptInput, PerceptionAdapter};
 use hipcortex::symbolic_store::SymbolicStore;
 use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
+use hipcortex::decay::DecayType;
 
 #[test]
 fn memory_round_trip() {
@@ -22,6 +23,7 @@ fn memory_round_trip() {
         relevance: 1.0,
         decay_factor: 0.5,
         last_access: SystemTime::now(),
+        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
     };
     indexer.insert(trace);
 
@@ -80,6 +82,7 @@ fn query_symbol_via_indexer() {
         relevance: 1.0,
         decay_factor: 1.0,
         last_access: SystemTime::now(),
+        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
     };
     indexer.insert(trace);
     let recent = indexer.get_recent(1)[0].data;

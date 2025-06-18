@@ -2,8 +2,9 @@ use hipcortex::perception_adapter::{Modality, PerceptInput, PerceptionAdapter};
 use hipcortex::retrieval_pipeline::recent_symbols;
 use hipcortex::symbolic_store::SymbolicStore;
 use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
+use hipcortex::decay::DecayType;
 use std::collections::HashMap;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 use uuid::Uuid;
 
 #[test]
@@ -30,6 +31,7 @@ fn retrieval_round_trip() {
         relevance: 1.0,
         decay_factor: 1.0,
         last_access: SystemTime::now(),
+        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
     });
 
     let result = recent_symbols(&store, &indexer, 1);

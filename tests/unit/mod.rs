@@ -23,6 +23,7 @@ mod retrieval_pipeline_tests;
 mod snapshot_manager_tests;
 mod symbolic_store_tests;
 mod temporal_indexer_tests;
+mod temporal_indexer_feature_tests;
 mod vision_encoder_tests;
 mod world_model_export_tests;
 mod world_model_tests;

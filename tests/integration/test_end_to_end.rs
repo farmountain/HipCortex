@@ -5,8 +5,9 @@ use hipcortex::procedural_cache::{FSMState, FSMTransition, ProceduralCache, Proc
 use hipcortex::snapshot_manager::SnapshotManager;
 use hipcortex::symbolic_store::SymbolicStore;
 use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
+use hipcortex::decay::DecayType;
 use std::collections::HashMap;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 use uuid::Uuid;
 
 #[test]
@@ -24,6 +25,7 @@ fn full_memory_flow() {
         relevance: 1.0,
         decay_factor: 1.0,
         last_access: SystemTime::now(),
+        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
     };
     temporal.insert(trace);
 

@@ -1,5 +1,6 @@
 use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
-use std::time::SystemTime;
+use hipcortex::decay::DecayType;
+use std::time::{Duration, SystemTime};
 use uuid::Uuid;
 
 #[test]
@@ -13,6 +14,7 @@ fn edge_indexer_prunes_old_entries() {
             relevance: 1.0,
             decay_factor: 1.0,
             last_access: SystemTime::now(),
+            decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
         });
     }
     assert_eq!(indexer.get_recent(3).len(), 2);
