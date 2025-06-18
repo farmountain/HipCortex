@@ -239,4 +239,63 @@ mod tests {
         let result = last.unwrap();
         assert!(matches!(result.unwrap_err(), AdapterError::RateLimited));
     }
+
+    #[test]
+    fn pca_reconstruction_error() {
+        let data: Vec<f32> = (0..8).map(|v| v as f32).collect();
+        let compressed = pca_compress(&data, 4);
+        assert_eq!(compressed.len(), 4);
+
+        // Recompute PCA basis for reconstruction
+        let rows = data.len() - 4 + 1;
+        let mut mat_data = Vec::with_capacity(rows * 4);
+        for i in 0..rows {
+            for j in 0..4 {
+                mat_data.push(data[i + j]);
+            }
+        }
+        let mut m = DMatrix::from_row_slice(rows, 4, &mat_data);
+        for c in 0..4 {
+            let mean: f32 = (0..rows).map(|r| m[(r, c)]).sum::<f32>() / rows as f32;
+            for r in 0..rows {
+                m[(r, c)] -= mean;
+            }
+        }
+        let vt = m.svd(true, true).v_t.unwrap();
+        let mut reconstruct = vec![0.0f32; 4];
+        for i in 0..4 {
+            for j in 0..4 {
+                reconstruct[j] += compressed[i] * vt[(i, j)];
+            }
+        }
+        let err = data[..4]
+            .iter()
+            .zip(reconstruct.iter())
+            .map(|(a, b)| (a - b).powi(2))
+            .sum::<f32>()
+            .sqrt();
+        assert!(err < 1e-3);
+    }
+
+    #[test]
+    fn l2_normalization_unit() {
+        let v = vec![3.0, 4.0];
+        let normed = l2_normalize(v);
+        let norm = normed.iter().map(|x| x * x).sum::<f32>().sqrt();
+        assert!((norm - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn entropy_threshold() {
+        let input = PerceptInput {
+            modality: Modality::ImageEmbedding,
+            text: None,
+            embedding: Some(vec![1.0, 2.0, 3.0, 4.0, 0.5, 0.2, 0.1, 0.0]),
+            image_data: None,
+            tags: vec![],
+        };
+        let out = PerceptionAdapter::adapt(input).unwrap();
+        let ent = shannon_entropy(&out);
+        assert!(ent > 0.1);
+    }
 }
