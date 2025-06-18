@@ -42,6 +42,9 @@ pub mod retrieval_pipeline;
 #[cfg(feature = "rocksdb-backend")]
 pub mod rocksdb_backend;
 pub mod sandbox;
+pub mod decay;
+pub mod markov;
+pub mod poisson;
 pub mod schema;
 pub mod segmented_buffer;
 pub mod semantic_compression;

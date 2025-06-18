@@ -1,10 +1,11 @@
 use std::collections::HashMap;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 use uuid::Uuid;
 
 use hipcortex::memory_store::MemoryStore;
 use hipcortex::symbolic_store::SymbolicStore;
 use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
+use hipcortex::decay::DecayType;
 
 #[test]
 fn travelg3n_store_and_retrieve_city() {
@@ -22,6 +23,7 @@ fn travelg3n_store_and_retrieve_city() {
         relevance: 1.0,
         decay_factor: 0.5,
         last_access: SystemTime::now(),
+        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
     };
     indexer.insert(trace);
 
@@ -77,6 +79,7 @@ fn user_store_reasoning_trace() {
         relevance: 1.0,
         decay_factor: 0.5,
         last_access: SystemTime::now(),
+        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
     };
     indexer.insert(trace);
 

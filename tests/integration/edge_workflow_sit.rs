@@ -2,8 +2,9 @@ use hipcortex::memory_record::{MemoryRecord, MemoryType};
 use hipcortex::memory_store::MemoryStore;
 use hipcortex::procedural_cache::{FSMState, FSMTransition, ProceduralCache, ProceduralTrace};
 use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
+use hipcortex::decay::DecayType;
 use std::collections::HashMap;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 use uuid::Uuid;
 
 #[test]
@@ -21,6 +22,7 @@ fn edge_workflow_small_device() {
             relevance: 1.0,
             decay_factor: 1.0,
             last_access: SystemTime::now(),
+            decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
         });
     }
     assert_eq!(indexer.get_recent(3).len(), 2);

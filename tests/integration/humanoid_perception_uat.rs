@@ -1,7 +1,8 @@
 use hipcortex::integration_layer::IntegrationLayer;
 use hipcortex::perception_adapter::{Modality, PerceptInput, PerceptionAdapter};
 use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
-use std::time::SystemTime;
+use hipcortex::decay::DecayType;
+use std::time::{Duration, SystemTime};
 use uuid::Uuid;
 
 #[test]
@@ -28,6 +29,7 @@ fn user_flow_humanoid_robotics_trace() {
         relevance: 1.0,
         decay_factor: 1.0,
         last_access: SystemTime::now(),
+        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
     });
 
     layer.send_message("r1", "trace stored");
