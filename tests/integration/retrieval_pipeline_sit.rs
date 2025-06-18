@@ -20,8 +20,8 @@ fn retrieval_round_trip() {
         image_data: None,
         tags: vec![],
     };
-    let out = PerceptionAdapter::adapt(input);
-    assert!(out.is_none());
+    let out = PerceptionAdapter::adapt(input).unwrap();
+    assert_eq!(out.len(), 4);
 
     indexer.insert(TemporalTrace {
         id: Uuid::new_v4(),

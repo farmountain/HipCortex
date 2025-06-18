@@ -1,4 +1,7 @@
 /// Chain-of-Thought: input -> symbol parse -> PCA -> compressed vector
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use crate::math::{entropy::estimate_entropy, norm::l2_normalize, pca::pca_reduce};
 
 #[derive(Debug, Clone)]
 pub enum Modality {
@@ -19,6 +22,25 @@ pub struct PerceptInput {
 }
 
 pub struct PerceptionAdapter;
+
+#[derive(Debug)]
+pub enum AdapterError {
+    RateLimited,
+    InvalidInput(&'static str),
+    ImageEncoding(anyhow::Error),
+}
+
+impl std::fmt::Display for AdapterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AdapterError::RateLimited => write!(f, "rate limit exceeded"),
+            AdapterError::InvalidInput(s) => write!(f, "invalid input: {}", s),
+            AdapterError::ImageEncoding(e) => write!(f, "image encoding error: {}", e),
+        }
+    }
+}
+
+impl std::error::Error for AdapterError {}
 
 const COMPRESS_DIM: usize = 4;
 
@@ -55,57 +77,72 @@ lazy_static::lazy_static! {
     static ref ADAPTER_LIMITER: RateLimiter = RateLimiter::new(10);
 }
 
+fn text_to_embedding(text: &str, dim: usize) -> Vec<f32> {
+    let mut vec = vec![0.0; dim];
+    for token in text.split_whitespace() {
+        let mut hasher = DefaultHasher::new();
+        token.hash(&mut hasher);
+        let idx = (hasher.finish() as usize) % dim;
+        vec[idx] += 1.0;
+    }
+    vec
+}
+
 impl PerceptionAdapter {
-    pub fn adapt(input: PerceptInput) -> Option<Vec<f32>> {
+    pub fn adapt(input: PerceptInput) -> Result<Vec<f32>, AdapterError> {
         if !ADAPTER_LIMITER.allow() {
-            println!("[PerceptionAdapter] rate limit exceeded");
-            return None;
+            return Err(AdapterError::RateLimited);
         }
         match input.modality {
             Modality::Text => {
-                println!("[PerceptionAdapter] Text: {:?}", input.text);
-                None
+                let text = input.text.ok_or(AdapterError::InvalidInput("missing text"))?;
+                let emb = text_to_embedding(&text, COMPRESS_DIM * 4);
+                let comp = pca_reduce(&emb, COMPRESS_DIM);
+                let out = l2_normalize(comp);
+                let ent = estimate_entropy(&out);
+                println!("[PerceptionAdapter] entropy {:.3}", ent);
+                Ok(out)
             }
             Modality::ImageEmbedding => {
                 if let Some(embed) = input.embedding {
-                    let comp =
-                        crate::semantic_compression::compress_embedding(&embed, COMPRESS_DIM);
-                    println!("[PerceptionAdapter] Embedding: {:?}", comp);
-                    Some(comp)
+                    let comp = pca_reduce(&embed, COMPRESS_DIM);
+                    let out = l2_normalize(comp);
+                    println!("[PerceptionAdapter] entropy {:.3}", estimate_entropy(&out));
+                    Ok(out)
                 } else {
-                    println!("[PerceptionAdapter] Embedding: None");
-                    None
+                    Err(AdapterError::InvalidInput("missing embedding"))
                 }
             }
             Modality::Image => {
                 if let Some(bytes) = input.image_data {
                     match crate::vision_encoder::VisionEncoder::encode_bytes(&bytes) {
                         Ok(emb) => {
-                            let comp =
-                                crate::semantic_compression::compress_embedding(&emb, COMPRESS_DIM);
-                            println!("[PerceptionAdapter] Image embedding: {:?}", comp);
-                            Some(comp)
+                            let comp = pca_reduce(&emb, COMPRESS_DIM);
+                            let out = l2_normalize(comp);
+                            println!("[PerceptionAdapter] entropy {:.3}", estimate_entropy(&out));
+                            Ok(out)
                         }
-                        Err(e) => {
-                            println!("[PerceptionAdapter] Image encoding error: {}", e);
-                            None
-                        }
+                        Err(e) => Err(AdapterError::ImageEncoding(e)),
                     }
                 } else {
-                    println!("[PerceptionAdapter] No image data");
-                    None
+                    Err(AdapterError::InvalidInput("no image data"))
                 }
             }
             Modality::SymbolicConcept => {
-                println!(
-                    "[PerceptionAdapter] Symbolic concept tags: {:?}",
-                    input.tags
-                );
-                None
+                if input.tags.is_empty() {
+                    Err(AdapterError::InvalidInput("empty tags"))
+                } else {
+                    println!("[PerceptionAdapter] Symbolic concept tags: {:?}", input.tags);
+                    Ok(Vec::new())
+                }
             }
-            _ => {
-                println!("[PerceptionAdapter] Input: {:?}", input);
-                None
+            Modality::AgentMessage => {
+                let text = input.text.ok_or(AdapterError::InvalidInput("missing text"))?;
+                let emb = text_to_embedding(&text, COMPRESS_DIM * 4);
+                let comp = pca_reduce(&emb, COMPRESS_DIM);
+                let out = l2_normalize(comp);
+                println!("[PerceptionAdapter] entropy {:.3}", estimate_entropy(&out));
+                Ok(out)
             }
         }
     }
@@ -124,19 +161,23 @@ mod tests {
             image_data: None,
             tags: vec![],
         };
-        PerceptionAdapter::adapt(input);
+        let out = PerceptionAdapter::adapt(input).unwrap();
+        assert_eq!(out.len(), COMPRESS_DIM);
     }
 
     #[test]
     fn rate_limit() {
+        let mut last = None;
         for _ in 0..12 {
-            PerceptionAdapter::adapt(PerceptInput {
+            last = Some(PerceptionAdapter::adapt(PerceptInput {
                 modality: Modality::Text,
                 text: Some("x".into()),
                 embedding: None,
                 image_data: None,
                 tags: vec![],
-            });
+            }));
         }
+        let result = last.unwrap();
+        assert!(matches!(result.unwrap_err(), AdapterError::RateLimited));
     }
 }

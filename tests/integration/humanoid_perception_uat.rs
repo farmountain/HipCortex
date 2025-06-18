@@ -18,8 +18,8 @@ fn user_flow_humanoid_robotics_trace() {
         image_data: None,
         tags: vec!["humanoid".into()],
     };
-    let out = PerceptionAdapter::adapt(input.clone());
-    assert!(out.is_none());
+    let out = PerceptionAdapter::adapt(input.clone()).unwrap();
+    assert_eq!(out.len(), 4);
 
     indexer.insert(TemporalTrace {
         id: Uuid::new_v4(),

@@ -32,8 +32,8 @@ fn memory_round_trip() {
         image_data: None,
         tags: vec![],
     };
-    let out = PerceptionAdapter::adapt(input);
-    assert!(out.is_none());
+    let out = PerceptionAdapter::adapt(input).unwrap();
+    assert!(out.len() == 4);
 
     assert!(store.get_node(node_id).is_some());
     assert_eq!(indexer.get_recent(1)[0].data, node_id);

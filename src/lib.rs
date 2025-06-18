@@ -33,6 +33,7 @@ pub mod memory_store;
 pub mod perception_adapter;
 pub mod persistence;
 pub mod plugin_host;
+pub mod math;
 #[path = "modules/procedural_cache.rs"]
 pub mod procedural_cache;
 #[path = "modules/puzzle.rs"]
