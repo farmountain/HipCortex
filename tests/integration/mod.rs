@@ -24,3 +24,7 @@ mod test_end_to_end;
 mod uat_tests;
 mod world_model_cli_sit;
 mod world_model_uat;
+#[cfg(all(feature = "web-server", feature = "grpc-server"))]
+mod mcp_server_sit;
+#[cfg(all(feature = "web-server", feature = "grpc-server"))]
+mod mcp_server_uat;

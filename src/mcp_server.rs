@@ -57,17 +57,19 @@ impl<B: MemoryBackend + Send + 'static> McpServer<B> {
         &self,
         http_addr: SocketAddr,
         grpc_addr: SocketAddr,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> anyhow::Result<()> {
         let store = self.store.clone();
-        let grpc = tokio::spawn(async move { grpc_server::serve(grpc_addr, store).await });
+        let grpc = tokio::spawn(async move {
+            grpc_server::serve(grpc_addr, store).await.unwrap();
+        });
 
         let symbolic = self.symbolic.clone();
         let http = tokio::spawn(async move {
             web_server::run_with_store(http_addr, symbolic).await;
         });
 
-        grpc.await??;
-        http.await?;
+        grpc.await?;
+        http.await.unwrap();
         Ok(())
     }
 }

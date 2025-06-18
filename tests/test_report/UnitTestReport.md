@@ -83,6 +83,9 @@ This report summarizes the unit tests implemented and passed for the HipCortex M
 - **pdf_export_creates_file:** ensures PDF export writes output successfully.
 - **notion_export_sends_request:** verifies an HTTP request is sent when exporting to Notion.
 
+## 9. MCP Server (in `mcp_server_tests.rs`)
+- **mcp_server_init:** constructs the MCP server and verifies the stores start empty.
+
 ---
 
 **Result:**  

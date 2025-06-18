@@ -11,6 +11,7 @@ This report summarizes the system integration tests validating interactions acro
   lists it back when the `grpc-server` feature is enabled.
 - **web_server_graph_endpoint:** verifies the REST `/graph` endpoint serves the
   symbolic graph when running with the `web-server` feature.
+- **mcp_server_handles_grpc_and_http:** starts the combined MCP server and validates both endpoints.
 - **store_reasoning_trace_via_adapter_and_indexer:** validates storing a text percept as a temporal trace.
 - **query_symbol_via_indexer:** verifies querying nodes via label and property after retrieval from TemporalIndexer.
 - **vision_compress_round_trip:** encodes an image and compresses the embedding using the semantic compression module.
