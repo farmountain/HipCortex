@@ -22,7 +22,7 @@ tar = "0.4"
 image = { version = "0.24", default-features = false, features = ["png", "jpeg"] }
 nalgebra = "0.33"
 diesel = { version = "2", features = ["postgres", "sqlite", "serde_json"] }
-reqwest = { version = "0.11", features = ["blocking", "json"] }
+reqwest = { version = "0.11", features = ["blocking", "json"], optional = true }
 sha2 = "0.10"
 hex = "0.4"
 aes-gcm = "0.10"
@@ -35,6 +35,8 @@ lru = "0.12"
 sled = "0.34"
 futures = "0.3"
 bytemuck = "1"
+petgraph = { version = "0.6", optional = true }
+sqlx = { version = "0.7", default-features = false, features = ["runtime-tokio-rustls", "postgres"], optional = true }
 rocksdb = { version = "0.21", optional = true }
 wasmtime = { version = "8", optional = true }
 wat = { version = "1", optional = true }
@@ -78,4 +80,7 @@ parallel = ["rayon"]
 gpu = ["wgpu"]
 grpc-server = ["tonic", "prost", "tokio", "tonic-build"]
 rocksdb-backend = ["rocksdb"]
-default = []
+petgraph_backend = ["petgraph"]
+neo4j_backend = ["reqwest"]
+postgres_backend = ["sqlx"]
+default = ["petgraph_backend", "neo4j_backend"]

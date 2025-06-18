@@ -10,6 +10,7 @@ pub mod aureus_bridge;
 pub mod conversation_memory;
 #[cfg(feature = "web-server")]
 pub mod dashboard;
+pub mod decay;
 #[path = "modules/effort.rs"]
 pub mod effort;
 #[path = "modules/enhancement_advisor.rs"]
@@ -22,6 +23,7 @@ pub mod hypothesis_manager;
 pub mod integration_layer;
 pub mod knowledge_export;
 pub mod llm_clients;
+pub mod markov;
 pub mod memory;
 pub mod memory_cli;
 pub mod memory_diff;
@@ -33,6 +35,7 @@ pub mod memory_store;
 pub mod perception_adapter;
 pub mod persistence;
 pub mod plugin_host;
+pub mod poisson;
 #[path = "modules/procedural_cache.rs"]
 pub mod procedural_cache;
 #[path = "modules/puzzle.rs"]
@@ -42,15 +45,19 @@ pub mod retrieval_pipeline;
 #[cfg(feature = "rocksdb-backend")]
 pub mod rocksdb_backend;
 pub mod sandbox;
-pub mod decay;
-pub mod markov;
-pub mod poisson;
 pub mod schema;
 pub mod segmented_buffer;
 pub mod semantic_compression;
 pub mod snapshot_manager;
 #[path = "modules/symbolic_store.rs"]
 pub mod symbolic_store;
+pub mod backends {
+    #[cfg(feature = "neo4j_backend")]
+    pub mod neo4j_backend;
+    pub mod petgraph_backend;
+    #[cfg(feature = "postgres_backend")]
+    pub mod postgres_backend;
+}
 #[path = "modules/temporal_indexer.rs"]
 pub mod temporal_indexer;
 #[path = "modules/world_model.rs"]
