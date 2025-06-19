@@ -178,3 +178,22 @@ P(H|E) = P(E|H)P(H) / [P(E|H)P(H) + P(E|¬H)P(¬H)]
 Nodes with posterior below the `prune_threshold` are automatically removed.
 Use `run_monte_carlo` to sample multiple hypotheses and select the highest mean
 confidence.
+
+## 12. HypothesisManager Example
+
+The `HypothesisManager` manages a tree of hypotheses with Bayesian probabilities. Nodes with low probability can be pruned automatically.
+
+```rust
+use hipcortex::hypothesis_manager::HypothesisManager;
+
+let mut mgr = HypothesisManager::new();
+let root = mgr.add_root("start", 0.6);
+mgr.add_child(root, "option_a", 0.7);
+mgr.add_child(root, "option_b", 0.4);
+
+let best = mgr.best_path();
+for h in best { println!("{} : {}", h.state, h.probability); }
+
+mgr.export_dot("hypotheses.dot");
+```
+
