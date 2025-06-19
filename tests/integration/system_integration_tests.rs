@@ -3,13 +3,13 @@ use std::time::{Duration, SystemTime};
 use uuid::Uuid;
 
 use hipcortex::aureus_bridge::{AureusBridge, AureusConfig};
-use hipcortex::llm_clients::mock::MockClient;
+use hipcortex::decay::DecayType;
 use hipcortex::integration_layer::IntegrationLayer;
+use hipcortex::llm_clients::mock::MockClient;
 use hipcortex::memory_store::MemoryStore;
 use hipcortex::perception_adapter::{Modality, PerceptInput, PerceptionAdapter};
 use hipcortex::symbolic_store::SymbolicStore;
 use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
-use hipcortex::decay::DecayType;
 
 #[test]
 fn memory_round_trip() {
@@ -23,7 +23,9 @@ fn memory_round_trip() {
         relevance: 1.0,
         decay_factor: 0.5,
         last_access: SystemTime::now(),
-        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
+        decay_type: DecayType::Exponential {
+            half_life: Duration::from_secs(1),
+        },
     };
     indexer.insert(trace);
 
@@ -58,7 +60,10 @@ fn integration_chain_of_thought() {
     let mut layer = IntegrationLayer::new();
     layer.connect();
     let mut aureus = AureusBridge::with_client(Box::new(MockClient));
-    aureus.configure(AureusConfig { enable_cot: true });
+    aureus.configure(AureusConfig {
+        enable_cot: true,
+        prune_threshold: 0.2,
+    });
     let mut store = MemoryStore::new(path).unwrap();
     store.clear();
     layer.trigger_reflexion(&mut aureus, "ctx", &mut store);
@@ -82,7 +87,9 @@ fn query_symbol_via_indexer() {
         relevance: 1.0,
         decay_factor: 1.0,
         last_access: SystemTime::now(),
-        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
+        decay_type: DecayType::Exponential {
+            half_life: Duration::from_secs(1),
+        },
     };
     indexer.insert(trace);
     let recent = indexer.get_recent(1)[0].data;

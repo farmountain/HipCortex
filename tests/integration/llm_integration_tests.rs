@@ -9,7 +9,10 @@ fn reflexion_loop_stores_response() {
     let mut store = MemoryStore::new(path).unwrap();
     store.clear();
     let mut bridge = AureusBridge::with_client(Box::new(MockClient));
-    bridge.configure(AureusConfig { enable_cot: true });
+    bridge.configure(AureusConfig {
+        enable_cot: true,
+        prune_threshold: 0.2,
+    });
     bridge.reflexion_loop("context", &mut store);
     assert_eq!(store.all().len(), 1);
     std::fs::remove_file(path).ok();
