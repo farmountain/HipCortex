@@ -2,10 +2,10 @@ use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
 use uuid::Uuid;
 
+use hipcortex::decay::DecayType;
 use hipcortex::memory_store::MemoryStore;
 use hipcortex::symbolic_store::SymbolicStore;
 use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
-use hipcortex::decay::DecayType;
 
 #[test]
 fn travelg3n_store_and_retrieve_city() {
@@ -23,7 +23,9 @@ fn travelg3n_store_and_retrieve_city() {
         relevance: 1.0,
         decay_factor: 0.5,
         last_access: SystemTime::now(),
-        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
+        decay_type: DecayType::Exponential {
+            half_life: Duration::from_secs(1),
+        },
     };
     indexer.insert(trace);
 
@@ -48,7 +50,10 @@ fn athena_chain_of_thought_reasoning() {
     let path = "test_uat_cot.jsonl";
     let _ = std::fs::remove_file(path);
     let mut aureus = AureusBridge::with_client(Box::new(MockClient));
-    aureus.configure(AureusConfig { enable_cot: true });
+    aureus.configure(AureusConfig {
+        enable_cot: true,
+        prune_threshold: 0.2,
+    });
     let mut store = MemoryStore::new(path).unwrap();
     store.clear();
     aureus.reflexion_loop("ctx", &mut store);
@@ -79,7 +84,9 @@ fn user_store_reasoning_trace() {
         relevance: 1.0,
         decay_factor: 0.5,
         last_access: SystemTime::now(),
-        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
+        decay_type: DecayType::Exponential {
+            half_life: Duration::from_secs(1),
+        },
     };
     indexer.insert(trace);
 

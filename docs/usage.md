@@ -155,3 +155,26 @@ use hipcortex::temporal_indexer::TemporalIndexer;
 * For integration/API details, see `docs/integration.md`.
 * To contribute, see `docs/contributing.md`.
 * For the roadmap and additional modules, see `docs/roadmap.md`.
+
+## 11. Reflexion Hypotheses Graph
+
+`AureusBridge` now tracks reasoning as a Bayesian hypothesis graph. Each reflexion step parses the LLM output into a `ReflexionHypothesis`:
+
+```json
+{
+  "text": "Sky appears blue",
+  "confidence": 0.72,
+  "evidence": ["sunlight scatters"]
+}
+```
+
+Edges between nodes mark support or refutation. Posterior confidence is
+computed via:
+
+```
+P(H|E) = P(E|H)P(H) / [P(E|H)P(H) + P(E|¬H)P(¬H)]
+```
+
+Nodes with posterior below the `prune_threshold` are automatically removed.
+Use `run_monte_carlo` to sample multiple hypotheses and select the highest mean
+confidence.

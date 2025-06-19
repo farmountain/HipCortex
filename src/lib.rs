@@ -17,6 +17,8 @@ pub mod effort;
 pub mod enhancement_advisor;
 #[cfg(feature = "gui")]
 pub mod gui;
+#[path = "modules/hypotheses_graph.rs"]
+pub mod hypotheses_graph;
 #[path = "modules/hypothesis_manager.rs"]
 pub mod hypothesis_manager;
 #[path = "modules/integration_layer.rs"]
