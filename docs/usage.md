@@ -114,7 +114,28 @@ MATCH (a)-[:REL]->(b) RETURN a,b
 
 Call `assert_graph_invariants()` to verify edges reference existing nodes.
 
-## 8. Import as a Library
+## 8. FSM Backend Options
+
+`ProceduralCache` manages finite state machines. The default backend uses a
+`petgraph` based engine but others can be swapped in via the `FSMBackend` trait.
+Enable the experimental Temporal backend by compiling with feature flags:
+
+```toml
+[features]
+rustfsm_backend = []
+temporal_backend = ["temporalio"]
+```
+
+Create a cache with the default backend:
+
+```rust
+use hipcortex::procedural_cache::ProceduralCache;
+let mut cache = ProceduralCache::new();
+```
+
+Custom backends can be plugged in with `from_backend`.
+
+## 9. Import as a Library
 
 Add this project as a dependency in your own Rust project (`Cargo.toml`):
 
@@ -128,7 +149,7 @@ Import modules in your code:
 use hipcortex::temporal_indexer::TemporalIndexer;
 ```
 
-## 9. Get Help
+## 10. Get Help
 
 * For architecture and design, see `docs/architecture.md`.
 * For integration/API details, see `docs/integration.md`.

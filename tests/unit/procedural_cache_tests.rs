@@ -33,3 +33,14 @@ fn checkpoint_roundtrip() {
     assert!(loaded.get_trace(trace.id).is_some());
     std::fs::remove_file("trace_ckpt.json").unwrap();
 }
+
+#[test]
+fn invariant_check() {
+    let mut cache = ProceduralCache::new();
+    cache.add_transition(FSMTransition {
+        from: FSMState::Start,
+        to: FSMState::End,
+        condition: None,
+    });
+    cache.assert_fsm_invariants();
+}
