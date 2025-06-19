@@ -57,6 +57,9 @@ pub mod backends {
     pub mod petgraph_backend;
     #[cfg(feature = "postgres_backend")]
     pub mod postgres_backend;
+    pub mod rustfsm_backend;
+    #[cfg(feature = "temporal_backend")]
+    pub mod temporal_backend;
 }
 #[path = "modules/temporal_indexer.rs"]
 pub mod temporal_indexer;

@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
+use crate::backends::rustfsm_backend::RustFSMBackend;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum FSMState {
     Start,
@@ -28,83 +30,29 @@ pub struct ProceduralTrace {
     pub memory: HashMap<String, String>,
 }
 
-pub struct ProceduralCache {
-    traces: HashMap<Uuid, ProceduralTrace>,
-    transitions: Vec<FSMTransition>,
+pub trait FSMBackend {
+    fn add_trace(&mut self, trace: ProceduralTrace);
+    fn add_transition(&mut self, transition: FSMTransition);
+    fn advance(&mut self, trace_id: Uuid, condition: Option<&str>) -> Option<FSMState>;
+    fn advance_batch(
+        &mut self,
+        trace_ids: &[Uuid],
+        condition: Option<&str>,
+    ) -> Vec<Option<FSMState>>;
+    fn assert_fsm_invariants(&self);
+    fn traces(&self) -> &HashMap<Uuid, ProceduralTrace>;
+    fn traces_mut(&mut self) -> &mut HashMap<Uuid, ProceduralTrace>;
 }
 
-impl ProceduralCache {
+pub struct ProceduralCache<B: FSMBackend = RustFSMBackend> {
+    backend: B,
+}
+
+impl ProceduralCache<RustFSMBackend> {
     pub fn new() -> Self {
         Self {
-            traces: HashMap::new(),
-            transitions: vec![],
+            backend: RustFSMBackend::new(),
         }
-    }
-
-    pub fn add_trace(&mut self, trace: ProceduralTrace) {
-        self.traces.insert(trace.id, trace);
-    }
-
-    pub fn add_transition(&mut self, transition: FSMTransition) {
-        self.transitions.push(transition);
-    }
-
-    pub fn remove_trace(&mut self, trace_id: Uuid) -> bool {
-        self.traces.remove(&trace_id).is_some()
-    }
-
-    pub fn reset_trace(&mut self, trace_id: Uuid) -> Option<()> {
-        let trace = self.traces.get_mut(&trace_id)?;
-        trace.current_state = FSMState::Start;
-        trace.memory.clear();
-        Some(())
-    }
-
-    pub fn advance(&mut self, trace_id: Uuid, condition: Option<&str>) -> Option<FSMState> {
-        let trace = self.traces.get_mut(&trace_id)?;
-        for trans in &self.transitions {
-            if &trace.current_state == &trans.from {
-                if let Some(c) = &trans.condition {
-                    if let Some(cond) = condition {
-                        if c == cond {
-                            trace.current_state = trans.to.clone();
-                            return Some(trace.current_state.clone());
-                        }
-                    }
-                } else if condition.is_none() {
-                    trace.current_state = trans.to.clone();
-                    return Some(trace.current_state.clone());
-                }
-            }
-        }
-        None
-    }
-
-    pub fn advance_batch<'a, I>(
-        &mut self,
-        traces: I,
-        condition: Option<&'a str>,
-    ) -> Vec<(Uuid, FSMState)>
-    where
-        I: IntoIterator<Item = Uuid>,
-    {
-        let mut results = Vec::new();
-        for id in traces {
-            if let Some(state) = self.advance(id, condition) {
-                results.push((id, state));
-            }
-        }
-        results
-    }
-
-    pub fn get_trace(&self, trace_id: Uuid) -> Option<&ProceduralTrace> {
-        self.traces.get(&trace_id)
-    }
-
-    pub fn save_checkpoint<P: AsRef<std::path::Path>>(&self, path: P) -> anyhow::Result<()> {
-        let file = std::fs::File::create(path)?;
-        serde_json::to_writer_pretty(file, &self.traces)?;
-        Ok(())
     }
 
     pub fn load_checkpoint<P: AsRef<std::path::Path>>(path: P) -> anyhow::Result<Self> {
@@ -113,10 +61,62 @@ impl ProceduralCache {
         }
         let file = std::fs::File::open(path)?;
         let traces: HashMap<Uuid, ProceduralTrace> = serde_json::from_reader(file)?;
-        Ok(Self {
-            traces,
-            transitions: vec![],
-        })
+        let mut backend = RustFSMBackend::new();
+        for t in traces.values() {
+            backend.add_trace(t.clone());
+        }
+        Ok(Self { backend })
+    }
+}
+
+impl<B: FSMBackend> ProceduralCache<B> {
+    pub fn from_backend(backend: B) -> Self {
+        Self { backend }
+    }
+
+    pub fn add_trace(&mut self, trace: ProceduralTrace) {
+        self.backend.add_trace(trace);
+    }
+
+    pub fn add_transition(&mut self, transition: FSMTransition) {
+        self.backend.add_transition(transition);
+    }
+
+    pub fn remove_trace(&mut self, trace_id: Uuid) -> bool {
+        self.backend.traces_mut().remove(&trace_id).is_some()
+    }
+
+    pub fn reset_trace(&mut self, trace_id: Uuid) -> Option<()> {
+        let trace = self.backend.traces_mut().get_mut(&trace_id)?;
+        trace.current_state = FSMState::Start;
+        trace.memory.clear();
+        Some(())
+    }
+
+    pub fn advance(&mut self, trace_id: Uuid, condition: Option<&str>) -> Option<FSMState> {
+        self.backend.advance(trace_id, condition)
+    }
+
+    pub fn advance_batch(
+        &mut self,
+        trace_ids: &[Uuid],
+        condition: Option<&str>,
+    ) -> Vec<Option<FSMState>> {
+        self.backend.advance_batch(trace_ids, condition)
+    }
+
+    pub fn get_trace(&self, trace_id: Uuid) -> Option<&ProceduralTrace> {
+        self.backend.traces().get(&trace_id)
+    }
+
+    pub fn save_checkpoint<P: AsRef<std::path::Path>>(&self, path: P) -> anyhow::Result<()> {
+        let file = std::fs::File::create(path)?;
+        serde_json::to_writer_pretty(file, self.backend.traces())?;
+        Ok(())
+    }
+
+    pub fn assert_fsm_invariants(&self) {
+        self.backend.assert_fsm_invariants();
     }
 }
 
@@ -162,7 +162,18 @@ mod tests {
             to: FSMState::Observe,
             condition: None,
         });
-        let res = cache.advance_batch(vec![t1.id, t2.id], None);
+        let res = cache.advance_batch(&[t1.id, t2.id], None);
         assert_eq!(res.len(), 2);
+    }
+
+    #[test]
+    fn invariant_check() {
+        let mut cache = ProceduralCache::new();
+        cache.add_transition(FSMTransition {
+            from: FSMState::Start,
+            to: FSMState::End,
+            condition: None,
+        });
+        cache.assert_fsm_invariants();
     }
 }
