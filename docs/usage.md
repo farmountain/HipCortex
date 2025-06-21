@@ -61,6 +61,22 @@ cargo run --example plugin_host --features plugin
 
 This runs `examples/plugin_host.rs` which loads a tiny WAT module and prints the returned value.
 
+### Effort & Confidence Example
+
+Measure reasoning effort and decay confidence dynamically:
+
+```rust
+use hipcortex::effort::{EffortEvaluator, ConfidenceRegulator};
+
+let mut eval = EffortEvaluator::new();
+eval.record(5); // weighted cost
+
+let mut conf = ConfidenceRegulator::new();
+conf.decay_exponential(0.2);
+
+println!("Collapse: {}", eval.collapse_score(conf.confidence()));
+```
+
 ## 5. VS Code Setup
 
 * Open project root in VS Code.

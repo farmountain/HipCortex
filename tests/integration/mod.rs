@@ -3,11 +3,17 @@ mod conversation_memory_sit;
 mod conversation_memory_uat;
 mod edge_workflow_sit;
 mod edge_workflow_uat;
+mod effort_confidence_sit;
+mod effort_confidence_uat;
 #[cfg(feature = "grpc-server")]
 mod grpc_tests;
 mod humanoid_perception_uat;
 mod integration_tests;
 mod llm_integration_tests;
+#[cfg(all(feature = "web-server", feature = "grpc-server"))]
+mod mcp_server_sit;
+#[cfg(all(feature = "web-server", feature = "grpc-server"))]
+mod mcp_server_uat;
 mod openmanus_integration_sit;
 mod plugin_host_sit;
 mod plugin_host_uat;
@@ -24,7 +30,3 @@ mod test_end_to_end;
 mod uat_tests;
 mod world_model_cli_sit;
 mod world_model_uat;
-#[cfg(all(feature = "web-server", feature = "grpc-server"))]
-mod mcp_server_sit;
-#[cfg(all(feature = "web-server", feature = "grpc-server"))]
-mod mcp_server_uat;
