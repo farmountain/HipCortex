@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use std::path::{Path, PathBuf};
 
-use crate::llm_clients::LLMClient;
+use crate::llm_clients::{LLMClient, LanguageModelClient};
 use crate::memory_processor::MemoryProcessor;
 use crate::memory_query::MemoryQuery;
 use crate::memory_record::{MemoryRecord, MemoryType};
@@ -77,6 +77,10 @@ enum Commands {
         #[arg(long, default_value_t = 16)]
         capacity: usize,
     },
+    /// Generate text using a local or mocked LLM
+    LlmGenerate { prompt: String },
+    /// Predict next state using the world model connector
+    WorldModelPredict { input: String },
     /// Run a demonstration workflow
     RunWorkflow,
 }
@@ -198,6 +202,25 @@ pub fn run() -> Result<()> {
                 println!("{} {:?}", k, v);
             }
             sc.save(&cache)?;
+        }
+        Commands::LlmGenerate { prompt } => {
+            use crate::llm_clients::local_llm_client::LocalLLMClient;
+            let cmd = std::env::var("LOCAL_LLM_CMD").unwrap_or_else(|_| "echo".into());
+            let client = LocalLLMClient::new(cmd);
+            let resp = client.generate(&prompt);
+            println!("{}", resp);
+        }
+        Commands::WorldModelPredict { input } => {
+            use crate::world_model_client::{MockWorldModelClient, WorldModelClient};
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&input) {
+                let state = v["state"].as_str().unwrap_or("");
+                let action = v["action"].as_str().unwrap_or("");
+                let client = MockWorldModelClient;
+                let out = client.predict_next_state(state, action);
+                println!("{}", out);
+            } else {
+                println!("invalid input");
+            }
         }
         Commands::RunWorkflow => {
             use crate::backends::temporal_backend::TemporalFSMBackend;

@@ -111,6 +111,19 @@ For WebAssembly extension, see `examples/plugin_host.rs` and run:
 `cargo run --example plugin_host --features plugin`.
 Detailed data model and extended architecture diagrams are available in [docs/data_model.md](docs/data_model.md) and [docs/architecture.md](docs/architecture.md).
 
+## LLM & World Model Connectors
+
+HipCortex ships with lightweight connectors for popular open-source models.
+- Mistral, Falcon, DeepSeek and custom local LLMs
+- World Model connector (JEPA style or mock implementation)
+
+Example usage:
+
+```sh
+cargo run -- llm-generate "Tell me a story"
+cargo run -- worldmodel-predict '{"state":"robot","action":"move"}'
+```
+
 ## 🛠️ Use Cases
 
 
