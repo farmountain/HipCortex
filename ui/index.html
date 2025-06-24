@@ -30,7 +30,13 @@
             <button onclick="runCli()">Run</button>
             <pre id="cli-out"></pre>
         </div>
+        <div id="metrics" class="panel">
+            <h2>Metrics</h2>
+            <canvas id="req-chart" height="150"></canvas>
+            <pre id="cache-hits">0</pre>
+        </div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="main.js"></script>
 </body>
 </html>

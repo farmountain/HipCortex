@@ -24,4 +24,28 @@ async function runCli() {
 
 document.addEventListener('DOMContentLoaded', () => {
     loadGraph();
+    initMetrics();
 });
+
+let reqChart;
+function initMetrics() {
+    const ctx = document.getElementById('req-chart').getContext('2d');
+    reqChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: [], datasets: [{ label: 'req/s', data: [] }] },
+    });
+    setInterval(updateMetrics, 2000);
+}
+
+async function updateMetrics() {
+    const metrics = await window.__TAURI__.invoke('get_metrics');
+    document.getElementById('cache-hits').innerText = 'cache hits: ' + metrics.cache_hits;
+    const dataset = reqChart.data.datasets[0];
+    dataset.data.push(metrics.request_rate);
+    reqChart.data.labels.push('');
+    if (dataset.data.length > 20) {
+        dataset.data.shift();
+        reqChart.data.labels.shift();
+    }
+    reqChart.update();
+}

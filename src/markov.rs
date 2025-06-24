@@ -51,8 +51,11 @@ where
     /// Predict the most likely next state given the current state.
     pub fn predict_next(&self, current: &T) -> Option<T> {
         let map = self.transitions.get(current)?;
-        map.iter()
-            .max_by_key(|(_, v)| *v)
-            .map(|(k, _)| k.clone())
+        map.iter().max_by_key(|(_, v)| *v).map(|(k, _)| k.clone())
+    }
+
+    /// Export transition counts for external reporting.
+    pub fn transition_counts(&self) -> HashMap<T, HashMap<T, usize>> {
+        self.transitions.clone()
     }
 }

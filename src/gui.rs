@@ -10,6 +10,7 @@ use crate::{
     aureus_bridge::AureusBridge,
     memory_record::{MemoryRecord, MemoryType},
     memory_store::MemoryStore,
+    monitoring::{MonitoringMetrics, MonitoringService},
     perception_adapter::{Modality, PerceptInput, PerceptionAdapter},
     procedural_cache::ProceduralCache,
     symbolic_store::SymbolicStore,
@@ -23,6 +24,7 @@ pub struct GuiState {
     procedural: Mutex<ProceduralCache>,
     aureus: Mutex<AureusBridge>,
     memory: Mutex<MemoryStore>,
+    monitoring: Mutex<MonitoringService>,
 }
 
 #[cfg(feature = "gui")]
@@ -34,6 +36,7 @@ impl GuiState {
             procedural: Mutex::new(ProceduralCache::new()),
             aureus: Mutex::new(AureusBridge::new()),
             memory: Mutex::new(MemoryStore::new("memory_gui.jsonl").unwrap()),
+            monitoring: Mutex::new(MonitoringService::new()),
         }
     }
 }
@@ -121,6 +124,13 @@ fn cli_command(state: State<GuiState>, cmd: String) -> String {
 }
 
 #[cfg(feature = "gui")]
+#[tauri::command]
+fn get_metrics(state: State<GuiState>) -> MonitoringMetrics {
+    let service = state.monitoring.lock().unwrap();
+    service.snapshot()
+}
+
+#[cfg(feature = "gui")]
 pub fn launch() -> tauri::Result<()> {
     tauri::Builder::default()
         .manage(GuiState::new())
@@ -128,7 +138,8 @@ pub fn launch() -> tauri::Result<()> {
             get_symbolic_graph,
             run_reflexion,
             send_perception,
-            cli_command
+            cli_command,
+            get_metrics
         ])
         .run(tauri::generate_context!())
 }

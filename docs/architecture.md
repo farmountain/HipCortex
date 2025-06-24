@@ -108,6 +108,7 @@ Additional modules extend HipCortex further:
 - **A2A Protocol**: simple peer clients implement `A2AClient` to exchange procedural traces.
 - **Secure LLM Sandbox**: `sandbox::SecureLLMSandbox` renders templates with whitelisted variables before sending to LLMs.
 - **World Model Dashboard**: when the `web-server` feature is enabled, `dashboard::routes` exposes memory data for a lightweight web UI.
+- **Monitoring Service**: `monitoring::routes` serves live metrics for the Tauri dashboard.
 - **gRPC Server**: enabling the `grpc-server` feature spins up a Tonic-based service for adding and listing memory records.
  - **Effort Evaluator & Confidence Regulator**: measure reasoning effort and confidence decay to avoid collapse.
  - **Hypothesis Manager**: maintain multiple reasoning branches and a quantized state tree for backtracking.

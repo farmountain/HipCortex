@@ -43,7 +43,7 @@ The following actions reinforce the math-driven data foundation:
 2. **Implement Runtime Validators** – check FSM reachability and graph connectivity automatically.
 3. **Add Property-Based Tests** – stress-test symbolic and temporal modules with proptest.
 4. **Pilot Statistical Monitoring** – collect moving averages and standard deviation for key metrics.
-5. **Automate Observability Dashboards** – integrate logs and metrics in the web dashboard.
+5. **Automate Observability Dashboards** – integrate logs and metrics in the web dashboard using the new `MonitoringService` and Tauri UI.
 6. **Deploy Enhancement Advisor** – surface reasoning-based suggestions for users to approve and refine.
 
 PRs for new modules and improvements are highly encouraged!
