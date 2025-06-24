@@ -28,3 +28,4 @@ mod temporal_indexer_tests;
 mod vision_encoder_tests;
 mod world_model_export_tests;
 mod world_model_tests;
+mod temporal_fsm_backend_tests;
