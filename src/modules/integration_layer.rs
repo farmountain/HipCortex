@@ -1,6 +1,8 @@
 use crate::aureus_bridge::AureusBridge;
 use crate::llm_clients::LLMClient;
 use crate::memory_store::MemoryStore;
+use crate::openmanus_bridge;
+use crate::mcp_bridge;
 use crate::persistence::MemoryBackend;
 use serde::Deserialize;
 use std::collections::HashSet;
@@ -90,6 +92,28 @@ impl IntegrationLayer {
         }
     }
 
+    pub fn handle_openmanus(&self, key: &str, payload: &str) {
+        match openmanus_bridge::decode_request(payload) {
+            Ok(p) => {
+                if let Some(text) = p.text {
+                    self.send_message(key, &text);
+                }
+            }
+            Err(_) => println!("[IntegrationLayer] invalid OpenManus payload"),
+        }
+    }
+
+    pub fn handle_mcp(&self, key: &str, payload: &str) {
+        match mcp_bridge::decode_request(payload) {
+            Ok(p) => {
+                if let Some(text) = p.text {
+                    self.send_message(key, &text);
+                }
+            }
+            Err(_) => println!("[IntegrationLayer] invalid MCP payload"),
+        }
+    }
+
     pub fn invoke_llm(&self, key: &str, prompt: &str) -> Option<String> {
         if !self.authenticated(key) {
             println!("[IntegrationLayer] unauthorized");
@@ -113,6 +137,40 @@ impl IntegrationLayer {
 
     pub fn is_connected(&self) -> bool {
         self.connected
+    }
+
+    #[cfg(feature = "web-server")]
+    pub async fn run_uat_server(addr: std::net::SocketAddr) {
+        use axum::{routing::post, Json, Router};
+
+        async fn translate(Json(payload): Json<serde_json::Value>) -> Json<serde_json::Value> {
+            let json = serde_json::to_string(&payload).unwrap();
+            if payload.get("role").is_some() {
+                match openmanus_bridge::decode_request(&json) {
+                    Ok(p) => Json(serde_json::json!({
+                        "text": p.text,
+                        "tags": p.tags
+                    })),
+                    Err(_) => Json(serde_json::json!({"error": "invalid"})),
+                }
+            } else if payload.get("agent").is_some() {
+                match mcp_bridge::decode_request(&json) {
+                    Ok(p) => Json(serde_json::json!({
+                        "text": p.text,
+                        "tags": p.tags
+                    })),
+                    Err(_) => Json(serde_json::json!({"error": "invalid"})),
+                }
+            } else {
+                Json(serde_json::json!({"error": "unknown"}))
+            }
+        }
+
+        let app = Router::new().route("/translate", post(translate));
+        axum::Server::bind(&addr)
+            .serve(app.into_make_service())
+            .await
+            .unwrap();
     }
 }
 

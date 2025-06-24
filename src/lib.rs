@@ -25,6 +25,10 @@ pub mod hypothesis_manager;
 pub mod integration_layer;
 pub mod knowledge_export;
 pub mod llm_clients;
+#[path = "modules/openmanus_bridge.rs"]
+pub mod openmanus_bridge;
+#[path = "modules/mcp_bridge.rs"]
+pub mod mcp_bridge;
 pub mod markov;
 pub mod memory;
 pub mod memory_cli;

@@ -15,6 +15,7 @@ mod mcp_server_sit;
 #[cfg(all(feature = "web-server", feature = "grpc-server"))]
 mod mcp_server_uat;
 mod openmanus_integration_sit;
+mod agent_bridge_sit;
 mod plugin_host_sit;
 mod plugin_host_uat;
 mod rag_export_sit;
