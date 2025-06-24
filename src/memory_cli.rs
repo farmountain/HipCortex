@@ -9,6 +9,7 @@ use crate::memory_query::MemoryQuery;
 use crate::memory_record::{MemoryRecord, MemoryType};
 use crate::memory_store::MemoryStore;
 use crate::snapshot_manager::SnapshotManager;
+use uuid::Uuid;
 
 #[derive(Parser)]
 #[command(name = "hipcortex", version, about = "Minimal Memory CLI")]
@@ -57,6 +58,8 @@ enum Commands {
         #[arg(long, default_value = "graph.db")]
         db: String,
     },
+    /// Run a demonstration workflow
+    RunWorkflow,
 }
 
 pub fn run() -> Result<()> {
@@ -145,6 +148,28 @@ pub fn run() -> Result<()> {
             let store = SymbolicStore::from_backend(backend);
             let graph = store.export_graph();
             println!("{}", serde_json::to_string(&graph)?);
+        }
+        Commands::RunWorkflow => {
+            use crate::backends::temporal_backend::TemporalFSMBackend;
+            use crate::procedural_cache::{FSMState, FSMTransition, ProceduralCache, ProceduralTrace};
+            use std::collections::HashMap;
+            let backend = TemporalFSMBackend::new();
+            let mut cache = ProceduralCache::from_backend(backend);
+            let trace = ProceduralTrace {
+                id: Uuid::new_v4(),
+                current_state: FSMState::Start,
+                memory: HashMap::new(),
+            };
+            cache.add_trace(trace.clone());
+            cache.add_transition(FSMTransition { from: FSMState::Start, to: FSMState::Observe, condition: None });
+            cache.add_transition(FSMTransition { from: FSMState::Observe, to: FSMState::Act, condition: None });
+            cache.add_transition(FSMTransition { from: FSMState::Act, to: FSMState::End, condition: None });
+            let mut state = trace.current_state;
+            println!("state: {:?}", state);
+            while state != FSMState::End {
+                state = cache.advance(trace.id, None).unwrap();
+                println!("state: {:?}", state);
+            }
         }
     }
     Ok(())
