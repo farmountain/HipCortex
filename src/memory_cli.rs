@@ -58,6 +58,25 @@ enum Commands {
         #[arg(long, default_value = "graph.db")]
         db: String,
     },
+    /// Put an embedding into semantic cache file
+    CachePut {
+        #[arg(long, default_value = "cache.json")]
+        cache: String,
+        key: String,
+        #[arg(long)]
+        embedding: String,
+        #[arg(long, default_value_t = 16)]
+        capacity: usize,
+    },
+    /// Get nearest embedding from cache file
+    CacheGet {
+        #[arg(long, default_value = "cache.json")]
+        cache: String,
+        #[arg(long)]
+        query: String,
+        #[arg(long, default_value_t = 16)]
+        capacity: usize,
+    },
     /// Run a demonstration workflow
     RunWorkflow,
 }
@@ -149,9 +168,42 @@ pub fn run() -> Result<()> {
             let graph = store.export_graph();
             println!("{}", serde_json::to_string(&graph)?);
         }
+        Commands::CachePut {
+            cache,
+            key,
+            embedding,
+            capacity,
+        } => {
+            use crate::semantic_cache::SemanticCache;
+            let mut sc = SemanticCache::load(&cache, capacity);
+            let vec: Vec<f32> = embedding
+                .split(',')
+                .filter_map(|v| v.parse::<f32>().ok())
+                .collect();
+            sc.put_embedding(key, vec);
+            sc.save(&cache)?;
+        }
+        Commands::CacheGet {
+            cache,
+            query,
+            capacity,
+        } => {
+            use crate::semantic_cache::SemanticCache;
+            let mut sc = SemanticCache::load(&cache, capacity);
+            let vec: Vec<f32> = query
+                .split(',')
+                .filter_map(|v| v.parse::<f32>().ok())
+                .collect();
+            if let Some((k, v)) = sc.get_nearest(&vec) {
+                println!("{} {:?}", k, v);
+            }
+            sc.save(&cache)?;
+        }
         Commands::RunWorkflow => {
             use crate::backends::temporal_backend::TemporalFSMBackend;
-            use crate::procedural_cache::{FSMState, FSMTransition, ProceduralCache, ProceduralTrace};
+            use crate::procedural_cache::{
+                FSMState, FSMTransition, ProceduralCache, ProceduralTrace,
+            };
             use std::collections::HashMap;
             let backend = TemporalFSMBackend::new();
             let mut cache = ProceduralCache::from_backend(backend);
@@ -161,9 +213,21 @@ pub fn run() -> Result<()> {
                 memory: HashMap::new(),
             };
             cache.add_trace(trace.clone());
-            cache.add_transition(FSMTransition { from: FSMState::Start, to: FSMState::Observe, condition: None });
-            cache.add_transition(FSMTransition { from: FSMState::Observe, to: FSMState::Act, condition: None });
-            cache.add_transition(FSMTransition { from: FSMState::Act, to: FSMState::End, condition: None });
+            cache.add_transition(FSMTransition {
+                from: FSMState::Start,
+                to: FSMState::Observe,
+                condition: None,
+            });
+            cache.add_transition(FSMTransition {
+                from: FSMState::Observe,
+                to: FSMState::Act,
+                condition: None,
+            });
+            cache.add_transition(FSMTransition {
+                from: FSMState::Act,
+                to: FSMState::End,
+                condition: None,
+            });
             let mut state = trace.current_state;
             println!("state: {:?}", state);
             while state != FSMState::End {

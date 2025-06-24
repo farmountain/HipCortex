@@ -1,3 +1,4 @@
+mod agent_bridge_sit;
 mod cli_tests;
 mod conversation_memory_sit;
 mod conversation_memory_uat;
@@ -15,7 +16,6 @@ mod mcp_server_sit;
 #[cfg(all(feature = "web-server", feature = "grpc-server"))]
 mod mcp_server_uat;
 mod openmanus_integration_sit;
-mod agent_bridge_sit;
 mod plugin_host_sit;
 mod plugin_host_uat;
 mod rag_export_sit;
@@ -23,6 +23,8 @@ mod rag_export_uat;
 mod reasoning_trace_sit_tests;
 mod retrieval_pipeline_sit;
 mod retrieval_pipeline_uat;
+mod semantic_cache_sit;
+mod semantic_cache_uat;
 mod semantic_compression_sit;
 mod semantic_compression_uat;
 mod smart_glasses_sit;

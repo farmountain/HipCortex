@@ -25,11 +25,9 @@ pub mod hypothesis_manager;
 pub mod integration_layer;
 pub mod knowledge_export;
 pub mod llm_clients;
-#[path = "modules/openmanus_bridge.rs"]
-pub mod openmanus_bridge;
+pub mod markov;
 #[path = "modules/mcp_bridge.rs"]
 pub mod mcp_bridge;
-pub mod markov;
 pub mod memory;
 pub mod memory_cli;
 pub mod memory_diff;
@@ -37,6 +35,8 @@ pub mod memory_processor;
 pub mod memory_query;
 pub mod memory_record;
 pub mod memory_store;
+#[path = "modules/openmanus_bridge.rs"]
+pub mod openmanus_bridge;
 #[path = "modules/perception_adapter.rs"]
 pub mod perception_adapter;
 pub mod persistence;
@@ -53,6 +53,7 @@ pub mod rocksdb_backend;
 pub mod sandbox;
 pub mod schema;
 pub mod segmented_buffer;
+pub mod semantic_cache;
 pub mod semantic_compression;
 pub mod snapshot_manager;
 #[path = "modules/symbolic_store.rs"]
