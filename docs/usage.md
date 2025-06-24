@@ -111,8 +111,8 @@ backend uses the `petgraph` crate. Enable others via Cargo features:
 
 ```toml
 [features]
-neo4j_backend = ["reqwest"]
-postgres_backend = ["sqlx"]
+neo4j_backend = ["neo4rs", "tokio"]
+postgres_backend = ["tokio-postgres", "tokio"]
 ```
 
 Switch backends in code:
