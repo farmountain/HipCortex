@@ -19,6 +19,8 @@ flowchart TD
     STM & Symb --> FSM[ProceduralCache (FSM)]
     FSM --> Reason[AureusBridge]
     Reason --> API[IntegrationLayer]
+    Reason --> LLMs[LLM Connectors]
+    FSM --> WM[World Model Connector]
 ```
 
 ## Solution Overview
@@ -36,6 +38,7 @@ extended as your use case grows.
 5. **Aureus Bridge** – plugs in reflexion or chain‑of‑thought reasoning loops.
 6. **Integration Layer** – exposes REST/gRPC endpoints and protocol adapters.
 7. **LLM Connectors** – clients for OpenAI, Claude, Ollama and other open-source models.
+8. **World Model Connector** – predicts next states for planning (JEPA or mock).
 
 This layered approach allows efficient reasoning on edge devices while remaining
 extensible for server deployments.
