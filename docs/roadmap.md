@@ -30,6 +30,11 @@
 - **Collapse metrics**: EffortEvaluator and ConfidenceRegulator measure reasoning fatigue and collapse_score.
 - **Puzzle benchmark suite**: Validate complex planning tasks like Tower of Hanoi for regression testing.
 
+### SafetyGuardrail Phases
+- ✅ Phase 1: Basic checks for FSM & DB
+- ✅ Phase 2: Policy-based rules for agents & LLM
+- ✅ Phase 3: Full rollback support + external policy config file
+
 ---
 
 ## Next Steps

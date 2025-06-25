@@ -21,6 +21,11 @@ flowchart TD
     Trace --> Symb[SymbolicStore]
     Symb --> Cache[SemanticCache]
     Cache --> DB[(Neo4j/Postgres)]
+    Guard[SafetyGuardrail] --> DB
+    Guard --> FSM
+    Guard --> API
+    Guard --> Cache
+    Guard --> LLMs
     API --> Mon[MonitoringService]
     Mon --> Dash[Dashboard]
     STM & Symb --> FSM[ProceduralCache (FSM)]
@@ -46,6 +51,7 @@ extended as your use case grows.
 6. **Integration Layer** – exposes REST/gRPC endpoints and protocol adapters.
 7. **LLM Connectors** – clients for OpenAI, Claude, Ollama and other open-source models.
 8. **World Model Connector** – predicts next states for planning (JEPA or mock).
+9. **SafetyGuardrail** – validates operations, logs violations and blocks unsafe actions.
 
 This layered approach allows efficient reasoning on edge devices while remaining
 extensible for server deployments.
@@ -55,6 +61,7 @@ extensible for server deployments.
 - **Agent Protocol Adapters:** IntegrationLayer translates OpenManus and MCP payloads before invoking memory modules.
 - **Semantic Cache Lookups:** queries hit the in-memory SemanticCache before database access.
 - **Monitoring Metrics:** MonitoringService collects stats and exposes them to the Dashboard.
+- **Safety & Guardrail:** SafetyGuardrail wraps each module to block or rollback unsafe actions and log audit snapshots.
 - **LLM Connectors:** IntegrationLayer plugs in connectors like Mistral or Falcon for text generation.
 
 

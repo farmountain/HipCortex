@@ -30,6 +30,15 @@ impl TemporalFSMBackend {
 
     /// Advance a trace based on the current state and optional condition.
     pub fn advance_trace(&mut self, trace_id: Uuid, cond: Option<&str>) -> Option<FSMState> {
+        let ctx = format!("fsm_advance_{:?}", cond);
+        if crate::safety_guardrail::SAFETY_GUARDRAIL
+            .lock()
+            .unwrap()
+            .check_precondition(&ctx)
+            .is_err()
+        {
+            return None;
+        }
         let trace = self.traces.get_mut(&trace_id)?;
         let key = (trace.current_state.clone(), cond.map(|c| c.to_string()));
         let next = self.transitions.get(&key)?.clone();

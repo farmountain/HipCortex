@@ -18,6 +18,14 @@ impl OpenAIClient {
 
 impl LLMClient for OpenAIClient {
     fn generate_response(&self, prompt: &str) -> String {
+        if crate::safety_guardrail::SAFETY_GUARDRAIL
+            .lock()
+            .unwrap()
+            .check_precondition(prompt)
+            .is_err()
+        {
+            return String::new();
+        }
         let client = Client::new();
         let body = json!({
             "model": self.model,
