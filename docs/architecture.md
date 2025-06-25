@@ -5,6 +5,9 @@ HipCortex is a modular AI memory engine with these key principles:
 - **Temporal Memory:** Short-term and long-term memory, managed with decay and LRU.
 - **Procedural Memory:** FSM-driven, agentic "reasoning/action" traces, for procedural or regenerative workflows.
 - **Symbolic Memory:** Graph-based, human-interpretable key-value and concept memory.
+- **GraphDB Backends:** Neo4j and Postgres implementations extend the `GraphDatabase` trait.
+- **Semantic Cache:** LRU embedding store used before hitting the graph DB.
+- **Monitoring Service:** captures metrics served to a web dashboard.
 - **Perception Adapter:** Handles multimodal input (text, embeddings, agent messages, vision via `VisionEncoder`).
 - **Aureus Bridge:** Reflexion and reasoning integration (for AUREUS, chain-of-thought, and agent feedback).
 - **Integration Layer:** Ready for REST/gRPC/agent protocols (OpenManus, MCP, etc).
@@ -16,6 +19,10 @@ flowchart TD
     Percept[PerceptionAdapter] --> Trace[Memory Trace/Concept]
     Trace --> STM[TemporalIndexer]
     Trace --> Symb[SymbolicStore]
+    Symb --> Cache[SemanticCache]
+    Cache --> DB[(Neo4j/Postgres)]
+    API --> Mon[MonitoringService]
+    Mon --> Dash[Dashboard]
     STM & Symb --> FSM[ProceduralCache (FSM)]
     FSM --> Reason[AureusBridge]
     Reason --> API[IntegrationLayer]
@@ -42,6 +49,14 @@ extended as your use case grows.
 
 This layered approach allows efficient reasoning on edge devices while remaining
 extensible for server deployments.
+## Updated Data Flow
+- **Neo4j/Postgres Storage:** SymbolicStore sends graph operations through the GraphDatabase trait to the chosen backend.
+- **FSM Workflow Execution:** ProceduralCache calls TemporalFSMBackend to advance traces and record history.
+- **Agent Protocol Adapters:** IntegrationLayer translates OpenManus and MCP payloads before invoking memory modules.
+- **Semantic Cache Lookups:** queries hit the in-memory SemanticCache before database access.
+- **Monitoring Metrics:** MonitoringService collects stats and exposes them to the Dashboard.
+- **LLM Connectors:** IntegrationLayer plugs in connectors like Mistral or Falcon for text generation.
+
 
 ## Use Case Scenarios
 
@@ -174,3 +189,43 @@ Each stage is backed by a mathematical model: PCA for perception, Markov chains
 for temporal order, graph theory for symbolic context, automata for procedural
 logic and Bayesian updates for reasoning. Property-based tests verify graph
 connectivity and FSM reachability.
+## Sequence Diagrams
+
+### Request Lifecycle
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API
+    participant Temporal
+    participant Symbolic
+    participant Cache
+    participant LLM
+    Client->>API: POST /message
+    API->>Temporal: store trace
+    API->>Cache: lookup
+    Cache-->>API: hit/miss
+    API->>Symbolic: query/update
+    API->>LLM: generate
+    LLM-->>API: text
+    API-->>Client: JSON
+```
+
+### FSM Transition Example
+```mermaid
+sequenceDiagram
+    participant Proc as ProceduralCache
+    participant Backend as TemporalFSMBackend
+    Proc->>Backend: advance(id, cond)
+    Backend->>Backend: record state
+    Backend-->>Proc: new state
+```
+
+### LLM Request Flow
+```mermaid
+sequenceDiagram
+    participant Layer as IntegrationLayer
+    participant Conn as LLMConnector
+    Layer->>Conn: generate(prompt)
+    Conn-->>Layer: text
+```
+

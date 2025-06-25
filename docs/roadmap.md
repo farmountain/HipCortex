@@ -1,28 +1,25 @@
 # Roadmap & Future Modules
 
 ## Completed
-- Modular memory architecture
-- Temporal indexer (STM/LTM)
-- FSM procedural cache
-- Symbolic key-value and graph store
-- Multimodal perception adapter
-- Vision encoder module
-- Reflexion/agent integration stubs
-- Initial LLM clients (OpenAI, Claude, Ollama)
-- TDD, benchmarks, VS Code dev config
+- ✅ DONE: Modular memory architecture
+- ✅ DONE: Temporal indexer (STM/LTM)
+- ✅ DONE: FSM procedural cache
+- ✅ DONE: Symbolic key-value and graph store
+- ✅ DONE: Multimodal perception adapter
+- ✅ DONE: Vision encoder module
+- ✅ DONE: Reflexion/agent integration stubs
+- ✅ DONE: Initial LLM clients (OpenAI, Claude, Ollama)
+- ✅ DONE: TDD, benchmarks, VS Code dev config
 
-## In Progress / Planned
-- Semantic cache/compression
-- Local inference via Ollama or custom backends
-
+- ✅ DONE: Semantic cache/compression
 ## Completed Enhancements
-- Persistent world model memory
-- Real-time agentic CLI and Web UI
-- Expanded open-source LLM connectors (Llama, DeepSeek, etc.)
-- EffortEvaluator & ConfidenceRegulator for collapse resistance metrics
-- HypothesisManager and quantized state tree for multi-path reasoning
-- Procedural backtracking and fallback logic
-- Puzzle benchmark harness for algorithmic planning tasks
+- ✅ DONE: Persistent world model memory
+- ✅ DONE: Real-time agentic CLI and Web UI
+- ✅ DONE: Expanded open-source LLM connectors (Llama, DeepSeek, etc.)
+- ✅ DONE: EffortEvaluator & ConfidenceRegulator for collapse resistance metrics
+- ✅ DONE: HypothesisManager and quantized state tree for multi-path reasoning
+- ✅ DONE: Procedural backtracking and fallback logic
+- ✅ DONE: Puzzle benchmark harness for algorithmic planning tasks
 
 ## Roadmap Highlights
 - **Vision encoder**: Integrate image/embedding modules for visual reasoning.
@@ -38,12 +35,16 @@
 ## Next Steps
 
 The following actions reinforce the math-driven data foundation:
+- **Document All Data Models** – provide schemas and diagrams for each memory structure.
+- **Implement Runtime Validators** – check FSM reachability and graph connectivity automatically.
+- **Add Property-Based Tests** – stress-test symbolic and temporal modules with proptest.
+- **Pilot Statistical Monitoring** – collect moving averages and standard deviation for key metrics.
+- **Automate Observability Dashboards** – integrate logs and metrics in the web dashboard using the new `MonitoringService` and Tauri UI.
+- **Deploy Enhancement Advisor** – surface reasoning-based suggestions for users to approve and refine.
+- **Local inference via Ollama or custom backends**
 
-1. **Document All Data Models** – provide schemas and diagrams for each memory structure.
-2. **Implement Runtime Validators** – check FSM reachability and graph connectivity automatically.
-3. **Add Property-Based Tests** – stress-test symbolic and temporal modules with proptest.
-4. **Pilot Statistical Monitoring** – collect moving averages and standard deviation for key metrics.
-5. **Automate Observability Dashboards** – integrate logs and metrics in the web dashboard using the new `MonitoringService` and Tauri UI.
-6. **Deploy Enhancement Advisor** – surface reasoning-based suggestions for users to approve and refine.
-
-PRs for new modules and improvements are highly encouraged!
+## Post-MVP Ideas
+- Persistence for FSM backend
+- Advanced LLM plugin hosting
+- Semantic cache eviction policies
+- Multi-dashboard views for admins
