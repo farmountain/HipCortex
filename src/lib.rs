@@ -60,6 +60,14 @@ pub mod semantic_compression;
 pub mod snapshot_manager;
 #[path = "modules/symbolic_store.rs"]
 pub mod symbolic_store;
+#[path = "modules/latent_map.rs"]
+pub mod latent_map;
+#[path = "modules/latent_map_evaluator.rs"]
+pub mod latent_map_evaluator;
+#[path = "modules/reflexion_hooks.rs"]
+pub mod reflexion_hooks;
+#[path = "modules/representation_auditor.rs"]
+pub mod representation_auditor;
 pub mod backends {
     #[cfg(feature = "neo4j_backend")]
     pub mod neo4j_backend;
