@@ -18,6 +18,10 @@ predicates validate each write, symbolic graphs track context and property-based
 tests confirm graph connectivity and FSM reachability. Every module begins with
 a "Chain-of-Thought" comment summarizing its reasoning flow.
 
+HipCortex treats each learned latent map as a serializable world model. Maps are
+versioned over time and checked for alignment across procedural, temporal and
+symbolic layers.
+
 
 ## 📘 Business Context
 HipCortex enables persistent memory and reasoning for bots and edge automation. It can operate as a lightweight library, a REST microservice or a desktop app. See [docs/business_context.md](docs/business_context.md) for details.
@@ -55,6 +59,7 @@ and reasoning components.
 - **WASM Plugin Host:** compile with `--features plugin` to run custom WebAssembly extensions via `PluginHost`.
 - **Effort Evaluator & Confidence Regulator:** monitor reasoning effort and confidence to avoid collapse.
 - **Hypothesis Manager:** maintain multiple reasoning paths and a quantized state tree for backtracking.
+- **Latent Map World Model:** learned latent maps are stored as versioned world models with safety guardrails.
 - **Enhancement Advisor:** analyze module metrics and recommend improvements for human review.
 - **Puzzle Benchmark Suite:** validates complex planning algorithms like Tower of Hanoi and 8-puzzle.
 ### Component Usage Examples

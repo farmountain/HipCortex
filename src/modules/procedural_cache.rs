@@ -44,14 +44,20 @@ pub trait FSMBackend {
     fn traces_mut(&mut self) -> &mut HashMap<Uuid, ProceduralTrace>;
 }
 
+use crate::latent_map::LatentMapVersion;
+/// Procedural cache storing FSM traces and versioned latent maps.
 pub struct ProceduralCache<B: FSMBackend = RustFSMBackend> {
     backend: B,
+    maps: HashMap<Uuid, Vec<LatentMapVersion>>,
+    snapshot: HashMap<Uuid, Vec<LatentMapVersion>>, // immutable rollback
 }
 
 impl ProceduralCache<RustFSMBackend> {
     pub fn new() -> Self {
         Self {
             backend: RustFSMBackend::new(),
+            maps: HashMap::new(),
+            snapshot: HashMap::new(),
         }
     }
 
@@ -65,13 +71,21 @@ impl ProceduralCache<RustFSMBackend> {
         for t in traces.values() {
             backend.add_trace(t.clone());
         }
-        Ok(Self { backend })
+        Ok(Self {
+            backend,
+            maps: HashMap::new(),
+            snapshot: HashMap::new(),
+        })
     }
 }
 
 impl<B: FSMBackend> ProceduralCache<B> {
     pub fn from_backend(backend: B) -> Self {
-        Self { backend }
+        Self {
+            backend,
+            maps: HashMap::new(),
+            snapshot: HashMap::new(),
+        }
     }
 
     pub fn add_trace(&mut self, trace: ProceduralTrace) {
@@ -117,6 +131,45 @@ impl<B: FSMBackend> ProceduralCache<B> {
 
     pub fn assert_fsm_invariants(&self) {
         self.backend.assert_fsm_invariants();
+    }
+
+    /// Add a new latent map version for a trace with guardrail checks.
+    pub fn add_map_version(&mut self, trace_id: Uuid, map: serde_json::Value, confidence: f32) {
+        if crate::safety_guardrail::SAFETY_GUARDRAIL
+            .lock()
+            .unwrap()
+            .check_precondition("map_update")
+            .is_err()
+        {
+            return;
+        }
+        self.snapshot.insert(trace_id, self.maps.get(&trace_id).cloned().unwrap_or_default());
+        self.maps
+            .entry(trace_id)
+            .or_default()
+            .push(LatentMapVersion::new(map, confidence));
+    }
+
+    /// Retrieve the latest map version for a trace.
+    pub fn latest_map(&self, trace_id: Uuid) -> Option<&LatentMapVersion> {
+        self.maps.get(&trace_id).and_then(|v| v.last())
+    }
+
+    /// Revert to the last snapshot for the given trace.
+    pub fn rollback_map(&mut self, trace_id: Uuid) {
+        if let Some(prev) = self.snapshot.get(&trace_id).cloned() {
+            self.maps.insert(trace_id, prev);
+        }
+    }
+
+    /// Collapse map versions to the most confident one using the evaluator.
+    pub fn collapse_maps(&mut self, trace_id: Uuid, threshold: f32) -> Option<LatentMapVersion> {
+        use crate::latent_map_evaluator::LatentMapEvaluator;
+        if let Some(list) = self.maps.get_mut(&trace_id) {
+            LatentMapEvaluator::collapse(list, threshold)
+        } else {
+            None
+        }
     }
 }
 
