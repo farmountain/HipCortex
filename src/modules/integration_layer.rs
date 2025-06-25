@@ -74,6 +74,14 @@ impl IntegrationLayer {
     }
 
     pub fn send_message(&self, key: &str, message: &str) {
+        if crate::safety_guardrail::SAFETY_GUARDRAIL
+            .lock()
+            .unwrap()
+            .check_precondition(message)
+            .is_err()
+        {
+            return;
+        }
         if !self.authenticated(key) {
             println!("[IntegrationLayer] unauthorized");
             return;

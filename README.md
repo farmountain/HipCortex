@@ -96,6 +96,17 @@ cargo run --example mcp_server --features web-server
 cargo run -- llm-generate --model mistral "Hello"
 ```
 
+## Safety & Guardrail
+
+HipCortex enforces runtime policies through the `SafetyGuardrail` module.
+Operations across the graph store, FSM backend and LLM connectors call
+`check_precondition` before mutating state. Violations are logged and can
+trigger rollbacks. Use the CLI below to view recent audit snapshots:
+
+```sh
+cargo run -- safety-audit
+```
+
 ---
 
 ## 🏗️ Project Structure

@@ -43,6 +43,14 @@ impl LanguageModelClient for LocalLLMClient {
 
 impl LLMClient for LocalLLMClient {
     fn generate_response(&self, prompt: &str) -> String {
+        if crate::safety_guardrail::SAFETY_GUARDRAIL
+            .lock()
+            .unwrap()
+            .check_precondition(prompt)
+            .is_err()
+        {
+            return String::new();
+        }
         self.generate(prompt)
     }
 }

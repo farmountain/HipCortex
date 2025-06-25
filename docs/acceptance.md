@@ -7,3 +7,7 @@
 - [ ] LLM connectors return dummy text on local test.
 - [ ] Updated README, architecture.md, roadmap.md.
 - [ ] Next Steps clearly stated.
+- [ ] Unit tests pass for all pre/post checks.
+- [ ] SIT blocks invalid FSM or DB ops.
+- [ ] UAT shows audit snapshot with timestamps.
+- [ ] CLI safety-audit works.

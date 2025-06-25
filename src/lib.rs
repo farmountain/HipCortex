@@ -5,6 +5,7 @@ pub mod a2a_protocol;
 #[cfg(feature = "async-store")]
 pub mod async_memory_store;
 pub mod audit_log;
+pub mod safety_guardrail;
 #[path = "modules/aureus_bridge.rs"]
 pub mod aureus_bridge;
 pub mod conversation_memory;

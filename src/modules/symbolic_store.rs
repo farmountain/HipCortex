@@ -144,6 +144,14 @@ impl InMemoryGraph {
 
 impl GraphDatabase for InMemoryGraph {
     fn add_node(&mut self, label: &str, properties: HashMap<String, String>) -> Uuid {
+        if crate::safety_guardrail::SAFETY_GUARDRAIL
+            .lock()
+            .unwrap()
+            .check_precondition(label)
+            .is_err()
+        {
+            return Uuid::nil();
+        }
         let node = SymbolicNode {
             id: Uuid::new_v4(),
             label: label.to_string(),
@@ -155,6 +163,14 @@ impl GraphDatabase for InMemoryGraph {
     }
 
     fn add_edge(&mut self, from: Uuid, to: Uuid, relation: &str) {
+        if crate::safety_guardrail::SAFETY_GUARDRAIL
+            .lock()
+            .unwrap()
+            .check_precondition(relation)
+            .is_err()
+        {
+            return;
+        }
         if let (Some(f), Some(t)) = (self.id_map.get(&from), self.id_map.get(&to)) {
             self.graph.add_edge(*f, *t, relation.to_string());
         }
@@ -195,6 +211,14 @@ impl GraphDatabase for InMemoryGraph {
     }
 
     fn update_property(&mut self, node_id: Uuid, key: &str, value: &str) -> bool {
+        if crate::safety_guardrail::SAFETY_GUARDRAIL
+            .lock()
+            .unwrap()
+            .check_precondition(key)
+            .is_err()
+        {
+            return false;
+        }
         if let Some(idx) = self.id_map.get(&node_id) {
             if let Some(node) = self.graph.node_weight_mut(*idx) {
                 node.properties.insert(key.to_string(), value.to_string());
@@ -239,6 +263,14 @@ impl GraphDatabase for InMemoryGraph {
     }
 
     fn remove_node(&mut self, node_id: Uuid) -> bool {
+        if crate::safety_guardrail::SAFETY_GUARDRAIL
+            .lock()
+            .unwrap()
+            .check_precondition("remove")
+            .is_err()
+        {
+            return false;
+        }
         if let Some(idx) = self.id_map.remove(&node_id) {
             self.graph.remove_node(idx);
             // petgraph removes incident edges automatically
@@ -298,6 +330,14 @@ impl SledGraph {
 
 impl GraphDatabase for SledGraph {
     fn add_node(&mut self, label: &str, properties: HashMap<String, String>) -> Uuid {
+        if crate::safety_guardrail::SAFETY_GUARDRAIL
+            .lock()
+            .unwrap()
+            .check_precondition(label)
+            .is_err()
+        {
+            return Uuid::nil();
+        }
         let id = Uuid::new_v4();
         let node = SymbolicNode {
             id,
@@ -310,6 +350,14 @@ impl GraphDatabase for SledGraph {
     }
 
     fn add_edge(&mut self, from: Uuid, to: Uuid, relation: &str) {
+        if crate::safety_guardrail::SAFETY_GUARDRAIL
+            .lock()
+            .unwrap()
+            .check_precondition(relation)
+            .is_err()
+        {
+            return;
+        }
         let edge = SymbolicEdge {
             from,
             to,
@@ -350,6 +398,14 @@ impl GraphDatabase for SledGraph {
     }
 
     fn update_property(&mut self, node_id: Uuid, key: &str, value: &str) -> bool {
+        if crate::safety_guardrail::SAFETY_GUARDRAIL
+            .lock()
+            .unwrap()
+            .check_precondition(key)
+            .is_err()
+        {
+            return false;
+        }
         if let Some(mut node) = self.get_node(node_id) {
             node.properties.insert(key.to_string(), value.to_string());
             let data = serde_json::to_vec(&node).unwrap();
@@ -379,6 +435,14 @@ impl GraphDatabase for SledGraph {
     }
 
     fn remove_node(&mut self, node_id: Uuid) -> bool {
+        if crate::safety_guardrail::SAFETY_GUARDRAIL
+            .lock()
+            .unwrap()
+            .check_precondition("remove")
+            .is_err()
+        {
+            return false;
+        }
         let existed = self.nodes.remove(node_id.as_bytes()).unwrap().is_some();
         if existed {
             let prefix = node_id.as_bytes().to_vec();

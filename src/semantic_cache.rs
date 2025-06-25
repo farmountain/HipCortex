@@ -35,6 +35,19 @@ impl SemanticCache {
     }
 
     pub fn put_embedding(&mut self, key: String, embedding: Vec<f32>) {
+        let ctx = if embedding.is_empty() {
+            "invalid".to_string()
+        } else {
+            format!("cache_put:{}", embedding.len())
+        };
+        if crate::safety_guardrail::SAFETY_GUARDRAIL
+            .lock()
+            .unwrap()
+            .check_precondition(&ctx)
+            .is_err()
+        {
+            return;
+        }
         if self.map.contains_key(&key) {
             self.order.retain(|k| k != &key);
         } else if self.map.len() == self.capacity {

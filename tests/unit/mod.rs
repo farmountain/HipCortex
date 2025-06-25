@@ -22,6 +22,7 @@ mod reasoning_trace_store_tests;
 mod retrieval_pipeline_tests;
 mod segmented_ring_buffer_tests;
 mod semantic_cache_tests;
+mod safety_guardrail_tests;
 mod snapshot_manager_tests;
 mod symbolic_store_tests;
 mod temporal_fsm_backend_tests;

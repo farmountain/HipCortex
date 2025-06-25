@@ -33,3 +33,4 @@ mod test_end_to_end;
 mod uat_tests;
 mod world_model_cli_sit;
 mod world_model_uat;
+mod safety_guardrail_sit;

@@ -83,6 +83,8 @@ enum Commands {
     WorldModelPredict { input: String },
     /// Run a demonstration workflow
     RunWorkflow,
+    /// Show recent safety audit snapshots
+    SafetyAudit,
 }
 
 pub fn run() -> Result<()> {
@@ -257,6 +259,15 @@ pub fn run() -> Result<()> {
                 state = cache.advance(trace.id, None).unwrap();
                 println!("state: {:?}", state);
             }
+        }
+        Commands::SafetyAudit => {
+            let snaps = {
+                let guard = crate::safety_guardrail::SAFETY_GUARDRAIL
+                    .lock()
+                    .unwrap();
+                guard.recent_snapshots(5)
+            };
+            println!("{}", serde_json::to_string_pretty(&snaps)?);
         }
     }
     Ok(())
