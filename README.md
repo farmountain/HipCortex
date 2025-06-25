@@ -33,18 +33,19 @@ and reasoning components.
   memory writes.
 - **Temporal Indexer:** Segmented ring buffer with per-trace decay factors and
   LRU pruning for short/long-term memory.
-- **Procedural FSM Cache:** Regenerative memory driven by finite state logic for
-  workflows and actions. Supports batch advancement of traces.
+- **Procedural FSM Cache:** Regenerative memory driven by finite state logic for workflows and actions. Supports batch advancement of traces.
+- **TemporalFSMBackend:** optional in-memory backend storing FSM traces with rollback and batch transitions.
 - **Symbolic Store:** Graph-based concept store with semantic key/value pairs.
   Caches recent label lookups with an LRU cache. Backed by a pluggable
   `GraphDatabase` trait for in-memory or persistent graphs (via the optional
   `SledGraph` backend).
+- **Neo4j/Postgres Backends:** enable `neo4j_backend` or `postgres_backend` features to store graphs in Neo4j or Postgres.
 - **Perception Adapter:** Multimodal input handler (text, embeddings, agent
   messages, vision). Includes a simple VisionEncoder for image embeddings.
-- **Semantic Compression:** Reduce embedding dimensionality with
-  `semantic_compression::compress_embedding` for efficient storage.
+- **Semantic Compression:** Reduce embedding dimensionality with `semantic_compression::compress_embedding` for efficient storage.
+- **Semantic Cache:** in-memory LRU store with embedding similarity lookups.
 - **Aureus Bridge:** Reflexion and reasoning hook for chain-of-thought engines.
-- **Integration Layer:** REST/gRPC and protocol stubs (OpenManus, MCP).
+- **Integration Layer:** bridges OpenManus and MCP protocols to REST/gRPC endpoints.
 - **MCP Server:** run both REST and gRPC endpoints to orchestrate symbolic context for multiple agents.
 - **Math & Logic Guarantees:** memory operations validated with formal proofs and symbolic checks.
 - **Fully Test-Driven:** Extensive unit tests and Criterion benchmarks.
@@ -56,6 +57,44 @@ and reasoning components.
 - **Hypothesis Manager:** maintain multiple reasoning paths and a quantized state tree for backtracking.
 - **Enhancement Advisor:** analyze module metrics and recommend improvements for human review.
 - **Puzzle Benchmark Suite:** validates complex planning algorithms like Tower of Hanoi and 8-puzzle.
+### Component Usage Examples
+
+**GraphDatabase Backends (Neo4j/Postgres)**
+```rust
+use hipcortex::backends::{Neo4jBackend, PostgresGraphBackend};
+// enable with --features neo4j_backend or postgres_backend
+```
+
+**TemporalFSMBackend**
+```rust
+use hipcortex::backends::temporal_backend::TemporalFSMBackend;
+let mut backend = TemporalFSMBackend::new();
+```
+
+**IntegrationLayer Bridges**
+```rust
+use hipcortex::modules::integration_layer::IntegrationLayer;
+let mut layer = IntegrationLayer::new();
+layer.handle_openmanus("key", "{\"text\":\"hi\"}");
+```
+
+**SemanticCache**
+```rust
+use hipcortex::semantic_cache::SemanticCache;
+let mut cache = SemanticCache::new(4);
+cache.put_embedding("foo".into(), vec![0.1,0.2]);
+```
+
+**MonitoringService**
+```sh
+cargo run --example mcp_server --features web-server
+# visit /metrics for JSON or open the GUI for HTML dashboard
+```
+
+**LLM connectors (Mistral/Falcon/DeepSeek)**
+```sh
+cargo run -- llm-generate --model mistral "Hello"
+```
 
 ---
 
@@ -99,6 +138,7 @@ Launch the combined MCP server (REST + gRPC) with:
 cargo run --example mcp_server --features "web-server,grpc-server"
 ```
 
+Open http://localhost:3000/metrics to view monitoring data.
 How to Test as User:
 https://github.com/farmountain/HipCortex/blob/main/How%20to%20Test%20as%20a%20User
 
