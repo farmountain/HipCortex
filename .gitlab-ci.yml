@@ -1,0 +1,18 @@
+stages:
+  - test
+  - build
+  - deploy
+
+build:
+  script:
+    - pip install -r backend/requirements.txt
+    - cd frontend && npm install
+
+test:
+  script:
+    - pytest
+    - cd frontend && npm test
+
+deploy:
+  script:
+    - curl -X POST https://your-deploy-endpoint/api/deploy
