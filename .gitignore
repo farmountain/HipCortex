@@ -8,3 +8,4 @@ src/grpc
 *.audit.log
 
 *.exe
+node_modules/
