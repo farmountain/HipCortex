@@ -28,6 +28,8 @@ try {
     exit 1
 }
 
+Write-Host "✅ Docker is running" -ForegroundColor Green
+
 # Function to check if docker compose is available
 function Test-DockerCompose {
     try {

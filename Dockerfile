@@ -1,12 +1,15 @@
 # Use official Rust image as builder
-FROM rust:1.75 as builder
+FROM rust:1.82-bullseye as builder
 
 # Set working directory
 WORKDIR /app
 
 # Copy Cargo files
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml ./
 COPY build.rs ./
+
+# Copy Cargo.lock if it exists (create empty one if not)
+RUN if [ ! -f Cargo.lock ]; then touch Cargo.lock; fi
 
 # Create src directory and copy source
 COPY src/ src/
@@ -14,8 +17,13 @@ COPY migrations/ migrations/
 COPY proto/ proto/
 COPY schemas/ schemas/
 
-# Build the application
-RUN cargo build --release --features "postgres_backend,temporal_indexing,web_server"
+# Create empty benchmark files to satisfy Cargo.toml
+RUN mkdir -p benches && \
+    echo 'fn main() {}' > benches/temporal_indexer_bench.rs && \
+    echo 'fn main() {}' > benches/symbolic_store_bench.rs
+
+# Build the application with web-server feature
+RUN cargo build --release --bin webserver --features web-server
 
 # Runtime image
 FROM debian:bookworm-slim
@@ -34,7 +42,7 @@ RUN useradd -r -s /bin/false -m -d /app hipcortex
 WORKDIR /app
 
 # Copy the binary from builder
-COPY --from=builder /app/target/release/hipcortex /usr/local/bin/hipcortex
+COPY --from=builder /app/target/release/webserver /usr/local/bin/webserver
 
 # Copy configuration files
 COPY --chown=hipcortex:hipcortex migrations/ migrations/
@@ -47,16 +55,16 @@ RUN mkdir -p /app/data && chown hipcortex:hipcortex /app/data
 USER hipcortex
 
 # Expose port
-EXPOSE 8080
+EXPOSE 3030
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD curl -f http://localhost:3030/health || exit 1
 
 # Set default environment variables
 ENV RUST_LOG=info
-ENV API_PORT=8080
+ENV API_PORT=3030
 ENV DATA_DIR=/app/data
 
 # Run the application
-CMD ["hipcortex"]
+CMD ["webserver"]

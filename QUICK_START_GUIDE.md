@@ -24,14 +24,14 @@ docker build -t hipcortex:latest .
 # Run with default configuration (file-based storage)
 docker run -d \
   --name hipcortex \
-  -p 8080:8080 \
+  -p 3030:3030 \
   -v hipcortex_data:/app/data \
   hipcortex:latest
 
 # Run with PostgreSQL backend
 docker run -d \
   --name hipcortex-postgres \
-  -p 8080:8080 \
+  -p 3030:3030 \
   -e DATABASE_URL="postgresql://postgres:password@postgres:5432/hipcortex" \
   -v hipcortex_data:/app/data \
   --link postgres:postgres \
@@ -60,14 +60,14 @@ podman build -t hipcortex:latest .
 # Run with default configuration
 podman run -d \
   --name hipcortex \
-  -p 8080:8080 \
+  -p 3030:3030 \
   -v hipcortex_data:/app/data \
   hipcortex:latest
 
 # Run with PostgreSQL backend
 podman run -d \
   --name hipcortex-postgres \
-  -p 8080:8080 \
+  -p 3030:3030 \
   -e DATABASE_URL="postgresql://postgres:password@postgres:5432/hipcortex" \
   -v hipcortex_data:/app/data \
   --link postgres:postgres \
@@ -89,10 +89,10 @@ podman-compose down
 ### Step 4: Verify Installation
 ```bash
 # Check if HipCortex is running
-curl http://localhost:8080/health
+curl http://localhost:3030/health
 
 # Access the web dashboard
-# Open http://localhost:8080 in your browser
+# Open http://localhost:3030 in your browser
 ```
 
 ### Environment Variables
@@ -109,7 +109,7 @@ CACHE_SIZE=512MB
 TEMPORAL_INDEX_SIZE=256MB
 
 # API Configuration
-API_PORT=8080
+API_PORT=3030
 API_KEY=your-secure-api-key
 LOG_LEVEL=info
 
@@ -147,7 +147,7 @@ cd HipCortex/vscode-extension
 3. Configure the following settings:
    ```json
    {
-     "hipcortex.memory.apiUrl": "http://localhost:8080",
+     "hipcortex.memory.apiUrl": "http://localhost:3030",
      "hipcortex.memory.apiKey": "your-api-key",
      "hipcortex.memory.autoSync": true,
      "hipcortex.memory.enableContextualMemory": true,
@@ -216,7 +216,7 @@ code --install-extension hipcortex-memory-0.1.5.vsix
 # Create a .env file in your project directory
 DATABASE_URL=postgresql://postgres:password@localhost:5432/hipcortex
 REDIS_URL=redis://localhost:6379
-API_PORT=8080
+API_PORT=3030
 LOG_LEVEL=info
 ENABLE_WEB_SERVER=true
 MEMORY_LIMIT=2GB
@@ -230,7 +230,7 @@ services:
   hipcortex:
     build: .
     ports:
-      - "8080:8080"
+      - "3030:3030"
     environment:
       - DATABASE_URL=postgresql://postgres:password@postgres:5432/hipcortex
       - REDIS_URL=redis://redis:6379
@@ -265,7 +265,7 @@ volumes:
 #### Workspace Settings (`.vscode/settings.json`)
 ```json
 {
-  "hipcortex.memory.apiUrl": "http://localhost:8080",
+  "hipcortex.memory.apiUrl": "http://localhost:3030",
   "hipcortex.memory.apiKey": "${env:HIPCORTEX_API_KEY}",
   "hipcortex.memory.autoSync": true,
   "hipcortex.memory.enableContextualMemory": true,
@@ -288,10 +288,10 @@ volumes:
 ### Test Docker Deployment
 ```bash
 # Health check
-curl http://localhost:8080/health
+curl http://localhost:3030/health
 
 # Test memory storage
-curl -X POST http://localhost:8080/api/memories \
+curl -X POST http://localhost:3030/api/memories \
   -H "Content-Type: application/json" \
   -d '{
     "content": "Test memory",
@@ -300,7 +300,7 @@ curl -X POST http://localhost:8080/api/memories \
   }'
 
 # Test memory retrieval
-curl http://localhost:8080/api/memories/search?q=test
+curl http://localhost:3030/api/memories/search?q=test
 ```
 
 ### Test VS Code Extension
@@ -314,7 +314,7 @@ curl http://localhost:8080/api/memories/search?q=test
 ## 🚨 Troubleshooting
 
 ### Docker Issues
-- **Port conflicts**: Change the port mapping `-p 8081:8080`
+- **Port conflicts**: Change the port mapping `-p 8081:3030`
 - **Permission issues**: Use `sudo` or add user to docker group
 - **Memory issues**: Increase Docker's memory allocation
 
@@ -341,7 +341,7 @@ docker-compose up -d
 
 ## 📚 Next Steps
 
-1. **Explore the Web Dashboard**: Visit http://localhost:8080 for the full interface
+1. **Explore the Web Dashboard**: Visit http://localhost:3030 for the full interface
 2. **Read the Documentation**: Check `docs/` folder for detailed guides
 3. **Join the Community**: Report issues and contribute on GitHub
 4. **Advanced Configuration**: See `PRODUCTION_DEPLOYMENT_GUIDE.md` for production setups
@@ -357,3 +357,4 @@ docker-compose up -d
 - [VS Code Extension Usage Guide](VSCODE_EXTENSION_USAGE_GUIDE.md)
 
 Happy coding with HipCortex! 🚀
+
