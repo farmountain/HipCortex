@@ -1,8 +1,6 @@
-Complete guide to prepare the environment for testing:
-
 # HipCortex Environment Setup Guide
 
-Based on my analysis of the entire HipCortex codebase, here's a comprehensive guide to prepare your environment for testing this AI memory engine project.
+Based on analysis of the entire HipCortex codebase, here's a comprehensive guide to prepare your environment for testing this AI memory engine project.
 
 ## Quick Start (Minimal Setup)
 
@@ -31,7 +29,6 @@ This uses in-memory graph storage and avoids external database dependencies.
 ## Full Setup (All Features)
 
 For the complete experience with all database backends and features, follow the detailed setup below.
-
 ## 1. Core Prerequisites
 
 ### 1.1 Rust Development Environment
@@ -172,16 +169,21 @@ cd HipCortex
 # Install dependencies
 cargo fetch
 
+<<<<<<< HEAD
 # Basic build (minimal features - recommended for initial setup)
 cargo build --no-default-features --features "petgraph_backend"
 
 # Verify basic build with all compatible features
+=======
+# Verify basic build
+>>>>>>> origin/main
 cargo check --all-features
 
 # Run the startup script equivalent for Windows
 cargo check --all-features
 ```
 
+<<<<<<< HEAD
 ### 5.2 Quick Start (Minimal Setup)
 For fastest setup without external database dependencies:
 ```powershell
@@ -195,6 +197,8 @@ cargo run --example quickstart --no-default-features --features "petgraph_backen
 cargo test --no-default-features --features "petgraph_backend" --lib
 ```
 
+=======
+>>>>>>> origin/main
 ### 5.2 Environment Variables Setup
 ```powershell
 # Create a .env file or set in PowerShell session
@@ -210,6 +214,7 @@ $env:HIPCORTEX_MASTER_KEY = "your-32-byte-hex-key"
 
 ## 6. Build Configurations
 
+<<<<<<< HEAD
 ### 6.1 Minimal Build (Recommended for Development)
 ```powershell
 # In-memory graph backend only (no external database dependencies)
@@ -253,10 +258,45 @@ cargo build --no-default-features --features "gpu,petgraph_backend"
 
 # Parallel processing
 cargo build --no-default-features --features "parallel,petgraph_backend"
+=======
+### 6.1 Minimal Build (Default)
+```powershell
+cargo build
+```
+
+### 6.2 Full Feature Build
+```powershell
+cargo build --all-features
+```
+
+### 6.3 Specific Feature Builds
+```powershell
+# Web server with REST API
+cargo build --features web-server
+
+# GUI application
+cargo build --features gui
+
+# Database backends
+cargo build --features "rocksdb-backend,postgres_backend,neo4j_backend"
+
+# gRPC server
+cargo build --features grpc-server
+
+# Plugin system
+cargo build --features plugin
+
+# GPU acceleration
+cargo build --features gpu
+
+# Parallel processing
+cargo build --features parallel
+>>>>>>> origin/main
 ```
 
 ## 7. Testing Environment Verification
 
+<<<<<<< HEAD
 ### 7.1 Run Basic Tests (Minimal Setup)
 ```powershell
 # Unit tests with minimal features
@@ -309,6 +349,44 @@ cargo run --example plugin_host --no-default-features --features "plugin,petgrap
 
 # MCP server (requires web server features and external databases)
 cargo run --example mcp_server --features "web-server,grpc-server,petgraph_backend"
+=======
+### 7.1 Run All Tests
+```powershell
+# Unit tests
+cargo test
+
+# Integration tests
+cargo test --test integration_suite
+
+# Property-based tests
+cargo test --test property_suite
+
+# With all features
+cargo test --all-features
+```
+
+### 7.2 Run Benchmarks
+```powershell
+cargo bench
+```
+
+### 7.3 Run Examples
+```powershell
+# Basic quickstart
+cargo run --example quickstart
+
+# MCP server (REST + gRPC)
+cargo run --example mcp_server --features "web-server,grpc-server"
+
+# World model example
+cargo run --example world_model_example
+
+# RAG export
+cargo run --example rag_export
+
+# Plugin host
+cargo run --example plugin_host --features plugin
+>>>>>>> origin/main
 ```
 
 ## 8. IDE Setup (VS Code)
@@ -346,14 +424,20 @@ cargo run --features web-server --example mcp_server
 ## 10. Common Issues and Solutions
 
 ### 10.1 Build Issues
+<<<<<<< HEAD
 - **SQLite/Database linking errors**: Use minimal features first: `--no-default-features --features "petgraph_backend"`
+=======
+>>>>>>> origin/main
 - **OpenSSL errors**: Install OpenSSL for Windows
 - **Linker errors**: Ensure Visual Studio Build Tools are installed
 - **Feature conflicts**: Check feature compatibility in Cargo.toml
 
 ### 10.2 Database Connection Issues
+<<<<<<< HEAD
 - **Start with minimal setup**: Use `petgraph_backend` feature to avoid external database dependencies
 - **SQLite errors**: Install SQLite development libraries or use `--no-default-features`
+=======
+>>>>>>> origin/main
 - **PostgreSQL**: Verify service is running and credentials are correct
 - **Neo4j**: Ensure Docker container is running or desktop app is started
 - **RocksDB**: Check file permissions in the target directory
@@ -363,12 +447,15 @@ cargo run --features web-server --example mcp_server
 - **Memory usage**: Monitor with `--features parallel` for CPU-intensive tasks
 - **GPU acceleration**: Verify DirectX 12 support for vision encoding
 
+<<<<<<< HEAD
 ### 10.4 Feature-Specific Issues
 - **Missing diesel errors**: Use `--no-default-features --features "petgraph_backend"` for minimal setup
 - **Database schema errors**: Ensure you have the correct backend features enabled
 - **Web server not starting**: Verify tokio and axum features are enabled
 - **GUI compilation errors**: Ensure Node.js and Tauri dependencies are installed
 
+=======
+>>>>>>> origin/main
 ## 11. Production Deployment Considerations
 
 ### 11.1 Security
@@ -382,6 +469,7 @@ cargo run --features web-server --example mcp_server
 - Consider horizontal scaling with multiple instances
 
 This setup guide covers all the requirements found in the codebase. Start with the basic setup and add features as needed for your specific testing scenarios.
+<<<<<<< HEAD
 
 ---
 
@@ -423,3 +511,5 @@ cargo test --no-default-features --features "petgraph_backend" llm_clients
 # Test all features (requires all external dependencies)
 cargo test --all-features
 ```
+=======
+>>>>>>> origin/main
