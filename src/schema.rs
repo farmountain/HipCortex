@@ -1,6 +1,8 @@
 // @generated automatically by Diesel CLI.
+#[cfg(any(feature = "postgres_backend", feature = "sqlite_backend"))]
 use diesel::{allow_tables_to_appear_in_same_query, table};
 
+#[cfg(any(feature = "postgres_backend", feature = "sqlite_backend"))]
 table! {
     symbolic_nodes (id) {
         id -> Uuid,
@@ -10,6 +12,7 @@ table! {
     }
 }
 
+#[cfg(any(feature = "postgres_backend", feature = "sqlite_backend"))]
 table! {
     symbolic_edges (id) {
         id -> Integer,
@@ -20,6 +23,7 @@ table! {
     }
 }
 
+#[cfg(any(feature = "postgres_backend", feature = "sqlite_backend"))]
 table! {
     temporal_events (id) {
         id -> Uuid,
@@ -31,6 +35,7 @@ table! {
     }
 }
 
+#[cfg(any(feature = "postgres_backend", feature = "sqlite_backend"))]
 table! {
     procedural_policies (id) {
         id -> Uuid,
@@ -43,6 +48,7 @@ table! {
     }
 }
 
+#[cfg(any(feature = "postgres_backend", feature = "sqlite_backend"))]
 table! {
     perception_inputs (id) {
         id -> Uuid,
@@ -54,6 +60,7 @@ table! {
     }
 }
 
+#[cfg(any(feature = "postgres_backend", feature = "sqlite_backend"))]
 table! {
     reflexion_snapshots (id) {
         id -> Uuid,
@@ -64,6 +71,7 @@ table! {
     }
 }
 
+#[cfg(any(feature = "postgres_backend", feature = "sqlite_backend"))]
 allow_tables_to_appear_in_same_query!(
     symbolic_nodes,
     symbolic_edges,

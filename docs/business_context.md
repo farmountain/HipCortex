@@ -8,6 +8,25 @@ AI agents lack persistent, modular and contextual memory.
 ## Mission
 Build a memory engine that merges symbolic reasoning, temporal relevance, procedural logic and perception.
 
+## Universal Cognitive Layer Vision
+HipCortex is positioned as the privacy-first, device-agnostic AI memory engine for all platforms, delivering local, explainable, contextual memory and reasoning.
+
+### Key Features & Moats
+- Local, encrypted, user-owned memory (privacy-first)
+- Contextual, multimodal, explainable memory and reasoning
+- Universal API, plugin SDK, device/OS integration
+- Edge AI, federated learning, adaptive inference
+- Resilience, performance, fault tolerance, offline-first
+- Developer ecosystem, interoperability, open standards
+
+### Strategic Gaps
+- Federated learning/adaptive edge AI
+- Mobile/AR/automotive SDKs
+- Visual explainability for users
+- Plugin marketplace/ecosystem
+- Open schema/standards for context/memory
+- Unified privacy/user control dashboard
+
 Typical use cases include:
 
 - Agentic AI via OpenManus or similar protocols.

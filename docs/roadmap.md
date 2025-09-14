@@ -22,13 +22,22 @@
 - ✅ DONE: Puzzle benchmark harness for algorithmic planning tasks
 
 ## Roadmap Highlights
-- **Vision encoder**: Integrate image/embedding modules for visual reasoning.
-- **Semantic compression**: Memory-efficient summary/compression for long-term storage.
-- **RAG/Notion export**: Retrieval adapters and Notion/PDF exporters implemented.
-- **World model memory**: Store agent/environment state and simulate context.
-- **Real-time CLI/Web**: Manage, debug, and visualize agentic memory interactively.
-- **Collapse metrics**: EffortEvaluator and ConfidenceRegulator measure reasoning fatigue and collapse_score.
-- **Puzzle benchmark suite**: Validate complex planning tasks like Tower of Hanoi for regression testing.
+
+## Universal Cognitive Layer Vision (AI Era)
+- **Local, private, secure memory** for every device (laptop, mobile, AR/VR, automotive, edge)
+- **Contextual, multimodal, explainable memory and reasoning**
+- **Universal API, plugin SDK, and device/OS integration**
+- **Edge AI, federated learning, adaptive/personalized inference**
+- **Resilience, performance, fault tolerance, offline-first**
+- **Developer ecosystem, interoperability, open standards**
+
+## Strategic Gaps & Next Steps
+- Federated learning/adaptive edge AI
+- Mobile/AR/automotive SDKs
+- Visual explainability for users
+- Plugin marketplace/ecosystem
+- Open schema/standards for context/memory
+- Unified privacy/user control dashboard
 
 ### SafetyGuardrail Phases
 - ✅ Phase 1: Basic checks for FSM & DB

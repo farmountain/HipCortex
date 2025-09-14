@@ -6,5 +6,40 @@ Cargo.lock
 .DS_Store
 src/grpc
 *.audit.log
-
 *.exe
+
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# VS Code extension build artifacts
+vscode-extension/out/
+vscode-extension/dist/
+
+# SQLite files
+*.db
+*.sqlite
+*.sqlite3
+
+# Binary files
+pgsql-lib/
+sqlite-dll/
+sqlite-dll.zip
+
+# Build and temporary files
+cache.json
+*.log
+*.jsonl
+*.pdf
+
+# Test files
+test_*.json
+test_*.ps1
+test_*.txt
+simple_*.json
+simple_*.ps1
+*.audit.log
+comprehensive_test.ps1
+run_tests.ps1

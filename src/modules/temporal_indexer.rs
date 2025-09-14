@@ -19,6 +19,7 @@ pub struct TemporalTrace<T> {
 pub struct TemporalIndexer<T> {
     buffer: SegmentedRingBuffer<TemporalTrace<T>>,
     _capacity: usize,
+    #[allow(dead_code)]  // Field reserved for future decay calculations
     decay_half_life: Duration,
     markov: Option<MarkovChain<T>>,
     poisson: PoissonBurst,

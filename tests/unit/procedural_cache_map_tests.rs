@@ -1,4 +1,3 @@
-use hipcortex::latent_map::LatentMapVersion;
 use hipcortex::procedural_cache::{FSMState, ProceduralCache, ProceduralTrace};
 use serde_json::json;
 use std::collections::HashMap;

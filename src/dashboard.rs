@@ -22,7 +22,6 @@ pub fn routes<B: MemoryBackend + Send + 'static>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::memory_record::{MemoryRecord, MemoryType};
     use crate::memory_store::MemoryStore;
 
     #[cfg(feature = "web-server")]

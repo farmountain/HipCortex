@@ -1,5 +1,21 @@
 # HipCortex Architecture
 
+## Universal Cognitive Layer Vision
+HipCortex aims to be the privacy-first, device-agnostic AI memory engine for all platforms, with explainable, contextual, multimodal memory and reasoning.
+
+### Value Stream Mapping (AI Era)
+| Value Stream Activity         | Present? | Gaps/Next Steps |
+|------------------------------|----------|-----------------|
+| Local, encrypted memory      | ✅       | Zero-knowledge, privacy dashboard |
+| Multimodal/contextual memory | ✅       | More AR/VR, automotive, mobile SDKs |
+| Explainable reasoning        | ✅       | Visual dashboard for end users |
+| Universal API/integration    | ✅       | Mobile/OS SDKs, plugin marketplace |
+| Edge AI/federated learning   | ⚠️       | Federated update, adaptive learning |
+| Resilience/performance       | ✅       | Distributed recovery, multi-device sync |
+| Developer ecosystem          | ✅       | Marketplace, extension registry |
+| Interoperability/standards   | ⚠️       | Publish open schema, context/event standards |
+| User controls                | ✅       | Unified UI for pruning/export, privacy settings |
+
 HipCortex is a modular AI memory engine with these key principles:
 
 - **Temporal Memory:** Short-term and long-term memory, managed with decay and LRU.

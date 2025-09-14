@@ -1,0 +1,106 @@
+{
+    "name": "hipcortex-memory",
+    "displayName": "HipCortex Memory Integration",
+    "description": "Integrate HipCortex memory operations with VS Code chat",
+    "version": "0.1.5",
+    "publisher": "hipcortex",
+    "engines": {
+        "vscode": "^1.85.0"
+    },
+    "categories": ["Machine Learning", "Data Science", "Other"],
+    "keywords": ["ai", "memory", "agent", "chat", "hipcortex"],
+    "main": "./dist/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "hipcortex.addMemory",
+                "title": "Add Memory Record",
+                "category": "HipCortex"
+            },
+            {
+                "command": "hipcortex.queryMemory", 
+                "title": "Query Memory Records",
+                "category": "HipCortex"
+            },
+            {
+                "command": "hipcortex.testExtension",
+                "title": "Test HipCortex Extension",
+                "category": "HipCortex"
+            }
+        ],
+        "chatParticipants": [
+            {
+                "id": "hipcortex",
+                "name": "HipCortex",
+                "description": "HipCortex AI Memory Assistant - Official Extension",
+                "isSticky": true,
+                "commands": [
+                    {
+                        "name": "add",
+                        "description": "Add a new memory record"
+                    },
+                    {
+                        "name": "query", 
+                        "description": "Search memory records"
+                    },
+                    {
+                        "name": "health",
+                        "description": "Check system health"
+                    },
+                    {
+                        "name": "help",
+                        "description": "Show help information"
+                    }
+                ]
+            }
+        ],
+        "configuration": {
+            "title": "HipCortex Memory",
+            "properties": {
+                "hipcortex.apiUrl": {
+                    "type": "string",
+                    "default": "http://127.0.0.1:3030",
+                    "description": "HipCortex API server URL"
+                },
+                "hipcortex.apiKey": {
+                    "type": "string",
+                    "default": "",
+                    "description": "API key for authentication (if required)"
+                },
+                "hipcortex.autoStart": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Automatically start HipCortex server if not running"
+                }
+            }
+        }
+    },
+    "activationEvents": [
+        "onStartupFinished",
+        "onCommand:workbench.action.chat.open"
+    ],
+    "scripts": {
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "package": "webpack --mode production --devtool hidden-source-map",
+        "compile-tests": "tsc -p . --outDir out",
+        "watch-tests": "tsc -p . -w --outDir out",
+        "pretest": "npm run compile-tests && npm run compile && npm run lint",
+        "lint": "eslint src --ext ts",
+        "test": "node ./out/test/runTest.js"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.85.0",
+        "@types/node": "20.x",
+        "@typescript-eslint/eslint-plugin": "^6.13.1",
+        "@typescript-eslint/parser": "^6.13.1",
+        "eslint": "^8.54.0",
+        "typescript": "^5.3.2",
+        "webpack": "^5.89.0",
+        "webpack-cli": "^5.1.4",
+        "ts-loader": "^9.5.1"
+    },
+    "dependencies": {
+        "axios": "^1.6.2"
+    }
+}

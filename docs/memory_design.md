@@ -12,6 +12,22 @@ symbolic-context memory enabling traceability, explainability and provable
 correctness. Each operation is grounded in formal mathematics and checked with
 logic rules so knowledge remains consistent.
 
+## Universal Cognitive Layer Principles
+- Local, private, encrypted memory for every device
+- Contextual, multimodal, explainable memory and reasoning
+- Universal API, plugin SDK, device/OS integration
+- Edge AI, federated learning, adaptive inference
+- Resilience, performance, fault tolerance, offline-first
+- Developer ecosystem, interoperability, open standards
+
+## Strategic Gaps
+- Federated learning/adaptive edge AI
+- Mobile/AR/automotive SDKs
+- Visual explainability for users
+- Plugin marketplace/ecosystem
+- Open schema/standards for context/memory
+- Unified privacy/user control dashboard
+
 ```mermaid
 flowchart LR
     Input --> Adapter

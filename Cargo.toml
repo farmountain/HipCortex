@@ -2,8 +2,13 @@
 name = "hipcortex"
 version = "0.1.0"
 edition = "2021"
-
+description = "A modular, agentic AI memory engine for reasoning, edge, and multi-agent workflows"
+repository = "https://github.com/farmountain/HipCortex"
 license = "Apache-2.0"
+readme = "README.md"
+keywords = ["ai", "memory", "agent", "graph", "reasoning"]
+categories = ["science", "algorithms", "data-structures"]
+
 [workspace]
 members = ["."]
 
@@ -21,7 +26,7 @@ flate2 = "1"
 tar = "0.4"
 image = { version = "0.24", default-features = false, features = ["png", "jpeg"] }
 nalgebra = "0.33"
-diesel = { version = "2", features = ["postgres", "sqlite", "serde_json"] }
+diesel = { version = "2", features = ["postgres", "sqlite", "serde_json"], optional = true }
 reqwest = { version = "0.11", features = ["blocking", "json"] }
 sha2 = "0.10"
 hex = "0.4"
@@ -73,17 +78,27 @@ harness = false
 
 
 [features]
+# Core features - start with petgraph_backend for minimal setup
+default = ["petgraph_backend"]
+
+# Web and UI features
 web-server = ["axum", "tokio"]
 gui = ["tauri"]
+
+# Processing and plugin features
 plugin = ["wasmtime", "wat"]
 async-store = ["tokio", "async-trait"]
 parallel = ["rayon"]
 gpu = ["wgpu"]
 grpc-server = ["tonic", "prost", "tokio", "tonic-build"]
-rocksdb-backend = ["rocksdb"]
-petgraph_backend = ["petgraph"]
-neo4j_backend = ["neo4rs", "tokio"]
-postgres_backend = ["tokio-postgres", "tokio"]
+
+# Backend storage options
+petgraph_backend = ["petgraph"]        # In-memory graphs (no external deps)
+rocksdb-backend = ["rocksdb"]          # Embedded key-value store
+sqlite_backend = ["diesel"]            # SQLite support (requires SQLite libs)
+postgres_backend = ["tokio-postgres", "tokio", "diesel"]  # PostgreSQL (requires PG libs)
+neo4j_backend = ["neo4rs", "tokio"]    # Neo4j support (requires Neo4j server)
+
+# Compatibility features
 rustfsm_backend = []
 temporal_backend = []
-default = ["petgraph_backend", "neo4j_backend"]

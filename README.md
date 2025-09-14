@@ -12,6 +12,25 @@ HipCortex aims to provide a memory engine that blends symbolic reasoning,
 temporal relevance, procedural logic and perception in one modular package.
 **HipCortex Memory: Math, Logic, Symbolic Guarantees** – reasoning steps follow proven models with logic checks. See [docs/memory_design.md](docs/memory_design.md).
 
+## 🌐 Universal Positioning (AI Era)
+HipCortex is designed to be the cognitive layer for every device—laptop, mobile, smart glass, autonomous OS—delivering local, private, explainable memory and reasoning.
+
+### Key Features & Moats
+- Local, encrypted, user-owned memory (privacy-first)
+- Contextual, multimodal, explainable memory and reasoning
+- Universal API, plugin SDK, device/OS integration
+- Edge AI, federated learning, adaptive inference
+- Resilience, performance, fault tolerance, offline-first
+- Developer ecosystem, interoperability, open standards
+
+### Strategic Gaps
+- Federated learning/adaptive edge AI
+- Mobile/AR/automotive SDKs
+- Visual explainability for users
+- Plugin marketplace/ecosystem
+- Open schema/standards for context/memory
+- Unified privacy/user control dashboard
+
 ### 🔬 Memory Design Extension
 HipCortex now ships with a mathematically proven memory layer. Logical
 predicates validate each write, symbolic graphs track context and property-based
@@ -41,9 +60,10 @@ and reasoning components.
 - **TemporalFSMBackend:** optional in-memory backend storing FSM traces with rollback and batch transitions.
 - **Symbolic Store:** Graph-based concept store with semantic key/value pairs.
   Caches recent label lookups with an LRU cache. Backed by a pluggable
-  `GraphDatabase` trait for in-memory or persistent graphs (via the optional
-  `SledGraph` backend).
-- **Neo4j/Postgres Backends:** enable `neo4j_backend` or `postgres_backend` features to store graphs in Neo4j or Postgres.
+  `GraphDatabase` trait for in-memory or persistent graphs.
+- **PetGraph Backend:** In-memory graph backend (default) - no external dependencies required.
+- **Sled Backend:** Embedded key-value database - compile with `--features rocksdb-backend`.
+- **Neo4j/Postgres Backends:** External database support - enable `neo4j_backend` or `postgres_backend` features to store graphs in Neo4j or Postgres (requires external libraries).
 - **Perception Adapter:** Multimodal input handler (text, embeddings, agent
   messages, vision). Includes a simple VisionEncoder for image embeddings.
 - **Semantic Compression:** Reduce embedding dimensionality with `semantic_compression::compress_embedding` for efficient storage.
@@ -53,10 +73,15 @@ and reasoning components.
 - **MCP Server:** run both REST and gRPC endpoints to orchestrate symbolic context for multiple agents.
 - **Math & Logic Guarantees:** memory operations validated with formal proofs and symbolic checks.
 - **Fully Test-Driven:** Extensive unit tests and Criterion benchmarks.
-- **Optional Web Server:** compile with `--features web-server` for an Axum REST API.
-- **Optional GUI:** compile with `--features gui` to launch a Tauri desktop client.
+- **Optional Web Server:** compile with `--features "web-server,petgraph_backend"` for an Axum REST API.
+- **Optional GUI:** compile with `--features "gui,petgraph_backend"` to launch a Tauri desktop client.
+- **Database Backends:** 
+  - `--features "petgraph_backend"` for in-memory graphs (no external deps)
+  - `--features "sqlite_backend"` for SQLite support (requires SQLite libraries)
+  - `--features "postgres_backend"` for PostgreSQL support (requires PostgreSQL libraries)
+  - `--features "neo4j_backend"` for Neo4j support (requires Neo4j server)
 - **RocksDB Backend:** compile with `--features rocksdb-backend` and use `MemoryStore::new_rocksdb` for an embedded key-value database.
-- **WASM Plugin Host:** compile with `--features plugin` to run custom WebAssembly extensions via `PluginHost`.
+- **WASM Plugin Host:** compile with `--features "plugin,petgraph_backend"` to run custom WebAssembly extensions via `PluginHost`.
 - **Effort Evaluator & Confidence Regulator:** monitor reasoning effort and confidence to avoid collapse.
 - **Hypothesis Manager:** maintain multiple reasoning paths and a quantized state tree for backtracking.
 - **Latent Map World Model:** learned latent maps are stored as versioned world models with safety guardrails.
@@ -139,14 +164,40 @@ cargo run -- safety-audit
 
 ## 🚀 Quickstart
 
+### Minimal Setup (Recommended)
+For quick setup without external database dependencies:
 ```sh
-git clone <your-repo>
-cd hipcortex
-cargo build
-cargo test        # Run all tests
-cargo run         # Run the CLI demo
-cargo bench       # Run benchmarks
+git clone https://github.com/farmountain/HipCortex.git
+cd HipCortex
+cargo build --no-default-features --features "petgraph_backend"
+cargo run --example quickstart --no-default-features --features "petgraph_backend"
+cargo test --no-default-features --features "petgraph_backend" --lib
 ```
+
+### Full Setup
+For complete functionality with all features:
+```sh
+git clone https://github.com/farmountain/HipCortex.git
+cd HipCortex
+cargo build --all-features  # Requires external database libraries
+cargo test                  # Run all tests
+cargo run                   # Run the CLI demo
+cargo bench                 # Run benchmarks
+```
+
+### Feature Combinations
+```sh
+# Web server with REST API
+cargo build --features "web-server,petgraph_backend"
+
+# GUI application
+cargo build --features "gui,petgraph_backend"
+
+# With database backends (requires external libraries)
+cargo build --features "petgraph_backend,sqlite_backend,postgres_backend"
+```
+
+**Note**: For detailed setup instructions including database configuration, see `Hipcortex_Env_Setup_Guide.md`.
 
 Launch the combined MCP server (REST + gRPC) with:
 

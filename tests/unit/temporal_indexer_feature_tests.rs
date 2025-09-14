@@ -1,4 +1,4 @@
-use hipcortex::decay::{decay_exponential, decay_linear, DecayType};
+use hipcortex::decay::{decay_exponential, decay_linear};
 use hipcortex::markov::MarkovChain;
 use hipcortex::poisson::PoissonBurst;
 use std::time::{Duration, SystemTime};

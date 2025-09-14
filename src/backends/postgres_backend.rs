@@ -40,7 +40,7 @@ impl PostgresGraphBackend {
 impl GraphDatabase for PostgresGraphBackend {
     fn add_node(&mut self, label: &str, props: HashMap<String, String>) -> Uuid {
         let id = Uuid::new_v4();
-        let props_json = serde_json::to_value(&props).unwrap();
+        let props_json = serde_json::to_string(&props).unwrap();
         let client = &self.client;
         self.rt.block_on(async {
             let _ = client
@@ -78,8 +78,9 @@ impl GraphDatabase for PostgresGraphBackend {
                 .flatten()
                 .map(|row| {
                     let label: String = row.get(0);
-                    let props: serde_json::Value = row.get(1);
-                    let mut map: HashMap<String, String> =
+                    let props_str: String = row.get(1);
+                    let props: serde_json::Value = serde_json::from_str(&props_str).unwrap_or_default();
+                    let map: HashMap<String, String> =
                         serde_json::from_value(props).unwrap_or_default();
                     SymbolicNode {
                         id: node_id,
@@ -108,7 +109,8 @@ impl GraphDatabase for PostgresGraphBackend {
                 .map(|row| {
                     let id: Uuid = row.get(0);
                     let label: String = row.get(1);
-                    let props: serde_json::Value = row.get(2);
+                    let props_str: String = row.get(2);
+                    let props: serde_json::Value = serde_json::from_str(&props_str).unwrap_or_default();
                     let map: HashMap<String, String> =
                         serde_json::from_value(props).unwrap_or_default();
                     SymbolicNode {
@@ -149,7 +151,6 @@ impl GraphDatabase for PostgresGraphBackend {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::collections::HashMap;
 
     struct DummyPg;

@@ -9,7 +9,7 @@ fn multimodal_text_and_image() {
     let mut buf = std::io::Cursor::new(Vec::new());
     DynamicImage::ImageRgb8(img.clone()).write_to(&mut buf, ImageOutputFormat::Png).unwrap();
     let bytes = buf.into_inner();
-    let embedding = VisionEncoder::encode_bytes(&bytes).unwrap();
+    let _embedding = VisionEncoder::encode_bytes(&bytes).unwrap();  // Used for verification
 
     let input = PerceptInput {
         modality: Modality::Image,

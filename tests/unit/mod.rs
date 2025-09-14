@@ -14,6 +14,7 @@ mod llama_client_tests;
 mod memory_store_tests;
 mod multimodal_perception_tests;
 mod perception_adapter_tests;
+#[cfg(feature = "plugin")]
 mod plugin_host_tests;
 mod procedural_cache_tests;
 mod puzzle_tests;
