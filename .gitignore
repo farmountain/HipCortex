@@ -8,6 +8,11 @@ src/grpc
 *.audit.log
 *.exe
 
+# Environment files
+.env
+.env.local
+.env.*.local
+
 # Node.js dependencies
 node_modules/
 npm-debug.log*
@@ -43,3 +48,10 @@ simple_*.ps1
 *.audit.log
 comprehensive_test.ps1
 run_tests.ps1
+
+# Docker
+.dockerignore
+
+# Data directories
+data/
+logs/

@@ -3,7 +3,30 @@
 A modular, agentic AI memory engine for reasoning, edge, and multi-agent workflows.
 Built in Rust, integrating temporal, procedural, and symbolic memory with agentic and multimodal APIs.
 
-## 🔍 Problem
+## � Quick Start
+
+Get HipCortex running in minutes:
+
+### Docker/Podman (Recommended)
+```bash
+# Clone and start with Docker Compose
+git clone https://github.com/farmountain/HipCortex.git
+cd HipCortex
+./quick-start.sh  # Linux/Mac
+# or
+.\quick-start.ps1  # Windows
+```
+
+### VS Code Extension
+1. Download the latest `.vsix` file from `vscode-extension/`
+2. Install via VS Code: `Ctrl+Shift+P` → "Extensions: Install from VSIX..."
+3. Configure your API endpoint in settings
+
+**📖 [Complete Quick Start Guide](QUICK_START_GUIDE.md)** | **📚 [Full Documentation](docs/)**
+
+---
+
+## �🔍 Problem
 AI agents often lack persistent, contextual memory. Without a unified engine it
 is difficult to reason over time or across modalities.
 

@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  hipcortex:
+    build: .
+    container_name: hipcortex
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-hipcortex123}@postgres:5432/${POSTGRES_DB:-hipcortex}
+      - REDIS_URL=redis://redis:6379
+      - RUST_LOG=${LOG_LEVEL:-info}
+      - API_PORT=8080
+      - ENABLE_POSTGRES=true
+      - ENABLE_TEMPORAL_INDEXING=true
+      - ENABLE_WEB_SERVER=true
+      - MEMORY_LIMIT=${MEMORY_LIMIT:-2GB}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - hipcortex_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: hipcortex-postgres
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-hipcortex}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-hipcortex123}
+      - POSTGRES_INITDB_ARGS="--encoding=UTF8 --locale=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d/
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-hipcortex}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: hipcortex-redis
+    command: redis-server --appendonly yes --maxmemory ${REDIS_MEMORY:-512mb} --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Optional: Web dashboard (if separate from main app)
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    container_name: hipcortex-dashboard
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8080
+      - NODE_ENV=production
+    depends_on:
+      - hipcortex
+    restart: unless-stopped
+    profiles:
+      - dashboard
+
+volumes:
+  hipcortex_data:
+    driver: local
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  default:
+    name: hipcortex-network
+    driver: bridge
