@@ -83,6 +83,12 @@ pub mod temporal_indexer;
 #[path = "modules/world_model.rs"]
 pub mod world_model;
 pub mod world_model_client;
+#[path = "modules/self_model/mod.rs"]
+pub mod self_model;
+#[path = "modules/world_model_enhanced/mod.rs"]
+pub mod world_model_enhanced;
+#[path = "modules/coherence/mod.rs"]
+pub mod coherence;
 #[cfg(feature = "async-store")]
 pub use persistence::{AsyncFileBackend, AsyncMemoryBackend};
 #[cfg(feature = "grpc-server")]
