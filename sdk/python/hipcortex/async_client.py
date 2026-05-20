@@ -178,8 +178,8 @@ class AsyncHipCortexClient:
 
         Returns ``{"success": bool, "records_deleted": int, "symbolic_nodes_deleted": int}``.
         """
-        resp = await self._client.request(
-            "DELETE", f"{self.base_url}/memory/forget/{actor}"
+        resp = await self._client.delete(
+            f"{self.base_url}/memory/forget/{actor}"
         )
         resp.raise_for_status()
         return resp.json()
@@ -205,6 +205,18 @@ class AsyncHipCortexClient:
     async def coherence_status(self) -> Dict[str, Any]:
         """Return the current coherence metrics from the server."""
         resp = await self._client.get(f"{self.base_url}/coherence/status")
+        resp.raise_for_status()
+        return resp.json()
+
+    async def graph(self) -> Dict[str, Any]:
+        """Return the full symbolic graph (nodes + edges)."""
+        resp = await self._client.get(f"{self.base_url}/graph")
+        resp.raise_for_status()
+        return resp.json()
+
+    async def get_node(self, node_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch a single symbolic node by UUID."""
+        resp = await self._client.get(f"{self.base_url}/node/{node_id}")
         resp.raise_for_status()
         return resp.json()
 
