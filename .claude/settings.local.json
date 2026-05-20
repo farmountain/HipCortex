@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($env:PATH += \";$env:USERPROFILE\\\\.cargo\\\\bin\"; Set-Location \"D:\\\\all_projects\\\\HipCortex\\\\.claude\\\\worktrees\\\\pedantic-edison-28b84c\"; cargo check --no-default-features --features \"petgraph_backend\" 2>&1 | Select-Object -Last 40)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\" | Select-Object Name; Get-ChildItem \"C:\\\\\" -ErrorAction SilentlyContinue | Where-Object {$_.Name -match \"rust|cargo\"})",
+      "PowerShell(& \"$env:TEMP\\\\rustup-init.exe\" -y --default-toolchain stable --profile minimal 2>&1)",
+      "PowerShell(winget install --id Microsoft.VisualStudio.2022.BuildTools --silent --accept-package-agreements --accept-source-agreements --override \"--quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended\" 2>&1)",
+      "PowerShell(\\(Get-Content \"D:\\\\all_projects\\\\HipCortex\\\\.claude\\\\worktrees\\\\pedantic-edison-28b84c\\\\src\\\\web_server.rs\"\\) | Select-Object -Skip 380 -First 60)"
+    ]
+  }
+}

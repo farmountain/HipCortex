@@ -1,72 +1,143 @@
 # HipCortex
 
-A modular, agentic AI memory engine for reasoning, edge, and multi-agent workflows.
-Built in Rust, integrating temporal, procedural, and symbolic memory with agentic and multimodal APIs.
+**Persistent causal memory for AI agents — 0.48 ms p50 writes, 295× faster than Mem0 cloud.**
 
-## � Quick Start
+[![CI](https://github.com/farmountain/HipCortex/actions/workflows/ci.yml/badge.svg)](https://github.com/farmountain/HipCortex/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![crates.io](https://img.shields.io/crates/v/hipcortex.svg)](https://crates.io/crates/hipcortex)
 
-Get HipCortex running in minutes:
+HipCortex is **not** a vector database, RAG pipeline, or chat history store.  
+It is a **recursive causal world-model memory engine** — the cognitive substrate AI agents need to remember, reason, and improve over time.
 
-### Docker/Podman (Recommended)
-```bash
-# Clone and start with Docker Compose
-git clone https://github.com/farmountain/HipCortex.git
-cd HipCortex
-./quick-start.sh  # Linux/Mac
-# or
-.\quick-start.ps1  # Windows
-```
+| | HipCortex | Mem0 cloud | In-process dict |
+|--|-----------|-----------|-----------------|
+| Write p50 | **0.48 ms** | 142 ms | 0.002 ms |
+| Write p95 | **1.2 ms** | 310 ms | 0.005 ms |
+| Temporal decay | ✅ native | ❌ | ❌ |
+| Causal world model | ✅ | ❌ | ❌ |
+| GDPR right-to-forget | ✅ REST endpoint | ✅ | ❌ |
+| Merkle-chained audit log | ✅ | ❌ | ❌ |
+| Self-hosted, zero deps | ✅ 4 MB binary | ❌ | ✅ |
 
-### VS Code Extension
-1. Download the latest `.vsix` file from `vscode-extension/`
-2. Install via VS Code: `Ctrl+Shift+P` → "Extensions: Install from VSIX..."
-3. Configure your API endpoint in settings
-
-**📖 [Complete Quick Start Guide](QUICK_START_GUIDE.md)** | **📚 [Full Documentation](docs/)**
+> Full methodology: [BENCHMARK.md](BENCHMARK.md) · [Pricing](/pricing)
 
 ---
 
-## �🔍 Problem
-AI agents often lack persistent, contextual memory. Without a unified engine it
-is difficult to reason over time or across modalities.
+## Install
 
-## 🎯 Mission
-HipCortex aims to provide a memory engine that blends symbolic reasoning,
-temporal relevance, procedural logic and perception in one modular package.
-**HipCortex Memory: Math, Logic, Symbolic Guarantees** – reasoning steps follow proven models with logic checks. See [docs/memory_design.md](docs/memory_design.md).
+```bash
+# Python SDK (LangChain · LlamaIndex · AutoGen · CrewAI)
+pip install hipcortex
 
-## 🌐 Universal Positioning (AI Era)
-HipCortex is designed to be the cognitive layer for every device—laptop, mobile, smart glass, autonomous OS—delivering local, private, explainable memory and reasoning.
+# Rust library
+cargo add hipcortex --no-default-features --features petgraph_backend
+```
 
-### Key Features & Moats
-- Local, encrypted, user-owned memory (privacy-first)
-- Contextual, multimodal, explainable memory and reasoning
-- Universal API, plugin SDK, device/OS integration
-- Edge AI, federated learning, adaptive inference
-- Resilience, performance, fault tolerance, offline-first
-- Developer ecosystem, interoperability, open standards
+---
 
-### Strategic Gaps
-- Federated learning/adaptive edge AI
-- Mobile/AR/automotive SDKs
-- Visual explainability for users
-- Plugin marketplace/ecosystem
-- Open schema/standards for context/memory
-- Unified privacy/user control dashboard
+## 60-second quickstart
 
-### 🔬 Memory Design Extension
-HipCortex now ships with a mathematically proven memory layer. Logical
-predicates validate each write, symbolic graphs track context and property-based
-tests confirm graph connectivity and FSM reachability. Every module begins with
-a "Chain-of-Thought" comment summarizing its reasoning flow.
+```python
+from hipcortex import HipCortexClient
 
-HipCortex treats each learned latent map as a serializable world model. Maps are
-versioned over time and checked for alignment across procedural, temporal and
-symbolic layers.
+client = HipCortexClient("http://localhost:3030")  # or your Fly.io URL
 
+# Store memory
+client.add_memory(actor="alice", action="said", target="The meeting is at 3pm")
 
-## 📘 Business Context
-HipCortex enables persistent memory and reasoning for bots and edge automation. It can operate as a lightweight library, a REST microservice or a desktop app. See [docs/business_context.md](docs/business_context.md) for details.
+# Search (keyword or cosine similarity)
+results = client.search("meeting time", limit=5)
+
+# GDPR forget
+client.forget("alice")
+
+# Live stats
+print(client.stats())
+```
+
+**Start the server (single binary, zero deps):**
+```bash
+cargo run --bin webserver --no-default-features --features "web-server,petgraph_backend"
+# or: fly deploy  (see DEPLOY.md)
+```
+
+---
+
+## Framework integrations
+
+```python
+# LangChain — drop-in for ConversationBufferMemory
+from hipcortex.langchain_memory import HipCortexMemory
+memory = HipCortexMemory(session_id="user-42", url="http://localhost:3030")
+chain  = ConversationChain(llm=ChatOpenAI(), memory=memory)
+
+# LlamaIndex — SimpleChatStore-compatible
+from hipcortex.llamaindex_storage import HipCortexChatStore
+store = HipCortexChatStore(client=client)
+
+# AutoGen — register_hook compatible
+from hipcortex.adapters.autogen import HipCortexAutoGenMemory
+mem = HipCortexAutoGenMemory(client=client, agent_id="researcher")
+agent.register_hook("process_message_before_send", mem.on_message_sent)
+
+# CrewAI — BaseTool subclasses
+from hipcortex.adapters.crewai import HipCortexRememberTool, HipCortexRecallTool
+tools = [HipCortexRememberTool(client=client), HipCortexRecallTool(client=client)]
+```
+
+---
+
+## REST API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Health check |
+| `POST` | `/memory/add` | Store a memory record |
+| `GET` | `/memory/query` | Filter records (actor/action/type/limit) |
+| `POST` | `/memory/search` | Semantic + keyword search |
+| `DELETE` | `/memory/forget/:actor` | GDPR right-to-forget |
+| `GET` | `/coherence/status` | Cross-module coherence metrics |
+| `GET` | `/stats` | Live record counts + metering state |
+| `GET` | `/graph` | Full symbolic knowledge graph |
+| `GET` | `/tier` | API key tier + limits |
+| `GET` | `/pricing` | Pricing page |
+
+**Authentication:** set `HIPCORTEX_API_KEYS=sk-mykey:pro` → send `X-Api-Key: sk-mykey`.  
+Unset = open mode (self-hosted / dev).
+
+---
+
+## Deploy
+
+Three paths — see [DEPLOY.md](DEPLOY.md):
+
+```bash
+# Fly.io (5 min, EU-first)
+fly launch && fly deploy
+
+# Docker
+docker run -p 3030:3030 -v hipcortex_data:/app/data hipcortex:latest
+
+# Binary (4 MB, edge / offline)
+cargo build --release --bin webserver --no-default-features --features "web-server,petgraph_backend"
+```
+
+---
+
+## Why not just use Mem0 / Zep / Pinecone?
+
+Those systems optimize for **retrieval** (cosine similarity over embeddings).  
+HipCortex optimizes for **cognition**:
+
+- **Temporal decay** — memories fade at configurable rates; important ones persist
+- **Causal world model** — Dirichlet-Multinomial transitions, Kalman entity tracking, do-calculus interventions
+- **Coherence checking** — cross-module consistency validation catches temporal-symbolic mismatches
+- **Self-model** — EWMA performance tracking, expected utility decision engine
+- **Merkle-chained audit log** — every write is tamper-evident; `AuditLog::verify()` detects tampering
+- **Safety guardrail** — every mutation goes through `SafetyGuardrail::check_precondition` before hitting state
+
+This makes HipCortex the right foundation for AGI-grade agents, not just chatbot memory.  
+See [docs/architecture.md](docs/architecture.md) and [docs/whitepaper.md](docs/whitepaper.md).
 
 ---
 

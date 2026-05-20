@@ -198,6 +198,88 @@ impl<B: MemoryBackend> MemoryStore<B> {
         }
     }
 
+    /// Semantic search: rank records by cosine similarity against `query_embedding`
+    /// if they carry a `metadata.embedding` float array, otherwise fall back to
+    /// keyword matching against actor + action + target.
+    /// Returns up to `limit` records sorted by descending score.
+    pub fn search_semantic(
+        &self,
+        query_embedding: Option<&[f64]>,
+        query_text: &str,
+        limit: usize,
+    ) -> Vec<(&MemoryRecord, f64)> {
+        let mut scored: Vec<(&MemoryRecord, f64)> = self
+            .records
+            .iter()
+            .map(|rec| {
+                let score = if let Some(qe) = query_embedding {
+                    // Try cosine similarity against metadata.embedding
+                    let doc_vec: Option<Vec<f64>> = rec
+                        .metadata
+                        .get("embedding")
+                        .and_then(|v| serde_json::from_value(v.clone()).ok());
+                    if let Some(dv) = doc_vec {
+                        cosine_similarity(qe, &dv)
+                    } else {
+                        keyword_score(query_text, rec)
+                    }
+                } else {
+                    keyword_score(query_text, rec)
+                };
+                (rec, score)
+            })
+            .filter(|(_, s)| *s > 0.0)
+            .collect();
+        scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        scored.truncate(limit);
+        scored
+    }
+
+    /// GDPR right-to-forget: remove all records for `actor`, rewrite the backend
+    /// file without them, and append a deletion entry to the audit log.
+    /// Returns the UUIDs of deleted records.
+    pub fn delete_by_actor(&mut self, actor: &str) -> Result<Vec<uuid::Uuid>> {
+        let deleted_ids: Vec<uuid::Uuid> = self.records.iter()
+            .filter(|r| r.actor == actor)
+            .map(|r| r.id)
+            .collect();
+
+        if deleted_ids.is_empty() {
+            return Ok(vec![]);
+        }
+
+        // Remove from in-memory records and pending write buffer
+        self.records.retain(|r| r.actor != actor);
+        self.buffer.retain(|r| r.actor != actor);
+
+        // Rebuild index maps from scratch
+        self.index_actor.clear();
+        self.index_action.clear();
+        self.index_target.clear();
+        for (i, rec) in self.records.iter().enumerate() {
+            self.index_actor.entry(rec.actor.clone()).or_default().push(i);
+            self.index_action.entry(rec.action.clone()).or_default().push(i);
+            self.index_target.entry(rec.target.clone()).or_default().push(i);
+        }
+
+        // Rewrite backend: clear the file then re-append all remaining records
+        self.backend.clear()?;
+        let remaining = self.records.clone();
+        for record in &remaining {
+            self.backend.append(record)?;
+        }
+        self.backend.flush()?;
+
+        // Record the deletion in the tamper-evident audit log
+        self.audit.append(
+            actor,
+            "gdpr_forget",
+            &format!("purged {} records", deleted_ids.len()),
+        )?;
+
+        Ok(deleted_ids)
+    }
+
     pub fn clear(&mut self) {
         self.records.clear();
         self.index_actor.clear();
@@ -292,4 +374,35 @@ mod tests {
         drop(store);
         std::fs::remove_file(path).unwrap();
     }
+}
+
+// ---------------------------------------------------------------------------
+// Free functions used by MemoryStore::search_semantic
+// ---------------------------------------------------------------------------
+
+/// Cosine similarity between two f64 slices. Returns 0.0 if either is zero-length.
+pub fn cosine_similarity(a: &[f64], b: &[f64]) -> f64 {
+    let len = a.len().min(b.len());
+    if len == 0 {
+        return 0.0;
+    }
+    let dot: f64    = a[..len].iter().zip(b[..len].iter()).map(|(x, y)| x * y).sum();
+    let mag_a: f64  = a[..len].iter().map(|x| x * x).sum::<f64>().sqrt();
+    let mag_b: f64  = b[..len].iter().map(|x| x * x).sum::<f64>().sqrt();
+    if mag_a == 0.0 || mag_b == 0.0 { 0.0 } else { dot / (mag_a * mag_b) }
+}
+
+/// Simple keyword score: fraction of whitespace-split query tokens found in the
+/// concatenated `actor + action + target` string (case-insensitive).
+pub fn keyword_score(query: &str, rec: &crate::memory_record::MemoryRecord) -> f64 {
+    if query.is_empty() {
+        return 0.0;
+    }
+    let haystack = format!("{} {} {}", rec.actor, rec.action, rec.target).to_lowercase();
+    let tokens: Vec<&str> = query.split_whitespace().collect();
+    if tokens.is_empty() {
+        return 0.0;
+    }
+    let hits = tokens.iter().filter(|t| haystack.contains(&t.to_lowercase())).count();
+    hits as f64 / tokens.len() as f64
 }

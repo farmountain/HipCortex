@@ -1,0 +1,178 @@
+"""HipCortex HTTP client — thin wrapper around the REST API."""
+
+from __future__ import annotations
+
+import time
+from typing import Any, Dict, List, Optional
+
+import requests
+
+
+class HipCortexClient:
+    """Synchronous HTTP client for the HipCortex memory server.
+
+    Args:
+        base_url: Root URL of the running hipcortex web-server binary.
+        timeout:  Per-request timeout in seconds.
+    """
+
+    def __init__(self, base_url: str = "http://localhost:3000", timeout: float = 10.0) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.timeout = timeout
+        self._session = requests.Session()
+
+    # ------------------------------------------------------------------
+    # Core memory operations
+    # ------------------------------------------------------------------
+
+    def add_memory(
+        self,
+        actor: str,
+        action: str,
+        target: str,
+        record_type: str = "Temporal",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Store a memory record.
+
+        Returns the server response dict with ``success`` and ``record_id``.
+        """
+        payload = {
+            "actor": actor,
+            "action": action,
+            "target": target,
+            "record_type": record_type,
+            "metadata": metadata or {},
+        }
+        resp = self._session.post(
+            f"{self.base_url}/memory/add", json=payload, timeout=self.timeout
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def query_memory(
+        self,
+        actor: Optional[str] = None,
+        action: Optional[str] = None,
+        record_type: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+        """Query memory records. Returns a list of record dicts."""
+        params: Dict[str, Any] = {"limit": limit}
+        if actor is not None:
+            params["actor"] = actor
+        if action is not None:
+            params["action"] = action
+        if record_type is not None:
+            params["record_type"] = record_type
+        resp = self._session.get(
+            f"{self.base_url}/memory/query", params=params, timeout=self.timeout
+        )
+        resp.raise_for_status()
+        return resp.json().get("records", [])
+
+    def search(
+        self,
+        query: str,
+        embedding: Optional[List[float]] = None,
+        limit: int = 10,
+    ) -> List[Dict[str, Any]]:
+        """Semantic + keyword search over stored memory records.
+
+        If ``embedding`` is provided, ranks results by cosine similarity
+        against records that carry a ``metadata.embedding`` float array.
+        Falls back to keyword matching when embeddings are absent.
+
+        Returns a list of ``{"score": float, "record": {...}}`` dicts,
+        sorted by descending score.
+        """
+        payload: Dict[str, Any] = {"query": query, "limit": limit}
+        if embedding is not None:
+            payload["embedding"] = embedding
+        resp = self._session.post(
+            f"{self.base_url}/memory/search", json=payload, timeout=self.timeout
+        )
+        resp.raise_for_status()
+        return resp.json().get("results", [])
+
+    def forget(self, actor: str) -> Dict[str, Any]:
+        """GDPR right-to-forget: delete all records for ``actor``.
+
+        Returns ``{"success": bool, "records_deleted": int, "symbolic_nodes_deleted": int}``.
+        """
+        resp = self._session.delete(
+            f"{self.base_url}/memory/forget/{actor}", timeout=self.timeout
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    # ------------------------------------------------------------------
+    # Symbolic graph
+    # ------------------------------------------------------------------
+
+    def graph(self) -> Dict[str, Any]:
+        """Return the full symbolic graph (nodes + edges)."""
+        resp = self._session.get(f"{self.base_url}/graph", timeout=self.timeout)
+        resp.raise_for_status()
+        return resp.json()
+
+    def get_node(self, node_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch a single symbolic node by UUID."""
+        resp = self._session.get(f"{self.base_url}/node/{node_id}", timeout=self.timeout)
+        resp.raise_for_status()
+        return resp.json()
+
+    # ------------------------------------------------------------------
+    # System
+    # ------------------------------------------------------------------
+
+    def health(self) -> bool:
+        """Return True if server is reachable and healthy."""
+        try:
+            resp = self._session.get(f"{self.base_url}/health", timeout=self.timeout)
+            return resp.status_code == 200
+        except requests.RequestException:
+            return False
+
+    def coherence_status(self) -> Dict[str, Any]:
+        """Return the current coherence metrics from the server."""
+        resp = self._session.get(f"{self.base_url}/coherence/status", timeout=self.timeout)
+        resp.raise_for_status()
+        return resp.json()
+
+    def stats(self) -> Dict[str, Any]:
+        """Return live server statistics: record counts, type breakdown, metering state."""
+        resp = self._session.get(f"{self.base_url}/stats", timeout=self.timeout)
+        resp.raise_for_status()
+        return resp.json()
+
+    # ------------------------------------------------------------------
+    # Convenience helpers used by framework adapters
+    # ------------------------------------------------------------------
+
+    def add_human_message(self, session_id: str, content: str) -> Dict[str, Any]:
+        return self.add_memory(
+            actor=session_id,
+            action="human_message",
+            target=content,
+            record_type="Temporal",
+        )
+
+    def add_ai_message(self, session_id: str, content: str) -> Dict[str, Any]:
+        return self.add_memory(
+            actor=session_id,
+            action="ai_message",
+            target=content,
+            record_type="Reflexion",
+        )
+
+    def get_conversation_history(
+        self, session_id: str, limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        return self.query_memory(actor=session_id, limit=limit)
+
+    def ping_latency_ms(self) -> float:
+        """Return round-trip latency to /health in milliseconds."""
+        t0 = time.perf_counter()
+        self.health()
+        return (time.perf_counter() - t0) * 1000

@@ -1,0 +1,61 @@
+app = "hipcortex"
+primary_region = "fra"          # Frankfurt — EU-first for GDPR compliance
+kill_signal = "SIGINT"
+kill_timeout = "5s"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  RUST_LOG       = "info"
+  DATA_DIR       = "/app/data"
+  # Tier config via secrets (set with: fly secrets set HIPCORTEX_API_KEYS=...)
+  # Format: key1:free,key2:pro,key3:team
+  # Unset = open (dev/self-hosted mode)
+
+[http_service]
+  internal_port        = 3030
+  force_https          = true
+  auto_stop_machines   = true
+  auto_start_machines  = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type       = "connections"
+    hard_limit = 500
+    soft_limit = 400
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[mounts]
+  source      = "hipcortex_data"
+  destination = "/app/data"
+
+[[services]]
+  protocol   = "tcp"
+  internal_port = 3030
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type       = "connections"
+    hard_limit = 500
+    soft_limit = 400
+
+  [[services.http_checks]]
+    interval = "15s"
+    timeout  = "5s"
+    grace_period = "30s"
+    method = "get"
+    path = "/health"
+    protocol = "http"
