@@ -157,6 +157,7 @@ pub struct AddMemoryRequest {
     target: String,
     record_type: Option<String>,
     metadata: Option<serde_json::Value>,
+    ttl_seconds: Option<u64>,
 }
 
 #[cfg(feature = "web-server")]
@@ -370,6 +371,11 @@ async fn handle_search_memory<B: MemoryBackend + Send + Sync + 'static>(
                 &req.query,
                 limit,
             );
+            let now_ts = chrono::Utc::now().timestamp();
+            let results: Vec<_> = results
+                .into_iter()
+                .filter(|(r, _)| r.expires_at.map_or(true, |exp| exp > now_ts))
+                .collect();
             let response_results = results
                 .into_iter()
                 .map(|(r, score)| SearchResult {
@@ -715,13 +721,18 @@ async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
         _ => MemoryType::Temporal, // Default
     };
 
-    let record = MemoryRecord::new(
+    let mut record = MemoryRecord::new(
         record_type,
         req.actor,
         req.action,
         req.target,
         req.metadata.unwrap_or_else(|| serde_json::json!({})),
     );
+    if let Some(ttl) = req.ttl_seconds {
+        record.expires_at = Some(
+            (chrono::Utc::now().timestamp()) + ttl as i64
+        );
+    }
 
     match store.lock() {
         Ok(mut store) => {
@@ -783,6 +794,12 @@ async fn handle_query_memory<B: MemoryBackend + Send + Sync + 'static>(
                 };
                 filtered_records.retain(|r| r.record_type == target_type);
             }
+
+            // Exclude records past their TTL
+            let now_ts = chrono::Utc::now().timestamp();
+            filtered_records.retain(|r| {
+                r.expires_at.map_or(true, |exp| exp > now_ts)
+            });
 
             // Apply limit
             let limit = params.limit.unwrap_or(100);

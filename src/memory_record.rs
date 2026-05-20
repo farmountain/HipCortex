@@ -33,6 +33,9 @@ pub struct MemoryRecord {
     pub relevance_score: f64,
     #[serde(default)]
     pub content_hash: Option<String>,
+    /// Unix timestamp (seconds) when this record expires. None = never expires.
+    #[serde(default)]
+    pub expires_at: Option<i64>,
 }
 
 fn default_relevance() -> f64 {
@@ -61,6 +64,7 @@ impl MemoryRecord {
             last_accessed: now,
             relevance_score: 1.0,
             content_hash: None,
+            expires_at: None,
         };
         let hash = rec.compute_hash();
         rec.integrity = Some(hash.clone());
