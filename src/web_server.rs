@@ -26,6 +26,8 @@ use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 #[cfg(feature = "web-server")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "web-server")]
+use crate::openapi_spec::OPENAPI_SPEC;
 
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
@@ -259,7 +261,7 @@ fn check_meter_limit(key: &str, tier: &ApiTier) -> bool {
 async fn api_key_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Response, StatusCode> {
     // These paths are always public — no auth required
     let path = req.uri().path();
-    if path == "/health" || path == "/pricing" || path == "/stats" {
+    if path == "/health" || path == "/pricing" || path == "/stats" || path == "/openapi.json" {
         return Ok(next.run(req).await);
     }
 
@@ -419,6 +421,11 @@ async fn handle_stats<B: MemoryBackend + Send + Sync + 'static>(
 #[cfg(feature = "web-server")]
 async fn handle_pricing() -> Html<&'static str> {
     Html(PRICING_HTML)
+}
+
+#[cfg(feature = "web-server")]
+async fn handle_openapi() -> Json<serde_json::Value> {
+    Json(serde_json::from_str(OPENAPI_SPEC).expect("openapi spec is valid JSON"))
 }
 
 #[cfg(feature = "web-server")]
@@ -611,6 +618,7 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/stats", stats_route)
         .route("/tier", get(handle_tier))
         .route("/pricing", get(handle_pricing))
+        .route("/openapi.json", get(handle_openapi))
         .layer(middleware::from_fn(api_key_middleware));
 
     axum::Server::bind(&addr)
