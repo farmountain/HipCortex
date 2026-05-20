@@ -132,6 +132,23 @@ pub struct SearchResult {
     record: MemoryRecordResponse,
 }
 
+/// POST /memory/bulk — add multiple records in one HTTP request
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct BulkAddRequest {
+    records: Vec<AddMemoryRequest>,
+}
+
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct BulkAddResponse {
+    success: bool,
+    inserted: usize,
+    failed: usize,
+    record_ids: Vec<String>,
+    errors: Vec<String>,
+}
+
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
 pub struct AddMemoryRequest {
@@ -536,6 +553,55 @@ const PRICING_HTML: &str = r#"<!DOCTYPE html>
 </html>"#;
 
 #[cfg(feature = "web-server")]
+async fn handle_bulk_add<B: MemoryBackend + Send + Sync + 'static>(
+    store: Arc<Mutex<MemoryStore<B>>>,
+    Json(req): Json<BulkAddRequest>,
+) -> Json<BulkAddResponse> {
+    let mut record_ids: Vec<String> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
+
+    match store.lock() {
+        Err(e) => Json(BulkAddResponse {
+            success: false,
+            inserted: 0,
+            failed: req.records.len(),
+            record_ids: vec![],
+            errors: vec![format!("Lock error: {}", e)],
+        }),
+        Ok(mut ms) => {
+            for r in req.records {
+                let record_type = match r.record_type.as_deref() {
+                    Some("Symbolic")   => MemoryType::Symbolic,
+                    Some("Procedural") => MemoryType::Procedural,
+                    Some("Reflexion")  => MemoryType::Reflexion,
+                    Some("Perception") => MemoryType::Perception,
+                    _ => MemoryType::Temporal,
+                };
+                let record = MemoryRecord::new(
+                    record_type,
+                    r.actor,
+                    r.action,
+                    r.target,
+                    r.metadata.unwrap_or_else(|| serde_json::json!({})),
+                );
+                let id = record.id.to_string();
+                match ms.add(record) {
+                    Ok(_)  => record_ids.push(id),
+                    Err(e) => errors.push(e.to_string()),
+                }
+            }
+            Json(BulkAddResponse {
+                success: errors.is_empty(),
+                inserted: record_ids.len(),
+                failed: errors.len(),
+                record_ids,
+                errors,
+            })
+        }
+    }
+}
+
+#[cfg(feature = "web-server")]
 pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
     addr: SocketAddr,
     symbolic_store: Arc<Mutex<SymbolicStore<InMemoryGraph>>>,
@@ -568,6 +634,13 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         let store = memory_store.clone();
         post(move |Json(req): Json<AddMemoryRequest>| async move {
             handle_add_memory(store, req).await
+        })
+    };
+
+    let bulk_add_route = {
+        let store = memory_store.clone();
+        post(move |Json(req): Json<BulkAddRequest>| async move {
+            handle_bulk_add(store, Json(req)).await
         })
     };
 
@@ -611,6 +684,7 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/graph", graph_route)
         .route("/node/:id", node_route)
         .route("/memory/add", add_memory_route)
+        .route("/memory/bulk", bulk_add_route)
         .route("/memory/query", query_memory_route)
         .route("/memory/search", search_route)
         .route("/memory/forget/:actor", forget_route)
