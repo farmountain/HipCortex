@@ -28,6 +28,8 @@ use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "web-server")]
 use crate::openapi_spec::OPENAPI_SPEC;
+#[cfg(feature = "web-server")]
+use reqwest::Client as HttpClient;
 
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
@@ -147,6 +149,21 @@ pub struct BulkAddResponse {
     failed: usize,
     record_ids: Vec<String>,
     errors: Vec<String>,
+}
+
+/// POST /memory/embed — auto-generate embedding then store memory.
+/// Calls Ollama (OLLAMA_URL env) or OpenAI (OPENAI_API_KEY env).
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct EmbedAndAddRequest {
+    actor: String,
+    action: String,
+    target: String,
+    record_type: Option<String>,
+    metadata: Option<serde_json::Value>,
+    /// "ollama/<model>" e.g. "ollama/nomic-embed-text"
+    /// or "openai/<model>" e.g. "openai/text-embedding-3-small"
+    embedding_model: String,
 }
 
 #[cfg(feature = "web-server")]
@@ -608,6 +625,88 @@ async fn handle_bulk_add<B: MemoryBackend + Send + Sync + 'static>(
 }
 
 #[cfg(feature = "web-server")]
+async fn handle_embed_and_add<B: MemoryBackend + Send + Sync + 'static>(
+    store: Arc<Mutex<MemoryStore<B>>>,
+    Json(req): Json<EmbedAndAddRequest>,
+) -> Result<Json<AddMemoryResponse>, (StatusCode, Json<AddMemoryResponse>)> {
+    let embedding: Vec<f64> = {
+        let model_str = &req.embedding_model;
+        if model_str.starts_with("ollama/") {
+            let model = &model_str["ollama/".len()..];
+            let ollama_url = std::env::var("OLLAMA_URL")
+                .unwrap_or_else(|_| "http://localhost:11434".to_string());
+            let client = HttpClient::new();
+            let body = serde_json::json!({ "model": model, "prompt": req.target });
+            match client.post(format!("{}/api/embeddings", ollama_url))
+                .json(&body).send().await {
+                Ok(resp) => {
+                    let data: serde_json::Value = resp.json().await.unwrap_or_default();
+                    data["embedding"].as_array()
+                        .map(|arr| arr.iter().filter_map(|v| v.as_f64()).collect())
+                        .unwrap_or_default()
+                }
+                Err(e) => return Err((
+                    StatusCode::BAD_GATEWAY,
+                    Json(AddMemoryResponse { success: false, record_id: None,
+                        error: Some(format!("Ollama error: {}", e)) }),
+                )),
+            }
+        } else if model_str.starts_with("openai/") {
+            let model = &model_str["openai/".len()..];
+            let api_key = std::env::var("OPENAI_API_KEY").unwrap_or_default();
+            let client = HttpClient::new();
+            let body = serde_json::json!({ "model": model, "input": req.target });
+            match client.post("https://api.openai.com/v1/embeddings")
+                .bearer_auth(&api_key).json(&body).send().await {
+                Ok(resp) => {
+                    let data: serde_json::Value = resp.json().await.unwrap_or_default();
+                    data["data"][0]["embedding"].as_array()
+                        .map(|arr| arr.iter().filter_map(|v| v.as_f64()).collect())
+                        .unwrap_or_default()
+                }
+                Err(e) => return Err((
+                    StatusCode::BAD_GATEWAY,
+                    Json(AddMemoryResponse { success: false, record_id: None,
+                        error: Some(format!("OpenAI error: {}", e)) }),
+                )),
+            }
+        } else {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(AddMemoryResponse { success: false, record_id: None,
+                    error: Some("embedding_model must be 'ollama/<model>' or 'openai/<model>'".into()) }),
+            ));
+        }
+    };
+
+    let record_type = match req.record_type.as_deref() {
+        Some("Symbolic")   => MemoryType::Symbolic,
+        Some("Procedural") => MemoryType::Procedural,
+        Some("Reflexion")  => MemoryType::Reflexion,
+        Some("Perception") => MemoryType::Perception,
+        _ => MemoryType::Temporal,
+    };
+    let mut metadata = req.metadata.unwrap_or_else(|| serde_json::json!({}));
+    if let serde_json::Value::Object(ref mut map) = metadata {
+        map.insert("embedding".to_string(), serde_json::json!(embedding));
+    }
+    let record = MemoryRecord::new(record_type, req.actor, req.action, req.target, metadata);
+
+    match store.lock() {
+        Ok(mut ms) => match ms.add(record.clone()) {
+            Ok(_) => Ok(Json(AddMemoryResponse {
+                success: true, record_id: Some(record.id.to_string()), error: None,
+            })),
+            Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR,
+                Json(AddMemoryResponse { success: false, record_id: None, error: Some(e.to_string()) }))),
+        },
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR,
+            Json(AddMemoryResponse { success: false, record_id: None,
+                error: Some(format!("Lock error: {}", e)) }))),
+    }
+}
+
+#[cfg(feature = "web-server")]
 pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
     addr: SocketAddr,
     symbolic_store: Arc<Mutex<SymbolicStore<InMemoryGraph>>>,
@@ -674,6 +773,14 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         })
     };
 
+    // Embed and add: POST /memory/embed
+    let embed_add_route = {
+        let store = memory_store.clone();
+        post(move |Json(req): Json<EmbedAndAddRequest>| async move {
+            handle_embed_and_add(store, Json(req)).await
+        })
+    };
+
     // Coherence status: GET /coherence/status
     let coherence_route = get(|| async {
         handle_coherence_status().await
@@ -691,6 +798,7 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/node/:id", node_route)
         .route("/memory/add", add_memory_route)
         .route("/memory/bulk", bulk_add_route)
+        .route("/memory/embed", embed_add_route)
         .route("/memory/query", query_memory_route)
         .route("/memory/search", search_route)
         .route("/memory/forget/:actor", forget_route)
