@@ -37,29 +37,90 @@ cargo add hipcortex --no-default-features --features petgraph_backend
 
 ## 60-second quickstart
 
-```python
-from hipcortex import HipCortexClient
-
-client = HipCortexClient("http://localhost:3030")  # or your Fly.io URL
-
-# Store memory
-client.add_memory(actor="alice", action="said", target="The meeting is at 3pm")
-
-# Search (keyword or cosine similarity)
-results = client.search("meeting time", limit=5)
-
-# GDPR forget
-client.forget("alice")
-
-# Live stats
-print(client.stats())
+### Option A — Live demo (no install)
+```bash
+curl https://hipcortex.fly.dev/health          # → ok
+curl https://hipcortex.fly.dev/stats           # → {"total_records":0,...}
+curl https://hipcortex.fly.dev/openapi.json    # → OpenAPI 3.0 spec
 ```
 
-**Start the server (single binary, zero deps):**
+### Option B — Python (pip install)
+```bash
+pip install hipcortex
+```
+```python
+from hipcortex import HipCortexClient, AsyncHipCortexClient
+
+# Sync
+client = HipCortexClient("http://localhost:3030")
+client.add_memory(actor="alice", action="said", target="The meeting is at 3pm")
+client.bulk_add([                                       # add multiple at once
+    {"actor": "alice", "action": "noted", "target": "Budget approved"},
+    {"actor": "alice", "action": "noted", "target": "Q3 deadline is Sep 30",
+     "ttl_seconds": 7776000},                          # auto-expire in 90 days
+])
+results = client.search("meeting time", limit=5)       # keyword or cosine sim
+print(client.stats())
+client.forget("alice")                                 # GDPR right-to-forget
+
+# Async (LangChain 0.3+, FastAPI, Django async)
+async with AsyncHipCortexClient("http://localhost:3030") as aclient:
+    await aclient.add_memory(actor="bob", action="said", target="Hello")
+    results = await aclient.search("Hello")
+```
+
+### Option C — TypeScript / JavaScript (npm install)
+```bash
+npm install hipcortex
+```
+```typescript
+import { HipCortexClient } from "hipcortex";
+
+const client = new HipCortexClient({ baseUrl: "http://localhost:3030" });
+await client.addMemory({ actor: "alice", action: "said", target: "Hello!" });
+const { results } = await client.search({ query: "Hello", limit: 5 });
+await client.forget("alice");
+```
+
+### Option D — Pre-built binary (no Rust needed)
+```bash
+# Linux ARM64 (Raspberry Pi 4/5, Jetson, AWS Graviton)
+curl -L https://github.com/farmountain/HipCortex/releases/latest/download/hipcortex-linux-arm64 \
+  -o hipcortex && chmod +x hipcortex && PORT=3030 ./hipcortex
+
+# macOS ARM64 (M1/M2/M3/M4)
+curl -L https://github.com/farmountain/HipCortex/releases/latest/download/hipcortex-macos-arm64 \
+  -o hipcortex && chmod +x hipcortex && PORT=3030 ./hipcortex
+
+# Linux AMD64
+curl -L https://github.com/farmountain/HipCortex/releases/latest/download/hipcortex-linux-amd64 \
+  -o hipcortex && chmod +x hipcortex && PORT=3030 ./hipcortex
+```
+
+### Option E — Build from source (Rust)
 ```bash
 cargo run --bin webserver --no-default-features --features "web-server,petgraph_backend"
-# or: fly deploy  (see DEPLOY.md)
 ```
+
+### Option F — Docker
+```bash
+docker run -p 3030:3030 -v hipcortex_data:/app/data hipcortex:latest
+```
+
+### Auto-embedding (Ollama / OpenAI)
+```bash
+# Start Ollama, pull a model, then:
+curl -X POST http://localhost:3030/memory/embed \
+  -H "Content-Type: application/json" \
+  -d '{"actor":"alice","action":"noted","target":"Budget approved","embedding_model":"ollama/nomic-embed-text"}'
+
+# Now search with cosine similarity:
+curl -X POST http://localhost:3030/memory/search \
+  -H "Content-Type: application/json" \
+  -d '{"query":"financial decisions","limit":5}'
+```
+
+> Full deploy guide: [DEPLOY.md](DEPLOY.md) · Benchmark: [BENCHMARK.md](BENCHMARK.md) · API spec: [/openapi.json](https://hipcortex.fly.dev/openapi.json)
 
 ---
 
