@@ -9,9 +9,10 @@ jobs:
   publish:
     name: Build + publish hipcortex to PyPI
     runs-on: ubuntu-latest
-    environment: pypi
+    # Remove 'environment: pypi' if using API token approach
+    # environment: pypi
     permissions:
-      id-token: write  # OIDC trusted publishing (no API token needed)
+      id-token: write  # needed only for OIDC trusted publishing
 
     steps:
       - uses: actions/checkout@v4
@@ -28,7 +29,17 @@ jobs:
         working-directory: sdk/python
         run: python -m build
 
-      - name: Publish to PyPI (trusted publishing)
+      # Option A: API token (add PYPI_API_TOKEN secret to repo settings)
+      - name: Publish to PyPI (API token)
+        if: ${{ secrets.PYPI_API_TOKEN != '' }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: sdk/python/dist/
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+      # Option B: OIDC trusted publishing (requires pypi.org trusted publisher setup)
+      # Uncomment and remove Option A once trusted publisher is configured:
+      # - name: Publish to PyPI (OIDC)
+      #   uses: pypa/gh-action-pypi-publish@release/v1
+      #   with:
+      #     packages-dir: sdk/python/dist/
