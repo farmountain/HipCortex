@@ -257,6 +257,12 @@ fn check_meter_limit(key: &str, tier: &ApiTier) -> bool {
 /// and stamps X-HipCortex-Tier on every response for observability.
 #[cfg(feature = "web-server")]
 async fn api_key_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Response, StatusCode> {
+    // These paths are always public — no auth required
+    let path = req.uri().path();
+    if path == "/health" || path == "/pricing" || path == "/stats" {
+        return Ok(next.run(req).await);
+    }
+
     let keys = load_api_keys();
     if keys.is_empty() {
         return Ok(next.run(req).await); // open / self-hosted mode

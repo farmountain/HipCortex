@@ -1,4 +1,4 @@
-# Show HN: HipCortex – Rust AI memory engine, 295× faster than Mem0, with causal world model
+# Show HN: HipCortex – Rust AI memory engine, 1.74ms p50 writes, with temporal decay and causal world model
 
 **URL to submit:** https://github.com/farmountain/HipCortex
 

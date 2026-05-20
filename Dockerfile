@@ -1,5 +1,5 @@
 # Use official Rust image as builder
-FROM rust:1.82-bullseye as builder
+FROM rust:1.87-bookworm AS builder
 
 # Set working directory
 WORKDIR /app
@@ -22,17 +22,17 @@ RUN mkdir -p benches && \
     echo 'fn main() {}' > benches/temporal_indexer_bench.rs && \
     echo 'fn main() {}' > benches/symbolic_store_bench.rs
 
-# Build the application with web-server feature
-RUN cargo build --release --bin webserver --features web-server
+# Build with web-server feature (petgraph_backend is default, no external deps)
+RUN cargo build --release --bin webserver --no-default-features --features "web-server,petgraph_backend"
 
 # Runtime image
 FROM debian:bookworm-slim
 
-# Install runtime dependencies
+# Install runtime dependencies (curl for HEALTHCHECK; libssl3 for TLS)
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
-    libpq5 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user

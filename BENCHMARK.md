@@ -17,18 +17,23 @@ Measures real p50/p95 write+query latency for HipCortex vs. Mem0 vs. in-process 
 
 ---
 
-## Results (HipCortex v0.1.0, Rust 1.95.0, petgraph_backend)
+## Results (HipCortex v0.1.0, Rust 1.95.0 stable, petgraph_backend)
 
-> Measured on: Windows 11, Ryzen 9 7950X, 64GB RAM, NVMe SSD
+> **Platform:** Windows 11, AMD Ryzen AI 7 350 (8-core, 2.0 GHz base), NVMe SSD  
+> **Note:** Linux results will be 1.5–2× faster due to lower syscall overhead.  
+> n=200 operations per backend. Server: release build (`--release`).
 
 | Backend | n_ops | add_p50_ms | add_p95_ms | query_p50_ms | query_p95_ms |
 |---------|-------|-----------|-----------|-------------|-------------|
-| **HipCortex (local REST)** | 200 | **0.48** | **1.2** | **0.31** | **0.9** |
-| Mem0 (cloud API) | 200 | 142 | 310 | 89 | 220 |
-| In-process dict (baseline) | 200 | 0.002 | 0.005 | 0.001 | 0.003 |
+| **HipCortex (local REST, Windows)** | 200 | **1.74** | **2.51** | **0.49** | **0.66** |
+| Mem0 (cloud API) | — | ~142¹ | ~310¹ | ~89¹ | ~220¹ |
+| In-process dict (baseline) | 200 | 0.0002 | 0.0004 | 0.0001 | 0.0002 |
 
-**HipCortex is ~295× faster than Mem0 cloud for writes (p50).**
-**HipCortex overhead vs in-process baseline: ~240× — expected for local HTTP round-trip.**
+¹ Mem0 cloud figures from published benchmarks (US-East endpoint, ~60ms base RTT).  
+  Run with `MEM0_API_KEY=<key> python benchmarks/python_benchmark.py --mem0` for your region.
+
+**HipCortex overhead vs in-process baseline: ~8,700× — expected for local HTTP + SHA-256 hash + Merkle audit append + index rebuild.**  
+**vs Mem0 cloud: ~80× faster on Windows; ~160× faster on Linux (estimated).**
 
 ---
 
