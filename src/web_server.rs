@@ -28,8 +28,6 @@ use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "web-server")]
 use crate::openapi_spec::OPENAPI_SPEC;
-#[cfg(feature = "web-server")]
-use reqwest::Client as HttpClient;
 
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
@@ -118,6 +116,10 @@ pub struct SearchMemoryRequest {
     pub embedding: Option<Vec<f64>>,
     /// Max results (default 10)
     pub limit: Option<usize>,
+    /// If provided, auto-generate query embedding before search.
+    /// Format: "ollama/<model>" e.g. "ollama/nomic-embed-text"
+    /// or "openai/<model>" e.g. "openai/text-embedding-3-small"
+    pub embedding_model: Option<String>,
 }
 
 #[cfg(feature = "web-server")]
@@ -387,20 +389,35 @@ async fn handle_search_memory<B: MemoryBackend + Send + Sync + 'static>(
     Json(req): Json<SearchMemoryRequest>,
 ) -> Result<Json<SearchMemoryResponse>, (StatusCode, Json<SearchMemoryResponse>)> {
     let limit = req.limit.unwrap_or(10).min(100);
+
+    // Resolve query embedding:
+    // Priority: explicit embedding > auto-generate from embedding_model > keyword-only
+    let resolved_embedding: Option<Vec<f64>> = if req.embedding.is_some() {
+        req.embedding.clone()
+    } else if let Some(ref model_str) = req.embedding_model {
+        match generate_embedding(model_str, &req.query).await {
+            Ok(v) if !v.is_empty() => Some(v),
+            Ok(_) => None, // empty = fall back to keyword search
+            Err(_e) => return Err((
+                StatusCode::BAD_GATEWAY,
+                Json(SearchMemoryResponse { results: vec![], total: 0 }),
+            )),
+        }
+    } else {
+        None
+    };
+
+    let now_ts = chrono::Utc::now().timestamp();
     match store.lock() {
         Ok(ms) => {
             let results = ms.search_semantic(
-                req.embedding.as_deref(),
+                resolved_embedding.as_deref(),
                 &req.query,
                 limit,
             );
-            let now_ts = chrono::Utc::now().timestamp();
-            let results: Vec<_> = results
-                .into_iter()
-                .filter(|(r, _)| r.expires_at.map_or(true, |exp| exp > now_ts))
-                .collect();
             let response_results = results
                 .into_iter()
+                .filter(|(r, _)| r.expires_at.map_or(true, |exp| exp > now_ts))
                 .map(|(r, score)| SearchResult {
                     score,
                     record: MemoryRecordResponse {
@@ -418,7 +435,7 @@ async fn handle_search_memory<B: MemoryBackend + Send + Sync + 'static>(
             let total = response_results.len();
             Ok(Json(SearchMemoryResponse { results: response_results, total }))
         }
-        Err(e) => Err((
+        Err(_e) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(SearchMemoryResponse { results: vec![], total: 0 }),
         )),
@@ -630,59 +647,70 @@ async fn handle_bulk_add<B: MemoryBackend + Send + Sync + 'static>(
     }
 }
 
+/// Generate an embedding vector by calling Ollama or OpenAI.
+/// model_str format: "ollama/<model>" or "openai/<model>"
+/// Returns empty Vec on empty response (caller should fall back to keyword search).
+#[cfg(feature = "web-server")]
+async fn generate_embedding(model_str: &str, text: &str) -> Result<Vec<f64>, String> {
+    if model_str.starts_with("ollama/") {
+        let model = &model_str["ollama/".len()..];
+        let ollama_url = std::env::var("OLLAMA_URL")
+            .unwrap_or_else(|_| "http://localhost:11434".to_string());
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .map_err(|e| e.to_string())?;
+        let body = serde_json::json!({ "model": model, "prompt": text });
+        let resp = client
+            .post(format!("{}/api/embeddings", ollama_url))
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| format!("Ollama request failed: {}", e))?;
+        let data: serde_json::Value = resp.json().await.unwrap_or_default();
+        Ok(data["embedding"]
+            .as_array()
+            .map(|arr| arr.iter().filter_map(|v| v.as_f64()).collect())
+            .unwrap_or_default())
+    } else if model_str.starts_with("openai/") {
+        let model = &model_str["openai/".len()..];
+        let api_key = std::env::var("OPENAI_API_KEY").unwrap_or_default();
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .map_err(|e| e.to_string())?;
+        let body = serde_json::json!({ "model": model, "input": text });
+        let resp = client
+            .post("https://api.openai.com/v1/embeddings")
+            .bearer_auth(&api_key)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| format!("OpenAI request failed: {}", e))?;
+        let data: serde_json::Value = resp.json().await.unwrap_or_default();
+        Ok(data["data"][0]["embedding"]
+            .as_array()
+            .map(|arr| arr.iter().filter_map(|v| v.as_f64()).collect())
+            .unwrap_or_default())
+    } else {
+        Err(format!(
+            "embedding_model must start with 'ollama/' or 'openai/', got: {}",
+            model_str
+        ))
+    }
+}
+
 #[cfg(feature = "web-server")]
 async fn handle_embed_and_add<B: MemoryBackend + Send + Sync + 'static>(
     store: Arc<Mutex<MemoryStore<B>>>,
     Json(req): Json<EmbedAndAddRequest>,
 ) -> Result<Json<AddMemoryResponse>, (StatusCode, Json<AddMemoryResponse>)> {
-    let embedding: Vec<f64> = {
-        let model_str = &req.embedding_model;
-        if model_str.starts_with("ollama/") {
-            let model = &model_str["ollama/".len()..];
-            let ollama_url = std::env::var("OLLAMA_URL")
-                .unwrap_or_else(|_| "http://localhost:11434".to_string());
-            let client = HttpClient::new();
-            let body = serde_json::json!({ "model": model, "prompt": req.target });
-            match client.post(format!("{}/api/embeddings", ollama_url))
-                .json(&body).send().await {
-                Ok(resp) => {
-                    let data: serde_json::Value = resp.json().await.unwrap_or_default();
-                    data["embedding"].as_array()
-                        .map(|arr| arr.iter().filter_map(|v| v.as_f64()).collect())
-                        .unwrap_or_default()
-                }
-                Err(e) => return Err((
-                    StatusCode::BAD_GATEWAY,
-                    Json(AddMemoryResponse { success: false, record_id: None,
-                        error: Some(format!("Ollama error: {}", e)) }),
-                )),
-            }
-        } else if model_str.starts_with("openai/") {
-            let model = &model_str["openai/".len()..];
-            let api_key = std::env::var("OPENAI_API_KEY").unwrap_or_default();
-            let client = HttpClient::new();
-            let body = serde_json::json!({ "model": model, "input": req.target });
-            match client.post("https://api.openai.com/v1/embeddings")
-                .bearer_auth(&api_key).json(&body).send().await {
-                Ok(resp) => {
-                    let data: serde_json::Value = resp.json().await.unwrap_or_default();
-                    data["data"][0]["embedding"].as_array()
-                        .map(|arr| arr.iter().filter_map(|v| v.as_f64()).collect())
-                        .unwrap_or_default()
-                }
-                Err(e) => return Err((
-                    StatusCode::BAD_GATEWAY,
-                    Json(AddMemoryResponse { success: false, record_id: None,
-                        error: Some(format!("OpenAI error: {}", e)) }),
-                )),
-            }
-        } else {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                Json(AddMemoryResponse { success: false, record_id: None,
-                    error: Some("embedding_model must be 'ollama/<model>' or 'openai/<model>'".into()) }),
-            ));
-        }
+    let embedding = match generate_embedding(&req.embedding_model, &req.target).await {
+        Ok(v) => v,
+        Err(e) => return Err((
+            StatusCode::BAD_GATEWAY,
+            Json(AddMemoryResponse { success: false, record_id: None, error: Some(e) }),
+        )),
     };
 
     let record_type = match req.record_type.as_deref() {
