@@ -44,9 +44,10 @@ export async function POST(req: Request) {
 ## Server
 
 ```bash
-# Docker (zero config)
-docker run -p 3030:3030 ghcr.io/farmountain/hipcortex:latest
+# Docker (build from source)
+git clone https://github.com/farmountain/HipCortex && cd HipCortex
+docker build -t hipcortex . && docker run -p 3030:3030 hipcortex
 
-# Or build from source
+# Or run binary directly (no Docker needed)
 cargo run --bin webserver --no-default-features --features "web-server,petgraph_backend"
 ```

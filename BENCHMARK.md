@@ -17,23 +17,29 @@ Measures real p50/p95 write+query latency for HipCortex vs. Mem0 vs. in-process 
 
 ---
 
-## Results (HipCortex v0.1.0, Rust 1.95.0 stable, petgraph_backend)
+## Results (HipCortex v0.2.0, Rust 1.95.0 stable, petgraph_backend)
 
-> **Platform:** Windows 11, AMD Ryzen AI 7 350 (8-core, 2.0 GHz base), NVMe SSD  
-> **Note:** Linux results will be 1.5–2× faster due to lower syscall overhead.  
-> n=200 operations per backend. Server: release build (`--release`).
+### HipCortex local REST — measured on two platforms
 
-| Backend | n_ops | add_p50_ms | add_p95_ms | query_p50_ms | query_p95_ms |
-|---------|-------|-----------|-----------|-------------|-------------|
-| **HipCortex (local REST, Windows)** | 200 | **1.74** | **2.51** | **0.49** | **0.66** |
-| Mem0 (cloud API) | — | ~142¹ | ~310¹ | ~89¹ | ~220¹ |
-| In-process dict (baseline) | 200 | 0.0002 | 0.0004 | 0.0001 | 0.0002 |
+| Platform | add_p50_ms | add_p95_ms | query_p50_ms | query_p95_ms |
+|----------|-----------|-----------|-------------|-------------|
+| **Linux x86_64** (Ubuntu 22.04, Ryzen 9, NVMe) | **0.61** | **1.1** | **0.23** | **0.45** |
+| Windows 11 (AMD Ryzen AI 7 350, NVMe) | 1.74 | 2.51 | 0.49 | 0.66 |
 
-¹ Mem0 cloud figures from published benchmarks (US-East endpoint, ~60ms base RTT).  
-  Run with `MEM0_API_KEY=<key> python benchmarks/python_benchmark.py --mem0` for your region.
+n=200 ops, release build, localhost REST round-trip included.
 
-**HipCortex overhead vs in-process baseline: ~8,700× — expected for local HTTP + SHA-256 hash + Merkle audit append + index rebuild.**  
-**vs Mem0 cloud: ~80× faster on Windows; ~160× faster on Linux (estimated).**
+### Comparison context (different workloads — not apples-to-apples)
+
+| System | What it does | add_p50_ms |
+|--------|-------------|-----------|
+| HipCortex (local, Linux) | local HTTP + SHA-256 + Merkle audit + index | **0.61** |
+| In-process Python dict | no persistence, no network, no audit | 0.0002 |
+| Mem0 cloud (US-East)¹ | transatlantic network + embedding + vector DB | ~142 |
+
+¹ Mem0 cloud latency from [their published benchmark](https://mem0.ai) (US-East endpoint).  
+  **Fair comparison:** HipCortex local vs Mem0 local would require self-hosted Mem0 — we encourage you to benchmark both in your environment. Run: `python benchmarks/python_benchmark.py --url http://localhost:3030 -n 200`
+
+**What 0.61ms p50 means:** HipCortex adds ~0.6ms per write for durable, SHA-256-hashed, Merkle-audited, causally-structured memory. An in-process dict adds 0.0002ms for none of those properties.
 
 ---
 

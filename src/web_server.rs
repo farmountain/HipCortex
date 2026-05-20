@@ -252,6 +252,7 @@ pub async fn run_with_store(addr: SocketAddr, store: Arc<Mutex<SymbolicStore<InM
         })
     };
     let app = Router::new()
+        .route("/", get(|| async { axum::response::Redirect::permanent("/pricing") }))
         .route("/health", get(|| async { "ok" }))
         .route("/graph", graph_route)
         .route("/node/:id", node_route);
@@ -296,7 +297,12 @@ fn check_meter_limit(key: &str, tier: &ApiTier) -> bool {
 async fn api_key_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Response, StatusCode> {
     // These paths are always public — no auth required
     let path = req.uri().path();
-    if path == "/health" || path == "/pricing" || path == "/stats" || path == "/openapi.json" {
+    if path == "/"
+        || path == "/health"
+        || path == "/pricing"
+        || path == "/stats"
+        || path == "/openapi.json"
+    {
         return Ok(next.run(req).await);
     }
 
@@ -546,8 +552,8 @@ const PRICING_HTML: &str = r#"<!DOCTYPE html>
       <li>Email support (48h SLA)</li>
       <li class="no">Dedicated deployment</li>
     </ul>
-    <a href="https://buy.stripe.com/hipcortex-pro" class="btn btn-primary">Start Pro →</a>
-    <div class="compare">Cancel anytime · Annual: $79/mo</div>
+    <a href="mailto:hipcortex@farmountain.dev?subject=Pro%20tier%20access&body=Hi%2C%20I%27d%20like%20Pro%20tier%20access%20for%20HipCortex." class="btn btn-primary">Join waitlist →</a>
+    <div class="compare">Early access · reply for instant Pro access</div>
   </div>
   <!-- TEAM -->
   <div class="card">
@@ -793,6 +799,7 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
     };
 
     let app = Router::new()
+        .route("/", get(|| async { axum::response::Redirect::permanent("/pricing") }))
         .route("/health", get(|| async { "ok" }))
         .route("/graph", graph_route)
         .route("/node/:id", node_route)
