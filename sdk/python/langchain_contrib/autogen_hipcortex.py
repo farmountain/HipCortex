@@ -180,6 +180,47 @@ class HipCortexMemory(Memory):
         self._client.forget(self._agent_id)
 
     # ------------------------------------------------------------------
+    # AutoGen 0.3 legacy hooks
+    # ------------------------------------------------------------------
+
+    def on_message_sent_v03(self, message: "dict[str, Any]", **kwargs: Any) -> "dict[str, Any]":
+        """AutoGen 0.3 hook: process_message_before_send.
+
+        Register via::
+
+            agent.register_hook("process_message_before_send", memory.on_message_sent_v03)
+        """
+        content = message.get("content", "")
+        role = message.get("role", "assistant")
+        action = "ai_message" if role == "assistant" else "human_message"
+        self._client.add_memory(
+            actor=self._agent_id,
+            action=action,
+            target=str(content),
+            record_type="Reflexion" if role == "assistant" else "Temporal",
+        )
+        return message
+
+    def on_messages_received_v03(
+        self, messages: "list[dict[str, Any]]", **kwargs: Any
+    ) -> "list[dict[str, Any]]":
+        """AutoGen 0.3 hook: process_all_messages_before_reply.
+
+        Register via::
+
+            agent.register_hook("process_all_messages_before_reply", memory.on_messages_received_v03)
+        """
+        history = self._client.get_conversation_history(self._agent_id, limit=20)
+        if not history:
+            return messages
+        history.sort(key=lambda r: r.get("timestamp", ""))
+        lines = [
+            f"{'AI' if r.get('action') == 'ai_message' else 'Human'}: {r.get('target', '')}"
+            for r in history
+        ]
+        return [{"role": "system", "content": "[HipCortex memory]\n" + "\n".join(lines)}] + list(messages)
+
+    # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
 

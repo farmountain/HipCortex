@@ -1,27 +1,19 @@
-"""AutoGen memory hook for HipCortex.
+"""HipCortex AutoGen adapter — targets AutoGen 0.4+ (autogen-agentchat >= 0.4).
 
-Provides a ``HipCortexAutoGenMemory`` class that can be used as a
-``memory`` parameter in AutoGen ``ConversableAgent``.
+AutoGen 0.4 changed from register_hook() to the Memory protocol.
 
-Usage::
-
-    import autogen
+Usage (AutoGen 0.4+):
+    from autogen_agentchat.agents import AssistantAgent
     from hipcortex import HipCortexClient
     from hipcortex.adapters.autogen import HipCortexAutoGenMemory
 
-    client = HipCortexClient(base_url="http://localhost:3000")
-    memory = HipCortexAutoGenMemory(client=client, agent_id="research-agent")
+    client = HipCortexClient(base_url="http://localhost:3030")
+    memory = HipCortexAutoGenMemory(client=client, agent_id="researcher")
+    agent = AssistantAgent(name="researcher", model_client=..., memory=[memory])
 
-    assistant = autogen.AssistantAgent(
-        name="assistant",
-        llm_config={...},
-        # AutoGen 0.3+: pass as transform parameter
-    )
-    # Register hooks:
-    assistant.register_hook("process_message_before_send",
-                            memory.on_message_sent)
-    assistant.register_hook("process_all_messages_before_reply",
-                            memory.on_messages_received)
+Usage (AutoGen 0.3 — legacy):
+    agent.register_hook("process_message_before_send", memory.on_message_sent_v03)
+    agent.register_hook("process_all_messages_before_reply", memory.on_messages_received_v03)
 """
 
 from __future__ import annotations
@@ -30,94 +22,135 @@ from typing import Any, Dict, List, Optional
 
 from ..client import HipCortexClient
 
+try:
+    from autogen_core.memory import Memory, MemoryContent, MemoryMimeType, MemoryQueryResult
+    from autogen_core import CancellationToken
+    _AUTOGEN4_AVAILABLE = True
+except ImportError:
+    _AUTOGEN4_AVAILABLE = False
+    class Memory:  # type: ignore[no-redef]
+        pass
+    class CancellationToken:  # type: ignore[no-redef]
+        pass
 
-class HipCortexAutoGenMemory:
-    """AutoGen-compatible memory adapter.
 
-    Hooks into AutoGen's ``register_hook`` mechanism to persist and
-    retrieve conversation context via HipCortex.
-
-    Args:
-        client:   Configured :class:`~hipcortex.client.HipCortexClient`.
-        agent_id: Actor identifier used to scope memory records.
-        max_context_records: Max records fetched when building context.
-    """
+class HipCortexAutoGenMemory(Memory):  # type: ignore[misc]
+    """AutoGen 0.4 Memory protocol backed by HipCortex."""
 
     def __init__(
         self,
         client: HipCortexClient,
         agent_id: str = "autogen-agent",
-        max_context_records: int = 50,
+        top_k: int = 10,
     ) -> None:
-        self.client = client
-        self.agent_id = agent_id
-        self.max_context_records = max_context_records
+        self._client = client
+        self._agent_id = agent_id
+        self._top_k = top_k
 
-    # ------------------------------------------------------------------
-    # AutoGen hook callbacks
-    # ------------------------------------------------------------------
+    # AutoGen 0.4 Memory protocol -------------------------------------------
 
-    def on_message_sent(self, message: Dict[str, Any], **kwargs: Any) -> Dict[str, Any]:
-        """Hook: ``process_message_before_send``.
+    async def add(
+        self,
+        content: Any,
+        cancellation_token: Optional[CancellationToken] = None,
+    ) -> None:
+        if _AUTOGEN4_AVAILABLE and hasattr(content, "content"):
+            text = str(content.content)
+            role = getattr(content, "role", None)
+            mime = getattr(content, "mime_type", None)
+            action = "ai_message" if (
+                (role and role in ("assistant", "ai")) or
+                (mime and "assistant" in str(mime).lower())
+            ) else "observation"
+        else:
+            text = str(content)
+            action = "observation"
+        self._client.add_memory(
+            actor=self._agent_id, action=action,
+            target=text, record_type="Temporal",
+        )
 
-        Persists the outbound message and injects recent context into the
-        message metadata so the receiving agent has memory continuity.
-        """
+    async def query(
+        self,
+        query: Any,
+        cancellation_token: Optional[CancellationToken] = None,
+    ) -> Any:
+        query_text = str(getattr(query, "content", query))
+        try:
+            search_results = self._client.search(query=query_text, limit=self._top_k)
+        except Exception:
+            search_results = [
+                {"record": r, "score": 1.0}
+                for r in self._client.get_conversation_history(self._agent_id, limit=self._top_k)
+            ]
+        if not _AUTOGEN4_AVAILABLE:
+            return search_results
+        memories = []
+        for item in search_results:
+            rec = item.get("record", item)
+            memories.append(MemoryContent(
+                content=rec.get("target", ""),
+                mime_type=MemoryMimeType.TEXT,
+                metadata={"score": item.get("score", 1.0), "actor": rec.get("actor", ""),
+                          "action": rec.get("action", ""), "timestamp": rec.get("timestamp", "")},
+            ))
+        return MemoryQueryResult(results=memories)
+
+    async def update_context(
+        self,
+        model_context: Any,
+        cancellation_token: Optional[CancellationToken] = None,
+    ) -> Any:
+        records = self._client.get_conversation_history(self._agent_id, limit=self._top_k)
+        records.sort(key=lambda r: r.get("timestamp", ""))
+        if not records:
+            return {"memories_added": 0}
+        lines = [f"[{r.get('action','memory')}] {r.get('target','')}" for r in records]
+        system_msg = {"role": "system", "content": "[HipCortex memory]\n" + "\n".join(lines)}
+        if hasattr(model_context, "add_message"):
+            await model_context.add_message(system_msg)
+        elif hasattr(model_context, "messages"):
+            model_context.messages.insert(0, system_msg)
+        return {"memories_added": len(records)}
+
+    async def clear(self) -> None:
+        self._client.forget(self._agent_id)
+
+    # AutoGen 0.3 legacy hooks -----------------------------------------------
+
+    def on_message_sent_v03(self, message: Dict[str, Any], **kwargs: Any) -> Dict[str, Any]:
+        """AutoGen 0.3 hook: process_message_before_send."""
         content = message.get("content", "")
         role = message.get("role", "assistant")
         action = "ai_message" if role == "assistant" else "human_message"
-        self.client.add_memory(
-            actor=self.agent_id,
-            action=action,
-            target=str(content),
-            record_type="Reflexion" if role == "assistant" else "Temporal",
-        )
+        self._client.add_memory(actor=self._agent_id, action=action, target=str(content),
+                                record_type="Reflexion" if role == "assistant" else "Temporal")
         return message
 
-    def on_messages_received(
+    def on_messages_received_v03(
         self, messages: List[Dict[str, Any]], **kwargs: Any
     ) -> List[Dict[str, Any]]:
-        """Hook: ``process_all_messages_before_reply``.
-
-        Retrieves relevant memories and prepends a system-style context
-        message if there is prior history.
-        """
-        history = self.get_context()
+        """AutoGen 0.3 hook: process_all_messages_before_reply."""
+        history = self._client.get_conversation_history(self._agent_id, limit=20)
         if not history:
             return messages
-        context_msg = {
-            "role": "system",
-            "content": f"[HipCortex memory context]\n{history}",
-        }
-        return [context_msg] + list(messages)
+        history.sort(key=lambda r: r.get("timestamp", ""))
+        lines = [
+            f"{'AI' if r.get('action') == 'ai_message' else 'Human'}: {r.get('target','')}"
+            for r in history
+        ]
+        return [{"role": "system", "content": "[HipCortex memory]\n" + "\n".join(lines)}] + list(messages)
 
-    # ------------------------------------------------------------------
-    # Memory management helpers
-    # ------------------------------------------------------------------
+    # Sync helpers (no AutoGen needed) ---------------------------------------
 
     def store(self, content: str, action: str = "observation") -> Dict[str, Any]:
-        """Manually store an arbitrary observation."""
-        return self.client.add_memory(
-            actor=self.agent_id,
-            action=action,
-            target=content,
-            record_type="Temporal",
-        )
+        return self._client.add_memory(actor=self._agent_id, action=action,
+                                       target=content, record_type="Temporal")
 
-    def get_context(self, limit: Optional[int] = None) -> str:
-        """Return formatted conversation history as a plain string."""
-        records = self.client.get_conversation_history(
-            self.agent_id, limit=limit or self.max_context_records
-        )
+    def recall(self, limit: int = 20) -> str:
+        records = self._client.get_conversation_history(self._agent_id, limit=limit)
         records.sort(key=lambda r: r.get("timestamp", ""))
-        lines: List[str] = []
-        for rec in records:
-            action = rec.get("action", "")
-            target = rec.get("target", "")
-            prefix = "AI" if action == "ai_message" else "Human"
-            lines.append(f"{prefix}: {target}")
-        return "\n".join(lines)
+        return "\n".join(f"[{r.get('action','?')}] {r.get('target','')}" for r in records)
 
-    def forget(self) -> Dict[str, Any]:
-        """Delete all memory for this agent (GDPR / session reset)."""
-        return self.client.forget(self.agent_id)
+    def forget_all(self) -> Dict[str, Any]:
+        return self._client.forget(self._agent_id)
