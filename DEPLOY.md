@@ -91,6 +91,26 @@ docker compose -f docker-compose.prod.yml up -d
 
 ## Option C — Binary (edge / embedded)
 
+### Download pre-built binary (no Rust needed)
+
+```bash
+# Linux ARM64 (Raspberry Pi 4/5, Jetson, AWS Graviton)
+curl -L https://github.com/farmountain/HipCortex/releases/latest/download/hipcortex-linux-arm64 \
+  -o hipcortex && chmod +x hipcortex && ./hipcortex
+
+# Linux AMD64
+curl -L https://github.com/farmountain/HipCortex/releases/latest/download/hipcortex-linux-amd64 \
+  -o hipcortex && chmod +x hipcortex && ./hipcortex
+
+# macOS ARM64 (M1/M2/M3/M4)
+curl -L https://github.com/farmountain/HipCortex/releases/latest/download/hipcortex-macos-arm64 \
+  -o hipcortex && chmod +x hipcortex && ./hipcortex
+
+# Windows (PowerShell)
+Invoke-WebRequest https://github.com/farmountain/HipCortex/releases/latest/download/hipcortex-windows-amd64.exe -OutFile hipcortex.exe
+.\hipcortex.exe
+```
+
 ```bash
 # Build minimal binary (4 MB, zero external deps)
 cargo build --release --bin webserver \
