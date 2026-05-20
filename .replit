@@ -1,0 +1,9 @@
+run = "bash start.sh"
+entrypoint = "start.sh"
+
+[nix]
+channel = "stable-24_05"
+
+[deployment]
+run = ["sh", "-c", "bash start.sh"]
+deploymentTarget = "cloudrun"

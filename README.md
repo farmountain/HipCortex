@@ -44,9 +44,11 @@ curl https://hipcortex.fly.dev/stats           # → {"total_records":0,...}
 curl https://hipcortex.fly.dev/openapi.json    # → OpenAPI 3.0 spec
 ```
 
-### Option B — Python (pip install)
+### Option B — Python
+
 ```bash
-pip install hipcortex
+# From GitHub (PyPI publish coming soon — track progress at github.com/farmountain/HipCortex/issues)
+pip install "git+https://github.com/farmountain/HipCortex.git#subdirectory=sdk/python"
 ```
 ```python
 from hipcortex import HipCortexClient, AsyncHipCortexClient
@@ -67,11 +69,18 @@ client.forget("alice")                                 # GDPR right-to-forget
 async with AsyncHipCortexClient("http://localhost:3030") as aclient:
     await aclient.add_memory(actor="bob", action="said", target="Hello")
     results = await aclient.search("Hello")
+
+# Jupyter notebook users — add this before using async methods:
+# import nest_asyncio; nest_asyncio.apply()
 ```
 
-### Option C — TypeScript / JavaScript (npm install)
+### Option C — TypeScript / JavaScript
+
 ```bash
-npm install hipcortex
+# From GitHub (npm publish coming soon)
+npm install github:farmountain/HipCortex#main --prefix sdk/typescript
+# Or clone and build:
+# git clone https://github.com/farmountain/HipCortex && cd HipCortex/sdk/typescript && npm install && npm run build
 ```
 ```typescript
 import { HipCortexClient } from "hipcortex";

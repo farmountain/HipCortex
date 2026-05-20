@@ -453,6 +453,45 @@ struct StatsResponse {
     tier_counts: HashMap<String, u64>,
 }
 
+/// GET /memory/export — export all (or actor-filtered) records as JSON array.
+/// Data portability: migrate between instances, backup, or import into other systems.
+#[cfg(feature = "web-server")]
+async fn handle_export_memory<B: MemoryBackend + Send + Sync + 'static>(
+    store: Arc<Mutex<MemoryStore<B>>>,
+    Query(params): Query<QueryMemoryParams>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match store.lock() {
+        Ok(ms) => {
+            let records = ms.all();
+            let filtered: Vec<_> = records.iter().filter(|r| {
+                params.actor.as_ref().map_or(true, |a| &r.actor == a)
+            }).collect();
+            let json_records: Vec<serde_json::Value> = filtered.iter().map(|r| {
+                serde_json::json!({
+                    "id":          r.id.to_string(),
+                    "record_type": format!("{:?}", r.record_type),
+                    "timestamp":   r.timestamp.to_rfc3339(),
+                    "actor":       r.actor,
+                    "action":      r.action,
+                    "target":      r.target,
+                    "metadata":    r.metadata,
+                    "integrity":   r.integrity,
+                    "expires_at":  r.expires_at,
+                })
+            }).collect();
+            Ok(Json(serde_json::json!({
+                "records": json_records,
+                "total": json_records.len(),
+                "exported_at": chrono::Utc::now().to_rfc3339(),
+            })))
+        }
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": format!("Lock error: {}", e)})),
+        )),
+    }
+}
+
 #[cfg(feature = "web-server")]
 async fn handle_stats<B: MemoryBackend + Send + Sync + 'static>(
     store: Arc<Mutex<MemoryStore<B>>>,
@@ -826,6 +865,14 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         get(move || handle_stats(store))
     };
 
+    // Data export: GET /memory/export?actor=optional
+    let export_route = {
+        let store = memory_store.clone();
+        get(move |Query(params): Query<QueryMemoryParams>| async move {
+            handle_export_memory(store, Query(params)).await
+        })
+    };
+
     let app = Router::new()
         .route("/", get(|| async { axum::response::Redirect::permanent("/pricing") }))
         .route("/health", get(|| async { "ok" }))
@@ -836,6 +883,7 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/memory/embed", embed_add_route)
         .route("/memory/query", query_memory_route)
         .route("/memory/search", search_route)
+        .route("/memory/export", export_route)
         .route("/memory/forget/:actor", forget_route)
         .route("/coherence/status", coherence_route)
         .route("/stats", stats_route)

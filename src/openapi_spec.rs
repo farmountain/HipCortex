@@ -84,23 +84,23 @@ pub const OPENAPI_SPEC: &str = r##"{
     }
   },
   "paths": {
-    "/health": { "get": { "summary": "Health check", "security": [],
+    "/health": { "get": { "operationId": "healthCheck", "summary": "Health check", "security": [],
       "responses": { "200": { "description": "ok" } } } },
-    "/stats": { "get": { "summary": "Live server statistics (public)", "security": [],
+    "/stats": { "get": { "operationId": "getStats", "summary": "Live server statistics (public)", "security": [],
       "responses": { "200": { "description": "Stats JSON" } } } },
-    "/pricing": { "get": { "summary": "Pricing page HTML", "security": [],
+    "/pricing": { "get": { "operationId": "getPricing", "summary": "Pricing page HTML", "security": [],
       "responses": { "200": { "description": "HTML" } } } },
-    "/openapi.json": { "get": { "summary": "This OpenAPI spec", "security": [],
+    "/openapi.json": { "get": { "operationId": "getOpenApiSpec", "summary": "This OpenAPI spec", "security": [],
       "responses": { "200": { "description": "OpenAPI 3.0 JSON" } } } },
-    "/memory/add": { "post": { "summary": "Store a memory record",
+    "/memory/add": { "post": { "operationId": "addMemory", "summary": "Store a memory record",
       "requestBody": { "required": true, "content": { "application/json": {
         "schema": { "$ref": "#/components/schemas/AddMemoryRequest" } } } },
       "responses": { "200": { "description": "Success" } } } },
-    "/memory/bulk": { "post": { "summary": "Store multiple records",
+    "/memory/bulk": { "post": { "operationId": "bulkAddMemory", "summary": "Store multiple records in one request",
       "requestBody": { "required": true, "content": { "application/json": {
         "schema": { "$ref": "#/components/schemas/BulkAddRequest" } } } },
       "responses": { "200": { "description": "Bulk result" } } } },
-    "/memory/query": { "get": { "summary": "Query memory records",
+    "/memory/query": { "get": { "operationId": "queryMemory", "summary": "Query memory records",
       "parameters": [
         { "name": "actor", "in": "query", "schema": { "type": "string" } },
         { "name": "action", "in": "query", "schema": { "type": "string" } },
@@ -108,23 +108,28 @@ pub const OPENAPI_SPEC: &str = r##"{
         { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 100 } }
       ],
       "responses": { "200": { "description": "Records" } } } },
-    "/memory/search": { "post": { "summary": "Semantic + keyword search",
+    "/memory/search": { "post": { "operationId": "searchMemory", "summary": "Semantic + keyword search. Add embedding_model to auto-generate query embedding.",
       "requestBody": { "required": true, "content": { "application/json": {
         "schema": { "$ref": "#/components/schemas/SearchRequest" } } } },
       "responses": { "200": { "description": "Search results" } } } },
-    "/memory/embed": { "post": { "summary": "Auto-embed then store",
+    "/memory/embed": { "post": { "operationId": "embedAndStore", "summary": "Auto-generate embedding then store memory",
       "requestBody": { "required": true, "content": { "application/json": {
         "schema": { "$ref": "#/components/schemas/EmbedAndAddRequest" } } } },
       "responses": { "200": { "description": "Stored with embedding" } } } },
-    "/memory/forget/{actor}": { "delete": { "summary": "GDPR right-to-forget",
+    "/memory/export": { "get": { "operationId": "exportMemory", "summary": "Export all memory records as JSON (data portability)",
+      "parameters": [
+        { "name": "actor", "in": "query", "schema": { "type": "string" }, "description": "Filter by actor (optional)" }
+      ],
+      "responses": { "200": { "description": "All records as JSON array" } } } },
+    "/memory/forget/{actor}": { "delete": { "operationId": "forgetActor", "summary": "GDPR right-to-forget — delete all records for actor",
       "parameters": [{ "name": "actor", "in": "path", "required": true,
         "schema": { "type": "string" } }],
       "responses": { "200": { "description": "Deleted" } } } },
-    "/coherence/status": { "get": { "summary": "Coherence metrics",
+    "/coherence/status": { "get": { "operationId": "getCoherenceStatus", "summary": "Cross-module coherence metrics",
       "responses": { "200": { "description": "Coherence state" } } } },
-    "/tier": { "get": { "summary": "API key tier info",
+    "/tier": { "get": { "operationId": "getTier", "summary": "API key tier info and limits",
       "responses": { "200": { "description": "Tier + limits" } } } },
-    "/graph": { "get": { "summary": "Full symbolic graph",
+    "/graph": { "get": { "operationId": "getGraph", "summary": "Full symbolic knowledge graph",
       "security": [],
       "responses": { "200": { "description": "Nodes and edges" } } } }
   }
