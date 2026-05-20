@@ -125,3 +125,114 @@ class HipCortexMemory(BaseMemory):
             elif rec.get("action") == "ai_message":
                 messages.append(AIMessage(content=target))
         return messages
+
+
+class AsyncHipCortexMemory:
+    """Async-native LangChain BaseMemory backed by AsyncHipCortexClient.
+
+    Use with async LangChain chains (LangChain 0.2+, FastAPI, Django async).
+    Implements aload_memory_variables and asave_context as coroutines.
+
+    Usage::
+
+        from hipcortex import AsyncHipCortexClient
+        from hipcortex.langchain_memory import AsyncHipCortexMemory
+
+        async def chat(user_input: str):
+            client = AsyncHipCortexClient("http://localhost:3030")
+            memory = AsyncHipCortexMemory(client=client, session_id="user-42")
+            history = await memory.aload_memory_variables({})
+            await memory.asave_context({"input": user_input}, {"output": ai_response})
+    """
+
+    def __init__(
+        self,
+        client: "Any",
+        session_id: str = "default",
+        memory_key: str = "history",
+        human_prefix: str = "Human",
+        ai_prefix: str = "AI",
+        max_limit: int = 50,
+    ) -> None:
+        self._client = client
+        self.session_id = session_id
+        self.memory_key = memory_key
+        self.human_prefix = human_prefix
+        self.ai_prefix = ai_prefix
+        self.max_limit = max_limit
+
+    @property
+    def memory_variables(self) -> List[str]:
+        return [self.memory_key]
+
+    async def aload_memory_variables(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        """Fetch conversation history as formatted string (async)."""
+        records = await self._client.get_conversation_history(
+            self.session_id, limit=self.max_limit
+        )
+        records.sort(key=lambda r: r.get("timestamp", ""))
+        lines: List[str] = []
+        for rec in records:
+            action = rec.get("action", "")
+            target = rec.get("target", "")
+            if action == "human_message":
+                lines.append(f"{self.human_prefix}: {target}")
+            elif action == "ai_message":
+                lines.append(f"{self.ai_prefix}: {target}")
+        return {self.memory_key: "\n".join(lines)}
+
+    async def asave_context(
+        self, inputs: Dict[str, Any], outputs: Dict[str, Any]
+    ) -> None:
+        """Persist a human->AI exchange asynchronously."""
+        human_text = inputs.get("input") or inputs.get("human_input") or ""
+        ai_text    = outputs.get("output") or outputs.get("response") or ""
+        if human_text:
+            await self._client.add_human_message(self.session_id, str(human_text))
+        if ai_text:
+            await self._client.add_ai_message(self.session_id, str(ai_text))
+
+    async def aclear(self) -> None:
+        """GDPR forget for this session."""
+        await self._client.forget(self.session_id)
+
+    def load_memory_variables(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        """Sync fallback using asyncio.run()."""
+        import asyncio
+        import concurrent.futures
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    return pool.submit(asyncio.run, self.aload_memory_variables(inputs)).result()
+            return loop.run_until_complete(self.aload_memory_variables(inputs))
+        except RuntimeError:
+            return asyncio.run(self.aload_memory_variables(inputs))
+
+    def save_context(self, inputs: Dict[str, Any], outputs: Dict[str, Any]) -> None:
+        """Sync fallback using asyncio.run()."""
+        import asyncio
+        import concurrent.futures
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    pool.submit(asyncio.run, self.asave_context(inputs, outputs)).result()
+                return
+            loop.run_until_complete(self.asave_context(inputs, outputs))
+        except RuntimeError:
+            asyncio.run(self.asave_context(inputs, outputs))
+
+    def clear(self) -> None:
+        """Sync fallback using asyncio.run()."""
+        import asyncio
+        import concurrent.futures
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    pool.submit(asyncio.run, self.aclear()).result()
+                return
+            loop.run_until_complete(self.aclear())
+        except RuntimeError:
+            asyncio.run(self.aclear())
