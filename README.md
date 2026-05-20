@@ -107,14 +107,60 @@ cargo run --bin webserver --no-default-features --features "web-server,petgraph_
 docker run -p 3030:3030 -v hipcortex_data:/app/data hipcortex:latest
 ```
 
+### Option G — Cursor / Claude Code / Windsurf (MCP server)
+
+Give your AI coding assistant persistent memory across sessions:
+
+```bash
+# Install MCP server (one-liner)
+curl -fsSL https://raw.githubusercontent.com/farmountain/HipCortex/main/sdk/mcp/install.sh | bash
+```
+
+**Cursor** — add to `.cursor/mcp.json`:
+```json
+{
+  "mcpServers": {
+    "hipcortex": {
+      "command": "python",
+      "args": ["~/.hipcortex-mcp/server.py"],
+      "env": { "HIPCORTEX_URL": "http://localhost:3030" }
+    }
+  }
+}
+```
+
+**Claude Code** — add to `~/.claude/settings.json`:
+```json
+{
+  "mcpServers": {
+    "hipcortex": {
+      "command": "python",
+      "args": ["~/.hipcortex-mcp/server.py"],
+      "env": { "HIPCORTEX_URL": "https://hipcortex.fly.dev" }
+    }
+  }
+}
+```
+
+Tools available: `add_memory` · `search_memory` · `forget_actor` · `get_stats`
+
+Full guide: [sdk/mcp/README.md](sdk/mcp/README.md)
+
+---
+
 ### Auto-embedding (Ollama / OpenAI)
 ```bash
-# Start Ollama, pull a model, then:
+# Store with auto-generated embedding:
 curl -X POST http://localhost:3030/memory/embed \
   -H "Content-Type: application/json" \
   -d '{"actor":"alice","action":"noted","target":"Budget approved","embedding_model":"ollama/nomic-embed-text"}'
 
-# Now search with cosine similarity:
+# Unified search — server generates query embedding automatically:
+curl -X POST http://localhost:3030/memory/search \
+  -H "Content-Type: application/json" \
+  -d '{"query":"financial decisions","embedding_model":"ollama/nomic-embed-text","limit":5}'
+
+# Or keyword-only search (no embedding_model needed):
 curl -X POST http://localhost:3030/memory/search \
   -H "Content-Type: application/json" \
   -d '{"query":"financial decisions","limit":5}'
@@ -127,19 +173,30 @@ curl -X POST http://localhost:3030/memory/search \
 ## Framework integrations
 
 ```python
-# LangChain — drop-in for ConversationBufferMemory
+# LangChain — sync drop-in for ConversationBufferMemory
 from hipcortex.langchain_memory import HipCortexMemory
 memory = HipCortexMemory(session_id="user-42", url="http://localhost:3030")
 chain  = ConversationChain(llm=ChatOpenAI(), memory=memory)
+
+# LangChain — async (FastAPI, Django async, LangChain 0.2+)
+from hipcortex import AsyncHipCortexClient
+from hipcortex.langchain_memory import AsyncHipCortexMemory
+async_client = AsyncHipCortexClient("http://localhost:3030")
+async_memory = AsyncHipCortexMemory(client=async_client, session_id="user-42")
+history = await async_memory.aload_memory_variables({})
+await async_memory.asave_context({"input": "Hello"}, {"output": "Hi!"})
 
 # LlamaIndex — SimpleChatStore-compatible
 from hipcortex.llamaindex_storage import HipCortexChatStore
 store = HipCortexChatStore(client=client)
 
-# AutoGen — register_hook compatible
+# AutoGen 0.4 — Memory protocol
 from hipcortex.adapters.autogen import HipCortexAutoGenMemory
-mem = HipCortexAutoGenMemory(client=client, agent_id="researcher")
-agent.register_hook("process_message_before_send", mem.on_message_sent)
+mem   = HipCortexAutoGenMemory(client=client, agent_id="researcher")
+agent = AssistantAgent(name="researcher", model_client=..., memory=[mem])
+
+# AutoGen 0.3 — legacy register_hook (backward compat)
+agent.register_hook("process_message_before_send", mem.on_message_sent_v03)
 
 # CrewAI — BaseTool subclasses
 from hipcortex.adapters.crewai import HipCortexRememberTool, HipCortexRecallTool
@@ -152,16 +209,20 @@ tools = [HipCortexRememberTool(client=client), HipCortexRecallTool(client=client
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/health` | Health check |
-| `POST` | `/memory/add` | Store a memory record |
-| `GET` | `/memory/query` | Filter records (actor/action/type/limit) |
-| `POST` | `/memory/search` | Semantic + keyword search |
-| `DELETE` | `/memory/forget/:actor` | GDPR right-to-forget |
+| `GET` | `/health` | Health check (public) |
+| `POST` | `/memory/add` | Store a memory record (`ttl_seconds` for auto-expiry) |
+| `POST` | `/memory/bulk` | Add up to N records in one request |
+| `GET` | `/memory/query` | Filter records (actor / action / type / limit) |
+| `POST` | `/memory/search` | Keyword or cosine search; add `embedding_model` to auto-generate query embedding |
+| `POST` | `/memory/embed` | Auto-embed then store (Ollama or OpenAI) |
+| `DELETE` | `/memory/forget/:actor` | GDPR right-to-forget (temporal + symbolic + audit) |
 | `GET` | `/coherence/status` | Cross-module coherence metrics |
-| `GET` | `/stats` | Live record counts + metering state |
+| `GET` | `/stats` | Live record counts + metering state (public) |
 | `GET` | `/graph` | Full symbolic knowledge graph |
+| `GET` | `/node/:id` | Single symbolic node by UUID |
 | `GET` | `/tier` | API key tier + limits |
-| `GET` | `/pricing` | Pricing page |
+| `GET` | `/pricing` | Pricing page (public) |
+| `GET` | `/openapi.json` | OpenAPI 3.0 spec (public) |
 
 **Authentication:** set `HIPCORTEX_API_KEYS=sk-mykey:pro` → send `X-Api-Key: sk-mykey`.  
 Unset = open mode (self-hosted / dev).
