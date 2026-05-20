@@ -1,8 +1,14 @@
 """HipCortex Python SDK — AI memory engine client."""
 
 from .client import HipCortexClient
+from .async_client import AsyncHipCortexClient
 from .langchain_memory import HipCortexMemory
 from .llamaindex_storage import HipCortexStorageContext
 
-__version__ = "0.1.0"
-__all__ = ["HipCortexClient", "HipCortexMemory", "HipCortexStorageContext"]
+__version__ = "0.2.0"
+__all__ = [
+    "HipCortexClient",
+    "AsyncHipCortexClient",
+    "HipCortexMemory",
+    "HipCortexStorageContext",
+]
