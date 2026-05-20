@@ -10,11 +10,13 @@ import type {
 export class HipCortexClient {
   private readonly baseUrl: string;
   private readonly headers: Record<string, string>;
+  private readonly timeout: number;
 
   constructor(options: HipCortexClientOptions = {}) {
     this.baseUrl = (options.baseUrl ?? "http://localhost:3030").replace(/\/$/, "");
     this.headers = { "Content-Type": "application/json" };
     if (options.apiKey) this.headers["X-Api-Key"] = options.apiKey;
+    this.timeout = options.timeout ?? 10_000;
   }
 
   private async request<T>(
@@ -30,16 +32,25 @@ export class HipCortexClient {
         url += "?" + new URLSearchParams(entries.map(([k, v]) => [k, String(v)] as [string, string])).toString();
       }
     }
-    const resp = await fetch(url, {
-      method,
-      headers: this.headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
-    if (!resp.ok) {
-      const text = await resp.text().catch(() => resp.statusText);
-      throw new Error(`HipCortex ${method} ${path} → ${resp.status}: ${text}`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+    try {
+      const resp = await fetch(url, {
+        method,
+        headers: this.headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => resp.statusText);
+        throw new Error(`HipCortex ${method} ${path} → ${resp.status}: ${text}`);
+      }
+      return resp.json() as Promise<T>;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      throw err;
     }
-    return resp.json() as Promise<T>;
   }
 
   async addMemory(req: AddMemoryRequest): Promise<AddMemoryResponse> {
