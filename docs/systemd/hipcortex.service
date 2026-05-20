@@ -1,0 +1,34 @@
+[Unit]
+Description=HipCortex AI Memory Engine
+Documentation=https://github.com/farmountain/HipCortex
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=hipcortex
+Group=hipcortex
+
+# Adjust path to match where you placed the hipcortex binary
+ExecStart=/usr/local/bin/hipcortex
+
+Environment=DATA_DIR=/var/lib/hipcortex
+Environment=PORT=3030
+Environment=RUST_LOG=info
+
+# Optional: API key tiers
+# EnvironmentFile=/etc/hipcortex/keys.env
+
+Restart=on-failure
+RestartSec=5s
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/hipcortex
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -41,6 +41,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  GET    /stats                  live server statistics");
     println!("  GET    /tier                   API key tier info");
 
-    web_server::run_with_memory(addr, memory_store).await;
+    // Graceful shutdown: catch Ctrl+C/SIGTERM, flush MemoryStore before exit.
+    // Prevents partial JSONL writes on Raspberry Pi / edge device power-off.
+    let store_for_signal = memory_store.clone();
+    tokio::select! {
+        _ = web_server::run_with_memory(addr, memory_store) => {
+            println!("Server exited normally.");
+        }
+        _ = tokio::signal::ctrl_c() => {
+            println!("\nShutdown signal received — flushing memory store...");
+            if let Ok(mut ms) = store_for_signal.lock() {
+                match ms.flush() {
+                    Ok(_)  => println!("Flush complete. Data is safe. Goodbye."),
+                    Err(e) => eprintln!("Warning: flush error: {}. Check memory.jsonl integrity.", e),
+                }
+            }
+        }
+    }
     Ok(())
 }

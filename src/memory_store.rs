@@ -162,7 +162,7 @@ impl<B: MemoryBackend> MemoryStore<B> {
         Ok(())
     }
 
-    fn flush(&mut self) -> Result<()> {
+    pub fn flush(&mut self) -> Result<()> {
         while let Some(rec) = self.buffer.pop_front() {
             self.backend.append(&rec)?;
         }
