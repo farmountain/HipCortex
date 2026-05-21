@@ -44,6 +44,18 @@ curl https://hipcortex.fly.dev/stats           # → {"total_records":0,...}
 curl https://hipcortex.fly.dev/openapi.json    # → OpenAPI 3.0 spec
 ```
 
+> **⚡ Start the server first** (required for Options B, C, D):
+> ```bash
+> # Fastest: use the managed free tier (always running)
+> # Set HIPCORTEX_URL=https://hipcortex.fly.dev in your code
+>
+> # Or download + run locally (no Rust needed):
+> curl -L https://github.com/farmountain/HipCortex/releases/latest/download/hipcortex-linux-amd64 \
+>   -o hipcortex && chmod +x hipcortex && ./hipcortex
+> # macOS ARM64: use hipcortex-macos-arm64 instead
+> ```
+> Server starts on http://localhost:3030 · Verify: `curl http://localhost:3030/health` → `ok`
+
 ### Option B — Python
 
 ```bash
@@ -202,10 +214,10 @@ store = HipCortexChatStore(client=client)
 # AutoGen 0.4 — Memory protocol
 from hipcortex.adapters.autogen import HipCortexAutoGenMemory
 mem   = HipCortexAutoGenMemory(client=client, agent_id="researcher")
+# AutoGen 0.4 (recommended):
 agent = AssistantAgent(name="researcher", model_client=..., memory=[mem])
-
-# AutoGen 0.3 — legacy register_hook (backward compat)
-agent.register_hook("process_message_before_send", mem.on_message_sent_v03)
+# AutoGen 0.3 (legacy):
+# agent.register_hook("process_message_before_send", mem.on_message_sent_v03)
 
 # CrewAI — BaseTool subclasses
 from hipcortex.adapters.crewai import HipCortexRememberTool, HipCortexRecallTool
