@@ -307,6 +307,46 @@ def cmd_install(args: argparse.Namespace) -> None:
     print()
     print(f"Docs: https://github.com/farmountain/HipCortex")
 
+    # Auto-start the server if binary was downloaded and server isn't already running
+    if binary_path and binary_path.exists():
+        health_url = f"http://localhost:3030/health"
+        already_running = False
+        try:
+            with urllib.request.urlopen(health_url, timeout=1) as r:
+                already_running = r.status == 200
+        except Exception:
+            pass
+
+        if not already_running:
+            import subprocess as _sp
+            data_dir = str(INSTALL_DIR / "data")
+            import pathlib as _pl
+            _pl.Path(data_dir).mkdir(parents=True, exist_ok=True)
+            env = os.environ.copy()
+            env["PORT"] = "3030"
+            env["DATA_DIR"] = data_dir
+            env["RUST_LOG"] = "warn"
+            _sp.Popen(
+                [str(binary_path)],
+                env=env,
+                stdout=_sp.DEVNULL,
+                stderr=_sp.DEVNULL,
+            )
+            # Wait for startup
+            import time as _time
+            print("Starting HipCortex server...", end=" ", flush=True)
+            for _ in range(20):
+                _time.sleep(0.5)
+                try:
+                    with urllib.request.urlopen(health_url, timeout=1) as r:
+                        if r.status == 200:
+                            print("✓ running on http://localhost:3030")
+                            break
+                except Exception:
+                    pass
+            else:
+                print("(starting in background)")
+
 
 def cmd_start(args: argparse.Namespace) -> None:
     """Start the local HipCortex server."""
@@ -336,6 +376,25 @@ def cmd_start(args: argparse.Namespace) -> None:
 
     import subprocess
     proc = subprocess.Popen([str(binary)], env=env)
+    # Poll /health until server is ready (max 10 seconds)
+    import time
+    health_url = f"http://localhost:{port}/health"
+    for _ in range(20):
+        time.sleep(0.5)
+        try:
+            with urllib.request.urlopen(health_url, timeout=1) as r:
+                if r.status == 200:
+                    print(f"✓ HipCortex running on http://localhost:{port}")
+                    print(f"  /hipcortex remember 'your note'   (Claude Code)")
+                    print(f"  curl {health_url}")
+                    print()
+                    break
+        except Exception:
+            pass
+    else:
+        print("  Server may still be starting... check health manually.")
+        print(f"  curl {health_url}")
+        print()
     try:
         proc.wait()
     except KeyboardInterrupt:
