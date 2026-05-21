@@ -56,12 +56,30 @@ curl https://hipcortex.fly.dev/openapi.json    # → OpenAPI 3.0 spec
 > ```
 > Server starts on http://localhost:3030 · Verify: `curl http://localhost:3030/health` → `ok`
 
-### Option B — Python
+### Option B — Python (one-command install)
 
 ```bash
-# From GitHub (PyPI publish coming soon — track progress at github.com/farmountain/HipCortex/issues)
+# Install + auto-configure Claude Code, Cursor, VS Code
 pip install "git+https://github.com/farmountain/HipCortex.git#subdirectory=sdk/python"
+hipcortex install
 ```
+
+Output:
+```
+HipCortex installer
+========================================
+  Downloading hipcortex-linux-arm64 ... ✓
+
+Registering with AI coding assistants:
+  ✓ Claude Code         ~/.claude/skills/hipcortex/
+  ✓ Cursor (project)    .cursor/mcp.json
+  – VS Code             not found
+
+Claude Code: type /hipcortex remember 'your note'
+Cursor: restart and use the hipcortex MCP tools
+```
+
+Then: `hipcortex start` to run locally, or use `--url https://hipcortex.fly.dev` for the managed free tier.
 ```python
 from hipcortex import HipCortexClient, AsyncHipCortexClient
 
