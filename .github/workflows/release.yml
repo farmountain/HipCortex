@@ -56,6 +56,7 @@ jobs:
 
       - name: Build (native)
         if: matrix.target != 'aarch64-unknown-linux-gnu'
+        shell: bash  # use bash on all platforms — PowerShell doesn't support \ continuation
         run: |
           cargo build --release --bin webserver \
             --no-default-features --features "web-server,petgraph_backend" \
