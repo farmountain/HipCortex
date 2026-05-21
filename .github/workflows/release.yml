@@ -69,6 +69,15 @@ jobs:
              ${{ matrix.asset_name }}
 
       - name: Upload release asset
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ matrix.asset_name }}
+
+      - name: Save binary as artifact (workflow_dispatch testing)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: ${{ matrix.asset_name }}
+          retention-days: 3
