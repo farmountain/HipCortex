@@ -124,6 +124,21 @@ pub struct SearchMemoryRequest {
 
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
+pub struct SearchFlatParams {
+    query: Option<String>,
+    actor: Option<String>,
+    limit: Option<usize>,
+}
+
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct SearchFlatResponse {
+    memories: Vec<String>,
+    total: usize,
+}
+
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
 pub struct SearchMemoryResponse {
     results: Vec<SearchResult>,
     total: usize,
@@ -304,6 +319,7 @@ async fn api_key_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Respons
         || path == "/pricing"
         || path == "/stats"
         || path == "/openapi.json"
+        || path == "/memory/search-flat"
     {
         return Ok(next.run(req).await);
     }
@@ -313,12 +329,29 @@ async fn api_key_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Respons
         return Ok(next.run(req).await); // open / self-hosted mode
     }
 
-    let provided = req
+    // Check X-Api-Key header first, fall back to ?api_key= query param
+    // (needed for platforms like Manus that don't support custom headers)
+    let header_key = req
         .headers()
         .get("X-Api-Key")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("")
         .to_string();
+
+    let provided = if !header_key.is_empty() {
+        header_key
+    } else {
+        // Parse ?api_key= from query string without external deps
+        req.uri().query()
+            .and_then(|q| {
+                q.split('&').find_map(|pair| {
+                    let mut parts = pair.splitn(2, '=');
+                    let key = parts.next()?;
+                    if key == "api_key" { parts.next().map(|v| v.to_string()) } else { None }
+                })
+            })
+            .unwrap_or_default()
+    };
 
     let tier = match keys.get(&provided) {
         Some(t) => t,
@@ -779,6 +812,35 @@ async fn handle_embed_and_add<B: MemoryBackend + Send + Sync + 'static>(
     }
 }
 
+/// GET /memory/search-flat?query=&actor=&limit=
+/// Returns plain string array — for no-code tools (Flowise, Dify, n8n, Make.com)
+#[cfg(feature = "web-server")]
+async fn handle_search_flat<B: MemoryBackend + Send + Sync + 'static>(
+    store: Arc<Mutex<MemoryStore<B>>>,
+    Query(params): Query<SearchFlatParams>,
+) -> Json<SearchFlatResponse> {
+    let query = params.query.unwrap_or_default();
+    let limit = params.limit.unwrap_or(10).min(50);
+    let now_ts = chrono::Utc::now().timestamp();
+
+    match store.lock() {
+        Ok(ms) => {
+            let results = ms.search_semantic(None, &query, limit);
+            let memories: Vec<String> = results
+                .into_iter()
+                .filter(|(r, _)| {
+                    r.expires_at.map_or(true, |exp| exp > now_ts) &&
+                    params.actor.as_ref().map_or(true, |a| &r.actor == a)
+                })
+                .map(|(r, _)| format!("[{}] {}", r.action, r.target))
+                .collect();
+            let total = memories.len();
+            Json(SearchFlatResponse { memories, total })
+        }
+        Err(_) => Json(SearchFlatResponse { memories: vec![], total: 0 }),
+    }
+}
+
 #[cfg(feature = "web-server")]
 pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
     addr: SocketAddr,
@@ -873,6 +935,14 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         })
     };
 
+    // Flat search: GET /memory/search-flat?query=&actor=&limit=
+    let search_flat_route = {
+        let store = memory_store.clone();
+        get(move |Query(params): Query<SearchFlatParams>| async move {
+            handle_search_flat(store, Query(params)).await
+        })
+    };
+
     let app = Router::new()
         .route("/", get(|| async { axum::response::Redirect::permanent("/pricing") }))
         .route("/health", get(|| async { "ok" }))
@@ -885,6 +955,7 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/memory/search", search_route)
         .route("/memory/export", export_route)
         .route("/memory/forget/:actor", forget_route)
+        .route("/memory/search-flat", search_flat_route)
         .route("/coherence/status", coherence_route)
         .route("/stats", stats_route)
         .route("/tier", get(handle_tier))
