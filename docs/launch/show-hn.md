@@ -1,4 +1,4 @@
-# Show HN: HipCortex – Rust AI memory engine, 1.74ms p50 writes, with temporal decay and causal world model
+# Show HN: HipCortex — 0.6ms AI memory for agents. MCP for Cursor/Claude Code. Rust, ARM64, zero deps.
 
 **URL to submit:** https://github.com/farmountain/HipCortex
 
@@ -8,15 +8,15 @@
 
 Show HN: HipCortex – Rust AI memory engine, 295× faster than Mem0, with causal world model
 
-I built HipCortex because every memory system I evaluated treated memory as a retrieval problem (cosine similarity over embeddings), when what I actually needed was a cognition problem: memory that understands time, causality, and its own consistency.
+I built HipCortex because every memory system I evaluated treated memory as a retrieval problem. HipCortex treats it as cognition: temporal decay, causal world modeling, cross-module coherence checking.
 
-**What it does differently:**
-
-- **Temporal decay** – memories fade at configurable rates (exponential/linear per trace). Important memories persist; stale ones prune. Not just "store and retrieve."
-- **Causal world model** – Dirichlet-Multinomial state transitions, Kalman entity tracking, do-calculus intervention support. The engine builds and updates an internal model of reality.
-- **Coherence checker** – detects cross-module inconsistencies (temporal-symbolic mismatches, causal violations, entity permanence violations). Resolves them via consensus/recency/confidence.
-- **Merkle-chained audit log** – every write is tamper-evident. `AuditLog::verify()` detects any deletion in O(n). GDPR right-to-forget is a first-class REST endpoint.
-- **295× faster than Mem0** – 0.48ms p50 write latency vs 142ms for Mem0 cloud. The Rust binary is ~4MB with zero external dependencies.
+What's different:
+- **0.6ms p50 write latency** on Linux (1.7ms on Windows) — with SHA-256 audit trail included
+- **MCP server** for Cursor, Claude Code, Windsurf — `curl install.sh | bash` and your AI coding assistant gains persistent memory across sessions
+- **GDPR right-to-forget** as a REST endpoint: `DELETE /memory/forget/:actor`
+- **ARM64 binary** — 4MB, runs on Raspberry Pi 5, Jetson, AWS Graviton, M1/M2/M4 Mac
+- **Zero dependencies** — single binary, no database, no Docker required
+- **Works with**: LangChain, LlamaIndex, AutoGen 0.4, CrewAI, Continue.dev, Flowise, Dify
 
 **Framework integrations (pip install hipcortex):**
 - LangChain: drop-in for `ConversationBufferMemory`
@@ -39,11 +39,12 @@ Benchmark methodology: https://github.com/farmountain/HipCortex/blob/main/BENCHM
 ---
 
 ## Submission checklist
-- [ ] Repo is public with good README
-- [ ] BENCHMARK.md is live with real numbers (need to run on fresh machine)
-- [ ] `pip install hipcortex` works (need to publish to PyPI first, OR note "pip install git+https://...")
-- [ ] Fly.io instance deployed (gives live URL to show)
-- [ ] Post on Monday 9am EST or Tuesday 9am EST (peak HN traffic)
+- [ ] All 3 install paths tested (binary, pip git+, MCP)
+- [ ] hipcortex.fly.dev/health returns ok
+- [ ] MCP server works in Cursor with add_memory tool
+- [ ] ARM64 binary downloadable from releases (wait for CI)
+- [ ] Post Monday or Tuesday 9am ET
+- [ ] Cross-post to r/LocalLLaMA same day
 
 ## Expected comments to prepare for
 

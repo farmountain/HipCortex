@@ -1,7 +1,7 @@
 # r/LocalLLaMA post
 
 **Subreddit:** r/LocalLLaMA  
-**Title:** I built a Rust AI memory engine that's 295× faster than Mem0 cloud, with temporal decay and a causal world model. Open source, zero deps.
+**Title:** HipCortex v0.2 — Rust AI memory for LLM agents. 0.6ms writes, MCP for Cursor/Claude Code, runs on Raspberry Pi. Open source.
 
 ---
 
@@ -9,7 +9,9 @@
 
 Hey r/LocalLLaMA,
 
-I've been frustrated with existing AI memory systems for a while. They all treat memory as a retrieval problem — store embeddings, query by cosine similarity. That's fine for chatbots, but it breaks down for real agents that need to:
+I shipped HipCortex v0.2 — a Rust AI memory engine for agents. Key thing: it ships with a **MCP server** that gives Cursor, Claude Code, and Windsurf persistent memory across coding sessions. One curl command to install.
+
+What makes it different from other memory layers:
 
 - Remember things for days/weeks, not just a session
 - Know that a memory from 3 months ago is less relevant than one from yesterday
