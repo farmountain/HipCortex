@@ -224,6 +224,10 @@ pub struct AddMemoryRequest {
     confidence: Option<f32>,
     /// Who or what is writing this memory (e.g. "user-input", "claude-3-7")
     source: Option<String>,
+    /// Per-record decay factor [0.0-2.0]. 1.0=normal, <1.0=slower, >1.0=faster. Default 1.0.
+    decay_factor: Option<f32>,
+    /// Per-record decay half-life in seconds. Overrides server default.
+    decay_half_life_secs: Option<u64>,
 }
 
 #[cfg(feature = "web-server")]
@@ -232,6 +236,7 @@ pub struct AddMemoryResponse {
     success: bool,
     record_id: Option<String>,
     error: Option<String>,
+    warning: Option<serde_json::Value>,  // possible contradiction detected
 }
 
 #[cfg(feature = "web-server")]
@@ -316,6 +321,54 @@ pub async fn run_with_store(addr: SocketAddr, store: Arc<Mutex<SymbolicStore<InM
 #[cfg(feature = "web-server")]
 lazy_static::lazy_static! {
     static ref GLOBAL_METER: Mutex<HashMap<String, u64>> = Mutex::new(HashMap::new());
+    static ref WEBHOOKS: Mutex<Vec<WebhookRegistration>> = Mutex::new(Vec::new());
+}
+
+#[cfg(feature = "web-server")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebhookRegistration {
+    pub id: String,
+    pub url: String,
+    pub events: Vec<String>,  // ["memory.added", "memory.deleted", "memory.updated"]
+}
+
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct RegisterWebhookRequest {
+    url: String,
+    events: Vec<String>,
+}
+
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct RegisterWebhookResponse {
+    id: String,
+    url: String,
+    events: Vec<String>,
+}
+
+/// Fire webhooks for an event — async, best-effort, does not block the caller.
+#[cfg(feature = "web-server")]
+fn fire_webhook(event: &str, payload: serde_json::Value) {
+    if let Ok(hooks) = WEBHOOKS.lock() {
+        let event_str = event.to_string();
+        let matching: Vec<String> = hooks.iter()
+            .filter(|h| h.events.contains(&event_str) || h.events.contains(&"*".to_string()))
+            .map(|h| h.url.clone())
+            .collect();
+        if matching.is_empty() { return; }
+        let body = serde_json::json!({"event": event, "data": payload});
+        tokio::spawn(async move {
+            let client = reqwest::Client::new();
+            for url in matching {
+                let _ = client.post(&url)
+                    .json(&body)
+                    .timeout(std::time::Duration::from_secs(5))
+                    .send()
+                    .await;
+            }
+        });
+    }
 }
 
 /// Returns `true` if `key` has exceeded its tier write limit (caller should 429).
@@ -353,6 +406,8 @@ async fn api_key_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Respons
         || path == "/openapi.json"
         || path == "/memory/search-flat"
         || path == "/memory/latest"
+        || path == "/worldmodel/status"
+        || path == "/coherence/inconsistencies"
     {
         return Ok(next.run(req).await);
     }
@@ -517,6 +572,14 @@ struct StatsResponse {
     unique_actors: usize,
     metering_enabled: bool,
     tier_counts: HashMap<String, u64>,
+}
+
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct AuditVerifyResponse {
+    intact: bool,
+    entry_count: usize,
+    message: String,
 }
 
 /// GET /memory/export — export all (or actor-filtered) records as JSON array.
@@ -814,7 +877,7 @@ async fn handle_embed_and_add<B: MemoryBackend + Send + Sync + 'static>(
         Ok(v) => v,
         Err(e) => return Err((
             StatusCode::BAD_GATEWAY,
-            Json(AddMemoryResponse { success: false, record_id: None, error: Some(e) }),
+            Json(AddMemoryResponse { success: false, record_id: None, error: Some(e), warning: None }),
         )),
     };
 
@@ -834,14 +897,14 @@ async fn handle_embed_and_add<B: MemoryBackend + Send + Sync + 'static>(
     match store.lock() {
         Ok(mut ms) => match ms.add(record.clone()) {
             Ok(_) => Ok(Json(AddMemoryResponse {
-                success: true, record_id: Some(record.id.to_string()), error: None,
+                success: true, record_id: Some(record.id.to_string()), error: None, warning: None,
             })),
             Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR,
-                Json(AddMemoryResponse { success: false, record_id: None, error: Some(e.to_string()) }))),
+                Json(AddMemoryResponse { success: false, record_id: None, error: Some(e.to_string()), warning: None }))),
         },
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR,
             Json(AddMemoryResponse { success: false, record_id: None,
-                error: Some(format!("Lock error: {}", e)) }))),
+                error: Some(format!("Lock error: {}", e)), warning: None }))),
     }
 }
 
@@ -959,6 +1022,64 @@ async fn handle_latest_memory<B: MemoryBackend + Send + Sync + 'static>(
         Err(e) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(QueryMemoryResponse { records: vec![], total: 0 }),
+        )),
+    }
+}
+
+/// GET /audit/verify — check Merkle chain integrity
+#[cfg(feature = "web-server")]
+async fn handle_audit_verify<B: MemoryBackend + Send + Sync + 'static>(
+    store: Arc<Mutex<MemoryStore<B>>>,
+) -> Json<AuditVerifyResponse> {
+    match store.lock() {
+        Ok(ms) => {
+            match ms.audit_verify() {
+                Ok((intact, count)) => Json(AuditVerifyResponse {
+                    intact,
+                    entry_count: count,
+                    message: if intact {
+                        format!("Audit log intact — {} entries verified", count)
+                    } else {
+                        "TAMPER DETECTED — Merkle chain broken".to_string()
+                    },
+                }),
+                Err(e) => Json(AuditVerifyResponse {
+                    intact: false,
+                    entry_count: 0,
+                    message: format!("Verification error: {}", e),
+                }),
+            }
+        }
+        Err(e) => Json(AuditVerifyResponse {
+            intact: false, entry_count: 0,
+            message: format!("Lock error: {}", e),
+        }),
+    }
+}
+
+/// GET /audit/export — download full audit log as JSON array
+#[cfg(feature = "web-server")]
+async fn handle_audit_export<B: MemoryBackend + Send + Sync + 'static>(
+    store: Arc<Mutex<MemoryStore<B>>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match store.lock() {
+        Ok(ms) => match ms.audit_export() {
+            Ok(entries) => {
+                let total = entries.len();
+                Ok(Json(serde_json::json!({
+                    "entries": entries,
+                    "total": total,
+                    "exported_at": chrono::Utc::now().to_rfc3339(),
+                })))
+            },
+            Err(e) => Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": e.to_string()})),
+            )),
+        },
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": format!("Lock error: {}", e)})),
         )),
     }
 }
@@ -1081,6 +1202,15 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         })
     };
 
+    let audit_verify_route = {
+        let store = memory_store.clone();
+        get(move || { let s = store.clone(); async move { handle_audit_verify(s).await } })
+    };
+    let audit_export_route = {
+        let store = memory_store.clone();
+        get(move || { let s = store.clone(); async move { handle_audit_export(s).await } })
+    };
+
     let app = Router::new()
         .route("/", get(|| async { axum::response::Redirect::permanent("/pricing") }))
         .route("/health", get(|| async { "ok" }))
@@ -1096,7 +1226,13 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/memory/search-flat", search_flat_route)
         .route("/memory/update/:id", update_route)
         .route("/memory/latest", latest_route)
+        .route("/audit/verify", audit_verify_route)
+        .route("/audit/export", audit_export_route)
         .route("/coherence/status", coherence_route)
+        .route("/coherence/inconsistencies", get(handle_coherence_inconsistencies))
+        .route("/worldmodel/status", get(handle_worldmodel_status))
+        .route("/webhooks", get(handle_list_webhooks).post(handle_register_webhook))
+        .route("/webhooks/:id", delete(handle_delete_webhook))
         .route("/stats", stats_route)
         .route("/tier", get(handle_tier))
         .route("/pricing", get(handle_pricing))
@@ -1144,6 +1280,18 @@ async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
         record.source = Some(src);
     }
 
+    // P0.3 — Store decay config in metadata for TemporalIndexer pickup
+    if req.decay_factor.is_some() || req.decay_half_life_secs.is_some() {
+        if let serde_json::Value::Object(ref mut map) = record.metadata {
+            if let Some(df) = req.decay_factor {
+                map.insert("decay_factor".to_string(), serde_json::json!(df.clamp(0.0, 2.0)));
+            }
+            if let Some(hl) = req.decay_half_life_secs {
+                map.insert("decay_half_life_secs".to_string(), serde_json::json!(hl));
+            }
+        }
+    }
+
     match store.lock() {
         Ok(mut ms) => {
             // Actor memory quota check (env var HIPCORTEX_ACTOR_MAX_RECORDS, default: unlimited)
@@ -1161,23 +1309,63 @@ async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
                                     "Actor '{}' has reached max {} records. Use GDPR forget to clear.",
                                     actor_name, max
                                 )),
+                                warning: None,
                             }),
                         ));
                     }
                 }
             }
+
+            // P0.2 — Sync contradiction check: keyword overlap with existing same-actor records
+            let contradiction_warning: Option<serde_json::Value> = {
+                let existing = ms.find_by_actor(&record.actor);
+                let new_words: std::collections::HashSet<&str> = record.target
+                    .split_whitespace().collect();
+                let mut conflicts: Vec<serde_json::Value> = Vec::new();
+                for existing_rec in existing.iter().take(50) {
+                    if existing_rec.id == record.id { continue; }
+                    let old_words: std::collections::HashSet<&str> = existing_rec.target
+                        .split_whitespace().collect();
+                    if new_words.is_empty() || old_words.is_empty() { continue; }
+                    let overlap = new_words.intersection(&old_words).count();
+                    let overlap_ratio = overlap as f64 / new_words.len().max(old_words.len()) as f64;
+                    // High overlap + different content = possible contradiction
+                    if overlap_ratio > 0.5 && existing_rec.target != record.target {
+                        conflicts.push(serde_json::json!({
+                            "id": existing_rec.id.to_string(),
+                            "action": existing_rec.action,
+                            "target": existing_rec.target,
+                            "overlap_ratio": (overlap_ratio * 100.0) as u32
+                        }));
+                        if conflicts.len() >= 3 { break; }
+                    }
+                }
+                if conflicts.is_empty() { None } else { Some(serde_json::json!(conflicts)) }
+            };
+
             match ms.add(record.clone()) {
-                Ok(_) => Ok(Json(AddMemoryResponse {
-                    success: true,
-                    record_id: Some(record.id.to_string()),
-                    error: None,
-                })),
+                Ok(_) => {
+                    // P0.4 — fire webhook (best-effort, non-blocking)
+                    fire_webhook("memory.added", serde_json::json!({
+                        "id": record.id.to_string(),
+                        "actor": record.actor,
+                        "action": record.action,
+                        "target": record.target,
+                    }));
+                    Ok(Json(AddMemoryResponse {
+                        success: true,
+                        record_id: Some(record.id.to_string()),
+                        error: None,
+                        warning: contradiction_warning,
+                    }))
+                },
                 Err(e) => Err((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(AddMemoryResponse {
                         success: false,
                         record_id: None,
                         error: Some(e.to_string()),
+                        warning: None,
                     }),
                 )),
             }
@@ -1188,6 +1376,7 @@ async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
                 success: false,
                 record_id: None,
                 error: Some(format!("Lock error: {}", e)),
+                warning: None,
             }),
         )),
     }
@@ -1310,6 +1499,13 @@ async fn handle_forget_actor<B: MemoryBackend + Send + Sync + 'static>(
         Err(_) => 0, // Best-effort: don't fail the request if symbolic lock fails
     };
 
+    // P0.4 — fire webhook for bulk delete event
+    fire_webhook("memory.deleted", serde_json::json!({
+        "actor": actor,
+        "records_deleted": records_deleted,
+        "symbolic_nodes_deleted": symbolic_nodes_deleted,
+    }));
+
     Ok(Json(ForgetActorResponse {
         success: true,
         actor,
@@ -1317,6 +1513,89 @@ async fn handle_forget_actor<B: MemoryBackend + Send + Sync + 'static>(
         symbolic_nodes_deleted,
         error: None,
     }))
+}
+
+/// POST /webhooks — register a new webhook URL
+#[cfg(feature = "web-server")]
+async fn handle_register_webhook(
+    Json(req): Json<RegisterWebhookRequest>,
+) -> Json<RegisterWebhookResponse> {
+    let id = uuid::Uuid::new_v4().to_string();
+    let reg = WebhookRegistration {
+        id: id.clone(),
+        url: req.url.clone(),
+        events: req.events.clone(),
+    };
+    if let Ok(mut hooks) = WEBHOOKS.lock() {
+        hooks.push(reg);
+    }
+    Json(RegisterWebhookResponse { id, url: req.url, events: req.events })
+}
+
+/// DELETE /webhooks/:id — remove a webhook registration
+#[cfg(feature = "web-server")]
+async fn handle_delete_webhook(Path(id): Path<String>) -> StatusCode {
+    if let Ok(mut hooks) = WEBHOOKS.lock() {
+        let before = hooks.len();
+        hooks.retain(|h| h.id != id);
+        if hooks.len() < before { StatusCode::NO_CONTENT } else { StatusCode::NOT_FOUND }
+    } else {
+        StatusCode::INTERNAL_SERVER_ERROR
+    }
+}
+
+/// GET /webhooks — list all registered webhooks
+#[cfg(feature = "web-server")]
+async fn handle_list_webhooks() -> Json<serde_json::Value> {
+    let hooks = WEBHOOKS.lock().map(|h| h.clone()).unwrap_or_default();
+    let total = hooks.len();
+    Json(serde_json::json!({"webhooks": hooks, "total": total}))
+}
+
+/// GET /worldmodel/status — world model availability and state summary.
+/// Full inference (Dirichlet-Multinomial, Kalman, do-calculus) is available
+/// in the managed HipCortex hosted tier. Self-hosted returns basic state.
+#[cfg(feature = "web-server")]
+async fn handle_worldmodel_status() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "status": "available",
+        "mode": "basic",
+        "note": "Full causal inference (Dirichlet-Multinomial transitions, Kalman entity tracking, do-calculus) available in managed tier at https://hipcortex.fly.dev",
+        "endpoints": {
+            "status": "GET /worldmodel/status",
+            "predict": "POST /worldmodel/predict (managed tier only)",
+            "update": "POST /worldmodel/update (managed tier only)"
+        }
+    }))
+}
+
+/// GET /coherence/inconsistencies — list currently detected inconsistencies
+#[cfg(feature = "web-server")]
+async fn handle_coherence_inconsistencies() -> Json<serde_json::Value> {
+    let checker = CoherenceChecker::new();
+    match checker.check_consistency() {
+        Ok(reports) => {
+            let items: Vec<serde_json::Value> = reports.iter().map(|r| serde_json::json!({
+                "id": r.id,
+                "type": format!("{:?}", r.inconsistency_type),
+                "affected": r.affected_entities,
+                "description": r.description,
+                "severity": r.severity,
+                "detected_at": r.detected_at,
+            })).collect();
+            let total = items.len();
+            Json(serde_json::json!({
+                "inconsistencies": items,
+                "total": total,
+                "checked_at": chrono::Utc::now().to_rfc3339()
+            }))
+        }
+        Err(e) => Json(serde_json::json!({
+            "inconsistencies": [],
+            "total": 0,
+            "error": e
+        })),
+    }
 }
 
 #[cfg(feature = "web-server")]
