@@ -123,6 +123,9 @@ pub struct SearchMemoryRequest {
     /// Format: "ollama/<model>" e.g. "ollama/nomic-embed-text"
     /// or "openai/<model>" e.g. "openai/text-embedding-3-small"
     pub embedding_model: Option<String>,
+    /// If set, truncate results so total target text fits within max_tokens.
+    /// Rough estimate: 1 token ≈ 4 chars. Default: no limit.
+    pub max_tokens: Option<usize>,
 }
 
 #[cfg(feature = "web-server")]
@@ -365,6 +368,75 @@ pub async fn run_with_store(addr: SocketAddr, store: Arc<Mutex<SymbolicStore<InM
 lazy_static::lazy_static! {
     static ref GLOBAL_METER: Mutex<HashMap<String, u64>> = Mutex::new(HashMap::new());
     static ref WEBHOOKS: Mutex<Vec<WebhookRegistration>> = Mutex::new(Vec::new());
+    static ref REGULATORY_HOLDS: Mutex<Vec<RegulatoryHoldRequest>> = Mutex::new(Vec::new());
+}
+
+#[cfg(feature = "web-server")]
+#[derive(Clone, Serialize, Deserialize)]
+pub struct RegulatoryHoldRequest {
+    pub actor:  String,
+    pub reason: String,
+    pub until:  Option<String>,
+}
+
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct RegulatoryHoldResponse {
+    actor:   String,
+    held:    bool,
+    reason:  String,
+    until:   Option<String>,
+    message: String,
+}
+
+#[cfg(feature = "web-server")]
+async fn handle_set_regulatory_hold(
+    Json(req): Json<RegulatoryHoldRequest>,
+) -> Json<RegulatoryHoldResponse> {
+    let actor  = req.actor.clone();
+    let reason = req.reason.clone();
+    let until  = req.until.clone();
+    if let Ok(mut holds) = REGULATORY_HOLDS.lock() {
+        holds.retain(|h| h.actor != actor);
+        holds.push(req);
+    }
+    Json(RegulatoryHoldResponse {
+        actor,
+        held: true,
+        reason,
+        until,
+        message: "Regulatory hold placed. GDPR forget will be blocked for this actor until hold is lifted.".to_string(),
+    })
+}
+
+#[cfg(feature = "web-server")]
+async fn handle_release_regulatory_hold(
+    Path(actor): Path<String>,
+) -> Json<serde_json::Value> {
+    if let Ok(mut holds) = REGULATORY_HOLDS.lock() {
+        let before = holds.len();
+        holds.retain(|h| h.actor != actor);
+        if holds.len() < before {
+            return Json(serde_json::json!({"released": true, "actor": actor}));
+        }
+    }
+    Json(serde_json::json!({"released": false, "actor": actor, "error": "no hold found"}))
+}
+
+#[cfg(feature = "web-server")]
+async fn handle_list_regulatory_holds() -> Json<serde_json::Value> {
+    let holds = REGULATORY_HOLDS.lock().map(|h| h.clone()).unwrap_or_default();
+    let total = holds.len();
+    Json(serde_json::json!({"holds": holds, "total": total}))
+}
+
+#[cfg(feature = "web-server")]
+async fn handle_list_namespaces() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "namespaces": ["default"],
+        "note": "Full namespace isolation available in Team/Enterprise tier",
+        "docs": "https://github.com/farmountain/HipCortex/blob/main/docs/roadmap.md"
+    }))
 }
 
 #[cfg(feature = "web-server")]
@@ -452,9 +524,19 @@ async fn api_key_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Respons
         || path == "/worldmodel/status"
         || path == "/coherence/inconsistencies"
         || path == "/metrics"
+        || path == "/ns"
     {
         return Ok(next.run(req).await);
     }
+
+    // Namespace prefix: /ns/{namespace}/... routes use same auth
+    // This is the foundation for full multi-tenancy (Phase 2 implementation)
+    let effective_path = if path.starts_with("/ns/") {
+        path.splitn(4, '/').nth(3).map(|p| format!("/{}", p)).unwrap_or_else(|| "/".to_string())
+    } else {
+        path.to_string()
+    };
+    let _ = effective_path; // used for future routing
 
     let keys = load_api_keys();
     if keys.is_empty() {
@@ -597,6 +679,16 @@ async fn handle_search_memory<B: MemoryBackend + Send + Sync + 'static>(
                     },
                 })
                 .collect::<Vec<_>>();
+            let response_results = if let Some(max_tok) = req.max_tokens {
+                let max_chars = max_tok * 4;
+                let mut total_chars = 0usize;
+                response_results.into_iter().take_while(|r| {
+                    total_chars += r.record.target.len();
+                    total_chars <= max_chars
+                }).collect::<Vec<_>>()
+            } else {
+                response_results
+            };
             let total = response_results.len();
             Ok(Json(SearchMemoryResponse { results: response_results, total }))
         }
@@ -1482,6 +1574,9 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/tier", get(handle_tier))
         .route("/pricing", get(handle_pricing))
         .route("/openapi.json", get(handle_openapi))
+        .route("/ns", get(handle_list_namespaces))
+        .route("/regulatory/hold", get(handle_list_regulatory_holds).post(handle_set_regulatory_hold))
+        .route("/regulatory/hold/:actor", delete(handle_release_regulatory_hold))
         .layer(middleware::from_fn(api_key_middleware));
 
     axum::Server::bind(&addr)
@@ -1727,6 +1822,22 @@ async fn handle_forget_actor<B: MemoryBackend + Send + Sync + 'static>(
     symbolic_store: Arc<Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>,
     actor: String,
 ) -> Result<Json<ForgetActorResponse>, (StatusCode, Json<ForgetActorResponse>)> {
+    // Check regulatory hold — GDPR forget blocked if hold is active
+    if let Ok(holds) = REGULATORY_HOLDS.lock() {
+        if holds.iter().any(|h| h.actor == actor) {
+            return Err((
+                StatusCode::FORBIDDEN,
+                Json(ForgetActorResponse {
+                    success: false,
+                    actor,
+                    records_deleted: 0,
+                    symbolic_nodes_deleted: 0,
+                    error: Some("Regulatory hold active — GDPR forget blocked. Release hold first via DELETE /regulatory/hold/:actor".to_string()),
+                }),
+            ));
+        }
+    }
+
     // Delete from temporal/procedural/reflexion memory store
     let records_deleted = match memory_store.lock() {
         Ok(mut ms) => match ms.delete_by_actor(&actor) {
