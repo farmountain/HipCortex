@@ -15,7 +15,7 @@ use axum::middleware::{self, Next};
 #[cfg(feature = "web-server")]
 use axum::response::{Html, Response};
 #[cfg(feature = "web-server")]
-use axum::{routing::{delete, get, post}, Json, Router, http::StatusCode};
+use axum::{routing::{delete, get, patch, post}, Json, Router, http::StatusCode};
 #[cfg(feature = "web-server")]
 use crate::coherence::CoherenceChecker;
 #[cfg(feature = "web-server")]
@@ -168,6 +168,34 @@ pub struct BulkAddResponse {
     errors: Vec<String>,
 }
 
+/// PATCH /memory/update/:id — partial in-place update of a memory record
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct UpdateMemoryRequest {
+    target:     Option<String>,
+    action:     Option<String>,
+    confidence: Option<f32>,
+    source:     Option<String>,
+    metadata:   Option<serde_json::Value>,
+}
+
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct UpdateMemoryResponse {
+    success:    bool,
+    record_id:  String,
+    version:    u32,
+    error:      Option<String>,
+}
+
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct LatestMemoryParams {
+    actor:  Option<String>,
+    action: Option<String>,
+    limit:  Option<usize>,
+}
+
 /// POST /memory/embed — auto-generate embedding then store memory.
 /// Calls Ollama (OLLAMA_URL env) or OpenAI (OPENAI_API_KEY env).
 #[cfg(feature = "web-server")]
@@ -192,6 +220,10 @@ pub struct AddMemoryRequest {
     record_type: Option<String>,
     metadata: Option<serde_json::Value>,
     ttl_seconds: Option<u64>,
+    /// [0.0, 1.0] reliability signal, default 1.0
+    confidence: Option<f32>,
+    /// Who or what is writing this memory (e.g. "user-input", "claude-3-7")
+    source: Option<String>,
 }
 
 #[cfg(feature = "web-server")]
@@ -320,6 +352,7 @@ async fn api_key_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Respons
         || path == "/stats"
         || path == "/openapi.json"
         || path == "/memory/search-flat"
+        || path == "/memory/latest"
     {
         return Ok(next.run(req).await);
     }
@@ -842,6 +875,95 @@ async fn handle_search_flat<B: MemoryBackend + Send + Sync + 'static>(
 }
 
 #[cfg(feature = "web-server")]
+async fn handle_update_memory<B: MemoryBackend + Send + Sync + 'static>(
+    store: Arc<Mutex<MemoryStore<B>>>,
+    id_str: String,
+    Json(req): Json<UpdateMemoryRequest>,
+) -> Result<Json<UpdateMemoryResponse>, (StatusCode, Json<UpdateMemoryResponse>)> {
+    let id = match uuid::Uuid::parse_str(&id_str) {
+        Ok(u) => u,
+        Err(_) => return Err((
+            StatusCode::BAD_REQUEST,
+            Json(UpdateMemoryResponse {
+                success: false, record_id: id_str,
+                version: 0, error: Some("invalid UUID".to_string()),
+            }),
+        )),
+    };
+
+    match store.lock() {
+        Ok(mut ms) => match ms.update_record(
+            id,
+            req.target.as_deref(),
+            req.action.as_deref(),
+            req.confidence,
+            req.source.as_deref(),
+            req.metadata,
+        ) {
+            Ok(_) => {
+                let version = ms.find_by_id(id).map(|r| r.version).unwrap_or(0);
+                Ok(Json(UpdateMemoryResponse {
+                    success: true,
+                    record_id: id.to_string(),
+                    version,
+                    error: None,
+                }))
+            }
+            Err(e) => Err((
+                StatusCode::NOT_FOUND,
+                Json(UpdateMemoryResponse {
+                    success: false, record_id: id.to_string(),
+                    version: 0, error: Some(e.to_string()),
+                }),
+            )),
+        },
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(UpdateMemoryResponse {
+                success: false, record_id: id_str,
+                version: 0, error: Some(format!("Lock error: {}", e)),
+            }),
+        )),
+    }
+}
+
+/// GET /memory/latest?actor=&action=&limit=
+/// Returns the most recent unique fact per (actor, action) pair.
+/// Solves: "what is the current value of X?" query pattern.
+#[cfg(feature = "web-server")]
+async fn handle_latest_memory<B: MemoryBackend + Send + Sync + 'static>(
+    store: Arc<Mutex<MemoryStore<B>>>,
+    Query(params): Query<LatestMemoryParams>,
+) -> Result<Json<QueryMemoryResponse>, (StatusCode, Json<QueryMemoryResponse>)> {
+    let limit = params.limit.unwrap_or(20).min(100);
+    match store.lock() {
+        Ok(ms) => {
+            let records = ms.find_latest(
+                params.actor.as_deref(),
+                params.action.as_deref(),
+                limit,
+            );
+            let response_records = records.into_iter().map(|r| MemoryRecordResponse {
+                id:          r.id.to_string(),
+                record_type: format!("{:?}", r.record_type),
+                timestamp:   r.timestamp.to_rfc3339(),
+                actor:       r.actor.clone(),
+                action:      r.action.clone(),
+                target:      r.target.clone(),
+                metadata:    r.metadata.clone(),
+                integrity:   r.integrity.clone(),
+            }).collect::<Vec<_>>();
+            let total = response_records.len();
+            Ok(Json(QueryMemoryResponse { records: response_records, total }))
+        }
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(QueryMemoryResponse { records: vec![], total: 0 }),
+        )),
+    }
+}
+
+#[cfg(feature = "web-server")]
 pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
     addr: SocketAddr,
     symbolic_store: Arc<Mutex<SymbolicStore<InMemoryGraph>>>,
@@ -943,6 +1065,22 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         })
     };
 
+    // PATCH /memory/update/:id — versioned in-place update
+    let update_route = {
+        let store = memory_store.clone();
+        patch(move |Path(id): Path<String>, Json(req): Json<UpdateMemoryRequest>| async move {
+            handle_update_memory(store, id, Json(req)).await
+        })
+    };
+
+    // GET /memory/latest — most recent unique fact per (actor, action)
+    let latest_route = {
+        let store = memory_store.clone();
+        get(move |Query(params): Query<LatestMemoryParams>| async move {
+            handle_latest_memory(store, Query(params)).await
+        })
+    };
+
     let app = Router::new()
         .route("/", get(|| async { axum::response::Redirect::permanent("/pricing") }))
         .route("/health", get(|| async { "ok" }))
@@ -956,6 +1094,8 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/memory/export", export_route)
         .route("/memory/forget/:actor", forget_route)
         .route("/memory/search-flat", search_flat_route)
+        .route("/memory/update/:id", update_route)
+        .route("/memory/latest", latest_route)
         .route("/coherence/status", coherence_route)
         .route("/stats", stats_route)
         .route("/tier", get(handle_tier))
@@ -983,6 +1123,7 @@ async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
         _ => MemoryType::Temporal, // Default
     };
 
+    let actor_name = req.actor.clone();
     let mut record = MemoryRecord::new(
         record_type,
         req.actor,
@@ -995,10 +1136,37 @@ async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
             (chrono::Utc::now().timestamp()) + ttl as i64
         );
     }
+    // Set confidence and source if provided
+    if let Some(conf) = req.confidence {
+        record.confidence = conf.clamp(0.0, 1.0);
+    }
+    if let Some(src) = req.source {
+        record.source = Some(src);
+    }
 
     match store.lock() {
-        Ok(mut store) => {
-            match store.add(record.clone()) {
+        Ok(mut ms) => {
+            // Actor memory quota check (env var HIPCORTEX_ACTOR_MAX_RECORDS, default: unlimited)
+            // Done inside the same lock to avoid TOCTOU and double-lock issues.
+            if let Ok(max_str) = std::env::var("HIPCORTEX_ACTOR_MAX_RECORDS") {
+                if let Ok(max) = max_str.parse::<usize>() {
+                    let actor_count = ms.find_by_actor(&actor_name).len();
+                    if actor_count >= max {
+                        return Err((
+                            StatusCode::from_u16(429).unwrap(),
+                            Json(AddMemoryResponse {
+                                success: false,
+                                record_id: None,
+                                error: Some(format!(
+                                    "Actor '{}' has reached max {} records. Use GDPR forget to clear.",
+                                    actor_name, max
+                                )),
+                            }),
+                        ));
+                    }
+                }
+            }
+            match ms.add(record.clone()) {
                 Ok(_) => Ok(Json(AddMemoryResponse {
                     success: true,
                     record_id: Some(record.id.to_string()),

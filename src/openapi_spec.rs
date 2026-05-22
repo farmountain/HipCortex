@@ -34,7 +34,11 @@ pub const OPENAPI_SPEC: &str = r##"{
             "enum": ["Temporal","Symbolic","Procedural","Reflexion","Perception"] },
           "metadata": { "type": "object" },
           "ttl_seconds": { "type": "integer", "nullable": true,
-            "description": "Auto-expire after N seconds" }
+            "description": "Auto-expire after N seconds" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1,
+            "description": "Reliability signal [0.0, 1.0]. Default 1.0." },
+          "source": { "type": "string", "nullable": true,
+            "description": "Who/what wrote this memory (e.g. 'user-input', 'claude-3-7')" }
         }
       },
       "MemoryRecord": {
@@ -131,6 +135,27 @@ pub const OPENAPI_SPEC: &str = r##"{
       "responses": { "200": { "description": "Tier + limits" } } } },
     "/graph": { "get": { "operationId": "getGraph", "summary": "Full symbolic knowledge graph",
       "security": [],
-      "responses": { "200": { "description": "Nodes and edges" } } } }
+      "responses": { "200": { "description": "Nodes and edges" } } } },
+    "/memory/update/{id}": { "patch": { "operationId": "updateMemory",
+      "summary": "Versioned in-place update of a memory record",
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "requestBody": { "required": true, "content": { "application/json": {
+        "schema": { "type": "object", "properties": {
+          "target": { "type": "string" },
+          "action": { "type": "string" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "source": { "type": "string" },
+          "metadata": { "type": "object" }
+        }}}}},
+      "responses": { "200": { "description": "Updated" }, "404": { "description": "Not found" } } } },
+    "/memory/latest": { "get": { "operationId": "getLatestMemory",
+      "summary": "Most recent unique fact per actor+action (solves current-value queries)",
+      "security": [],
+      "parameters": [
+        { "name": "actor", "in": "query", "schema": { "type": "string" } },
+        { "name": "action", "in": "query", "schema": { "type": "string" } },
+        { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+      ],
+      "responses": { "200": { "description": "Latest records" } } } }
   }
 }"##;
