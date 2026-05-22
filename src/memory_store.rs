@@ -280,6 +280,86 @@ impl<B: MemoryBackend> MemoryStore<B> {
         Ok(deleted_ids)
     }
 
+    /// Find a single record by its UUID.
+    pub fn find_by_id(&self, id: uuid::Uuid) -> Option<&MemoryRecord> {
+        self.records.iter().find(|r| r.id == id)
+    }
+
+    /// Update a record in-place: apply partial changes, increment version,
+    /// rewrite the backend file, and append an update entry to the audit log.
+    pub fn update_record(
+        &mut self,
+        id: uuid::Uuid,
+        new_target: Option<&str>,
+        new_action: Option<&str>,
+        new_confidence: Option<f32>,
+        new_source: Option<&str>,
+        new_metadata: Option<serde_json::Value>,
+    ) -> Result<uuid::Uuid> {
+        let idx = self.records.iter().position(|r| r.id == id)
+            .ok_or_else(|| anyhow::anyhow!("record not found: {}", id))?;
+
+        // Apply partial updates
+        if let Some(t) = new_target  { self.records[idx].target = t.to_string(); }
+        if let Some(a) = new_action  { self.records[idx].action = a.to_string(); }
+        if let Some(c) = new_confidence { self.records[idx].confidence = c.clamp(0.0, 1.0); }
+        if let Some(s) = new_source  { self.records[idx].source = Some(s.to_string()); }
+        if let Some(m) = new_metadata { self.records[idx].metadata = m; }
+        self.records[idx].version += 1;
+        // Recompute integrity hash after update
+        self.records[idx].integrity = Some(self.records[idx].compute_hash());
+
+        // Rewrite backend
+        self.backend.clear()?;
+        let records_clone = self.records.clone();
+        for record in &records_clone {
+            self.backend.append(record)?;
+        }
+        self.backend.flush()?;
+
+        // Audit log
+        let actor = self.records[idx].actor.clone();
+        let version = self.records[idx].version;
+        self.audit.append(
+            &actor,
+            "update",
+            &format!("record {} updated to version {}", id, version),
+        )?;
+
+        Ok(id)
+    }
+
+    /// Return the most recent record(s) per (actor, action) combination.
+    /// If action is None, returns most recent record per actor.
+    /// Useful for "what is the current value of X?" queries.
+    pub fn find_latest(
+        &self,
+        actor: Option<&str>,
+        action: Option<&str>,
+        limit: usize,
+    ) -> Vec<&MemoryRecord> {
+        let now_ts = chrono::Utc::now().timestamp();
+        // Collect non-expired candidates
+        let mut candidates: Vec<&MemoryRecord> = self.records.iter()
+            .filter(|r| {
+                actor.map_or(true, |a| r.actor == a) &&
+                action.map_or(true, |ac| r.action == ac) &&
+                r.expires_at.map_or(true, |exp| exp > now_ts)
+            })
+            .collect();
+
+        // Sort descending by timestamp (newest first)
+        candidates.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+
+        // Deduplicate: keep only the most recent per (actor, action) pair
+        let mut seen: std::collections::HashSet<(String, String)> = std::collections::HashSet::new();
+        let deduplicated: Vec<&MemoryRecord> = candidates.into_iter()
+            .filter(|r| seen.insert((r.actor.clone(), r.action.clone())))
+            .collect();
+
+        deduplicated.into_iter().take(limit).collect()
+    }
+
     pub fn clear(&mut self) {
         self.records.clear();
         self.index_actor.clear();

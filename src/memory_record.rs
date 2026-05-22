@@ -36,9 +36,25 @@ pub struct MemoryRecord {
     /// Unix timestamp (seconds) when this record expires. None = never expires.
     #[serde(default)]
     pub expires_at: Option<i64>,
+    /// Confidence score [0.0, 1.0] — how reliable is this memory? Default 1.0.
+    /// Lower values signal uncertain or unverified information.
+    #[serde(default = "default_confidence")]
+    pub confidence: f32,
+    /// Source identifier — who or what wrote this memory.
+    /// Examples: "user-input", "claude-3-7", "system", "sensor-array-1"
+    #[serde(default)]
+    pub source: Option<String>,
+    /// Version counter — increments on every in-place update.
+    /// Version 0 = original write.
+    #[serde(default)]
+    pub version: u32,
 }
 
 fn default_relevance() -> f64 {
+    1.0
+}
+
+fn default_confidence() -> f32 {
     1.0
 }
 
@@ -65,6 +81,9 @@ impl MemoryRecord {
             relevance_score: 1.0,
             content_hash: None,
             expires_at: None,
+            confidence: 1.0,
+            source: None,
+            version: 0,
         };
         let hash = rec.compute_hash();
         rec.integrity = Some(hash.clone());
