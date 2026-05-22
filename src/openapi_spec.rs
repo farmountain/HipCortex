@@ -156,6 +156,16 @@ pub const OPENAPI_SPEC: &str = r##"{
         { "name": "action", "in": "query", "schema": { "type": "string" } },
         { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
       ],
-      "responses": { "200": { "description": "Latest records" } } } }
+      "responses": { "200": { "description": "Latest records" } } } },
+    "/memory/ingest": { "post": { "operationId": "ingestMemory",
+      "summary": "Zero-config smart ingest — auto-classifies record_type, priority, TTL, tags from plain text",
+      "requestBody": { "required": true, "content": { "application/json": {
+        "schema": { "type": "object", "required": ["text"], "properties": {
+          "text": { "type": "string", "description": "Plain text to remember" },
+          "actor": { "type": "string", "description": "Optional actor override" },
+          "session_id": { "type": "string" },
+          "context": { "type": "string", "enum": ["meeting", "code", "chat", "sensor", "decision"] }
+        }}}}},
+      "responses": { "200": { "description": "Stored with auto-classification result" } } } }
   }
 }"##;

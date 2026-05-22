@@ -233,6 +233,38 @@ pub struct ConsolidateParams {
     dry_run:   Option<bool>, // if true, show what would be merged without writing
 }
 
+/// POST /memory/ingest — zero-config smart memory ingest.
+/// Automatically classifies record_type, priority, TTL, tags, actor, action
+/// from plain text. No memory architecture knowledge required.
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct IngestRequest {
+    /// Plain text to remember
+    pub text: String,
+    /// Optional actor override (auto-extracted from text if absent)
+    pub actor: Option<String>,
+    /// Optional session grouping
+    pub session_id: Option<String>,
+    /// Optional context hint: "meeting", "code", "chat", "sensor", "decision"
+    pub context: Option<String>,
+}
+
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct IngestResponse {
+    pub record_id:      String,
+    pub record_type:    String,
+    pub priority:       String,
+    pub tags:           Vec<String>,
+    pub ttl_seconds:    Option<u64>,
+    pub confidence:     f32,
+    pub actor:          String,
+    pub action:         String,
+    pub target:         String,
+    pub working_memory: bool,
+    pub warning:        Option<serde_json::Value>,
+}
+
 /// POST /memory/embed — auto-generate embedding then store memory.
 /// Calls Ollama (OLLAMA_URL env) or OpenAI (OPENAI_API_KEY env).
 #[cfg(feature = "web-server")]
@@ -1538,6 +1570,13 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         })
     };
 
+    let ingest_route = {
+        let store = memory_store.clone();
+        post(move |Json(req): Json<IngestRequest>| async move {
+            handle_ingest(store, Json(req)).await
+        })
+    };
+
     let metrics_route = {
         let store = memory_store.clone();
         get(move || { let s = store.clone(); async move { handle_prometheus_metrics(s).await } })
@@ -1569,6 +1608,7 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/graph/edge", create_edge_route)
         .route("/graph/node/:id", delete_node_route)
         .route("/memory/consolidate", consolidate_route)
+        .route("/memory/ingest", ingest_route)
         .route("/metrics", metrics_route)
         .route("/stats", stats_route)
         .route("/tier", get(handle_tier))
@@ -1583,6 +1623,252 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .serve(app.into_make_service())
         .await
         .expect("server failed");
+}
+
+/// Heuristic memory classification — no ML required.
+/// Returns (record_type, priority, ttl_seconds, confidence, actor, action, tags)
+#[cfg(feature = "web-server")]
+fn classify_ingest(text: &str, actor_hint: Option<&str>, context_hint: Option<&str>) -> (String, String, Option<u64>, f32, String, String, Vec<String>) {
+    let lower = text.to_lowercase();
+
+    // ── record_type detection ─────────────────────────────────────────
+    let record_type = if context_hint == Some("code") || contains_code_pattern(text) {
+        "Procedural"
+    } else if contains_any(&lower, &["said", "told me", "asked me", "replied", "mentioned", "responded", "user:", "assistant:", "human:"]) {
+        "Reflexion"
+    } else if contains_any(&lower, &["decided", "chose", "choosing", "selected", "going with", "will use", "adopted", "switched to", "we use", "use ", "using "]) {
+        "Symbolic"
+    } else {
+        "Temporal"
+    };
+
+    // ── priority detection ────────────────────────────────────────────
+    let priority = if contains_any(&lower, &["never ", "always ", "must ", "must not", "required", "constraint", "rule:", "policy:", "forbidden", "critical", "allerg"]) {
+        "pinned"
+    } else if contains_any(&lower, &["decided", "chose", "selected", "confirmed", "approved", "deployed", "released", "launch"]) {
+        "high"
+    } else if contains_any(&lower, &["maybe", "might ", "could ", "possibly", "not sure", "uncertain", "think ", "believe "]) {
+        "low"
+    } else {
+        "normal"
+    };
+
+    // ── TTL detection (working vs long-term memory) ───────────────────
+    let ttl = if context_hint == Some("sensor") {
+        Some(3600u64) // sensor data: 1 hour
+    } else if priority == "pinned" || record_type == "Symbolic" {
+        None // decisions + constraints: permanent
+    } else if contains_any(&lower, &["today", "tomorrow", "this morning", "tonight", "right now", "currently", "at the moment"]) {
+        Some(86400u64) // today-specific: 24 hours
+    } else if contains_any(&lower, &["this week", "by friday", "by monday", "by wednesday", "by thursday", "by tuesday", "next week"]) {
+        Some(604800u64) // week-specific: 7 days
+    } else if record_type == "Reflexion" {
+        Some(86400u64) // conversation: 24 hours
+    } else if record_type == "Temporal" {
+        Some(86400u64) // temporal default: 24 hours
+    } else {
+        None
+    };
+
+    // ── confidence detection ──────────────────────────────────────────
+    let confidence = if contains_any(&lower, &["maybe", "might", "possibly", "not sure", "uncertain", "think", "believe"]) {
+        0.6f32
+    } else if contains_any(&lower, &["confirmed", "verified", "deployed", "released", "decided", "chose"]) {
+        0.95f32
+    } else {
+        0.85f32
+    };
+
+    // ── actor extraction ──────────────────────────────────────────────
+    let actor = if let Some(a) = actor_hint {
+        a.to_string()
+    } else {
+        extract_actor(text)
+    };
+
+    // ── action extraction ─────────────────────────────────────────────
+    let action = extract_action(&lower);
+
+    // ── tag extraction ────────────────────────────────────────────────
+    let tags = extract_tags(&lower, context_hint);
+
+    (record_type.to_string(), priority.to_string(), ttl, confidence, actor, action, tags)
+}
+
+#[cfg(feature = "web-server")]
+fn contains_any(text: &str, patterns: &[&str]) -> bool {
+    patterns.iter().any(|p| text.contains(p))
+}
+
+#[cfg(feature = "web-server")]
+fn contains_code_pattern(text: &str) -> bool {
+    text.contains("def ") || text.contains("fn ") || text.contains("class ") ||
+    text.contains("function ") || text.contains("import ") || text.contains("return ") ||
+    text.contains("```") || text.contains("//") || (text.contains("{") && text.contains("}"))
+}
+
+#[cfg(feature = "web-server")]
+fn extract_actor(text: &str) -> String {
+    // Pattern: First capitalized word followed by action verb = actor
+    let words: Vec<&str> = text.split_whitespace().collect();
+    if words.len() >= 2 {
+        let first = words[0];
+        if first.len() > 1 && first.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+            let action_verbs = ["decided", "chose", "said", "told", "asked", "replied",
+                                "found", "created", "built", "deployed", "fixed", "updated",
+                                "switched", "selected", "approved", "confirmed", "mentioned"];
+            let second_lower = words[1].to_lowercase();
+            if action_verbs.iter().any(|v| second_lower.starts_with(v)) {
+                return first.trim_matches(|c: char| !c.is_alphabetic()).to_lowercase();
+            }
+        }
+    }
+    "default".to_string()
+}
+
+#[cfg(feature = "web-server")]
+fn extract_action(lower: &str) -> String {
+    let action_map = [
+        ("decided", "decided"), ("chose", "decided"), ("selected", "decided"),
+        ("said", "said"), ("told", "said"), ("mentioned", "said"), ("replied", "said"),
+        ("fixed", "fixed"), ("resolved", "fixed"), ("deployed", "deployed"),
+        ("created", "created"), ("built", "created"), ("implemented", "created"),
+        ("found", "observed"), ("noticed", "observed"), ("detected", "observed"),
+        ("constraint", "constraint"), ("must ", "constraint"), ("never ", "constraint"),
+        ("updated", "updated"), ("changed", "updated"), ("switched", "updated"),
+    ];
+    for (pattern, action) in &action_map {
+        if lower.contains(pattern) {
+            return action.to_string();
+        }
+    }
+    "noted".to_string()
+}
+
+#[cfg(feature = "web-server")]
+fn extract_tags(lower: &str, context: Option<&str>) -> Vec<String> {
+    let mut tags = Vec::new();
+    if let Some(ctx) = context { tags.push(ctx.to_string()); }
+
+    let tag_map: &[(&[&str], &str)] = &[
+        (&["postgresql", "mysql", "sqlite", "mongodb", "redis", "database", "db "], "database"),
+        (&["react", "vue", "angular", "svelte", "frontend", "css", "html"], "frontend"),
+        (&["fastapi", "django", "flask", "express", "backend", "api", "endpoint"], "backend"),
+        (&["auth", "jwt", "oauth", "login", "password", "token", "session"], "auth"),
+        (&["bug", "error", "crash", "exception", "fix", "broken", "failed"], "bug"),
+        (&["deploy", "deployment", "kubernetes", "docker", "k8s", "ci/cd"], "infrastructure"),
+        (&["test", "testing", "pytest", "jest", "spec", "coverage"], "testing"),
+        (&["security", "vulnerability", "cve", "xss", "injection"], "security"),
+        (&["performance", "latency", "slow", "optimize", "cache"], "performance"),
+        (&["architecture", "design", "structure", "pattern"], "architecture"),
+        (&["meeting", "standup", "sprint", "planning"], "meeting"),
+    ];
+
+    for (patterns, tag) in tag_map {
+        if patterns.iter().any(|p| lower.contains(p)) {
+            tags.push(tag.to_string());
+        }
+    }
+    tags.dedup();
+    tags
+}
+
+/// POST /memory/ingest — zero-config smart memory ingest.
+/// Classifies plain text automatically: record_type, priority, TTL, tags, actor.
+/// Target UX: client.remember("text") with no memory architecture required.
+#[cfg(feature = "web-server")]
+async fn handle_ingest<B: MemoryBackend + Send + Sync + 'static>(
+    store: Arc<Mutex<MemoryStore<B>>>,
+    Json(req): Json<IngestRequest>,
+) -> Result<Json<IngestResponse>, (StatusCode, Json<IngestResponse>)> {
+    let (record_type_str, priority, ttl, confidence, actor, action, tags) =
+        classify_ingest(&req.text, req.actor.as_deref(), req.context.as_deref());
+
+    let record_type = match record_type_str.as_str() {
+        "Symbolic"   => MemoryType::Symbolic,
+        "Procedural" => MemoryType::Procedural,
+        "Reflexion"  => MemoryType::Reflexion,
+        _            => MemoryType::Temporal,
+    };
+
+    let mut metadata = serde_json::json!({});
+    if let Some(sid) = &req.session_id {
+        if let serde_json::Value::Object(ref mut m) = metadata {
+            m.insert("session_id".to_string(), serde_json::json!(sid));
+        }
+    }
+
+    let mut record = MemoryRecord::new(
+        record_type,
+        actor.clone(),
+        action.clone(),
+        req.text.clone(),
+        metadata,
+    );
+    record.confidence = confidence;
+    record.source = Some("auto-ingest".to_string());
+    record.priority = priority.clone();
+    record.tags = tags.clone();
+    if let Some(ttl_secs) = ttl {
+        record.expires_at = Some(
+            (chrono::Utc::now().timestamp()) + ttl_secs as i64
+        );
+    }
+
+    // Check contradiction
+    let warning = store.try_lock().ok().and_then(|ms| {
+        let existing = ms.find_by_actor(&actor);
+        let new_words: std::collections::HashSet<&str> = req.text.split_whitespace().collect();
+        let conflicts: Vec<serde_json::Value> = existing.iter().take(30)
+            .filter_map(|r| {
+                let old_words: std::collections::HashSet<&str> = r.target.split_whitespace().collect();
+                if new_words.is_empty() || old_words.is_empty() || r.target == req.text { return None; }
+                let overlap = new_words.intersection(&old_words).count();
+                let ratio = overlap as f64 / new_words.len().max(old_words.len()) as f64;
+                if ratio > 0.5 {
+                    Some(serde_json::json!({"id": r.id.to_string(), "target": r.target, "overlap": (ratio*100.0) as u32}))
+                } else { None }
+            })
+            .take(2)
+            .collect();
+        if conflicts.is_empty() { None } else { Some(serde_json::json!(conflicts)) }
+    });
+
+    let working_memory = ttl.is_some() && ttl.unwrap_or(0) <= 86400;
+    let record_id = record.id.to_string();
+    let rtype = format!("{:?}", record.record_type);
+
+    match store.lock() {
+        Ok(mut ms) => match ms.add(record) {
+            Ok(_) => Ok(Json(IngestResponse {
+                record_id,
+                record_type: rtype,
+                priority,
+                tags,
+                ttl_seconds: ttl,
+                confidence,
+                actor,
+                action,
+                target: req.text,
+                working_memory,
+                warning,
+            })),
+            Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(IngestResponse {
+                record_id: String::new(), record_type: String::new(), priority: String::new(),
+                tags: vec![], ttl_seconds: None, confidence: 0.0, actor: String::new(),
+                action: String::new(), target: req.text,
+                working_memory: false,
+                warning: Some(serde_json::json!({"error": e.to_string()})),
+            }))),
+        },
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(IngestResponse {
+            record_id: String::new(), record_type: String::new(), priority: String::new(),
+            tags: vec![], ttl_seconds: None, confidence: 0.0, actor: String::new(),
+            action: String::new(), target: req.text,
+            working_memory: false,
+            warning: Some(serde_json::json!({"error": format!("Lock error: {}", e)})),
+        }))),
+    }
 }
 
 #[cfg(feature = "web-server")]
