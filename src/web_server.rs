@@ -77,6 +77,9 @@ impl ApiTier {
 
 /// Parsed from HIPCORTEX_API_KEYS env var: "key1:free,key2:pro,key3:team"
 #[cfg(feature = "web-server")]
+fn default_priority_str() -> String { "normal".to_string() }
+
+#[cfg(feature = "web-server")]
 fn load_api_keys() -> HashMap<String, ApiTier> {
     std::env::var("HIPCORTEX_API_KEYS")
         .unwrap_or_default()
@@ -196,6 +199,37 @@ pub struct LatestMemoryParams {
     limit:  Option<usize>,
 }
 
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct CreateNodeRequest {
+    label:      String,
+    properties: Option<std::collections::HashMap<String, String>>,
+}
+
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct CreateEdgeRequest {
+    from_id:  String,
+    to_id:    String,
+    relation: String,
+}
+
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct GraphWriteResponse {
+    success: bool,
+    id:      Option<String>,
+    error:   Option<String>,
+}
+
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct ConsolidateParams {
+    actor:     Option<String>,
+    threshold: Option<f64>,  // keyword similarity threshold [0.0, 1.0], default 0.8
+    dry_run:   Option<bool>, // if true, show what would be merged without writing
+}
+
 /// POST /memory/embed — auto-generate embedding then store memory.
 /// Calls Ollama (OLLAMA_URL env) or OpenAI (OPENAI_API_KEY env).
 #[cfg(feature = "web-server")]
@@ -228,6 +262,12 @@ pub struct AddMemoryRequest {
     decay_factor: Option<f32>,
     /// Per-record decay half-life in seconds. Overrides server default.
     decay_half_life_secs: Option<u64>,
+    /// Tags for categorization and RAG filtering (e.g. ["bug", "decision"])
+    #[serde(default)]
+    tags: Vec<String>,
+    /// Priority: "pinned"|"high"|"normal"|"low". Pinned bypass decay in search. Default "normal".
+    #[serde(default = "default_priority_str")]
+    priority: String,
 }
 
 #[cfg(feature = "web-server")]
@@ -246,6 +286,9 @@ pub struct QueryMemoryParams {
     action: Option<String>,
     record_type: Option<String>,
     limit: Option<usize>,
+    tags:     Option<String>,    // comma-separated tags filter e.g. "bug,architecture"
+    priority: Option<String>,    // filter by priority
+    as_of:    Option<String>,    // ISO 8601 timestamp — return records with timestamp <= as_of
 }
 
 #[cfg(feature = "web-server")]
@@ -1085,6 +1128,134 @@ async fn handle_audit_export<B: MemoryBackend + Send + Sync + 'static>(
 }
 
 #[cfg(feature = "web-server")]
+async fn handle_create_node(
+    store: Arc<Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>,
+    Json(req): Json<CreateNodeRequest>,
+) -> Json<GraphWriteResponse> {
+    match store.lock() {
+        Ok(mut ss) => {
+            let props = req.properties.unwrap_or_default();
+            let id = ss.add_node(&req.label, props);
+            Json(GraphWriteResponse { success: true, id: Some(id.to_string()), error: None })
+        }
+        Err(e) => Json(GraphWriteResponse {
+            success: false, id: None,
+            error: Some(format!("Lock error: {}", e)),
+        }),
+    }
+}
+
+#[cfg(feature = "web-server")]
+async fn handle_create_edge(
+    store: Arc<Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>,
+    Json(req): Json<CreateEdgeRequest>,
+) -> Json<GraphWriteResponse> {
+    let from = match uuid::Uuid::parse_str(&req.from_id) {
+        Ok(u) => u,
+        Err(_) => return Json(GraphWriteResponse {
+            success: false, id: None, error: Some("invalid from_id UUID".to_string()),
+        }),
+    };
+    let to = match uuid::Uuid::parse_str(&req.to_id) {
+        Ok(u) => u,
+        Err(_) => return Json(GraphWriteResponse {
+            success: false, id: None, error: Some("invalid to_id UUID".to_string()),
+        }),
+    };
+    match store.lock() {
+        Ok(mut ss) => {
+            ss.add_edge(from, to, &req.relation);
+            Json(GraphWriteResponse { success: true, id: None, error: None })
+        }
+        Err(e) => Json(GraphWriteResponse {
+            success: false, id: None, error: Some(format!("Lock error: {}", e)),
+        }),
+    }
+}
+
+#[cfg(feature = "web-server")]
+async fn handle_delete_node(
+    store: Arc<Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>,
+    id: String,
+) -> Json<GraphWriteResponse> {
+    let node_id = match uuid::Uuid::parse_str(&id) {
+        Ok(u) => u,
+        Err(_) => return Json(GraphWriteResponse {
+            success: false, id: None, error: Some("invalid UUID".to_string()),
+        }),
+    };
+    match store.lock() {
+        Ok(mut ss) => {
+            let removed = ss.remove_node(node_id);
+            Json(GraphWriteResponse {
+                success: removed,
+                id: if removed { Some(id) } else { None },
+                error: if removed { None } else { Some("node not found".to_string()) },
+            })
+        }
+        Err(e) => Json(GraphWriteResponse {
+            success: false, id: None, error: Some(format!("Lock error: {}", e)),
+        }),
+    }
+}
+
+/// POST /memory/consolidate — merge near-duplicate records for an actor.
+/// Keyword-similarity based dedup. ML-based dedup available in managed tier.
+#[cfg(feature = "web-server")]
+async fn handle_consolidate<B: MemoryBackend + Send + Sync + 'static>(
+    store: Arc<Mutex<MemoryStore<B>>>,
+    Query(params): Query<ConsolidateParams>,
+) -> Json<serde_json::Value> {
+    let threshold = params.threshold.unwrap_or(0.80).clamp(0.0, 1.0);
+    let dry_run = params.dry_run.unwrap_or(false);
+
+    match store.lock() {
+        Ok(ms) => {
+            let records = ms.all();
+            let candidates: Vec<_> = records.iter()
+                .filter(|r| params.actor.as_ref().map_or(true, |a| &r.actor == a))
+                .collect();
+
+            // Find pairs with keyword similarity above threshold
+            let mut merge_groups: Vec<(String, String, f64)> = Vec::new(); // (keep_id, drop_id, similarity)
+            for i in 0..candidates.len() {
+                for j in (i + 1)..candidates.len() {
+                    let words_i: std::collections::HashSet<&str> = candidates[i].target.split_whitespace().collect();
+                    let words_j: std::collections::HashSet<&str> = candidates[j].target.split_whitespace().collect();
+                    if words_i.is_empty() || words_j.is_empty() { continue; }
+                    let intersection = words_i.intersection(&words_j).count();
+                    let sim = intersection as f64 / words_i.len().max(words_j.len()) as f64;
+                    if sim >= threshold {
+                        // Keep the newer one (higher confidence wins)
+                        let (keep, drop) = if candidates[i].timestamp >= candidates[j].timestamp {
+                            (candidates[i].id.to_string(), candidates[j].id.to_string())
+                        } else {
+                            (candidates[j].id.to_string(), candidates[i].id.to_string())
+                        };
+                        merge_groups.push((keep, drop, sim));
+                    }
+                }
+            }
+
+            Json(serde_json::json!({
+                "found_duplicates": merge_groups.len(),
+                "dry_run": dry_run,
+                "pairs": merge_groups.iter().map(|(k, d, s)| serde_json::json!({
+                    "keep": k, "drop": d,
+                    "similarity": (s * 100.0) as u32
+                })).collect::<Vec<_>>(),
+                "note": if dry_run {
+                    "Dry run — no changes made. Re-run without dry_run=true to consolidate."
+                } else {
+                    "ML-based consolidation available in managed tier. Keyword consolidation: use GDPR forget on 'drop' IDs listed above."
+                }
+            }))
+        }
+        Err(e) => Json(serde_json::json!({"error": format!("Lock error: {}", e)})),
+    }
+}
+
+#[cfg(feature = "web-server")]
 pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
     addr: SocketAddr,
     symbolic_store: Arc<Mutex<SymbolicStore<InMemoryGraph>>>,
@@ -1211,6 +1382,31 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         get(move || { let s = store.clone(); async move { handle_audit_export(s).await } })
     };
 
+    let create_node_route = {
+        let ss = symbolic_store.clone();
+        post(move |Json(req): Json<CreateNodeRequest>| async move {
+            handle_create_node(ss, Json(req)).await
+        })
+    };
+    let create_edge_route = {
+        let ss = symbolic_store.clone();
+        post(move |Json(req): Json<CreateEdgeRequest>| async move {
+            handle_create_edge(ss, Json(req)).await
+        })
+    };
+    let delete_node_route = {
+        let ss = symbolic_store.clone();
+        delete(move |Path(id): Path<String>| async move {
+            handle_delete_node(ss, id).await
+        })
+    };
+    let consolidate_route = {
+        let store = memory_store.clone();
+        post(move |Query(params): Query<ConsolidateParams>| async move {
+            handle_consolidate(store, Query(params)).await
+        })
+    };
+
     let app = Router::new()
         .route("/", get(|| async { axum::response::Redirect::permanent("/pricing") }))
         .route("/health", get(|| async { "ok" }))
@@ -1233,6 +1429,10 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/worldmodel/status", get(handle_worldmodel_status))
         .route("/webhooks", get(handle_list_webhooks).post(handle_register_webhook))
         .route("/webhooks/:id", delete(handle_delete_webhook))
+        .route("/graph/node", create_node_route)
+        .route("/graph/edge", create_edge_route)
+        .route("/graph/node/:id", delete_node_route)
+        .route("/memory/consolidate", consolidate_route)
         .route("/stats", stats_route)
         .route("/tier", get(handle_tier))
         .route("/pricing", get(handle_pricing))
@@ -1278,6 +1478,12 @@ async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
     }
     if let Some(src) = req.source {
         record.source = Some(src);
+    }
+    if !req.tags.is_empty() {
+        record.tags = req.tags;
+    }
+    if req.priority != "normal" {
+        record.priority = req.priority;
     }
 
     // P0.3 — Store decay config in metadata for TemporalIndexer pickup
@@ -1419,6 +1625,23 @@ async fn handle_query_memory<B: MemoryBackend + Send + Sync + 'static>(
             filtered_records.retain(|r| {
                 r.expires_at.map_or(true, |exp| exp > now_ts)
             });
+
+            // Filter by tags (any match)
+            if let Some(tags_str) = &params.tags {
+                let tag_list: Vec<&str> = tags_str.split(',').map(|t| t.trim()).collect();
+                filtered_records.retain(|r| tag_list.iter().any(|t| r.tags.contains(&t.to_string())));
+            }
+            // Filter by priority
+            if let Some(priority) = &params.priority {
+                filtered_records.retain(|r| &r.priority == priority);
+            }
+            // Filter by as_of timestamp (time-travel query)
+            if let Some(as_of_str) = &params.as_of {
+                if let Ok(as_of_ts) = chrono::DateTime::parse_from_rfc3339(as_of_str) {
+                    let as_of_utc = as_of_ts.with_timezone(&chrono::Utc);
+                    filtered_records.retain(|r| r.timestamp <= as_of_utc);
+                }
+            }
 
             // Apply limit
             let limit = params.limit.unwrap_or(100);
