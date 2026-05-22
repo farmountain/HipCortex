@@ -30,36 +30,51 @@ So I built **HipCortex** — a Rust memory engine that treats memory as *cogniti
 
 🔒 **Tamper-evident audit log** — Merkle-chained, every write SHA-256 hashed. GDPR `DELETE /memory/forget/:actor` propagates through temporal store, symbolic graph, and audit log atomically.
 
-⚡ **Speed** — 0.48ms p50 write latency. The benchmark vs Mem0 cloud is local vs cloud (not apples-to-apples) but the local latency is the point: sub-millisecond durable memory for real-time agent loops.
+⚡ **Speed** — 0.6ms p50 write latency on Linux (1.7ms Windows). Includes SHA-256 hash + Merkle audit append per write. Sub-millisecond durable memory for real-time agent loops.
 
 **It works with your existing stack:**
 
+**One-command install (auto-configures Claude Code + Cursor):**
+
+```bash
+pip install "git+https://github.com/farmountain/HipCortex.git#subdirectory=sdk/python"
+hipcortex install   # downloads binary, writes ~/.claude/skills/hipcortex/SKILL.md
+hipcortex start     # starts server, confirms ✓ running on :3030
+```
+
+Then in Claude Code: `/hipcortex remember "we chose JWT for stateless auth"`
+
+**Or use directly with your stack:**
+
 ```python
-pip install hipcortex
+from hipcortex import HipCortexClient
+client = HipCortexClient("http://localhost:3030")
 
 # LangChain
 from hipcortex.langchain_memory import HipCortexMemory
 memory = HipCortexMemory(session_id="user-42", url="http://localhost:3030")
 
-# AutoGen
+# AutoGen 0.4
 from hipcortex.adapters.autogen import HipCortexAutoGenMemory
-mem = HipCortexAutoGenMemory(client=client, agent_id="my-agent")
-agent.register_hook("process_message_before_send", mem.on_message_sent)
+mem   = HipCortexAutoGenMemory(client=client, agent_id="my-agent")
+agent = AssistantAgent(name="researcher", model_client=..., memory=[mem])
 
 # CrewAI
 from hipcortex.adapters.crewai import HipCortexRememberTool, HipCortexRecallTool
 tools = [HipCortexRememberTool(client=client), HipCortexRecallTool(client=client)]
 ```
 
-**Self-hosted, single binary:**
+**Pre-built binary (4MB, no Rust needed):**
 
 ```bash
-cargo build --release --bin webserver \
-  --no-default-features --features "web-server,petgraph_backend"
-# ~4MB binary, zero external dependencies
-```
+# Linux ARM64 (Raspberry Pi 4/5, Jetson, AWS Graviton)
+curl -L https://github.com/farmountain/HipCortex/releases/latest/download/hipcortex-linux-arm64 \
+  -o hipcortex && chmod +x hipcortex && ./hipcortex
 
-Or Fly.io deploy in 5 minutes (fly.toml included in the repo).
+# macOS ARM64 (M1/M2/M3/M4)
+curl -L https://github.com/farmountain/HipCortex/releases/latest/download/hipcortex-macos-arm64 \
+  -o hipcortex && chmod +x hipcortex && ./hipcortex
+```
 
 **GitHub:** https://github.com/farmountain/HipCortex  
 **Benchmark details:** https://github.com/farmountain/HipCortex/blob/main/BENCHMARK.md
