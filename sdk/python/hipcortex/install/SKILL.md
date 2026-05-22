@@ -100,7 +100,37 @@ POST /memory/consolidate?actor=my-project&threshold=0.8&dry_run=true
 
 ## Auto-memory mode
 
-If the user says "remember this" at the end of any message, automatically store a summary of the conversation turn in HipCortex before responding.
+If the user says "remember this" at the end of any message, automatically store a summary using:
+POST /memory/ingest {"text": "<summary>", "actor": "<project-name>"}
+
+This auto-classifies record_type, priority, TTL, and tags — no manual fields needed.
+
+## Zero-config memory (recommended starting point)
+
+For new integrations, use /memory/ingest instead of /memory/add:
+
+```
+# Instead of:
+POST /memory/add {"actor":"alice","action":"decided","target":"...","record_type":"Symbolic","confidence":0.9,"tags":["arch"]}
+
+# Just use:
+POST /memory/ingest {"text": "Alice decided to use PostgreSQL for multi-user support"}
+# → auto-classifies as {record_type:"Symbolic", priority:"high", actor:"alice", tags:["database","architecture"]}
+```
+
+When to use each:
+- /memory/ingest: quick ingest of any text, auto-everything (recommended)
+- /memory/add: when you need precise control over all fields
+- /memory/remember (via Python SDK): client.remember("text") wraps /memory/ingest
+
+## Slash command shortcuts
+
+- `/hipcortex remember <text>` → POST /memory/ingest {text}
+- `/hipcortex recall <query>` → GET /memory/search-flat?query=<query>
+- `/hipcortex latest <topic>` → GET /memory/latest?actor=<project>&action=<topic>
+- `/hipcortex update <id> <corrected text>` → PATCH /memory/update/<id>
+- `/hipcortex forget <actor>` → DELETE /memory/forget/<actor>
+- `/hipcortex stats` → GET /stats
 
 ## Default actor
 

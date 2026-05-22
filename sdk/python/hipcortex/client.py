@@ -216,6 +216,92 @@ class HipCortexClient:
         resp.raise_for_status()
         return resp.json()
 
+    # ------------------------------------------------------------------
+    # Zero-config convenience API (Sim #9)
+    # ------------------------------------------------------------------
+
+    def remember(
+        self,
+        text: str,
+        actor: Optional[str] = None,
+        session_id: Optional[str] = None,
+        context: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Zero-config memory ingest — auto-classifies everything from plain text.
+
+        No memory architecture required. HipCortex auto-detects:
+        - record_type (Symbolic/Temporal/Reflexion/Procedural)
+        - priority (pinned/high/normal/low)
+        - TTL (working vs long-term memory)
+        - tags, actor, action, confidence
+
+        Args:
+            text:       Plain text to remember.
+            actor:      Optional actor override (auto-extracted from text if absent).
+            session_id: Optional session grouping.
+            context:    Hint: "meeting" | "code" | "chat" | "sensor" | "decision"
+
+        Returns:
+            Classification result dict with record_id, record_type, priority, tags, etc.
+        """
+        payload: Dict[str, Any] = {"text": text}
+        if actor is not None:
+            payload["actor"] = actor
+        if session_id is not None:
+            payload["session_id"] = session_id
+        if context is not None:
+            payload["context"] = context
+        resp = self._session.post(
+            f"{self.base_url}/memory/ingest", json=payload, timeout=self.timeout
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def recall(
+        self,
+        query: str,
+        actor: Optional[str] = None,
+        limit: int = 10,
+    ) -> List[str]:
+        """Zero-config memory recall — returns plain text memories matching query.
+
+        Returns list of strings (not raw records) for easy use in prompts.
+
+        Args:
+            query: What to search for.
+            actor: Optional actor filter.
+            limit: Max results.
+
+        Returns:
+            List of memory strings like "[action] target text"
+        """
+        params: Dict[str, Any] = {"query": query, "limit": limit}
+        if actor is not None:
+            params["actor"] = actor
+        resp = self._session.get(
+            f"{self.base_url}/memory/search-flat", params=params, timeout=self.timeout
+        )
+        resp.raise_for_status()
+        return resp.json().get("memories", [])
+
+    def remember_and_recall(
+        self,
+        text: str,
+        query: Optional[str] = None,
+        actor: Optional[str] = None,
+        session_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Store a memory and retrieve related memories in one call.
+
+        Useful for chat agents: store the latest message and get context simultaneously.
+
+        Returns:
+            Dict with "stored" (ingest result) and "related" (list of related memories).
+        """
+        stored = self.remember(text, actor=actor, session_id=session_id)
+        related = self.recall(query or text, actor=actor or stored.get("actor"), limit=5)
+        return {"stored": stored, "related": related}
+
     def ping_latency_ms(self) -> float:
         """Return round-trip latency to /health in milliseconds."""
         t0 = time.perf_counter()
