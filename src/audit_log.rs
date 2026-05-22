@@ -83,6 +83,26 @@ impl AuditLog {
         Ok(())
     }
 
+    pub fn export(&self) -> anyhow::Result<Vec<AuditEntry>> {
+        if !Path::new(&self.path).exists() {
+            return Ok(vec![]);
+        }
+        let file = File::open(&self.path)?;
+        let reader = BufReader::new(file);
+        let mut entries = Vec::new();
+        for line in reader.lines() {
+            let line = line?;
+            if line.trim().is_empty() { continue; }
+            entries.push(serde_json::from_str::<AuditEntry>(&line)?);
+        }
+        Ok(entries)
+    }
+
+    /// Return the path to the audit log file.
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
     pub fn verify(&self) -> anyhow::Result<bool> {
         if !Path::new(&self.path).exists() {
             return Ok(true);
