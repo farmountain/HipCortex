@@ -1,0 +1,62 @@
+replicaCount: 1
+
+image:
+  repository: hipcortex/hipcortex
+  pullPolicy: IfNotPresent
+  tag: "0.2.0"
+
+service:
+  type: ClusterIP
+  port: 3030
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: hipcortex.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# API key tiers: "key1:free,key2:pro,key3:team"
+apiKeys: ""
+
+# Data directory (use PVC in production)
+dataDir: /app/data
+
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 5Gi
+
+env:
+  RUST_LOG: info
+  # OLLAMA_URL: http://ollama:11434
+  # OPENAI_API_KEY: ""
+  # ANTHROPIC_API_KEY: ""
+  # HIPCORTEX_ACTOR_MAX_RECORDS: "10000"
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3030
+  initialDelaySeconds: 10
+  periodSeconds: 30
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 3030
+  initialDelaySeconds: 5
+  periodSeconds: 10

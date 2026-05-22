@@ -451,6 +451,7 @@ async fn api_key_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Respons
         || path == "/memory/latest"
         || path == "/worldmodel/status"
         || path == "/coherence/inconsistencies"
+        || path == "/metrics"
     {
         return Ok(next.run(req).await);
     }
@@ -1256,6 +1257,44 @@ async fn handle_consolidate<B: MemoryBackend + Send + Sync + 'static>(
 }
 
 #[cfg(feature = "web-server")]
+async fn handle_prometheus_metrics<B: MemoryBackend + Send + Sync + 'static>(
+    store: Arc<Mutex<MemoryStore<B>>>,
+) -> axum::response::Response<String> {
+    let (total, by_type, actors, metered) = match store.lock() {
+        Ok(ms) => {
+            let records = ms.all();
+            let total = records.len();
+            let mut by_type: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+            let mut actors: std::collections::HashSet<&str> = std::collections::HashSet::new();
+            for r in records { *by_type.entry(format!("{:?}", r.record_type)).or_insert(0) += 1; actors.insert(&r.actor); }
+            (total, by_type, actors.len(), !load_api_keys().is_empty())
+        }
+        Err(_) => (0, std::collections::HashMap::new(), 0, false),
+    };
+
+    let mut lines = vec![
+        "# HELP hipcortex_records_total Total memory records".to_string(),
+        "# TYPE hipcortex_records_total gauge".to_string(),
+        format!("hipcortex_records_total {}", total),
+        "# HELP hipcortex_actors_total Unique actors".to_string(),
+        "# TYPE hipcortex_actors_total gauge".to_string(),
+        format!("hipcortex_actors_total {}", actors),
+        "# HELP hipcortex_metering_enabled API key metering active".to_string(),
+        "# TYPE hipcortex_metering_enabled gauge".to_string(),
+        format!("hipcortex_metering_enabled {}", if metered { 1 } else { 0 }),
+    ];
+    for (t, count) in &by_type {
+        lines.push(format!("hipcortex_records_by_type{{type=\"{}\"}} {}", t, count));
+    }
+    lines.push(String::new());
+
+    axum::response::Response::builder()
+        .header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+        .body(lines.join("\n"))
+        .unwrap()
+}
+
+#[cfg(feature = "web-server")]
 pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
     addr: SocketAddr,
     symbolic_store: Arc<Mutex<SymbolicStore<InMemoryGraph>>>,
@@ -1407,6 +1446,11 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         })
     };
 
+    let metrics_route = {
+        let store = memory_store.clone();
+        get(move || { let s = store.clone(); async move { handle_prometheus_metrics(s).await } })
+    };
+
     let app = Router::new()
         .route("/", get(|| async { axum::response::Redirect::permanent("/pricing") }))
         .route("/health", get(|| async { "ok" }))
@@ -1433,6 +1477,7 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/graph/edge", create_edge_route)
         .route("/graph/node/:id", delete_node_route)
         .route("/memory/consolidate", consolidate_route)
+        .route("/metrics", metrics_route)
         .route("/stats", stats_route)
         .route("/tier", get(handle_tier))
         .route("/pricing", get(handle_pricing))

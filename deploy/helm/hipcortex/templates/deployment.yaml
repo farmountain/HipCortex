@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hipcortex.fullname" . }}
+  labels:
+    {{- include "hipcortex.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "hipcortex.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "hipcortex.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: hipcortex
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 3030
+          env:
+            - name: PORT
+              value: "3030"
+            - name: DATA_DIR
+              value: {{ .Values.dataDir | quote }}
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- if .Values.apiKeys }}
+            - name: HIPCORTEX_API_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hipcortex.fullname" . }}-secrets
+                  key: api-keys
+            {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.dataDir }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "hipcortex.fullname" . }}-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}

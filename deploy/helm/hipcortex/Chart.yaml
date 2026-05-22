@@ -1,0 +1,18 @@
+apiVersion: v2
+name: hipcortex
+description: HipCortex AI Memory Engine — persistent causal memory for AI agents
+type: application
+version: 0.2.0
+appVersion: "0.2.0"
+home: https://github.com/farmountain/HipCortex
+sources:
+  - https://github.com/farmountain/HipCortex
+keywords:
+  - ai
+  - memory
+  - agents
+  - langchain
+  - llm
+maintainers:
+  - name: HipCortex Contributors
+    url: https://github.com/farmountain/HipCortex

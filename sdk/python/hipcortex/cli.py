@@ -429,6 +429,67 @@ def cmd_uninstall(args: argparse.Namespace) -> None:
             shutil.rmtree(mcp_dir)
             print(f"  ✓ Deleted {mcp_dir}")
 
+def cmd_backup(args: argparse.Namespace) -> None:
+    """Export all memory records to a JSON backup file."""
+    url = args.url or os.environ.get("HIPCORTEX_URL", DEFAULT_URL)
+    output = args.output or f"hipcortex-backup-{int(__import__('time').time())}.json"
+
+    try:
+        import urllib.request
+        export_url = f"{url}/memory/export"
+        if args.actor:
+            export_url += f"?actor={args.actor}"
+        with urllib.request.urlopen(export_url, timeout=30) as r:
+            data = r.read().decode("utf-8")
+        with open(output, "w", encoding="utf-8") as f:
+            f.write(data)
+        import json
+        records = json.loads(data).get("records", [])
+        print(f"✓ Backed up {len(records)} records to {output}")
+    except Exception as e:
+        print(f"✗ Backup failed: {e}", file=__import__('sys').stderr)
+        __import__('sys').exit(1)
+
+
+def cmd_restore(args: argparse.Namespace) -> None:
+    """Restore memory records from a backup file."""
+    url = args.url or os.environ.get("HIPCORTEX_URL", DEFAULT_URL)
+    if not __import__('os').path.exists(args.file):
+        print(f"✗ File not found: {args.file}", file=__import__('sys').stderr)
+        __import__('sys').exit(1)
+
+    import json, urllib.request, urllib.error
+    with open(args.file, "r", encoding="utf-8") as f:
+        backup = json.load(f)
+    records = backup.get("records", [])
+    if not records:
+        print("No records to restore.")
+        return
+
+    bulk_payload = json.dumps({"records": [
+        {"actor": r["actor"], "action": r["action"], "target": r["target"],
+         "record_type": r.get("record_type", "Temporal"),
+         "metadata": r.get("metadata", {})}
+        for r in records
+    ]}).encode("utf-8")
+
+    req = urllib.request.Request(
+        f"{url}/memory/bulk",
+        data=bulk_payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            result = json.loads(r.read().decode("utf-8"))
+        print(f"✓ Restored {result.get('inserted', 0)} records from {args.file}")
+        if result.get("failed", 0):
+            print(f"  {result['failed']} failed: {result.get('errors', [])[:3]}")
+    except Exception as e:
+        print(f"✗ Restore failed: {e}", file=__import__('sys').stderr)
+        __import__('sys').exit(1)
+
+
 # ─── Argument parser ──────────────────────────────────────────────────────────
 
 def build_parser() -> argparse.ArgumentParser:
@@ -456,6 +517,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_uninstall = sub.add_parser("uninstall", help="Remove HipCortex configuration")
     p_uninstall.add_argument("--purge", action="store_true", help="Also delete downloaded binary and data")
 
+    # backup
+    p_backup = sub.add_parser("backup", help="Export memory records to JSON file")
+    p_backup.add_argument("--url", help="Server URL")
+    p_backup.add_argument("--output", "-o", help="Output file path")
+    p_backup.add_argument("--actor", help="Filter by actor (optional)")
+
+    # restore
+    p_restore = sub.add_parser("restore", help="Restore memory records from backup file")
+    p_restore.add_argument("file", help="Backup file path (.json)")
+    p_restore.add_argument("--url", help="Server URL")
+
     return parser
 
 
@@ -471,6 +543,10 @@ def main() -> None:
         cmd_status(args)
     elif args.command == "uninstall":
         cmd_uninstall(args)
+    elif args.command == "backup":
+        cmd_backup(args)
+    elif args.command == "restore":
+        cmd_restore(args)
     else:
         parser.print_help()
         sys.exit(1)
