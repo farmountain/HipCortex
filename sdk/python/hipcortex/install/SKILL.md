@@ -38,8 +38,26 @@ GET http://localhost:3030/stats
 
 When the user types `/hipcortex remember <text>` — call POST /memory/add with actor=current-project-name.
 When the user types `/hipcortex recall <query>` — call GET /memory/search-flat?query=<query>.
+When the user types `/hipcortex latest <topic>` — call GET /memory/latest?actor=<project>&action=<topic> to get the most recent fact.
+When the user types `/hipcortex update <id> <corrected text>` — call PATCH /memory/update/<id> with {"target": "<corrected text>"} to fix a wrong memory.
 When the user types `/hipcortex forget <actor>` — call DELETE /memory/forget/<actor>.
 When the user types `/hipcortex stats` — call GET /stats and display the result.
+
+## Correction workflow
+
+When the user says "that's wrong, it should be X" about a previously stored memory:
+1. Search for the wrong memory: GET /memory/search-flat?query=<topic>
+2. Get the record id from the result
+3. Update it: PATCH /memory/update/<id> {"target": "<correct text>", "confidence": 1.0}
+4. Confirm: "✓ Memory corrected (version N)"
+
+## Confidence scoring
+
+When storing uncertain or inferred information, include confidence:
+POST /memory/add {"confidence": 0.6, "source": "inferred", ...}
+When storing verified user-provided facts: confidence=1.0 (default)
+When storing LLM-generated inferences: confidence=0.7
+When storing speculation: confidence=0.3
 
 ## Auto-memory mode
 
