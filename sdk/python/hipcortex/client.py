@@ -32,6 +32,8 @@ class HipCortexClient:
         target: str,
         record_type: str = "Temporal",
         metadata: Optional[Dict[str, Any]] = None,
+        tags: Optional[List[str]] = None,
+        priority: str = "normal",  # "pinned"|"high"|"normal"|"low"
     ) -> Dict[str, Any]:
         """Store a memory record.
 
@@ -44,6 +46,10 @@ class HipCortexClient:
             "record_type": record_type,
             "metadata": metadata or {},
         }
+        if tags:
+            payload["tags"] = tags
+        if priority != "normal":
+            payload["priority"] = priority
         resp = self._session.post(
             f"{self.base_url}/memory/add", json=payload, timeout=self.timeout
         )
@@ -56,6 +62,8 @@ class HipCortexClient:
         action: Optional[str] = None,
         record_type: Optional[str] = None,
         limit: int = 100,
+        tags: Optional[List[str]] = None,    # filter by tags (any match)
+        as_of: Optional[str] = None,         # ISO 8601 timestamp for time-travel query
     ) -> List[Dict[str, Any]]:
         """Query memory records. Returns a list of record dicts."""
         params: Dict[str, Any] = {"limit": limit}
@@ -65,6 +73,10 @@ class HipCortexClient:
             params["action"] = action
         if record_type is not None:
             params["record_type"] = record_type
+        if tags is not None:
+            params["tags"] = ",".join(tags)
+        if as_of is not None:
+            params["as_of"] = as_of
         resp = self._session.get(
             f"{self.base_url}/memory/query", params=params, timeout=self.timeout
         )
@@ -170,6 +182,39 @@ class HipCortexClient:
         self, session_id: str, limit: int = 50
     ) -> List[Dict[str, Any]]:
         return self.query_memory(actor=session_id, limit=limit)
+
+    def create_node(self, label: str, properties: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+        """Create a symbolic knowledge graph node."""
+        resp = self._session.post(
+            f"{self.base_url}/graph/node",
+            json={"label": label, "properties": properties or {}},
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def create_edge(self, from_id: str, to_id: str, relation: str) -> Dict[str, Any]:
+        """Create a relationship edge in the knowledge graph."""
+        resp = self._session.post(
+            f"{self.base_url}/graph/edge",
+            json={"from_id": from_id, "to_id": to_id, "relation": relation},
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def consolidate(self, actor: Optional[str] = None, threshold: float = 0.8, dry_run: bool = True) -> Dict[str, Any]:
+        """Find near-duplicate memories and optionally merge them."""
+        params: Dict[str, Any] = {"threshold": threshold, "dry_run": dry_run}
+        if actor is not None:
+            params["actor"] = actor
+        resp = self._session.post(
+            f"{self.base_url}/memory/consolidate",
+            params=params,
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json()
 
     def ping_latency_ms(self) -> float:
         """Return round-trip latency to /health in milliseconds."""

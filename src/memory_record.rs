@@ -48,6 +48,13 @@ pub struct MemoryRecord {
     /// Version 0 = original write.
     #[serde(default)]
     pub version: u32,
+    /// Tags for categorization and RAG filtering (e.g. ["bug", "architecture", "decision"])
+    #[serde(default)]
+    pub tags: Vec<String>,
+    /// Memory priority: "pinned" bypasses decay and always appears in search.
+    /// Values: "pinned" | "high" | "normal" | "low". Default "normal".
+    #[serde(default = "default_priority")]
+    pub priority: String,
 }
 
 fn default_relevance() -> f64 {
@@ -56,6 +63,10 @@ fn default_relevance() -> f64 {
 
 fn default_confidence() -> f32 {
     1.0
+}
+
+fn default_priority() -> String {
+    "normal".to_string()
 }
 
 impl MemoryRecord {
@@ -84,6 +95,8 @@ impl MemoryRecord {
             confidence: 1.0,
             source: None,
             version: 0,
+            tags: Vec::new(),
+            priority: "normal".to_string(),
         };
         let hash = rec.compute_hash();
         rec.integrity = Some(hash.clone());

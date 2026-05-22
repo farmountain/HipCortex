@@ -59,6 +59,45 @@ When storing verified user-provided facts: confidence=1.0 (default)
 When storing LLM-generated inferences: confidence=0.7
 When storing speculation: confidence=0.3
 
+## Tags and priority
+
+When storing memories, add tags for RAG filtering:
+```
+POST /memory/add {"tags": ["architecture", "decision"], "priority": "normal", ...}
+```
+
+Priority values:
+- "pinned" — always returned in search, bypass decay. Use for safety constraints, hard rules.
+- "high" — weighted higher in results
+- "normal" — default
+- "low" — fades faster
+
+Example: store an allergy constraint that must never be forgotten:
+POST /memory/add {"priority": "pinned", "confidence": 1.0, "action": "constraint", "target": "User is allergic to penicillin"}
+
+## Knowledge graph
+
+Write relationships to the symbolic knowledge graph:
+```
+POST /graph/node {"label": "Alice", "properties": {"role": "CEO"}}
+POST /graph/edge {"from_id": "<alice-uuid>", "to_id": "<project-uuid>", "relation": "MANAGES"}
+GET /graph  → view full graph
+```
+
+## Time-travel queries
+
+Query memory state at a past timestamp:
+GET /memory/query?as_of=2026-01-15T00:00:00Z&actor=alice
+
+Useful for auditing: "what did the agent know about user alice on January 15th?"
+
+## Deduplication
+
+Find near-duplicate memories:
+POST /memory/consolidate?actor=my-project&threshold=0.8&dry_run=true
+→ Returns pairs of similar records with "keep" and "drop" IDs
+→ Use GDPR forget to remove duplicates: DELETE /memory/forget/<actor> for specific cleanup
+
 ## Auto-memory mode
 
 If the user says "remember this" at the end of any message, automatically store a summary of the conversation turn in HipCortex before responding.

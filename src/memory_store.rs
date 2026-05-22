@@ -198,6 +198,16 @@ impl<B: MemoryBackend> MemoryStore<B> {
         }
     }
 
+    /// Find records that contain ANY of the given tags.
+    pub fn find_by_tags(&self, tags: &[&str]) -> Vec<&MemoryRecord> {
+        if tags.is_empty() {
+            return Vec::new();
+        }
+        self.records.iter()
+            .filter(|r| tags.iter().any(|t| r.tags.contains(&t.to_string())))
+            .collect()
+    }
+
     /// Semantic search: rank records by cosine similarity against `query_embedding`
     /// if they carry a `metadata.embedding` float array, otherwise fall back to
     /// keyword matching against actor + action + target.
@@ -231,8 +241,18 @@ impl<B: MemoryBackend> MemoryStore<B> {
             .filter(|(_, s)| *s > 0.0)
             .collect();
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        scored.truncate(limit);
-        scored
+
+        // Pinned records always appear first, regardless of score
+        let mut pinned: Vec<(&MemoryRecord, f64)> = self.records.iter()
+            .filter(|r| r.priority == "pinned")
+            .map(|r| (r, 2.0f64))  // score 2.0 ensures they sort first
+            .collect();
+        // Remove duplicates that may already be in scored
+        let scored_ids: std::collections::HashSet<uuid::Uuid> = scored.iter().map(|(r, _)| r.id).collect();
+        pinned.retain(|(r, _)| !scored_ids.contains(&r.id));
+        pinned.extend(scored);
+        pinned.truncate(limit);
+        pinned
     }
 
     /// GDPR right-to-forget: remove all records for `actor`, rewrite the backend
@@ -358,6 +378,19 @@ impl<B: MemoryBackend> MemoryStore<B> {
             .collect();
 
         deduplicated.into_iter().take(limit).collect()
+    }
+
+    /// Verify audit log Merkle chain integrity. Returns (intact, entry_count).
+    pub fn audit_verify(&self) -> anyhow::Result<(bool, usize)> {
+        let entries = self.audit.export()?;
+        let count = entries.len();
+        let intact = self.audit.verify()?;
+        Ok((intact, count))
+    }
+
+    /// Export all audit log entries.
+    pub fn audit_export(&self) -> anyhow::Result<Vec<crate::audit_log::AuditEntry>> {
+        self.audit.export()
     }
 
     pub fn clear(&mut self) {
