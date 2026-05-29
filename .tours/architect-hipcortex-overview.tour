@@ -1,0 +1,92 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "HipCortex Architecture Overview",
+  "description": "What we built: persistent causal memory engine for AI agents. Rust binary, 30+ REST endpoints, 6 SDK surfaces, 15+ agent integrations.",
+  "ref": "claude/pedantic-edison-28b84c",
+  "steps": [
+    {
+      "directory": "src",
+      "title": "Core: Rust Memory Engine",
+      "description": "Everything starts here. The Rust crate is the production-grade memory engine — 4MB binary, zero external deps, compiles to Linux/macOS/Windows/ARM64. No Python runtime required for the server. src/lib.rs registers every module; src/web_server.rs wires all REST endpoints."
+    },
+    {
+      "file": "src/memory_record.rs",
+      "line": 16,
+      "title": "MemoryRecord — the atom",
+      "description": "Every piece of memory is a MemoryRecord. Key fields: actor (who), action (verb), target (content), plus confidence [0-1], source (writer), version (update counter), priority (pinned/high/normal/low), tags[], ttl_seconds, expires_at. Pinned records bypass decay and always surface in search. SHA-256 integrity hash prevents tampering."
+    },
+    {
+      "file": "src/memory_store.rs",
+      "line": 215,
+      "title": "search_semantic — priority-aware retrieval",
+      "description": "The core retrieval function. Pinned records are always prepended (score=2.0) before scored results — safety constraints never get buried by recency. Falls back from cosine similarity to keyword matching when embeddings aren't stored. find_by_tags() enables RAG-style filtering."
+    },
+    {
+      "file": "src/web_server.rs",
+      "line": 241,
+      "title": "IngestRequest — zero-config entry point",
+      "description": "POST /memory/ingest is the killer UX unlock. Pass any plain text; HipCortex auto-classifies record_type (Symbolic/Temporal/Reflexion/Procedural), priority, TTL, tags, actor, action via heuristic rules. No memory architecture knowledge required. client.remember('Alice decided PostgreSQL') just works."
+    },
+    {
+      "file": "src/web_server.rs",
+      "line": 1631,
+      "title": "classify_ingest — heuristic classifier",
+      "description": "Pure Rust function, no ML. Contains 7 helper functions: contains_any, contains_code_pattern, extract_actor, extract_action, extract_tags. Decision words → Symbolic+high. Constraint words (never/always/must) → Symbolic+pinned. Time references → Temporal+24h TTL. Conversation words → Reflexion+24h TTL. Tags auto-map domain keywords to labels."
+    },
+    {
+      "file": "src/audit_log.rs",
+      "line": 1,
+      "title": "Merkle-chained audit log",
+      "description": "Every write appends to an append-only file with SHA-256 Merkle chain. AuditLog::verify() detects any tampering. GET /audit/verify returns intact:bool. GET /audit/export returns full chain for HIPAA Article 30 / MiFID II compliance. GDPR forget creates an audit entry before purging. Regulatory hold (POST /regulatory/hold) blocks GDPR forget entirely."
+    },
+    {
+      "directory": "sdk/mcp",
+      "title": "MCP Server — coding agent integration",
+      "description": "sdk/mcp/server.py is the Model Context Protocol server. JSON-RPC 2.0 over stdio. Exposes 4 tools: add_memory, search_memory, forget_actor, get_stats. One curl install: curl -fsSL .../install.sh | bash. Auto-configures Cursor (.cursor/mcp.json), Claude Code (~/.claude/settings.json mcpServers), Windsurf, VS Code. SDK also has hc-remember/hc-recall shell functions for Aider/Codex CLI."
+    },
+    {
+      "file": "sdk/mcp/server.py",
+      "line": 66,
+      "title": "MCP tool definitions",
+      "description": "4 tools with proper descriptions that LLMs understand: add_memory (store decisions/findings), search_memory (recall context before tasks), forget_actor (GDPR cleanup), get_stats (memory health). The description quality here directly affects how well Cursor/Claude Code use these tools autonomously."
+    },
+    {
+      "directory": "sdk/python/hipcortex",
+      "title": "Python SDK — 6 integration surfaces",
+      "description": "HipCortexClient (sync), AsyncHipCortexClient (httpx), HipCortexMemory/AsyncHipCortexMemory (LangChain), HipCortexChatStore (LlamaIndex), HipCortexAutoGenMemory (AutoGen 0.4 Memory protocol), HipCortexRemember/RecallTool (CrewAI). Plus client.remember() / client.recall() for zero-config usage."
+    },
+    {
+      "file": "sdk/python/hipcortex/client.py",
+      "line": 223,
+      "title": "client.remember() — simplest possible API",
+      "description": "One line to store anything. Wraps POST /memory/ingest. Returns the auto-classification result so callers can inspect what HipCortex decided. client.recall(query) returns plain strings (not JSON objects) via GET /memory/search-flat — designed for prompt injection without parsing. client.remember_and_recall() stores + retrieves related context in one round-trip."
+    },
+    {
+      "file": "sdk/python/hipcortex/install/SKILL.md",
+      "line": 1,
+      "title": "SKILL.md — Claude Code native integration",
+      "description": "This file teaches Claude Code how to use HipCortex without any MCP process. hipcortex install writes it to ~/.claude/skills/hipcortex/. Claude Code then understands /hipcortex remember/recall/latest/update/forget as native slash commands. Includes zero-config mode, correction workflow, confidence scoring, tags/priority, graph write, and time-travel query patterns."
+    },
+    {
+      "directory": "sdk/typescript",
+      "title": "TypeScript SDK — zero deps",
+      "description": "HipCortexClient in TypeScript. Native fetch, AbortController timeout, full type safety. Works in Node.js, Deno, Bun, browser. Includes Vercel AI SDK integration pattern in README. npm install hipcortex (published)."
+    },
+    {
+      "file": "deploy/helm/hipcortex/Chart.yaml",
+      "line": 1,
+      "title": "Kubernetes Helm chart",
+      "description": "Production-grade Helm chart: Deployment, Service, PVC, Secret (for API keys), liveness/readiness probes on /health. helm install hipcortex ./deploy/helm/hipcortex. For enterprise on-prem Kubernetes deployments (Siemens, industrial AI use cases)."
+    },
+    {
+      "file": "sdk/gradio/app.py",
+      "line": 1,
+      "title": "Gradio UI — non-developer access",
+      "description": "4-tab Gradio UI: Add Memory, Search, Stats+Export, GDPR Forget. Deploys to HuggingFace Spaces in 2 minutes (free tier). Set HIPCORTEX_URL secret to hipcortex.fly.dev. Unlocks 10M+ monthly HuggingFace users who can't use CLI or Python."
+    },
+    {
+      "title": "What integrates, what doesn't",
+      "description": "INTEGRATES TODAY: Claude Code (SKILL.md native), Cursor (MCP), Windsurf (MCP), VS Code (MCP), Continue.dev (context provider), LangChain sync+async, AutoGen 0.4, CrewAI, LlamaIndex, Flowise/Dify (OpenAPI import), n8n (via search-flat), Manus AI (?api_key= param), Replit (one-click template), Aider/Codex CLI (shell wrappers). NOT YET: GitHub Copilot Extension (different protocol, ~3 days work)."
+    }
+  ]
+}
