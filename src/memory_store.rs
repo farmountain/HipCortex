@@ -5,7 +5,7 @@ use std::path::Path;
 
 use crate::audit_log::AuditLog;
 use crate::memory_record::MemoryRecord;
-use crate::persistence::{FileBackend, MemoryBackend};
+use crate::persistence::{FileBackend, InMemoryBackend, MemoryBackend};
 #[cfg(feature = "rocksdb-backend")]
 use crate::rocksdb_backend::RocksDbBackend;
 use anyhow::Result;
@@ -87,6 +87,31 @@ impl MemoryStore<FileBackend> {
         };
         store.load()?;
         Ok(store)
+    }
+}
+
+/// Per-record error detail returned by bulk add operations.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct BulkAddError {
+    pub index: usize,
+    pub actor: String,
+    pub reason: String,
+}
+
+impl MemoryStore<InMemoryBackend> {
+    /// Create a zero-file-I/O store for testing and ephemeral use.
+    pub fn new_in_memory() -> Self {
+        let backend = InMemoryBackend::new();
+        Self {
+            backend,
+            records: Vec::new(),
+            audit: AuditLog::new_sink(),
+            buffer: VecDeque::new(),
+            batch_size: 1,
+            index_actor: IndexMap::new(),
+            index_action: IndexMap::new(),
+            index_target: IndexMap::new(),
+        }
     }
 }
 
@@ -208,22 +233,79 @@ impl<B: MemoryBackend> MemoryStore<B> {
             .collect()
     }
 
+    /// Find records matching any actor in `actors`. Returns empty vec for empty slice.
+    pub fn find_by_actors(&self, actors: &[&str]) -> Vec<&MemoryRecord> {
+        if actors.is_empty() { return Vec::new(); }
+        self.records.iter()
+            .filter(|r| actors.contains(&r.actor.as_str()))
+            .collect()
+    }
+
+    /// Set `status` on a record by UUID. Returns error if not found.
+    pub fn set_status(&mut self, id: uuid::Uuid, status: &str) -> Result<()> {
+        let idx = self.records.iter().position(|r| r.id == id)
+            .ok_or_else(|| anyhow::anyhow!("record not found: {}", id))?;
+        self.records[idx].status = status.to_string();
+        self.records[idx].integrity = Some(self.records[idx].compute_hash());
+        // Rewrite backend
+        self.backend.clear()?;
+        let snap = self.records.clone();
+        for rec in &snap { self.backend.append(rec)?; }
+        self.backend.flush()?;
+        Ok(())
+    }
+
+    /// Boost confidence by 0.10 (clamped to 1.0). Returns (before, after).
+    pub fn corroborate(&mut self, id: uuid::Uuid) -> Result<(f32, f32)> {
+        let idx = self.records.iter().position(|r| r.id == id)
+            .ok_or_else(|| anyhow::anyhow!("record not found: {}", id))?;
+        let before = self.records[idx].confidence;
+        let after = (before + 0.10).min(1.0);
+        self.records[idx].confidence = after;
+        self.records[idx].integrity = Some(self.records[idx].compute_hash());
+        self.backend.clear()?;
+        let snap = self.records.clone();
+        for rec in &snap { self.backend.append(rec)?; }
+        self.backend.flush()?;
+        Ok((before, after))
+    }
+
+    /// Reduce confidence by 0.15 (clamped to 0.0). Auto-quarantines if result < 0.30.
+    /// Returns (before, after, was_quarantined).
+    pub fn contradict(&mut self, id: uuid::Uuid) -> Result<(f32, f32, bool)> {
+        let idx = self.records.iter().position(|r| r.id == id)
+            .ok_or_else(|| anyhow::anyhow!("record not found: {}", id))?;
+        let before = self.records[idx].confidence;
+        let after = (before - 0.15).max(0.0);
+        self.records[idx].confidence = after;
+        let quarantined = after < 0.30;
+        if quarantined { self.records[idx].status = "quarantine".to_string(); }
+        self.records[idx].integrity = Some(self.records[idx].compute_hash());
+        self.backend.clear()?;
+        let snap = self.records.clone();
+        for rec in &snap { self.backend.append(rec)?; }
+        self.backend.flush()?;
+        Ok((before, after, quarantined))
+    }
+
     /// Semantic search: rank records by cosine similarity against `query_embedding`
     /// if they carry a `metadata.embedding` float array, otherwise fall back to
     /// keyword matching against actor + action + target.
+    /// Quarantined records are excluded unless `include_quarantined` is true.
     /// Returns up to `limit` records sorted by descending score.
     pub fn search_semantic(
         &self,
         query_embedding: Option<&[f64]>,
         query_text: &str,
         limit: usize,
+        include_quarantined: bool,
     ) -> Vec<(&MemoryRecord, f64)> {
         let mut scored: Vec<(&MemoryRecord, f64)> = self
             .records
             .iter()
+            .filter(|r| include_quarantined || r.status != "quarantine")
             .map(|rec| {
                 let score = if let Some(qe) = query_embedding {
-                    // Try cosine similarity against metadata.embedding
                     let doc_vec: Option<Vec<f64>> = rec
                         .metadata
                         .get("embedding")
@@ -242,12 +324,11 @@ impl<B: MemoryBackend> MemoryStore<B> {
             .collect();
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
-        // Pinned records always appear first, regardless of score
+        // Pinned active records always appear first, regardless of score
         let mut pinned: Vec<(&MemoryRecord, f64)> = self.records.iter()
-            .filter(|r| r.priority == "pinned")
-            .map(|r| (r, 2.0f64))  // score 2.0 ensures they sort first
+            .filter(|r| r.priority == "pinned" && (include_quarantined || r.status != "quarantine"))
+            .map(|r| (r, 2.0f64))
             .collect();
-        // Remove duplicates that may already be in scored
         let scored_ids: std::collections::HashSet<uuid::Uuid> = scored.iter().map(|(r, _)| r.id).collect();
         pinned.retain(|(r, _)| !scored_ids.contains(&r.id));
         pinned.extend(scored);

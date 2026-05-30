@@ -284,6 +284,73 @@ class HipCortexClient:
         resp.raise_for_status()
         return resp.json().get("memories", [])
 
+    def recall_with_metadata(
+        self,
+        query: str,
+        actor: Optional[str] = None,
+        limit: int = 10,
+        min_confidence: Optional[float] = None,
+    ) -> List[Dict[str, Any]]:
+        """Recall memories with full metadata (confidence, source, tags, priority, version).
+
+        Use when you need to inspect record quality, filter by confidence, or pass
+        source attribution to downstream logic.
+
+        Args:
+            query:          What to search for.
+            actor:          Optional actor filter (applied client-side).
+            limit:          Max results from server.
+            min_confidence: If set, drop records with confidence < this value.
+
+        Returns:
+            List of {"score": float, "record": {id, actor, action, target,
+            confidence, source, tags, priority, version, status, ...}} dicts.
+        """
+        payload: Dict[str, Any] = {"query": query, "limit": limit}
+        resp = self._session.post(
+            f"{self.base_url}/memory/search", json=payload, timeout=self.timeout
+        )
+        resp.raise_for_status()
+        results: List[Dict[str, Any]] = resp.json().get("results", [])
+        if actor is not None:
+            results = [r for r in results if r.get("record", {}).get("actor") == actor]
+        if min_confidence is not None:
+            results = [r for r in results
+                       if r.get("record", {}).get("confidence", 1.0) >= min_confidence]
+        return results
+
+    def prompt_context(
+        self,
+        query: str,
+        actor: Optional[str] = None,
+        limit: int = 10,
+        max_tokens: Optional[int] = None,
+        fmt: str = "markdown",
+    ) -> str:
+        """Return memory as a formatted context block ready to inject into an LLM prompt.
+
+        Args:
+            query:      What to retrieve.
+            actor:      Optional actor filter.
+            limit:      Max memories to include.
+            max_tokens: Truncate output to this many tokens (1 token ≈ 4 chars).
+            fmt:        "markdown" (default) | "plain" | "xml"
+
+        Returns:
+            Formatted string, e.g.:
+            "Relevant memories:\\n- **[decided]** Use PostgreSQL ..."
+        """
+        payload: Dict[str, Any] = {"query": query, "limit": limit, "format": fmt}
+        if actor is not None:
+            payload["actor"] = actor
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        resp = self._session.post(
+            f"{self.base_url}/memory/context", json=payload, timeout=self.timeout
+        )
+        resp.raise_for_status()
+        return resp.json().get("context", "")
+
     def remember_and_recall(
         self,
         text: str,

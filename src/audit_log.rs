@@ -31,6 +31,11 @@ impl AuditLog {
         Ok(log)
     }
 
+    /// No-op audit log for in-memory/test use. append() is a no-op.
+    pub fn new_sink() -> Self {
+        Self { path: String::new(), last_hash: None }
+    }
+
     fn load(&mut self) -> anyhow::Result<()> {
         if !Path::new(&self.path).exists() {
             return Ok(());
@@ -49,6 +54,7 @@ impl AuditLog {
     }
 
     pub fn append(&mut self, actor: &str, action: &str, outcome: &str) -> anyhow::Result<()> {
+        if self.path.is_empty() { return Ok(()); }  // sink mode
         let timestamp = Utc::now();
         let prev = self.last_hash.clone();
         let mut hasher = Sha256::new();

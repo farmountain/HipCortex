@@ -126,6 +126,9 @@ pub struct SearchMemoryRequest {
     /// If set, truncate results so total target text fits within max_tokens.
     /// Rough estimate: 1 token ≈ 4 chars. Default: no limit.
     pub max_tokens: Option<usize>,
+    /// If true, include quarantined records in results. Default false.
+    #[serde(default)]
+    pub include_quarantined: Option<bool>,
 }
 
 #[cfg(feature = "web-server")]
@@ -171,7 +174,7 @@ pub struct BulkAddResponse {
     inserted: usize,
     failed: usize,
     record_ids: Vec<String>,
-    errors: Vec<String>,
+    errors: Vec<crate::memory_store::BulkAddError>,
 }
 
 /// PATCH /memory/update/:id — partial in-place update of a memory record
@@ -318,12 +321,17 @@ pub struct AddMemoryResponse {
 #[derive(Serialize, Deserialize)]
 pub struct QueryMemoryParams {
     actor: Option<String>,
+    /// Comma-separated actor list — returns records for ANY listed actor.
+    /// If set, the `actor` single-value param is ignored.
+    actors: Option<String>,
     action: Option<String>,
     record_type: Option<String>,
     limit: Option<usize>,
     tags:     Option<String>,    // comma-separated tags filter e.g. "bug,architecture"
     priority: Option<String>,    // filter by priority
     as_of:    Option<String>,    // ISO 8601 timestamp — return records with timestamp <= as_of
+    /// If "true", include quarantined records. Default: exclude quarantine.
+    include_quarantined: Option<String>,
 }
 
 #[cfg(feature = "web-server")]
@@ -693,6 +701,7 @@ async fn handle_search_memory<B: MemoryBackend + Send + Sync + 'static>(
                 resolved_embedding.as_deref(),
                 &req.query,
                 limit,
+                req.include_quarantined.unwrap_or(false),
             );
             let response_results = results
                 .into_iter()
@@ -940,7 +949,7 @@ async fn handle_bulk_add<B: MemoryBackend + Send + Sync + 'static>(
     Json(req): Json<BulkAddRequest>,
 ) -> Json<BulkAddResponse> {
     let mut record_ids: Vec<String> = Vec::new();
-    let mut errors: Vec<String> = Vec::new();
+    let mut errors: Vec<crate::memory_store::BulkAddError> = Vec::new();
 
     match store.lock() {
         Err(e) => Json(BulkAddResponse {
@@ -948,10 +957,13 @@ async fn handle_bulk_add<B: MemoryBackend + Send + Sync + 'static>(
             inserted: 0,
             failed: req.records.len(),
             record_ids: vec![],
-            errors: vec![format!("Lock error: {}", e)],
+            errors: vec![crate::memory_store::BulkAddError {
+                index: 0, actor: String::new(), reason: format!("Lock error: {}", e),
+            }],
         }),
         Ok(mut ms) => {
-            for r in req.records {
+            for (idx, r) in req.records.into_iter().enumerate() {
+                let actor_name = r.actor.clone();
                 let record_type = match r.record_type.as_deref() {
                     Some("Symbolic")   => MemoryType::Symbolic,
                     Some("Procedural") => MemoryType::Procedural,
@@ -969,7 +981,9 @@ async fn handle_bulk_add<B: MemoryBackend + Send + Sync + 'static>(
                 let id = record.id.to_string();
                 match ms.add(record) {
                     Ok(_)  => record_ids.push(id),
-                    Err(e) => errors.push(e.to_string()),
+                    Err(e) => errors.push(crate::memory_store::BulkAddError {
+                        index: idx, actor: actor_name, reason: e.to_string(),
+                    }),
                 }
             }
             Json(BulkAddResponse {
@@ -1089,7 +1103,7 @@ async fn handle_search_flat<B: MemoryBackend + Send + Sync + 'static>(
 
     match store.lock() {
         Ok(ms) => {
-            let results = ms.search_semantic(None, &query, limit);
+            let results = ms.search_semantic(None, &query, limit, false);
             let memories: Vec<String> = results
                 .into_iter()
                 .filter(|(r, _)| {
@@ -1577,6 +1591,29 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         })
     };
 
+    let quarantine_route = {
+        let store = memory_store.clone();
+        post(move |Path(id): Path<String>| { let s = store.clone(); async move { handle_quarantine_memory(s, id).await } })
+    };
+    let restore_route = {
+        let store = memory_store.clone();
+        post(move |Path(id): Path<String>| { let s = store.clone(); async move { handle_restore_memory(s, id).await } })
+    };
+    let corroborate_route = {
+        let store = memory_store.clone();
+        post(move |Path(id): Path<String>| { let s = store.clone(); async move { handle_corroborate(s, id).await } })
+    };
+    let contradict_route = {
+        let store = memory_store.clone();
+        post(move |Path(id): Path<String>| { let s = store.clone(); async move { handle_contradict(s, id).await } })
+    };
+    let context_route = {
+        let store = memory_store.clone();
+        post(move |Json(req): Json<ContextRequest>| async move {
+            handle_memory_context(store, Json(req)).await
+        })
+    };
+
     let metrics_route = {
         let store = memory_store.clone();
         get(move || { let s = store.clone(); async move { handle_prometheus_metrics(s).await } })
@@ -1609,6 +1646,11 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/graph/node/:id", delete_node_route)
         .route("/memory/consolidate", consolidate_route)
         .route("/memory/ingest", ingest_route)
+        .route("/memory/quarantine/:id", quarantine_route)
+        .route("/memory/restore/:id", restore_route)
+        .route("/memory/corroborate/:id", corroborate_route)
+        .route("/memory/contradict/:id", contradict_route)
+        .route("/memory/context", context_route)
         .route("/metrics", metrics_route)
         .route("/stats", stats_route)
         .route("/tier", get(handle_tier))
@@ -2025,8 +2067,17 @@ async fn handle_query_memory<B: MemoryBackend + Send + Sync + 'static>(
             let mut filtered_records = all_records.iter().collect::<Vec<_>>();
 
             // Apply filters
-            if let Some(actor) = &params.actor {
+            // Multi-actor filter takes precedence over single actor
+            if let Some(actors_str) = &params.actors {
+                let actor_list: Vec<&str> = actors_str.split(',').map(|a| a.trim()).collect();
+                filtered_records.retain(|r| actor_list.contains(&r.actor.as_str()));
+            } else if let Some(actor) = &params.actor {
                 filtered_records.retain(|r| r.actor == *actor);
+            }
+            // Exclude quarantined unless explicitly requested
+            let include_quarantined = params.include_quarantined.as_deref() == Some("true");
+            if !include_quarantined {
+                filtered_records.retain(|r| r.status != "quarantine");
             }
             if let Some(action) = &params.action {
                 filtered_records.retain(|r| r.action == *action);
@@ -2215,6 +2266,179 @@ async fn handle_list_webhooks() -> Json<serde_json::Value> {
     let hooks = WEBHOOKS.lock().map(|h| h.clone()).unwrap_or_default();
     let total = hooks.len();
     Json(serde_json::json!({"webhooks": hooks, "total": total}))
+}
+
+// ── G5: quarantine / restore ──────────────────────────────────────────────────
+
+/// POST /memory/quarantine/:id — move a record to quarantine status.
+/// Quarantined records are excluded from search/query by default.
+#[cfg(feature = "web-server")]
+async fn handle_quarantine_memory<B: MemoryBackend + Send + Sync + 'static>(
+    store: Arc<Mutex<MemoryStore<B>>>,
+    id_str: String,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let id = match uuid::Uuid::parse_str(&id_str) {
+        Ok(u) => u,
+        Err(_) => return Err((StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"success": false, "error": "invalid UUID"})))),
+    };
+    match store.lock() {
+        Ok(mut ms) => match ms.set_status(id, "quarantine") {
+            Ok(_) => Ok(Json(serde_json::json!({"success": true, "id": id_str, "status": "quarantine"}))),
+            Err(e) => Err((StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"success": false, "error": e.to_string()})))),
+        },
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"success": false, "error": format!("Lock error: {}", e)})))),
+    }
+}
+
+/// POST /memory/restore/:id — restore a quarantined record to active status.
+#[cfg(feature = "web-server")]
+async fn handle_restore_memory<B: MemoryBackend + Send + Sync + 'static>(
+    store: Arc<Mutex<MemoryStore<B>>>,
+    id_str: String,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let id = match uuid::Uuid::parse_str(&id_str) {
+        Ok(u) => u,
+        Err(_) => return Err((StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"success": false, "error": "invalid UUID"})))),
+    };
+    match store.lock() {
+        Ok(mut ms) => match ms.set_status(id, "active") {
+            Ok(_) => Ok(Json(serde_json::json!({"success": true, "id": id_str, "status": "active"}))),
+            Err(e) => Err((StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"success": false, "error": e.to_string()})))),
+        },
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"success": false, "error": format!("Lock error: {}", e)})))),
+    }
+}
+
+// ── G8: corroborate / contradict ─────────────────────────────────────────────
+
+/// POST /memory/corroborate/:id — increase confidence by 0.10 (max 1.0).
+#[cfg(feature = "web-server")]
+async fn handle_corroborate<B: MemoryBackend + Send + Sync + 'static>(
+    store: Arc<Mutex<MemoryStore<B>>>,
+    id_str: String,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let id = match uuid::Uuid::parse_str(&id_str) {
+        Ok(u) => u,
+        Err(_) => return Err((StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"success": false, "error": "invalid UUID"})))),
+    };
+    match store.lock() {
+        Ok(mut ms) => match ms.corroborate(id) {
+            Ok((before, after)) => Ok(Json(serde_json::json!({
+                "success": true, "id": id_str,
+                "confidence_before": before, "confidence_after": after
+            }))),
+            Err(e) => Err((StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"success": false, "error": e.to_string()})))),
+        },
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"success": false, "error": format!("Lock error: {}", e)})))),
+    }
+}
+
+/// POST /memory/contradict/:id — decrease confidence by 0.15. Auto-quarantines if < 0.30.
+#[cfg(feature = "web-server")]
+async fn handle_contradict<B: MemoryBackend + Send + Sync + 'static>(
+    store: Arc<Mutex<MemoryStore<B>>>,
+    id_str: String,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let id = match uuid::Uuid::parse_str(&id_str) {
+        Ok(u) => u,
+        Err(_) => return Err((StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"success": false, "error": "invalid UUID"})))),
+    };
+    match store.lock() {
+        Ok(mut ms) => match ms.contradict(id) {
+            Ok((before, after, quarantined)) => Ok(Json(serde_json::json!({
+                "success": true, "id": id_str,
+                "confidence_before": before, "confidence_after": after,
+                "quarantined": quarantined
+            }))),
+            Err(e) => Err((StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"success": false, "error": e.to_string()})))),
+        },
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"success": false, "error": format!("Lock error: {}", e)})))),
+    }
+}
+
+// ── G13: /memory/context — formatted LLM prompt context ──────────────────────
+
+#[cfg(feature = "web-server")]
+#[derive(serde::Deserialize)]
+struct ContextRequest {
+    query: String,
+    actor: Option<String>,
+    limit: Option<usize>,
+    max_tokens: Option<usize>,
+    format: Option<String>,  // "markdown" (default) | "plain" | "xml"
+}
+
+#[cfg(feature = "web-server")]
+#[derive(serde::Serialize)]
+struct ContextResponse {
+    context: String,
+    record_count: usize,
+    estimated_tokens: usize,
+}
+
+/// POST /memory/context — search memory and return a formatted context block
+/// ready to inject into an LLM prompt. Zero LLM calls — pure formatting.
+#[cfg(feature = "web-server")]
+async fn handle_memory_context<B: MemoryBackend + Send + Sync + 'static>(
+    store: Arc<Mutex<MemoryStore<B>>>,
+    Json(req): Json<ContextRequest>,
+) -> Result<Json<ContextResponse>, (StatusCode, Json<ContextResponse>)> {
+    let limit = req.limit.unwrap_or(10).min(50);
+    let now_ts = chrono::Utc::now().timestamp();
+    match store.lock() {
+        Ok(ms) => {
+            let mut results = ms.search_semantic(None, &req.query, limit, false);
+            // Apply actor filter if provided
+            if let Some(actor) = &req.actor {
+                results.retain(|(r, _)| &r.actor == actor);
+            }
+            // Exclude expired
+            results.retain(|(r, _)| r.expires_at.map_or(true, |exp| exp > now_ts));
+            let record_count = results.len();
+            let fmt = req.format.as_deref().unwrap_or("markdown");
+            let lines: Vec<String> = results.iter().map(|(r, score)| {
+                match fmt {
+                    "xml" => format!("  <memory score=\"{:.2}\" confidence=\"{:.2}\" source=\"{}\">[{}] {}</memory>",
+                        score, r.confidence, r.source.as_deref().unwrap_or("unknown"), r.action, r.target),
+                    "plain" => format!("- [{}] {} (confidence: {:.0}%)",
+                        r.action, r.target, r.confidence * 100.0),
+                    _ => format!("- **[{}]** {} *(confidence: {:.0}%, source: {})*",
+                        r.action, r.target, r.confidence * 100.0,
+                        r.source.as_deref().unwrap_or("unknown")),
+                }
+            }).collect();
+            let context = if lines.is_empty() {
+                "No relevant memories found.".to_string()
+            } else {
+                match fmt {
+                    "xml" => format!("<memories>\n{}\n</memories>", lines.join("\n")),
+                    _ => format!("Relevant memories:\n{}", lines.join("\n")),
+                }
+            };
+            // Truncate by max_tokens if requested (1 token ≈ 4 chars)
+            let context = if let Some(max_tok) = req.max_tokens {
+                let max_chars = max_tok * 4;
+                if context.len() > max_chars { context[..max_chars].to_string() } else { context }
+            } else { context };
+            let estimated_tokens = context.len() / 4;
+            Ok(Json(ContextResponse { context, record_count, estimated_tokens }))
+        },
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ContextResponse {
+            context: format!("Error: {}", e), record_count: 0, estimated_tokens: 0,
+        }))),
+    }
 }
 
 /// GET /worldmodel/status — world model availability and state summary.

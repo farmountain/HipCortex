@@ -89,6 +89,7 @@ pub mod self_model;
 pub mod world_model_enhanced;
 #[path = "modules/coherence/mod.rs"]
 pub mod coherence;
+pub use persistence::InMemoryBackend;
 #[cfg(feature = "async-store")]
 pub use persistence::{AsyncFileBackend, AsyncMemoryBackend};
 #[cfg(feature = "grpc-server")]

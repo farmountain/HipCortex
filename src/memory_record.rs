@@ -55,6 +55,14 @@ pub struct MemoryRecord {
     /// Values: "pinned" | "high" | "normal" | "low". Default "normal".
     #[serde(default = "default_priority")]
     pub priority: String,
+    /// Memory status: "active" | "quarantine" | "archived". Default "active".
+    /// Quarantined records are excluded from search/query unless include_quarantined=true.
+    #[serde(default = "default_status")]
+    pub status: String,
+}
+
+fn default_status() -> String {
+    "active".to_string()
 }
 
 fn default_relevance() -> f64 {
@@ -97,6 +105,7 @@ impl MemoryRecord {
             version: 0,
             tags: Vec::new(),
             priority: "normal".to_string(),
+            status: "active".to_string(),
         };
         let hash = rec.compute_hash();
         rec.integrity = Some(hash.clone());

@@ -515,3 +515,33 @@ impl AsyncMemoryBackend for AsyncFileBackend {
         Ok(())
     }
 }
+
+/// In-memory backend for testing and ephemeral use. Zero file I/O.
+pub struct InMemoryBackend {
+    records: Vec<MemoryRecord>,
+}
+
+impl InMemoryBackend {
+    pub fn new() -> Self {
+        Self { records: Vec::new() }
+    }
+}
+
+impl Default for InMemoryBackend {
+    fn default() -> Self { Self::new() }
+}
+
+impl MemoryBackend for InMemoryBackend {
+    fn load(&mut self) -> Result<Vec<MemoryRecord>> {
+        Ok(self.records.clone())
+    }
+    fn append(&mut self, record: &MemoryRecord) -> Result<()> {
+        self.records.push(record.clone());
+        Ok(())
+    }
+    fn flush(&mut self) -> Result<()> { Ok(()) }
+    fn clear(&mut self) -> Result<()> {
+        self.records.clear();
+        Ok(())
+    }
+}
