@@ -239,73 +239,389 @@ def _install_mcp_server() -> None:
     if src.exists():
         shutil.copy2(str(src), str(mcp_dir / "server.py"))
 
+# ─── Windsurf MCP registration ────────────────────────────────────────────────
+
+def _install_windsurf(server_url: str) -> bool:
+    """Write/update Windsurf MCP config."""
+    if platform.system() == "Windows":
+        base = Path(os.environ.get("APPDATA", Path.home())) / "Codeium" / "windsurf"
+    elif platform.system() == "Darwin":
+        base = Path.home() / "Library" / "Application Support" / "Codeium" / "windsurf"
+    else:
+        base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "Codeium" / "windsurf"
+
+    if not base.exists():
+        return False
+
+    mcp_path = base / "mcp_settings.json"
+    mcp_path.parent.mkdir(parents=True, exist_ok=True)
+    existing: dict = {}
+    if mcp_path.exists():
+        try:
+            existing = json.loads(mcp_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            existing = {}
+
+    mcp_server_py = str(Path.home() / ".hipcortex-mcp" / "server.py")
+    existing.setdefault("mcpServers", {})["hipcortex"] = {
+        "command": sys.executable,
+        "args": [mcp_server_py],
+        "env": {"HIPCORTEX_URL": server_url},
+    }
+    mcp_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+    return True
+
+
+def _install_mcp_generic(server_url: str, mcp_path: Path) -> bool:
+    """Write MCP config to an arbitrary path (Cline, RooCode, Kilo Code, etc.)."""
+    mcp_path.parent.mkdir(parents=True, exist_ok=True)
+    existing: dict = {}
+    if mcp_path.exists():
+        try:
+            existing = json.loads(mcp_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            existing = {}
+    mcp_server_py = str(Path.home() / ".hipcortex-mcp" / "server.py")
+    existing.setdefault("mcpServers", {})["hipcortex"] = {
+        "command": sys.executable,
+        "args": [mcp_server_py],
+        "env": {"HIPCORTEX_URL": server_url},
+    }
+    mcp_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+    return True
+
+
+# ─── Interactive multi-select wizard ─────────────────────────────────────────
+
+_CYAN  = "\033[96m"
+_GRAY  = "\033[90m"
+_BOLD  = "\033[1m"
+_DIM   = "\033[2m"
+_GREEN = "\033[92m"
+_RESET = "\033[0m"
+_CLEAR_LINE = "\033[2K\r"
+
+_SPLASH = f"""{_CYAN}{_BOLD}
+  ██╗  ██╗██╗██████╗  ██████╗ ██████╗ ██████╗ ████████╗███████╗██╗  ██╗
+  ██║  ██║██║██╔══██╗██╔════╝██╔═══██╗██╔══██╗╚══██╔══╝██╔════╝╚██╗██╔╝
+  ███████║██║██████╔╝██║     ██║   ██║██████╔╝   ██║   █████╗   ╚███╔╝
+  ██╔══██║██║██╔═══╝ ██║     ██║   ██║██╔══██╗   ██║   ██╔══╝   ██╔██╗
+  ██║  ██║██║██║     ╚██████╗╚██████╔╝██║  ██║   ██║   ███████╗██╔╝ ██╗
+  ╚═╝  ╚═╝╚═╝╚═╝      ╚═════╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝
+{_RESET}  Persistent causal memory for AI agents · {_CYAN}hipcortex.fly.dev{_RESET}
+"""
+
+# Agent registry — id, display name, short description, type, install fn / guide URL
+# type: "native" | "mcp" | "guide"
+def _build_agent_registry(server_url: str, python_exe: str) -> list:
+    mcp_server_py = str(Path.home() / ".hipcortex-mcp" / "server.py")
+    mcp_entry = {"command": python_exe, "args": [mcp_server_py], "env": {"HIPCORTEX_URL": server_url}}
+
+    def mcp_project(name: str, rel_path: str):
+        p = Path.cwd() / rel_path
+        def fn():
+            return _install_mcp_generic(server_url, p), str(p)
+        return fn
+
+    return [
+        {
+            "id": "claude-code",
+            "name": "Claude Code",
+            "desc": "Anthropic · SKILL.md native, no MCP process",
+            "type": "native",
+            "fn": lambda: (_install_claude_code(server_url), "~/.claude/skills/hipcortex/"),
+        },
+        {
+            "id": "cursor",
+            "name": "Cursor",
+            "desc": "Anysphere · MCP tools in AI panel",
+            "type": "mcp",
+            "fn": lambda: (
+                _install_cursor(server_url, global_=False) or _install_cursor(server_url, global_=True),
+                ".cursor/mcp.json"
+            ),
+        },
+        {
+            "id": "windsurf",
+            "name": "Windsurf",
+            "desc": "Codeium · global MCP settings",
+            "type": "mcp",
+            "fn": lambda: (_install_windsurf(server_url), "~/.codeium/windsurf/mcp_settings.json"),
+        },
+        {
+            "id": "vscode",
+            "name": "VS Code",
+            "desc": "Microsoft · MCP via settings.json",
+            "type": "mcp",
+            "fn": lambda: (_install_vscode(server_url), "settings.json"),
+        },
+        {
+            "id": "cline",
+            "name": "Cline",
+            "desc": "saoudrizwan · .cline/mcp.json in project",
+            "type": "mcp",
+            "fn": lambda: (_install_mcp_generic(server_url, Path.cwd() / ".cline" / "mcp.json"), ".cline/mcp.json"),
+        },
+        {
+            "id": "roocode",
+            "name": "RooCode",
+            "desc": "RooVeterinary · .roo/mcp.json in project",
+            "type": "mcp",
+            "fn": lambda: (_install_mcp_generic(server_url, Path.cwd() / ".roo" / "mcp.json"), ".roo/mcp.json"),
+        },
+        {
+            "id": "continue",
+            "name": "Continue",
+            "desc": "continuedev · context provider + /remember /recall",
+            "type": "guide",
+            "guide": "https://github.com/farmountain/HipCortex/blob/main/sdk/continue/README.md",
+        },
+        {
+            "id": "copilot",
+            "name": "GitHub Copilot",
+            "desc": "GitHub · OpenAPI tool registration",
+            "type": "guide",
+            "guide": "https://github.com/farmountain/HipCortex#github-copilot",
+        },
+        {
+            "id": "codex",
+            "name": "OpenAI Codex CLI",
+            "desc": "OpenAI terminal agent · hc-remember shell wrapper",
+            "type": "guide",
+            "guide": "https://github.com/farmountain/HipCortex/blob/main/sdk/mcp/README.md#shell-integration",
+        },
+        {
+            "id": "aider",
+            "name": "Aider",
+            "desc": "paul-gauthier · hc-remember shell wrapper",
+            "type": "guide",
+            "guide": "https://github.com/farmountain/HipCortex/blob/main/sdk/mcp/README.md#shell-integration",
+        },
+        {
+            "id": "gemini",
+            "name": "Gemini CLI",
+            "desc": "Google · MCP server (gemini_mcp_config)",
+            "type": "guide",
+            "guide": "https://github.com/farmountain/HipCortex#gemini-cli",
+        },
+        {
+            "id": "amazonq",
+            "name": "Amazon Q Developer",
+            "desc": "AWS · MCP tool integration",
+            "type": "guide",
+            "guide": "https://github.com/farmountain/HipCortex#amazon-q",
+        },
+    ]
+
+
+def _getch() -> str:
+    """Read a single raw keypress. Returns: 'up' | 'down' | 'space' | 'enter' | 'quit'."""
+    if platform.system() == "Windows":
+        import msvcrt
+        ch = msvcrt.getch()
+        if ch in (b"\x00", b"\xe0"):
+            ch2 = msvcrt.getch()
+            return {"H": "up", "P": "down"}.get(chr(ch2[0]), "")
+        if ch == b"\r":
+            return "enter"
+        if ch == b" ":
+            return "space"
+        if ch in (b"q", b"Q", b"\x03"):
+            return "quit"
+        return ""
+    else:
+        import tty, termios
+        fd = sys.stdin.fileno()
+        old = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            ch = sys.stdin.read(1)
+            if ch == "\x1b":
+                ch2 = sys.stdin.read(1)
+                if ch2 == "[":
+                    ch3 = sys.stdin.read(1)
+                    return {"A": "up", "B": "down"}.get(ch3, "")
+                return ""
+            if ch in ("\r", "\n"):
+                return "enter"
+            if ch == " ":
+                return "space"
+            if ch in ("q", "Q", "\x03"):
+                return "quit"
+            return ""
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
+def _run_wizard(agents: list) -> list:
+    """Interactive multi-select. Returns list of selected agent dicts."""
+    selected = set()
+    cursor = 0
+    n = len(agents)
+
+    def render():
+        # Move cursor to start of list area
+        print(f"\033[{n + 3}A", end="")  # move up past list + header + footer
+        print(f"  {_BOLD}Select agents to configure:{_RESET} {_GRAY}(Space toggle · Enter confirm · q quit){_RESET}")
+        print()
+        for i, agent in enumerate(agents):
+            is_sel = i in selected
+            is_cur = i == cursor
+            bullet = f"{_CYAN}●{_RESET}" if is_sel else f"{_GRAY}○{_RESET}"
+            name = f"{_BOLD}{agent['name']}{_RESET}" if is_cur else agent["name"]
+            desc = f"{_DIM}{agent['desc']}{_RESET}"
+            tag = f" {_CYAN}[guide]{_RESET}" if agent["type"] == "guide" else ""
+            prefix = "  ›" if is_cur else "   "
+            print(f"{prefix} {bullet} {name:<18} {desc}{tag}")
+        count = len(selected)
+        print(f"\n  {_GREEN}{count} selected{_RESET}" if count else f"\n  {_GRAY}none selected{_RESET}")
+
+    # Initial draw (reserve lines)
+    print(f"  {_BOLD}Select agents to configure:{_RESET}")
+    print()
+    for agent in agents:
+        print(f"   ○ {agent['name']:<18} {_DIM}{agent['desc']}{_RESET}")
+    print()
+
+    render()
+
+    while True:
+        try:
+            key = _getch()
+        except Exception:
+            break
+
+        if key == "quit":
+            break
+        elif key == "up":
+            cursor = (cursor - 1) % n
+        elif key == "down":
+            cursor = (cursor + 1) % n
+        elif key == "space":
+            if cursor in selected:
+                selected.discard(cursor)
+            else:
+                selected.add(cursor)
+        elif key == "enter":
+            break
+
+        render()
+
+    print()  # newline after list
+    return [agents[i] for i in sorted(selected)]
+
+
 # ─── Commands ────────────────────────────────────────────────────────────────
 
 def cmd_install(args: argparse.Namespace) -> None:
-    """Download binary + configure all detected AI coding assistants."""
-    print("\nHipCortex installer\n" + "=" * 40)
+    """Interactive wizard: download binary + configure chosen AI coding assistants."""
+    print(_SPLASH)
 
-    # Determine server URL
+    # ── 1. Server URL ─────────────────────────────────────────────────────────
     if args.url:
         server_url = args.url.rstrip("/")
         binary_path = None
-        print(f"Using existing server: {server_url}")
+        print(f"  Using server: {_CYAN}{server_url}{_RESET}\n")
     else:
         os_name, arch = _detect_platform()
         binary_path = _binary_path(os_name, arch)
         server_url = DEFAULT_URL
 
-        if binary_path.exists() and not args.force:
-            print(f"  Binary already at {binary_path} (use --force to re-download)")
+        if binary_path.exists() and not getattr(args, "force", False):
+            print(f"  {_GREEN}✓{_RESET} Binary: {binary_path}")
         else:
-            url = _binary_url(os_name, arch)
-            _download_binary(url, binary_path)
+            print(f"  Downloading binary for {os_name}/{arch}...")
+            _download_binary(_binary_url(os_name, arch), binary_path)
+            print(f"  {_GREEN}✓{_RESET} Binary: {binary_path}")
 
-    # Install MCP server script for Cursor/VS Code
+    # ── 2. MCP server script ──────────────────────────────────────────────────
     _install_mcp_server()
 
-    # Register with AI coding assistants
-    print("\nRegistering with AI coding assistants:")
-    results = []
+    # ── 3. Agent selection ────────────────────────────────────────────────────
+    agents = _build_agent_registry(server_url, sys.executable)
 
-    if _install_claude_code(server_url):
-        results.append(("Claude Code", "✓", f"~/.claude/skills/hipcortex/"))
+    yes_all = getattr(args, "yes", False)
+    if yes_all:
+        # Non-interactive: configure all auto-configurable agents
+        chosen = [a for a in agents if a["type"] != "guide"]
+        print(f"  --yes: configuring all {len(chosen)} supported agents\n")
     else:
-        results.append(("Claude Code", "–", "not found (install from claude.ai/code)"))
+        print(f"  {_BOLD}Which AI coding assistants do you use?{_RESET}\n")
+        # Check if terminal is interactive
+        if not sys.stdin.isatty():
+            chosen = [a for a in agents if a["type"] != "guide"]
+            print(f"  Non-interactive: configuring all supported agents\n")
+        else:
+            chosen = _run_wizard(agents)
 
-    if _install_cursor(server_url, global_=False):
-        results.append(("Cursor (project)", "✓", str(Path.cwd() / ".cursor" / "mcp.json")))
-    elif _install_cursor(server_url, global_=True):
-        mcp_path = _cursor_mcp_path(global_=True)
-        results.append(("Cursor (global)", "✓", str(mcp_path)))
-    else:
-        results.append(("Cursor", "–", "not found"))
+    if not chosen:
+        print(f"  {_GRAY}Nothing selected. Run 'hipcortex install' again anytime.{_RESET}\n")
+        return
 
-    if _install_vscode(server_url):
-        results.append(("VS Code", "✓", "settings.json"))
-    else:
-        results.append(("VS Code", "–", "not found"))
+    # ── 4. Configure chosen agents ────────────────────────────────────────────
+    print(f"\n  {_BOLD}Configuring:{_RESET}\n")
+    guide_items = []
 
-    for name, status, detail in results:
-        print(f"  {status} {name:<20} {detail}")
+    for agent in chosen:
+        name = agent["name"]
+        if agent["type"] == "guide":
+            guide_items.append(agent)
+            print(f"  {_CYAN}ℹ{_RESET} {name:<18} guide → {agent['guide']}")
+            continue
+        try:
+            ok, detail = agent["fn"]()
+            if ok:
+                print(f"  {_GREEN}✓{_RESET} {name:<18} {_DIM}{detail}{_RESET}")
+            else:
+                print(f"  {_GRAY}–{_RESET} {name:<18} {_DIM}not found (install first){_RESET}")
+        except Exception as e:
+            print(f"  ✗ {name:<18} error: {e}")
 
-    print()
+    # ── 5. Start server ───────────────────────────────────────────────────────
+    if binary_path and binary_path.exists():
+        health_url = "http://localhost:3030/health"
+        already_running = False
+        try:
+            with urllib.request.urlopen(health_url, timeout=1) as r:
+                already_running = r.status == 200
+        except Exception:
+            pass
 
-    if binary_path:
-        print(f"Binary: {binary_path}")
-        print(f"Start:  hipcortex start")
-        print()
+        if not already_running:
+            import subprocess as _sp
+            data_dir = str(INSTALL_DIR / "data")
+            Path(data_dir).mkdir(parents=True, exist_ok=True)
+            env = os.environ.copy()
+            env.update({"PORT": "3030", "DATA_DIR": data_dir, "RUST_LOG": "warn"})
+            _sp.Popen([str(binary_path)], env=env, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL)
+            import time as _t
+            print(f"\n  Starting server...", end=" ", flush=True)
+            for _ in range(20):
+                _t.sleep(0.5)
+                try:
+                    with urllib.request.urlopen(health_url, timeout=1) as r:
+                        if r.status == 200:
+                            print(f"{_GREEN}✓{_RESET} running on :3030")
+                            break
+                except Exception:
+                    pass
+            else:
+                print("(starting in background)")
 
-    # Print usage instructions
-    claude_ok = any(s == "✓" and "Claude Code" in n for n, s, _ in results)
-    cursor_ok = any(s == "✓" and "Cursor" in n for n, s, _ in results)
+    # ── 6. Usage hints ────────────────────────────────────────────────────────
+    print(f"\n  {_BOLD}Ready!{_RESET}\n")
+    configured_names = {a["id"] for a in chosen if a["type"] != "guide"}
 
-    if claude_ok:
-        print("Claude Code: type /hipcortex remember 'your note'")
-    if cursor_ok:
-        print("Cursor: restart and use the hipcortex MCP tools")
-    print()
-    print(f"Docs: https://github.com/farmountain/HipCortex")
+    if "claude-code" in configured_names:
+        print(f"  Claude Code  →  /hipcortex remember 'your note'")
+        print(f"                  /hipcortex recall 'query'")
+    if configured_names & {"cursor", "windsurf", "cline", "roocode", "vscode"}:
+        print(f"  Cursor/etc   →  restart IDE · use hipcortex MCP tools")
+    if guide_items:
+        print(f"\n  {_DIM}Setup guides:{_RESET}")
+        for a in guide_items:
+            print(f"    {a['name']}: {a['guide']}")
+    print(f"\n  Docs: {_CYAN}https://github.com/farmountain/HipCortex{_RESET}\n")
 
     # Auto-start the server if binary was downloaded and server isn't already running
     if binary_path and binary_path.exists():
@@ -500,9 +816,10 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command")
 
     # install
-    p_install = sub.add_parser("install", help="Download binary + configure AI coding assistants")
+    p_install = sub.add_parser("install", help="Interactive wizard — download binary + configure AI coding assistants")
     p_install.add_argument("--url", help=f"Use an existing server instead of local binary (e.g. {MANAGED_URL})")
     p_install.add_argument("--force", action="store_true", help="Re-download binary even if it exists")
+    p_install.add_argument("--yes", "-y", action="store_true", help="Non-interactive: configure all supported agents")
 
     # start
     p_start = sub.add_parser("start", help="Start the local HipCortex server")
