@@ -328,6 +328,38 @@ impl WorldModelEnhanced {
             .unwrap_or(0)
     }
 
+    /// All unique states observed in transition data.
+    pub fn get_states(&self) -> Vec<String> {
+        self.transitions.read()
+            .map(|t| t.get_states())
+            .unwrap_or_default()
+    }
+
+    /// All unique actions observed in transition data.
+    pub fn get_actions(&self) -> Vec<String> {
+        self.transitions.read()
+            .map(|t| t.get_actions())
+            .unwrap_or_default()
+    }
+
+    /// Entropy for every observed (state, action) pair, sorted descending by entropy.
+    /// Returns Vec of (state, action, entropy_bits).
+    pub fn get_all_entropy(&self) -> Vec<(String, String, f64)> {
+        let transitions = match self.transitions.read() {
+            Ok(t) => t,
+            Err(_) => return Vec::new(),
+        };
+        let mut result: Vec<(String, String, f64)> = transitions.totals
+            .keys()
+            .filter_map(|(state, action)| {
+                transitions.compute_entropy(state, action).ok()
+                    .map(|e| (state.clone(), action.clone(), e))
+            })
+            .collect();
+        result.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+        result
+    }
+
     /// Save world model state to a JSON file.
     /// Persists: transition counts + totals, causal edges.
     /// Entity Kalman states are NOT persisted (recoverable from live memory).

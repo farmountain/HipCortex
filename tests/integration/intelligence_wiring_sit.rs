@@ -269,3 +269,56 @@ fn test_coherence_checker_persistent_metrics() {
     // total_checks should be >= 1 after calling check_consistency()
     assert!(metrics.total_checks >= 1);
 }
+
+#[test]
+fn test_wm_get_states_empty() {
+    let state = make_app_state();
+    let wm = state.world_model.read().unwrap();
+    let states = wm.get_states();
+    assert!(states.is_empty());
+}
+
+#[test]
+fn test_wm_get_states_after_transitions() {
+    let state = make_app_state();
+    {
+        let mut wm = state.world_model.write().unwrap();
+        wm.observe_transition("S1".into(), "A1".into(), "S2".into()).unwrap();
+        wm.observe_transition("S2".into(), "A2".into(), "S3".into()).unwrap();
+    }
+    let wm = state.world_model.read().unwrap();
+    let states = wm.get_states();
+    assert!(states.contains(&"S1".to_string()));
+    assert!(states.contains(&"S2".to_string()));
+    assert!(states.contains(&"S3".to_string()));
+}
+
+#[test]
+fn test_wm_get_actions_after_transitions() {
+    let state = make_app_state();
+    {
+        let mut wm = state.world_model.write().unwrap();
+        wm.observe_transition("S1".into(), "A1".into(), "S2".into()).unwrap();
+        wm.observe_transition("S1".into(), "A2".into(), "S3".into()).unwrap();
+    }
+    let wm = state.world_model.read().unwrap();
+    let actions = wm.get_actions();
+    assert!(actions.contains(&"A1".to_string()));
+    assert!(actions.contains(&"A2".to_string()));
+}
+
+#[test]
+fn test_wm_get_all_entropy() {
+    let state = make_app_state();
+    {
+        let mut wm = state.world_model.write().unwrap();
+        wm.observe_transition("S1".into(), "A1".into(), "S2".into()).unwrap();
+        wm.observe_transition("S1".into(), "A1".into(), "S3".into()).unwrap();
+    }
+    let wm = state.world_model.read().unwrap();
+    let entropy_list = wm.get_all_entropy();
+    assert!(!entropy_list.is_empty());
+    let s1_a1 = entropy_list.iter().find(|(s, a, _)| s == "S1" && a == "A1");
+    assert!(s1_a1.is_some());
+    assert!(s1_a1.unwrap().2 > 0.5);
+}
