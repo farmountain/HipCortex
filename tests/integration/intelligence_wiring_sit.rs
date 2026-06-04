@@ -97,3 +97,15 @@ fn test_world_model_transition_count() {
     }
     assert_eq!(state.world_model.read().unwrap().transition_count(), 2);
 }
+
+#[test]
+fn test_world_model_load_nonexistent_gives_new() {
+    // When worldmodel.json doesn't exist, caller should fall back to WorldModelEnhanced::new()
+    // This tests the fallback pattern used by bin/webserver.rs
+    let path = "/nonexistent/path/worldmodel_99999.json";
+    let wm = match WorldModelEnhanced::load(path) {
+        Ok(wm) => wm,
+        Err(_) => WorldModelEnhanced::new(), // fallback
+    };
+    assert_eq!(wm.transition_count(), 0);
+}
