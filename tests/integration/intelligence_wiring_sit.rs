@@ -109,3 +109,37 @@ fn test_world_model_load_nonexistent_gives_new() {
     };
     assert_eq!(wm.transition_count(), 0);
 }
+
+#[test]
+fn test_auto_feed_observe_transition() {
+    // Directly test the observe_transition logic (mirrors what handle_add_memory will do)
+    let state = make_app_state();
+    {
+        let mut ms = state.memory_store.lock().unwrap();
+        ms.add(make_record("alice", "decided", "use_postgres")).unwrap();
+        ms.add(make_record("alice", "decided", "use_postgres")).unwrap();
+        ms.add(make_record("alice", "decided", "use_redis")).unwrap();
+    }
+    // Simulate auto-feed: observe transitions for each add
+    {
+        let mut wm = state.world_model.write().unwrap();
+        wm.observe_transition("alice".into(), "decided".into(), "use_postgres".into()).unwrap();
+        wm.observe_transition("alice".into(), "decided".into(), "use_postgres".into()).unwrap();
+        wm.observe_transition("alice".into(), "decided".into(), "use_redis".into()).unwrap();
+    }
+    assert_eq!(state.world_model.read().unwrap().transition_count(), 3);
+    let pred = state.world_model.read().unwrap()
+        .predict_next_state("alice", "decided").unwrap();
+    assert!(pred.probabilities["use_postgres"] > pred.probabilities["use_redis"]);
+}
+
+#[test]
+fn test_auto_feed_pinned_causal_edge() {
+    let state = make_app_state();
+    // Simulate what handle_add_memory does for pinned Symbolic record
+    {
+        let mut wm = state.world_model.write().unwrap();
+        wm.add_causal_edge("alice".into(), "postgres".into()).unwrap();
+    }
+    assert!(state.world_model.read().unwrap().has_causal_path("alice", "postgres").unwrap());
+}

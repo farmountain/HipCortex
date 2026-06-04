@@ -456,8 +456,9 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     // ── Memory store routes ───────────────────────────────────────────────
     let add_memory_route = {
         let store = memory_store.clone();
+        let wm = world_model.clone();
         post(move |Json(req): Json<AddMemoryRequest>| async move {
-            handle_add_memory(store, req).await
+            handle_add_memory(store, wm, req).await
         })
     };
 
@@ -579,8 +580,9 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
 
     let ingest_route = {
         let store = memory_store.clone();
+        let wm = world_model.clone();
         post(move |Json(req): Json<IngestRequest>| async move {
-            handle_ingest(store, Json(req)).await
+            handle_ingest(store, wm, Json(req)).await
         })
     };
 
@@ -1798,6 +1800,10 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
     symbolic_store: Arc<Mutex<SymbolicStore<InMemoryGraph>>>,
     memory_store: Arc<Mutex<MemoryStore<B>>>,
 ) {
+    // Backward-compat: no AppState available here, use a no-op world model
+    let world_model: Arc<RwLock<WorldModelEnhanced>> =
+        Arc::new(RwLock::new(WorldModelEnhanced::new()));
+
     // Symbolic store routes
     let graph_route = {
         let store = symbolic_store.clone();
@@ -1823,8 +1829,9 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
     // Memory store routes
     let add_memory_route = {
         let store = memory_store.clone();
+        let wm = world_model.clone();
         post(move |Json(req): Json<AddMemoryRequest>| async move {
-            handle_add_memory(store, req).await
+            handle_add_memory(store, wm, req).await
         })
     };
 
@@ -1946,8 +1953,9 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
 
     let ingest_route = {
         let store = memory_store.clone();
+        let wm = world_model.clone();
         post(move |Json(req): Json<IngestRequest>| async move {
-            handle_ingest(store, Json(req)).await
+            handle_ingest(store, wm, Json(req)).await
         })
     };
 
@@ -2181,6 +2189,7 @@ fn extract_tags(lower: &str, context: Option<&str>) -> Vec<String> {
 #[cfg(feature = "web-server")]
 async fn handle_ingest<B: MemoryBackend + Send + Sync + 'static>(
     store: Arc<Mutex<MemoryStore<B>>>,
+    world_model: Arc<RwLock<WorldModelEnhanced>>,
     Json(req): Json<IngestRequest>,
 ) -> Result<Json<IngestResponse>, (StatusCode, Json<IngestResponse>)> {
     let (record_type_str, priority, ttl, confidence, actor, action, tags) =
@@ -2241,20 +2250,33 @@ async fn handle_ingest<B: MemoryBackend + Send + Sync + 'static>(
     let rtype = format!("{:?}", record.record_type);
 
     match store.lock() {
-        Ok(mut ms) => match ms.add(record) {
-            Ok(_) => Ok(Json(IngestResponse {
-                record_id,
-                record_type: rtype,
-                priority,
-                tags,
-                ttl_seconds: ttl,
-                confidence,
-                actor,
-                action,
-                target: req.text,
-                working_memory,
-                warning,
-            })),
+        Ok(mut ms) => match ms.add(record.clone()) {
+            Ok(_) => {
+                // Auto-feed WorldModelEnhanced — non-blocking, best-effort
+                if let Ok(mut wm) = world_model.try_write() {
+                    let _ = wm.observe_transition(
+                        record.actor.clone(),
+                        record.action.clone(),
+                        record.target.clone(),
+                    );
+                    if record.priority == "pinned" && record.record_type == MemoryType::Symbolic {
+                        let _ = wm.add_causal_edge(record.actor.clone(), record.target.clone());
+                    }
+                }
+                Ok(Json(IngestResponse {
+                    record_id,
+                    record_type: rtype,
+                    priority,
+                    tags,
+                    ttl_seconds: ttl,
+                    confidence,
+                    actor,
+                    action,
+                    target: req.text,
+                    working_memory,
+                    warning,
+                }))
+            },
             Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(IngestResponse {
                 record_id: String::new(), record_type: String::new(), priority: String::new(),
                 tags: vec![], ttl_seconds: None, confidence: 0.0, actor: String::new(),
@@ -2276,6 +2298,7 @@ async fn handle_ingest<B: MemoryBackend + Send + Sync + 'static>(
 #[cfg(feature = "web-server")]
 async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
     store: Arc<Mutex<MemoryStore<B>>>,
+    world_model: Arc<RwLock<WorldModelEnhanced>>,
     req: AddMemoryRequest,
 ) -> Result<Json<AddMemoryResponse>, (StatusCode, Json<AddMemoryResponse>)> {
     let record_type = match req.record_type.as_deref() {
@@ -2379,6 +2402,19 @@ async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
 
             match ms.add(record.clone()) {
                 Ok(_) => {
+                    // Auto-feed WorldModelEnhanced — non-blocking (try_write), best-effort
+                    // A failed lock acquisition simply skips the feed without blocking the request
+                    if let Ok(mut wm) = world_model.try_write() {
+                        let _ = wm.observe_transition(
+                            record.actor.clone(),
+                            record.action.clone(),
+                            record.target.clone(),
+                        );
+                        // Register causal edge for pinned symbolic decisions
+                        if record.priority == "pinned" && record.record_type == MemoryType::Symbolic {
+                            let _ = wm.add_causal_edge(record.actor.clone(), record.target.clone());
+                        }
+                    }
                     // P0.4 — fire webhook (best-effort, non-blocking)
                     fire_webhook("memory.added", serde_json::json!({
                         "id": record.id.to_string(),
