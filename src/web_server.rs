@@ -502,9 +502,10 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     };
 
     // Coherence status: GET /coherence/status
-    let coherence_route = get(|| async {
-        handle_coherence_status().await
-    });
+    let coherence_route = {
+        let c = coherence_arc.clone();
+        get(move || { let cc = c.clone(); async move { handle_coherence_status(cc).await } })
+    };
 
     // Live stats: GET /stats
     let stats_route = {
@@ -653,20 +654,13 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         get(move || { let a = au.clone(); async move { handle_memory_hypotheses(a).await } })
     };
     let self_health_route = {
-        let _sm = self_model_arc.clone();
-        get(move || async move {
-            axum::Json(serde_json::json!({"status": "coming_soon", "endpoint": "/self/health"}))
-        })
+        let sm = self_model_arc.clone();
+        get(move || { let s = sm.clone(); async move { handle_self_health(s).await } })
     };
     let self_capabilities_route = {
-        let _sm = self_model_arc.clone();
-        get(move || async move {
-            axum::Json(serde_json::json!({"status": "coming_soon", "endpoint": "/self/capabilities"}))
-        })
+        let sm = self_model_arc.clone();
+        get(move || { let s = sm.clone(); async move { handle_self_capabilities(s).await } })
     };
-
-    // Suppress unused-variable warnings for intelligence Arcs not yet wired
-    let _ = coherence_arc;
 
     let app = Router::new()
         .route("/", get(|| async { axum::response::Redirect::permanent("/pricing") }))
@@ -925,6 +919,12 @@ async fn api_key_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Respons
         || path == "/coherence/inconsistencies"
         || path == "/metrics"
         || path == "/ns"
+        || path == "/self/health"
+        || path == "/self/capabilities"
+        || path == "/memory/hypotheses"
+        || path == "/worldmodel/predict"
+        || path == "/worldmodel/entities"
+        || path == "/worldmodel/causal"
     {
         return Ok(next.run(req).await);
     }
@@ -1872,10 +1872,11 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         })
     };
 
-    // Coherence status: GET /coherence/status
-    let coherence_route = get(|| async {
-        handle_coherence_status().await
-    });
+    // Coherence status: GET /coherence/status (backward-compat: fresh checker per request)
+    let coherence_route = {
+        let c = Arc::new(CoherenceChecker::new());
+        get(move || { let cc = c.clone(); async move { handle_coherence_status(cc).await } })
+    };
 
     // Live stats: GET /stats
     let stats_route = {
@@ -3045,13 +3046,49 @@ async fn handle_coherence_inconsistencies() -> Json<serde_json::Value> {
     }
 }
 
+// ── G8: SelfModel REST handlers ──────────────────────────────────────────────
+
+/// GET /self/health — SelfModel overall health score
+#[cfg(feature = "web-server")]
+async fn handle_self_health(
+    self_model: Arc<SelfModel>,
+) -> Json<serde_json::Value> {
+    match self_model.get_health() {
+        Ok(score) => Json(serde_json::json!({
+            "healthy": score.overall >= 0.7,
+            "overall": score.overall,
+        })),
+        Err(e) => Json(serde_json::json!({"healthy": false, "error": e})),
+    }
+}
+
+/// GET /self/capabilities — list registered capability descriptors
+#[cfg(feature = "web-server")]
+async fn handle_self_capabilities(
+    self_model: Arc<SelfModel>,
+) -> Json<serde_json::Value> {
+    let ops = ["add_memory", "search_memory", "query_memory", "ingest",
+               "bulk_add", "forget", "reflect", "context"];
+    let capabilities: Vec<serde_json::Value> = ops.iter().map(|op| {
+        match self_model.get_capability(op) {
+            Ok(cap) => serde_json::json!({
+                "name": cap.name,
+                "description": cap.description,
+                "required_cpu_percent": cap.required_cpu_percent,
+                "required_memory_mb": cap.required_memory_mb,
+            }),
+            Err(_) => serde_json::json!({"name": op, "registered": false}),
+        }
+    }).collect();
+    let total = capabilities.len();
+    Json(serde_json::json!({"capabilities": capabilities, "total": total}))
+}
+
 #[cfg(feature = "web-server")]
 async fn handle_coherence_status(
+    coherence: Arc<CoherenceChecker>,
 ) -> Json<CoherenceStatusResponse> {
-    // Instantiate a fresh checker and run one consistency pass.
-    // In a production deployment, wire a persistent Arc<CoherenceChecker> into server state.
-    let checker = CoherenceChecker::new();
-    let metrics = match checker.get_metrics() {
+    let metrics = match coherence.get_metrics() {
         Ok(m) => m,
         Err(_) => crate::coherence::CoherenceMetrics::new(),
     };

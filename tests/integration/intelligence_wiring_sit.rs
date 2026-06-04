@@ -233,3 +233,39 @@ fn test_reflect_on_memory_with_mock_llm() {
         assert_eq!(au.loops_run(), 1);
     }
 }
+
+#[test]
+fn test_self_model_health_ok() {
+    let state = make_app_state();
+    let health = state.self_model.get_health().unwrap();
+    assert!(health.overall >= 0.0 && health.overall <= 1.0);
+}
+
+#[test]
+fn test_self_model_capabilities_after_bootstrap() {
+    use hipcortex::self_model::CapabilityDescriptor;
+    let state = make_app_state();
+    // Bootstrap (same as bin/webserver.rs does)
+    for op in &["add_memory", "search_memory"] {
+        state.self_model.register_capability(CapabilityDescriptor {
+            name: op.to_string(),
+            description: format!("test {}", op),
+            required_cpu_percent: 5.0,
+            required_memory_mb: 50.0,
+            limitations: vec![],
+        }).unwrap();
+    }
+    assert!(state.self_model.get_capability("add_memory").is_ok());
+    assert!(state.self_model.get_capability("search_memory").is_ok());
+    assert!(state.self_model.get_capability("unknown").is_err());
+}
+
+#[test]
+fn test_coherence_checker_persistent_metrics() {
+    let state = make_app_state();
+    // CoherenceChecker is the same Arc across calls — metrics accumulate
+    let _ = state.coherence.check_consistency();
+    let metrics = state.coherence.get_metrics().unwrap();
+    // total_checks should be >= 1 after calling check_consistency()
+    assert!(metrics.total_checks >= 1);
+}
