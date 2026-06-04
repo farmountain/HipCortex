@@ -152,6 +152,52 @@ impl AureusBridge {
         self.loops
     }
 
+    /// Search memory for context related to `query`, run one reflexion pass,
+    /// store the resulting ReflexionHypothesis as a Reflexion MemoryRecord,
+    /// and return the hypothesis.
+    ///
+    /// If no LLM client is configured, returns a default hypothesis describing
+    /// what was found in memory without any inference.
+    pub fn reflect_on_memory<B: MemoryBackend>(
+        &mut self,
+        query: &str,
+        store: &mut MemoryStore<B>,
+    ) -> ReflexionHypothesis {
+        // Pre-build context and evidence before mutably borrowing store in reflexion_loop
+        let (context, default_evidence, result_count) = {
+            let results = store.search_semantic(None, query, 10, false);
+            let count = results.len();
+            let evidence: Vec<String> = results.iter()
+                .take(3)
+                .map(|(r, _)| format!("[{}] {}", r.action, r.target))
+                .collect();
+            let ctx = if results.is_empty() {
+                format!("Query: {}. No relevant memories found.", query)
+            } else {
+                let lines: Vec<String> = results.iter()
+                    .map(|(r, score)| format!("- [{:.2}] [{}] {}", score, r.action, r.target))
+                    .collect();
+                format!("Query: {}\nRelevant memories:\n{}", query, lines.join("\n"))
+            };
+            (ctx, evidence, count)
+        };
+
+        self.reflexion_loop(&context, store);
+
+        self.current
+            .and_then(|id| self.graph.get_hypothesis(id))
+            .cloned()
+            .unwrap_or_else(|| ReflexionHypothesis {
+                text: format!(
+                    "No LLM configured. Found {} relevant memories for query: {}",
+                    result_count,
+                    query
+                ),
+                confidence: 0.5,
+                evidence: default_evidence,
+            })
+    }
+
     pub fn reset(&mut self) {
         self.loops = 0;
         self.current = None;

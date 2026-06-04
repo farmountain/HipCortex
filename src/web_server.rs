@@ -642,16 +642,15 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         get(move || { let w = wm.clone(); async move { handle_wm_causal(w).await } })
     };
     let memory_reflect_route = {
-        let _au = aureus.clone();
-        post(move || async move {
-            axum::Json(serde_json::json!({"status": "coming_soon", "endpoint": "/memory/reflect"}))
+        let ms = memory_store.clone();
+        let au = aureus.clone();
+        post(move |Json(req): Json<serde_json::Value>| async move {
+            handle_memory_reflect(ms, au, Json(req)).await
         })
     };
     let memory_hypotheses_route = {
-        let _au = aureus.clone();
-        get(move || async move {
-            axum::Json(serde_json::json!({"status": "coming_soon", "endpoint": "/memory/hypotheses"}))
-        })
+        let au = aureus.clone();
+        get(move || { let a = au.clone(); async move { handle_memory_hypotheses(a).await } })
     };
     let self_health_route = {
         let _sm = self_model_arc.clone();
@@ -2947,6 +2946,48 @@ async fn handle_wm_causal(
             let total = edges.len();
             Json(serde_json::json!({"edges": edges, "total": total}))
         },
+        Err(e) => Json(serde_json::json!({"error": format!("lock: {}", e)})),
+    }
+}
+
+// ── G7: AureusBridge REST handlers ───────────────────────────────────────────
+
+/// POST /memory/reflect — run AureusBridge reflexion over memory context
+#[cfg(feature = "web-server")]
+async fn handle_memory_reflect<B: MemoryBackend + Send + Sync + 'static>(
+    memory_store: Arc<Mutex<MemoryStore<B>>>,
+    aureus: Arc<Mutex<AureusBridge>>,
+    Json(req): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    let query = req["query"].as_str().unwrap_or("recent decisions").to_string();
+    // Lock store first, then bridge (consistent lock ordering to avoid deadlock)
+    let mut store = match memory_store.lock() {
+        Ok(s)  => s,
+        Err(e) => return Json(serde_json::json!({"error": format!("store lock: {}", e)})),
+    };
+    let mut bridge = match aureus.lock() {
+        Ok(b)  => b,
+        Err(e) => return Json(serde_json::json!({"error": format!("bridge lock: {}", e)})),
+    };
+    let hyp = bridge.reflect_on_memory(&query, &mut *store);
+    Json(serde_json::json!({
+        "hypothesis": hyp.text,
+        "confidence": hyp.confidence,
+        "evidence": hyp.evidence,
+        "loops_run": bridge.loops_run(),
+    }))
+}
+
+/// GET /memory/hypotheses — AureusBridge reflexion metadata
+#[cfg(feature = "web-server")]
+async fn handle_memory_hypotheses(
+    aureus: Arc<Mutex<AureusBridge>>,
+) -> Json<serde_json::Value> {
+    match aureus.lock() {
+        Ok(bridge) => Json(serde_json::json!({
+            "loops_run": bridge.loops_run(),
+            "note": "Hypothesis graph internals not exposed — use POST /memory/reflect to generate hypotheses"
+        })),
         Err(e) => Json(serde_json::json!({"error": format!("lock: {}", e)})),
     }
 }

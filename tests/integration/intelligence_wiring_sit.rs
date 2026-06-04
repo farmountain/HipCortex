@@ -195,3 +195,41 @@ fn test_wm_transition_count_after_feed() {
     }
     assert_eq!(state.world_model.read().unwrap().transition_count(), 1);
 }
+
+#[test]
+fn test_reflect_on_memory_no_llm() {
+    // Without an LLM client, reflect_on_memory returns a default hypothesis
+    let state = make_app_state();
+    {
+        let mut ms = state.memory_store.lock().unwrap();
+        ms.add(make_record("alice", "decided", "use_postgres")).unwrap();
+        ms.add(make_record("alice", "decided", "avoid_redis")).unwrap();
+    }
+    let hyp = {
+        let mut au = state.aureus.lock().unwrap();
+        let mut ms = state.memory_store.lock().unwrap();
+        au.reflect_on_memory("alice decisions", &mut *ms)
+    };
+    // No LLM configured → default hypothesis with 0 loops
+    assert!(hyp.confidence >= 0.0 && hyp.confidence <= 1.0);
+    // text is non-empty (either default message or LLM response)
+    assert!(!hyp.text.is_empty());
+}
+
+#[test]
+fn test_reflect_on_memory_with_mock_llm() {
+    use hipcortex::llm_clients::mock::MockClient;
+    let state = make_app_state();
+    {
+        let mut ms = state.memory_store.lock().unwrap();
+        ms.add(make_record("alice", "decided", "use_postgres")).unwrap();
+    }
+    {
+        let mut au = state.aureus.lock().unwrap();
+        au.set_client(Box::new(MockClient));
+        let mut ms = state.memory_store.lock().unwrap();
+        let hyp = au.reflect_on_memory("alice", &mut *ms);
+        assert!(!hyp.text.is_empty());
+        assert_eq!(au.loops_run(), 1);
+    }
+}
