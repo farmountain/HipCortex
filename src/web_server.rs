@@ -616,6 +616,20 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     };
 
     // ── Intelligence routes (filled in Tasks 5-8) ────────────────────────
+    let wm_states_route = {
+        let wm = world_model.clone();
+        get(move || { let w = wm.clone(); async move { handle_wm_states(w).await } })
+    };
+    let wm_transitions_route = {
+        let wm = world_model.clone();
+        get(move |Query(p): Query<WmTransitionsParams>| async move {
+            handle_wm_transitions(wm, Query(p)).await
+        })
+    };
+    let wm_uncertainty_route = {
+        let wm = world_model.clone();
+        get(move || { let w = wm.clone(); async move { handle_wm_uncertainty(w).await } })
+    };
     let wm_observe_route = {
         let wm = world_model.clone();
         post(move |Json(req): Json<serde_json::Value>| async move {
@@ -709,6 +723,9 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         .route("/regulatory/hold", get(handle_list_regulatory_holds).post(handle_set_regulatory_hold))
         .route("/regulatory/hold/:actor", delete(handle_release_regulatory_hold))
         // ── Intelligence endpoints (Tasks 5-8) ───────────────────────────
+        .route("/worldmodel/states",       wm_states_route)
+        .route("/worldmodel/transitions",  wm_transitions_route)
+        .route("/worldmodel/uncertainty",  wm_uncertainty_route)
         .route("/worldmodel/observe",   wm_observe_route)
         .route("/worldmodel/predict",   wm_predict_route)
         .route("/worldmodel/entities",  wm_entities_route)
@@ -943,6 +960,9 @@ async fn api_key_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Respons
         || path == "/worldmodel/predict"
         || path == "/worldmodel/entities"
         || path == "/worldmodel/causal"
+        || path == "/worldmodel/states"
+        || path == "/worldmodel/transitions"
+        || path == "/worldmodel/uncertainty"
     {
         return Ok(next.run(req).await);
     }
@@ -2854,6 +2874,73 @@ async fn handle_memory_context<B: MemoryBackend + Send + Sync + 'static>(
         Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ContextResponse {
             context: format!("Error: {}", e), record_count: 0, estimated_tokens: 0,
         }))),
+    }
+}
+
+// ── G5/G6: WorldModel state introspection REST ────────────────────────────────
+
+/// GET /worldmodel/states — all observed states + actions in Dirichlet model
+#[cfg(feature = "web-server")]
+async fn handle_wm_states(
+    world_model: Arc<RwLock<WorldModelEnhanced>>,
+) -> Json<serde_json::Value> {
+    match world_model.read() {
+        Ok(wm) => Json(serde_json::json!({
+            "states":            wm.get_states(),
+            "actions":           wm.get_actions(),
+            "observation_count": wm.transition_count(),
+        })),
+        Err(e) => Json(serde_json::json!({"error": format!("lock: {}", e)})),
+    }
+}
+
+/// GET /worldmodel/transitions?state=S1 — all predictions from a given state
+#[cfg(feature = "web-server")]
+#[derive(serde::Deserialize)]
+struct WmTransitionsParams { state: String }
+
+#[cfg(feature = "web-server")]
+async fn handle_wm_transitions(
+    world_model: Arc<RwLock<WorldModelEnhanced>>,
+    Query(params): Query<WmTransitionsParams>,
+) -> Json<serde_json::Value> {
+    let actions = match world_model.read() {
+        Ok(wm) => wm.get_actions(),
+        Err(e) => return Json(serde_json::json!({"error": format!("lock: {}", e)})),
+    };
+    let mut predictions = Vec::new();
+    if let Ok(wm) = world_model.read() {
+        for action in &actions {
+            if let Ok(pred) = wm.predict_next_state(&params.state, action) {
+                predictions.push(serde_json::json!({
+                    "action":            action,
+                    "probabilities":     pred.probabilities,
+                    "entropy":           pred.entropy,
+                    "observation_count": pred.observation_count,
+                }));
+            }
+        }
+    }
+    Json(serde_json::json!({
+        "state":       params.state,
+        "transitions": predictions,
+    }))
+}
+
+/// GET /worldmodel/uncertainty — entropy for all (state, action) pairs, sorted desc
+#[cfg(feature = "web-server")]
+async fn handle_wm_uncertainty(
+    world_model: Arc<RwLock<WorldModelEnhanced>>,
+) -> Json<serde_json::Value> {
+    match world_model.read() {
+        Ok(wm) => {
+            let pairs: Vec<serde_json::Value> = wm.get_all_entropy().iter()
+                .map(|(s, a, e)| serde_json::json!({"state": s, "action": a, "entropy": e}))
+                .collect();
+            let total = pairs.len();
+            Json(serde_json::json!({"pairs": pairs, "total": total, "sorted_by": "entropy_desc"}))
+        },
+        Err(e) => Json(serde_json::json!({"error": format!("lock: {}", e)})),
     }
 }
 
