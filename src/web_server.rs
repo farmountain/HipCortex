@@ -683,11 +683,6 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         let sm = self_model_arc.clone();
         get(move || { let s = sm.clone(); async move { handle_self_health(s).await } })
     };
-    let self_capabilities_route = {
-        let sm = self_model_arc.clone();
-        get(move || { let s = sm.clone(); async move { handle_self_capabilities(s).await } })
-    };
-
     let app = Router::new()
         .route("/", get(|| async { axum::response::Redirect::permanent("/pricing") }))
         .route("/health", get(|| async { "ok" }))
@@ -763,8 +758,40 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
             }})
         })
         .route("/self/health",          self_health_route)
-        .route("/self/capabilities",    self_capabilities_route)
+        .route("/self/capabilities", {
+            let sm_get  = self_model_arc.clone();
+            let sm_post = self_model_arc.clone();
+            get(move || { let s = sm_get.clone(); async move { handle_self_capabilities(s).await } })
+            .post(move |Json(req): Json<serde_json::Value>| async move {
+                handle_self_register_capability(sm_post, Json(req)).await
+            })
+        })
+        .route("/self/can-execute", {
+            let sm = self_model_arc.clone();
+            get(move |Query(p): Query<SelfCanExecuteParams>| async move {
+                handle_self_can_execute(sm, Query(p)).await
+            })
+        })
         .layer(middleware::from_fn(api_key_middleware));
+
+    // G10: Background CoherenceChecker — runs check_consistency every 60s
+    {
+        let coherence_bg = coherence_arc.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(60));
+            loop {
+                interval.tick().await;
+                match coherence_bg.check_consistency() {
+                    Ok(reports) => {
+                        if !reports.is_empty() {
+                            eprintln!("[CoherenceChecker] {} inconsistencies detected", reports.len());
+                        }
+                    }
+                    Err(e) => eprintln!("[CoherenceChecker] check_consistency error: {}", e),
+                }
+            }
+        });
+    }
 
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
@@ -970,6 +997,7 @@ async fn api_key_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Respons
         || path == "/ns"
         || path == "/self/health"
         || path == "/self/capabilities"
+        || path == "/self/can-execute"
         || path == "/memory/hypotheses"
         || path == "/worldmodel/predict"
         || path == "/worldmodel/entities"
@@ -3038,12 +3066,28 @@ async fn handle_wm_register_entity(
         return Json(serde_json::json!({"success": false, "error": "id required"}));
     }
     let dims = req["dimensions"].as_u64().unwrap_or(3) as usize;
-    let initial = EntityState {
-        properties: vec![0.0; dims],
-        covariance: (0..dims)
-            .map(|i| (0..dims).map(|j| if i == j { 1.0f64 } else { 0.0 }).collect())
-            .collect(),
-    };
+
+    // Use provided initial_values if supplied, otherwise zero-initialise
+    let properties: Vec<f64> = req["initial_values"]
+        .as_array()
+        .map(|arr| arr.iter().filter_map(|v| v.as_f64()).collect::<Vec<f64>>())
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| vec![0.0; dims]);
+
+    // Use provided initial_covariance if supplied, otherwise identity matrix
+    let d = properties.len();
+    let covariance: Vec<Vec<f64>> = req["initial_covariance"]
+        .as_array()
+        .map(|rows| rows.iter()
+            .filter_map(|row| row.as_array()
+                .map(|r| r.iter().filter_map(|v| v.as_f64()).collect::<Vec<f64>>()))
+            .collect::<Vec<Vec<f64>>>())
+        .filter(|m| !m.is_empty())
+        .unwrap_or_else(|| {
+            (0..d).map(|i| (0..d).map(|j| if i == j { 1.0f64 } else { 0.0 }).collect()).collect()
+        });
+
+    let initial = EntityState { properties, covariance };
     match world_model.write() {
         Ok(mut wm) => match wm.register_entity(id.clone(), initial) {
             Ok(_)  => Json(serde_json::json!({"success": true, "id": id})),
@@ -3269,6 +3313,60 @@ async fn handle_coherence_inconsistencies(
             "total": 0,
             "error": e
         })),
+    }
+}
+
+// ── G15/G16: SelfModel can-execute + capability registration ─────────────────
+
+/// GET /self/can-execute?operation=add_memory — SelfModel decision engine query
+#[cfg(feature = "web-server")]
+#[derive(serde::Deserialize)]
+struct SelfCanExecuteParams { operation: String }
+
+#[cfg(feature = "web-server")]
+async fn handle_self_can_execute(
+    self_model: Arc<SelfModel>,
+    Query(params): Query<SelfCanExecuteParams>,
+) -> Json<serde_json::Value> {
+    use crate::self_model::DecisionContext;
+    let context = DecisionContext::default_context();
+    match self_model.can_execute(&params.operation, context) {
+        Ok(decision) => Json(serde_json::json!({
+            "operation":        params.operation,
+            "should_execute":   decision.should_execute,
+            "confidence":       decision.confidence,
+            "rationale":        decision.rationale,
+            "expected_utility": decision.expected_utility,
+            "predicted_resources": decision.predicted_resources.as_ref().map(|r| serde_json::json!({
+                "cpu_percent":  r.cpu_percent,
+                "memory_mb":    r.memory_mb,
+            })),
+        })),
+        Err(e) => Json(serde_json::json!({"error": e})),
+    }
+}
+
+/// POST /self/capabilities — register a new capability at runtime
+#[cfg(feature = "web-server")]
+async fn handle_self_register_capability(
+    self_model: Arc<SelfModel>,
+    Json(req): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    use crate::self_model::CapabilityDescriptor;
+    let name = req["name"].as_str().unwrap_or("").to_string();
+    if name.is_empty() {
+        return Json(serde_json::json!({"success": false, "error": "name required"}));
+    }
+    let cap = CapabilityDescriptor {
+        name: name.clone(),
+        description: req["description"].as_str().unwrap_or("").to_string(),
+        required_cpu_percent: req["required_cpu_percent"].as_f64().unwrap_or(5.0),
+        required_memory_mb:   req["required_memory_mb"].as_f64().unwrap_or(50.0),
+        limitations: vec![],
+    };
+    match self_model.register_capability(cap) {
+        Ok(_)  => Json(serde_json::json!({"success": true, "name": name})),
+        Err(e) => Json(serde_json::json!({"success": false, "error": e})),
     }
 }
 

@@ -349,3 +349,82 @@ fn test_counterfactual_empty_graph() {
     let result = wm.counterfactual(actual, "X".into(), 1.0);
     let _ = result;
 }
+
+// ── Task 4: G9 Entity initial values ─────────────────────────────────────────
+
+#[test]
+fn test_wm_entity_with_initial_values() {
+    use hipcortex::world_model_enhanced::EntityState;
+    let state = make_app_state();
+    {
+        let mut wm = state.world_model.write().unwrap();
+        wm.register_entity("sensor_1".into(), EntityState {
+            properties: vec![42.0, 7.5, 1.0],
+            covariance: vec![
+                vec![0.1, 0.0, 0.0],
+                vec![0.0, 0.1, 0.0],
+                vec![0.0, 0.0, 0.1],
+            ],
+        }).unwrap();
+    }
+    let entities = state.world_model.read().unwrap().list_entities().unwrap();
+    assert!(entities.contains(&"sensor_1".to_string()));
+}
+
+// ── Task 5: G10 CoherenceChecker background auto-check ───────────────────────
+
+#[test]
+fn test_coherence_check_consistency_no_panic() {
+    let state = make_app_state();
+    // Direct call — same as background task does every 60s
+    let result = state.coherence.check_consistency();
+    assert!(result.is_ok());
+    // total_checks incremented
+    let metrics = state.coherence.get_metrics().unwrap();
+    assert!(metrics.total_checks >= 1);
+}
+
+// ── Task 6: G15/G16 SelfModel can-execute + capability registration ───────────
+
+#[test]
+fn test_self_can_execute_unknown_op() {
+    use hipcortex::self_model::DecisionContext;
+    let state = make_app_state();
+    let decision = state.self_model
+        .can_execute("completely_unknown_op_xyz", DecisionContext::default_context())
+        .unwrap();
+    assert!(!decision.should_execute);
+    assert!(decision.rationale.contains("not registered"));
+}
+
+#[test]
+fn test_self_can_execute_registered_op() {
+    use hipcortex::self_model::{CapabilityDescriptor, DecisionContext};
+    let state = make_app_state();
+    state.self_model.register_capability(CapabilityDescriptor {
+        name: "test_exec_op".into(),
+        description: "test".into(),
+        required_cpu_percent: 5.0,
+        required_memory_mb: 50.0,
+        limitations: vec![],
+    }).unwrap();
+    let decision = state.self_model
+        .can_execute("test_exec_op", DecisionContext::default_context())
+        .unwrap();
+    assert!(decision.confidence >= 0.0 && decision.confidence <= 1.0);
+}
+
+#[test]
+fn test_self_register_capability_runtime() {
+    use hipcortex::self_model::CapabilityDescriptor;
+    let state = make_app_state();
+    let result = state.self_model.register_capability(CapabilityDescriptor {
+        name: "runtime_cap_99".into(),
+        description: "registered at runtime".into(),
+        required_cpu_percent: 2.0,
+        required_memory_mb: 20.0,
+        limitations: vec![],
+    });
+    assert!(result.is_ok());
+    assert!(state.self_model.get_capability("runtime_cap_99").is_ok());
+}
