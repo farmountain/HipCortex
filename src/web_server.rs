@@ -19,6 +19,14 @@ use axum::{routing::{delete, get, patch, post}, Json, Router, http::StatusCode};
 #[cfg(feature = "web-server")]
 use crate::coherence::CoherenceChecker;
 #[cfg(feature = "web-server")]
+use crate::world_model_enhanced::WorldModelEnhanced;
+#[cfg(feature = "web-server")]
+use crate::aureus_bridge::AureusBridge;
+#[cfg(feature = "web-server")]
+use crate::self_model::SelfModel;
+#[cfg(feature = "web-server")]
+use std::sync::RwLock;
+#[cfg(feature = "web-server")]
 use std::collections::HashMap;
 #[cfg(feature = "web-server")]
 use std::net::SocketAddr;
@@ -107,6 +115,37 @@ pub struct TierLimits {
     gdpr_endpoints: bool,
     coherence_endpoints: bool,
     support: String,
+}
+
+/// Central server state bundling all stores and intelligence components.
+/// Each handler closure Arc-clones only the fields it needs.
+#[cfg(feature = "web-server")]
+pub struct AppState<B: MemoryBackend + Send + Sync + 'static> {
+    pub memory_store:   Arc<Mutex<MemoryStore<B>>>,
+    pub symbolic_store: Arc<Mutex<SymbolicStore<InMemoryGraph>>>,
+    /// Dirichlet-Multinomial transitions + Kalman entity tracking + causal DAG
+    pub world_model:    Arc<RwLock<WorldModelEnhanced>>,
+    /// Bayesian reflexion bridge — &mut self in reflexion_loop, so Mutex
+    pub aureus:         Arc<Mutex<AureusBridge>>,
+    /// Self-awareness: capability registry, resource monitor, health, decision engine
+    pub self_model:     Arc<SelfModel>,
+    /// Cross-module consistency checker — persistent, not recreated per request
+    pub coherence:      Arc<CoherenceChecker>,
+}
+
+/// Manual Clone: all fields are Arc<…> so clone is a ref-count bump regardless of B.
+#[cfg(feature = "web-server")]
+impl<B: MemoryBackend + Send + Sync + 'static> Clone for AppState<B> {
+    fn clone(&self) -> Self {
+        Self {
+            memory_store:   self.memory_store.clone(),
+            symbolic_store: self.symbolic_store.clone(),
+            world_model:    self.world_model.clone(),
+            aureus:         self.aureus.clone(),
+            self_model:     self.self_model.clone(),
+            coherence:      self.coherence.clone(),
+        }
+    }
 }
 
 /// POST /memory/search — semantic + keyword search request
@@ -362,11 +401,22 @@ pub async fn run(addr: SocketAddr) {
 
 #[cfg(feature = "web-server")]
 pub async fn run_with_memory<B: MemoryBackend + Send + Sync + 'static>(
-    addr: SocketAddr, 
+    addr: SocketAddr,
     memory_store: Arc<Mutex<MemoryStore<B>>>,
 ) {
     let symbolic_store = Arc::new(Mutex::new(SymbolicStore::new()));
     run_with_both_stores(addr, symbolic_store, memory_store).await;
+}
+
+/// Primary server entry point with full intelligence layer.
+/// Replaces run_with_both_stores. Tasks 4-8 will flesh out the body.
+#[cfg(feature = "web-server")]
+pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
+    addr: SocketAddr,
+    state: AppState<B>,
+) {
+    // Temporary: delegate to existing function while Tasks 4-8 build out intelligence routes.
+    run_with_both_stores(addr, state.symbolic_store, state.memory_store).await;
 }
 
 #[cfg(feature = "web-server")]
