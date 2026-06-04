@@ -56,30 +56,53 @@ curl https://hipcortex.fly.dev/openapi.json    # → OpenAPI 3.0 spec
 > ```
 > Server starts on http://localhost:3030 · Verify: `curl http://localhost:3030/health` → `ok`
 
-### Option B — Python (one-command install)
+### Option B — Python (interactive setup wizard)
 
 ```bash
-# Install + auto-configure Claude Code, Cursor, VS Code
 pip install "git+https://github.com/farmountain/HipCortex.git#subdirectory=sdk/python"
 hipcortex install
 ```
 
-Output:
+An interactive wizard appears — use **Space** to select, **Enter** to confirm:
+
 ```
-HipCortex installer
-========================================
-  Downloading hipcortex-linux-arm64 ... ✓
+  ██╗  ██╗██╗██████╗  ██████╗ ██████╗ ██████╗ ████████╗███████╗██╗  ██╗
+  ...
+  Persistent causal memory for AI agents · hipcortex.fly.dev
 
-Registering with AI coding assistants:
-  ✓ Claude Code         ~/.claude/skills/hipcortex/
-  ✓ Cursor (project)    .cursor/mcp.json
-  – VS Code             not found
+  Select what to configure:  (Space toggle · Enter confirm · q quit)
 
-Claude Code: type /hipcortex remember 'your note'
-Cursor: restart and use the hipcortex MCP tools
+  ── Coding Assistants ──────────────────────────────────────
+ › ● Claude Code        Anthropic · SKILL.md native, no MCP process
+   ● Cursor             Anysphere · MCP tools in AI panel
+   ○ Windsurf           Codeium · global MCP settings
+   ○ VS Code            Microsoft · MCP via settings.json
+   ○ Cline              saoudrizwan · .cline/mcp.json
+   ○ RooCode            RooVeterinary · .roo/mcp.json
+   ○ Continue           continuedev · /remember /recall         [guide]
+   ○ GitHub Copilot     GitHub · OpenAPI tool registration      [guide]
+   ...
+
+  ── Agent Frameworks ───────────────────────────────────────
+   ● LangChain [detected]  drop-in ConversationBufferMemory  [starter file]
+   ○ CrewAI             RememberTool + RecallTool             [starter file]
+   ○ AutoGen            AutoGen 0.4 Memory protocol           [starter file]
+   ○ LlamaIndex         SimpleChatStore-compatible            [starter file]
+   ○ Pydantic AI        tool-use memory via REST              [starter file]
+   ○ n8n / Make.com     workflow · HTTP Request node          [starter file]
+   ○ DSPy               trace storage for compilation         [starter file]
+
+  3 selected
 ```
 
-Then: `hipcortex start` to run locally, or use `--url https://hipcortex.fly.dev` for the managed free tier.
+**Coding assistants** → writes MCP config / SKILL.md automatically.  
+**Agent frameworks** → writes a ready-to-import starter file in your project (`hipcortex_langchain.py`, `hipcortex_crewai.py`, etc.). The wizard auto-detects which frameworks are in your `requirements.txt`.
+
+```bash
+hipcortex start          # download binary + start server on :3030
+hipcortex install --yes  # non-interactive: configure all supported agents
+hipcortex install --url https://hipcortex.fly.dev  # use managed tier instead
+```
 ```python
 from hipcortex import HipCortexClient, AsyncHipCortexClient
 
@@ -146,40 +169,20 @@ cargo run --bin webserver --no-default-features --features "web-server,petgraph_
 docker run -p 3030:3030 -v hipcortex_data:/app/data hipcortex:latest
 ```
 
-### Option G — Cursor / Claude Code / Windsurf (MCP server)
+### Option G — Cursor / Claude Code / Windsurf / Cline (MCP server)
 
-Give your AI coding assistant persistent memory across sessions:
+Give your AI coding assistant persistent memory across sessions.
 
+**Fastest path** — the `hipcortex install` wizard (Option B) handles this automatically: select your coding assistants, and it writes the MCP config for you.
+
+**Manual install** (if you prefer):
 ```bash
-# Install MCP server (one-liner)
 curl -fsSL https://raw.githubusercontent.com/farmountain/HipCortex/main/sdk/mcp/install.sh | bash
 ```
+The script installs the MCP server and prints exact config snippets for your IDE.
 
-**Cursor** — add to `.cursor/mcp.json`:
-```json
-{
-  "mcpServers": {
-    "hipcortex": {
-      "command": "python",
-      "args": ["~/.hipcortex-mcp/server.py"],
-      "env": { "HIPCORTEX_URL": "http://localhost:3030" }
-    }
-  }
-}
-```
-
-**Claude Code** — add to `~/.claude/settings.json`:
-```json
-{
-  "mcpServers": {
-    "hipcortex": {
-      "command": "python",
-      "args": ["~/.hipcortex-mcp/server.py"],
-      "env": { "HIPCORTEX_URL": "https://hipcortex.fly.dev" }
-    }
-  }
-}
-```
+**Supported assistants via MCP:** Cursor · Windsurf · VS Code · Cline · RooCode  
+**Via SKILL.md (no MCP process):** Claude Code — select it in the wizard for native `/hipcortex` slash commands.
 
 Tools available: `add_memory` · `search_memory` · `forget_actor` · `get_stats`
 
