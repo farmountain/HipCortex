@@ -404,19 +404,329 @@ pub async fn run_with_memory<B: MemoryBackend + Send + Sync + 'static>(
     addr: SocketAddr,
     memory_store: Arc<Mutex<MemoryStore<B>>>,
 ) {
-    let symbolic_store = Arc::new(Mutex::new(SymbolicStore::new()));
-    run_with_both_stores(addr, symbolic_store, memory_store).await;
+    let state = AppState {
+        memory_store,
+        symbolic_store: Arc::new(Mutex::new(SymbolicStore::new())),
+        world_model: Arc::new(RwLock::new(WorldModelEnhanced::new())),
+        aureus: Arc::new(Mutex::new(AureusBridge::new())),
+        self_model: Arc::new(SelfModel::new()),
+        coherence: Arc::new(CoherenceChecker::new()),
+    };
+    run_with_state(addr, state).await;
 }
 
 /// Primary server entry point with full intelligence layer.
-/// Replaces run_with_both_stores. Tasks 4-8 will flesh out the body.
+/// Owns all route registration — intelligence routes are wired here.
+/// Placeholder closures for Tasks 5-8 endpoints return {"status":"coming_soon"}.
 #[cfg(feature = "web-server")]
 pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     addr: SocketAddr,
     state: AppState<B>,
 ) {
-    // Temporary: delegate to existing function while Tasks 4-8 build out intelligence routes.
-    run_with_both_stores(addr, state.symbolic_store, state.memory_store).await;
+    // ── Unpack state into locals so closures can capture by value ─────────
+    let symbolic_store  = state.symbolic_store.clone();
+    let memory_store    = state.memory_store.clone();
+    let world_model     = state.world_model.clone();
+    let aureus          = state.aureus.clone();
+    let self_model_arc  = state.self_model.clone();
+    let coherence_arc   = state.coherence.clone();
+
+    // ── Symbolic store routes ─────────────────────────────────────────────
+    let graph_route = {
+        let store = symbolic_store.clone();
+        get(move || async move {
+            let store = store.lock().unwrap();
+            let graph = store.export_graph();
+            Json(graph)
+        })
+    };
+    let node_route = {
+        let store = symbolic_store.clone();
+        get(move |Path(id): Path<String>| async move {
+            let node = {
+                let store = store.lock().unwrap();
+                uuid::Uuid::parse_str(&id)
+                    .ok()
+                    .and_then(|u| store.get_node(u))
+            };
+            Json(node)
+        })
+    };
+
+    // ── Memory store routes ───────────────────────────────────────────────
+    let add_memory_route = {
+        let store = memory_store.clone();
+        post(move |Json(req): Json<AddMemoryRequest>| async move {
+            handle_add_memory(store, req).await
+        })
+    };
+
+    let bulk_add_route = {
+        let store = memory_store.clone();
+        post(move |Json(req): Json<BulkAddRequest>| async move {
+            handle_bulk_add(store, Json(req)).await
+        })
+    };
+
+    let query_memory_route = {
+        let store = memory_store.clone();
+        get(move |Query(params): Query<QueryMemoryParams>| async move {
+            handle_query_memory(store, params).await
+        })
+    };
+
+    // Semantic / keyword search: POST /memory/search
+    let search_route = {
+        let store = memory_store.clone();
+        post(move |Json(req): Json<SearchMemoryRequest>| async move {
+            handle_search_memory(store, Json(req)).await
+        })
+    };
+
+    // GDPR forget: DELETE /memory/forget/:actor
+    let forget_route = {
+        let ms = memory_store.clone();
+        let ss = symbolic_store.clone();
+        delete(move |Path(actor): Path<String>| async move {
+            handle_forget_actor(ms, ss, actor).await
+        })
+    };
+
+    // Embed and add: POST /memory/embed
+    let embed_add_route = {
+        let store = memory_store.clone();
+        post(move |Json(req): Json<EmbedAndAddRequest>| async move {
+            handle_embed_and_add(store, Json(req)).await
+        })
+    };
+
+    // Coherence status: GET /coherence/status
+    let coherence_route = get(|| async {
+        handle_coherence_status().await
+    });
+
+    // Live stats: GET /stats
+    let stats_route = {
+        let store = memory_store.clone();
+        get(move || handle_stats(store))
+    };
+
+    // Data export: GET /memory/export?actor=optional
+    let export_route = {
+        let store = memory_store.clone();
+        get(move |Query(params): Query<QueryMemoryParams>| async move {
+            handle_export_memory(store, Query(params)).await
+        })
+    };
+
+    // Flat search: GET /memory/search-flat?query=&actor=&limit=
+    let search_flat_route = {
+        let store = memory_store.clone();
+        get(move |Query(params): Query<SearchFlatParams>| async move {
+            handle_search_flat(store, Query(params)).await
+        })
+    };
+
+    // PATCH /memory/update/:id — versioned in-place update
+    let update_route = {
+        let store = memory_store.clone();
+        patch(move |Path(id): Path<String>, Json(req): Json<UpdateMemoryRequest>| async move {
+            handle_update_memory(store, id, Json(req)).await
+        })
+    };
+
+    // GET /memory/latest — most recent unique fact per (actor, action)
+    let latest_route = {
+        let store = memory_store.clone();
+        get(move |Query(params): Query<LatestMemoryParams>| async move {
+            handle_latest_memory(store, Query(params)).await
+        })
+    };
+
+    let audit_verify_route = {
+        let store = memory_store.clone();
+        get(move || { let s = store.clone(); async move { handle_audit_verify(s).await } })
+    };
+    let audit_export_route = {
+        let store = memory_store.clone();
+        get(move || { let s = store.clone(); async move { handle_audit_export(s).await } })
+    };
+
+    let create_node_route = {
+        let ss = symbolic_store.clone();
+        post(move |Json(req): Json<CreateNodeRequest>| async move {
+            handle_create_node(ss, Json(req)).await
+        })
+    };
+    let create_edge_route = {
+        let ss = symbolic_store.clone();
+        post(move |Json(req): Json<CreateEdgeRequest>| async move {
+            handle_create_edge(ss, Json(req)).await
+        })
+    };
+    let delete_node_route = {
+        let ss = symbolic_store.clone();
+        delete(move |Path(id): Path<String>| async move {
+            handle_delete_node(ss, id).await
+        })
+    };
+    let consolidate_route = {
+        let store = memory_store.clone();
+        post(move |Query(params): Query<ConsolidateParams>| async move {
+            handle_consolidate(store, Query(params)).await
+        })
+    };
+
+    let ingest_route = {
+        let store = memory_store.clone();
+        post(move |Json(req): Json<IngestRequest>| async move {
+            handle_ingest(store, Json(req)).await
+        })
+    };
+
+    let quarantine_route = {
+        let store = memory_store.clone();
+        post(move |Path(id): Path<String>| { let s = store.clone(); async move { handle_quarantine_memory(s, id).await } })
+    };
+    let restore_route = {
+        let store = memory_store.clone();
+        post(move |Path(id): Path<String>| { let s = store.clone(); async move { handle_restore_memory(s, id).await } })
+    };
+    let corroborate_route = {
+        let store = memory_store.clone();
+        post(move |Path(id): Path<String>| { let s = store.clone(); async move { handle_corroborate(s, id).await } })
+    };
+    let contradict_route = {
+        let store = memory_store.clone();
+        post(move |Path(id): Path<String>| { let s = store.clone(); async move { handle_contradict(s, id).await } })
+    };
+    let context_route = {
+        let store = memory_store.clone();
+        post(move |Json(req): Json<ContextRequest>| async move {
+            handle_memory_context(store, Json(req)).await
+        })
+    };
+
+    let metrics_route = {
+        let store = memory_store.clone();
+        get(move || { let s = store.clone(); async move { handle_prometheus_metrics(s).await } })
+    };
+
+    // ── Intelligence routes (filled in Tasks 5-8) ────────────────────────
+    let wm_observe_route = {
+        let _wm = world_model.clone();
+        post(move || async move {
+            axum::Json(serde_json::json!({"status": "coming_soon", "endpoint": "/worldmodel/observe"}))
+        })
+    };
+    let wm_predict_route = {
+        let _wm = world_model.clone();
+        get(move || async move {
+            axum::Json(serde_json::json!({"status": "coming_soon", "endpoint": "/worldmodel/predict"}))
+        })
+    };
+    let wm_entities_route = {
+        let _wm = world_model.clone();
+        get(move || async move {
+            axum::Json(serde_json::json!({"status": "coming_soon", "endpoint": "/worldmodel/entities"}))
+        })
+    };
+    let wm_entity_route = {
+        let _wm = world_model.clone();
+        post(move || async move {
+            axum::Json(serde_json::json!({"status": "coming_soon", "endpoint": "/worldmodel/entity"}))
+        })
+    };
+    let wm_causal_route = {
+        let _wm = world_model.clone();
+        get(move || async move {
+            axum::Json(serde_json::json!({"status": "coming_soon", "endpoint": "/worldmodel/causal"}))
+        })
+    };
+    let memory_reflect_route = {
+        let _au = aureus.clone();
+        post(move || async move {
+            axum::Json(serde_json::json!({"status": "coming_soon", "endpoint": "/memory/reflect"}))
+        })
+    };
+    let memory_hypotheses_route = {
+        let _au = aureus.clone();
+        get(move || async move {
+            axum::Json(serde_json::json!({"status": "coming_soon", "endpoint": "/memory/hypotheses"}))
+        })
+    };
+    let self_health_route = {
+        let _sm = self_model_arc.clone();
+        get(move || async move {
+            axum::Json(serde_json::json!({"status": "coming_soon", "endpoint": "/self/health"}))
+        })
+    };
+    let self_capabilities_route = {
+        let _sm = self_model_arc.clone();
+        get(move || async move {
+            axum::Json(serde_json::json!({"status": "coming_soon", "endpoint": "/self/capabilities"}))
+        })
+    };
+
+    // Suppress unused-variable warnings for intelligence Arcs not yet wired
+    let _ = coherence_arc;
+
+    let app = Router::new()
+        .route("/", get(|| async { axum::response::Redirect::permanent("/pricing") }))
+        .route("/health", get(|| async { "ok" }))
+        .route("/graph", graph_route)
+        .route("/node/:id", node_route)
+        .route("/memory/add", add_memory_route)
+        .route("/memory/bulk", bulk_add_route)
+        .route("/memory/embed", embed_add_route)
+        .route("/memory/query", query_memory_route)
+        .route("/memory/search", search_route)
+        .route("/memory/export", export_route)
+        .route("/memory/forget/:actor", forget_route)
+        .route("/memory/search-flat", search_flat_route)
+        .route("/memory/update/:id", update_route)
+        .route("/memory/latest", latest_route)
+        .route("/audit/verify", audit_verify_route)
+        .route("/audit/export", audit_export_route)
+        .route("/coherence/status", coherence_route)
+        .route("/coherence/inconsistencies", get(handle_coherence_inconsistencies))
+        .route("/worldmodel/status", get(handle_worldmodel_status))
+        .route("/webhooks", get(handle_list_webhooks).post(handle_register_webhook))
+        .route("/webhooks/:id", delete(handle_delete_webhook))
+        .route("/graph/node", create_node_route)
+        .route("/graph/edge", create_edge_route)
+        .route("/graph/node/:id", delete_node_route)
+        .route("/memory/consolidate", consolidate_route)
+        .route("/memory/ingest", ingest_route)
+        .route("/memory/quarantine/:id", quarantine_route)
+        .route("/memory/restore/:id", restore_route)
+        .route("/memory/corroborate/:id", corroborate_route)
+        .route("/memory/contradict/:id", contradict_route)
+        .route("/memory/context", context_route)
+        .route("/metrics", metrics_route)
+        .route("/stats", stats_route)
+        .route("/tier", get(handle_tier))
+        .route("/pricing", get(handle_pricing))
+        .route("/openapi.json", get(handle_openapi))
+        .route("/ns", get(handle_list_namespaces))
+        .route("/regulatory/hold", get(handle_list_regulatory_holds).post(handle_set_regulatory_hold))
+        .route("/regulatory/hold/:actor", delete(handle_release_regulatory_hold))
+        // ── Intelligence endpoints (placeholder — Tasks 5-8) ──────────────
+        .route("/worldmodel/observe",   wm_observe_route)
+        .route("/worldmodel/predict",   wm_predict_route)
+        .route("/worldmodel/entities",  wm_entities_route)
+        .route("/worldmodel/entity",    wm_entity_route)
+        .route("/worldmodel/causal",    wm_causal_route)
+        .route("/memory/reflect",       memory_reflect_route)
+        .route("/memory/hypotheses",    memory_hypotheses_route)
+        .route("/self/health",          self_health_route)
+        .route("/self/capabilities",    self_capabilities_route)
+        .layer(middleware::from_fn(api_key_middleware));
+
+    axum::Server::bind(&addr)
+        .serve(app.into_make_service())
+        .await
+        .expect("server failed");
 }
 
 #[cfg(feature = "web-server")]
