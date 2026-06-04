@@ -2,10 +2,10 @@
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Integration",
     "description": "Integrate HipCortex memory operations with VS Code chat",
-    "version": "0.1.5",
+    "version": "0.1.6",
     "publisher": "hipcortex",
     "engines": {
-        "vscode": "^1.85.0"
+        "vscode": "^1.90.0"
     },
     "categories": ["Machine Learning", "Data Science", "Other"],
     "keywords": ["ai", "memory", "agent", "chat", "hipcortex"],
@@ -54,6 +54,24 @@
                 ]
             }
         ],
+        "languageModelTools": [
+            {
+                "name": "hipcortex_search",
+                "displayName": "HipCortex Memory Search",
+                "description": "Search HipCortex persistent memory for relevant context. Returns the most relevant memory records matching the query.",
+                "modelDescription": "Use this tool when you need to recall previous decisions, architectural choices, debugging notes, or any information that may have been stored in the user's persistent memory. Call this instead of asking the user to repeat information they have already provided.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "What to search for in memory (e.g. 'database decision', 'authentication approach', 'recent bug fix')"
+                        }
+                    },
+                    "required": ["query"]
+                }
+            }
+        ],
         "configuration": {
             "title": "HipCortex Memory",
             "properties": {
@@ -90,7 +108,7 @@
         "test": "node ./out/test/runTest.js"
     },
     "devDependencies": {
-        "@types/vscode": "^1.85.0",
+        "@types/vscode": "^1.90.0",
         "@types/node": "20.x",
         "@typescript-eslint/eslint-plugin": "^6.13.1",
         "@typescript-eslint/parser": "^6.13.1",

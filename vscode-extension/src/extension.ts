@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import axios from 'axios';
+import { TokenTracker } from './token-tracker';
 
 interface MemoryRecord {
     id: string;
@@ -107,9 +108,11 @@ export class HipCortexAPI {
 
 class HipCortexChatParticipant {
     private api: HipCortexAPI;
+    private tokenTracker: TokenTracker;
 
-    constructor() {
+    constructor(tokenTracker: TokenTracker) {
         this.api = new HipCortexAPI();
+        this.tokenTracker = tokenTracker;
     }
 
     async provideResponse(
@@ -280,6 +283,13 @@ class HipCortexChatParticipant {
                     stream.markdown('\n---\n\n');
                 });
             });
+            // Token savings footer
+            const contextBundle = response.records
+                .map(r => `[${r.action}] ${r.target}`)
+                .join('\n');
+            const ESTIMATED_FULL_HISTORY = 2000; // typical full-history token estimate
+            this.tokenTracker.record(contextBundle, ESTIMATED_FULL_HISTORY);
+            stream.markdown('\n\n' + this.tokenTracker.formatSavingsFooter(contextBundle, ESTIMATED_FULL_HISTORY));
         } catch (error) {
             stream.markdown(`❌ **Query Error**: ${error instanceof Error ? error.message : String(error)}\n`);
         }
@@ -401,11 +411,75 @@ Try any of the examples above, or just tell me about something you did today!
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('🧠 HipCortex Memory Extension is now active!');
+    console.log('🧠 HipCortex Memory Extension v0.1.6 is now active!');
     console.log('🔧 Registering chat participant: hipcortex');
 
+    // ── Token savings tracker (session-scoped, resets on restart) ────────────
+    const tokenTracker = new TokenTracker();
+
+    // ── Status bar ────────────────────────────────────────────────────────────
+    const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    statusBarItem.tooltip = 'HipCortex Memory — click to query';
+    statusBarItem.command = 'hipcortex.queryMemory';
+    statusBarItem.text = '$(database) HipCortex';
+    statusBarItem.show();
+    context.subscriptions.push(statusBarItem);
+    const updateStatusBar = () => { statusBarItem.text = tokenTracker.formatStatusBarLabel(); };
+
+    // ── LM Tool: hipcortex_search — Copilot can call this automatically ───────
+    // Requires VS Code 1.90+. Gracefully no-ops on older versions.
+    if (typeof (vscode.lm as any)?.registerTool === 'function') {
+        const tool = (vscode.lm as any).registerTool('hipcortex_search', {
+            invoke: async (options: any, _token: vscode.CancellationToken) => {
+                const query: string = (options?.input?.query as string | undefined)?.trim() || 'recent decisions';
+                try {
+                    const api = new HipCortexAPI();
+                    const response = await api.queryMemory({ limit: 5 });
+                    const qWords = query.toLowerCase().split(' ').filter(w => w.length > 2);
+                    const matches = response.records
+                        .filter(r => qWords.some(w => `${r.actor} ${r.action} ${r.target}`.toLowerCase().includes(w)))
+                        .slice(0, 5);
+                    if (matches.length === 0) {
+                        return { content: [{ type: 'text', value: `No relevant memories found for: ${query}` }] };
+                    }
+                    const contextBundle = matches.map(r => `[${r.action}] ${r.target}`).join('\n');
+                    const BASELINE = 2000; // estimated full-history tokens
+                    tokenTracker.record(contextBundle, BASELINE);
+                    updateStatusBar();
+                    return { content: [{ type: 'text', value: `HipCortex memories (${matches.length}):\n${contextBundle}` }] };
+                } catch (err) {
+                    return { content: [{ type: 'text', value: `HipCortex search failed: ${err instanceof Error ? err.message : String(err)}` }] };
+                }
+            }
+        });
+        context.subscriptions.push(tool);
+        console.log('✅ HipCortex LM Tool registered: hipcortex_search');
+    } else {
+        console.log('ℹ️ VS Code < 1.90 — LM Tool hipcortex_search not available');
+    }
+
+    // ── Auto-capture: store file saves as temporal memories ──────────────────
+    const onSave = vscode.workspace.onDidSaveTextDocument(async (doc) => {
+        if (doc.uri.scheme !== 'file') { return; }
+        if (doc.fileName.includes('.git') || doc.fileName.includes('node_modules')) { return; }
+        try {
+            const api = new HipCortexAPI();
+            if (!(await api.healthCheck())) { return; }
+            const fileName = doc.fileName.split(/[\\/]/).pop() || doc.fileName;
+            await api.addMemory({
+                actor: fileName,
+                action: 'edited',
+                target: `${fileName} (${doc.languageId}, ${doc.lineCount} lines)`,
+                record_type: 'Temporal',
+                metadata: { source: 'vscode-auto-capture', language_id: doc.languageId, line_count: doc.lineCount }
+            });
+        } catch { /* silent — never interrupt save workflow */ }
+    });
+    context.subscriptions.push(onSave);
+    console.log('✅ HipCortex auto-capture on file save registered');
+
     // Register chat participant with high priority and explicit configuration
-    const chatParticipant = new HipCortexChatParticipant();
+    const chatParticipant = new HipCortexChatParticipant(tokenTracker);
     const participant = vscode.chat.createChatParticipant('hipcortex', chatParticipant.provideResponse.bind(chatParticipant));
     
     // Configure participant with explicit properties
