@@ -383,14 +383,28 @@ pub struct QueryMemoryResponse {
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
 pub struct MemoryRecordResponse {
-    id: String,
-    record_type: String,
-    timestamp: String,
-    actor: String,
-    action: String,
-    target: String,
-    metadata: serde_json::Value,
-    integrity: Option<String>,
+    pub id:          String,
+    pub record_type: String,
+    pub timestamp:   String,
+    pub actor:       String,
+    pub action:      String,
+    pub target:      String,
+    pub metadata:    serde_json::Value,
+    pub integrity:   Option<String>,
+    /// Reliability signal [0.0, 1.0]. Use to filter low-confidence memories before injection.
+    pub confidence:  f32,
+    /// Who or what wrote this memory (e.g. "user-input", "claude-3-7").
+    pub source:      Option<String>,
+    /// "pinned" | "high" | "normal" | "low". Pinned bypasses decay.
+    pub priority:    String,
+    /// Domain tags for RAG filtering (e.g. ["database", "auth"]).
+    pub tags:        Vec<String>,
+    /// Update counter. 0 = original. Increments on PATCH /memory/update/:id.
+    pub version:     u32,
+    /// "active" | "quarantine" | "archived".
+    pub status:      String,
+    /// Unix timestamp when record expires. None = never expires.
+    pub expires_at:  Option<i64>,
 }
 
 #[cfg(feature = "web-server")]
@@ -1157,6 +1171,13 @@ async fn handle_search_memory<B: MemoryBackend + Send + Sync + 'static>(
                         target:      r.target.clone(),
                         metadata:    r.metadata.clone(),
                         integrity:   r.integrity.clone(),
+                        confidence:  r.confidence,
+                        source:      r.source.clone(),
+                        priority:    r.priority.clone(),
+                        tags:        r.tags.clone(),
+                        version:     r.version,
+                        status:      r.status.clone(),
+                        expires_at:  r.expires_at,
                     },
                 })
                 .collect::<Vec<_>>();
@@ -1222,6 +1243,12 @@ async fn handle_export_memory<B: MemoryBackend + Send + Sync + 'static>(
                     "target":      r.target,
                     "metadata":    r.metadata,
                     "integrity":   r.integrity,
+                    "confidence":  r.confidence,
+                    "source":      r.source.clone(),
+                    "priority":    r.priority.clone(),
+                    "tags":        r.tags.clone(),
+                    "version":     r.version,
+                    "status":      r.status.clone(),
                     "expires_at":  r.expires_at,
                 })
             }).collect();
@@ -1637,6 +1664,13 @@ async fn handle_latest_memory<B: MemoryBackend + Send + Sync + 'static>(
                 target:      r.target.clone(),
                 metadata:    r.metadata.clone(),
                 integrity:   r.integrity.clone(),
+                confidence:  r.confidence,
+                source:      r.source.clone(),
+                priority:    r.priority.clone(),
+                tags:        r.tags.clone(),
+                version:     r.version,
+                status:      r.status.clone(),
+                expires_at:  r.expires_at,
             }).collect::<Vec<_>>();
             let total = response_records.len();
             Ok(Json(QueryMemoryResponse { records: response_records, total }))
@@ -2605,14 +2639,21 @@ async fn handle_query_memory<B: MemoryBackend + Send + Sync + 'static>(
             let response_records = filtered_records
                 .into_iter()
                 .map(|r| MemoryRecordResponse {
-                    id: r.id.to_string(),
+                    id:          r.id.to_string(),
                     record_type: format!("{:?}", r.record_type),
-                    timestamp: r.timestamp.to_rfc3339(),
-                    actor: r.actor.clone(),
-                    action: r.action.clone(),
-                    target: r.target.clone(),
-                    metadata: r.metadata.clone(),
-                    integrity: r.integrity.clone(),
+                    timestamp:   r.timestamp.to_rfc3339(),
+                    actor:       r.actor.clone(),
+                    action:      r.action.clone(),
+                    target:      r.target.clone(),
+                    metadata:    r.metadata.clone(),
+                    integrity:   r.integrity.clone(),
+                    confidence:  r.confidence,
+                    source:      r.source.clone(),
+                    priority:    r.priority.clone(),
+                    tags:        r.tags.clone(),
+                    version:     r.version,
+                    status:      r.status.clone(),
+                    expires_at:  r.expires_at,
                 })
                 .collect::<Vec<_>>();
 

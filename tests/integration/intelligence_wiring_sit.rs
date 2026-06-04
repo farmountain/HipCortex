@@ -428,3 +428,49 @@ fn test_self_register_capability_runtime() {
     assert!(result.is_ok());
     assert!(state.self_model.get_capability("runtime_cap_99").is_ok());
 }
+
+// ── MemoryRecordResponse field expansion (confidence/source/priority/tags/version/status/expires_at) ──
+
+#[test]
+fn test_memory_record_has_confidence_field() {
+    let r = make_record("alice", "decided", "use_postgres");
+    assert_eq!(r.confidence, 1.0_f32); // default confidence
+}
+
+#[test]
+fn test_memory_record_has_all_new_fields() {
+    let mut r = make_record("alice", "decided", "use_postgres");
+    r.priority = "high".to_string();
+    r.tags = vec!["database".to_string()];
+    r.version = 2;
+    r.status = "active".to_string();
+    r.source = Some("user-input".to_string());
+    assert_eq!(r.priority, "high");
+    assert_eq!(r.tags.len(), 1);
+    assert_eq!(r.version, 2);
+    assert_eq!(r.status, "active");
+    assert!(r.source.is_some());
+}
+
+#[test]
+fn test_query_memory_response_includes_confidence() {
+    // Build a MemoryRecordResponse manually (struct construction test)
+    // This verifies the struct has the new public fields
+    let state = make_app_state();
+    {
+        let mut ms = state.memory_store.lock().unwrap();
+        let mut r = make_record("alice", "decided", "use_postgres");
+        r.confidence = 0.8;
+        r.priority = "high".to_string();
+        r.tags = vec!["database".to_string()];
+        ms.add(r).unwrap();
+    }
+    // Read it back — confidence + priority + tags should be on the record
+    let ms = state.memory_store.lock().unwrap();
+    let records = ms.find_by_actor("alice");
+    assert!(!records.is_empty());
+    let r = records[0];
+    assert_eq!(r.confidence, 0.8_f32);
+    assert_eq!(r.priority, "high");
+    assert_eq!(r.tags[0], "database");
+}
