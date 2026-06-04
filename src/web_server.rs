@@ -656,6 +656,18 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         let wm = world_model.clone();
         get(move || { let w = wm.clone(); async move { handle_wm_causal(w).await } })
     };
+    let wm_intervention_route = {
+        let wm = world_model.clone();
+        post(move |Json(req): Json<serde_json::Value>| async move {
+            handle_wm_causal_intervention(wm, Json(req)).await
+        })
+    };
+    let wm_counterfactual_route = {
+        let wm = world_model.clone();
+        post(move |Json(req): Json<serde_json::Value>| async move {
+            handle_wm_causal_counterfactual(wm, Json(req)).await
+        })
+    };
     let memory_reflect_route = {
         let ms = memory_store.clone();
         let au = aureus.clone();
@@ -737,6 +749,8 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
                 handle_wm_causal_add_edge(wm, Json(req)).await
             })
         })
+        .route("/worldmodel/causal/intervention",   wm_intervention_route)
+        .route("/worldmodel/causal/counterfactual", wm_counterfactual_route)
         .route("/memory/reflect",       memory_reflect_route)
         .route("/memory/hypotheses",    memory_hypotheses_route)
         .route("/memory/hypotheses/reset", {
@@ -3072,6 +3086,66 @@ async fn handle_wm_causal_add_edge(
         Ok(mut wm) => match wm.add_causal_edge(from.clone(), to.clone()) {
             Ok(_)  => Json(serde_json::json!({"success": true, "from": from, "to": to})),
             Err(e) => Json(serde_json::json!({"success": false, "error": e})),
+        },
+        Err(e) => Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
+    }
+}
+
+/// POST /worldmodel/causal/intervention — P(Y|do(X=x)) do-calculus query
+/// Body: {"outcome": "Y", "intervention_var": "X", "intervention_value": 1.0, "conditioned_on": {}}
+#[cfg(feature = "web-server")]
+async fn handle_wm_causal_intervention(
+    world_model: Arc<RwLock<WorldModelEnhanced>>,
+    Json(req): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    let outcome          = req["outcome"].as_str().unwrap_or("").to_string();
+    let intervention_var = req["intervention_var"].as_str().unwrap_or("").to_string();
+    let intervention_value = req["intervention_value"].as_f64().unwrap_or(0.0);
+    if outcome.is_empty() || intervention_var.is_empty() {
+        return Json(serde_json::json!({"success": false, "error": "outcome and intervention_var required"}));
+    }
+    let conditioned_on: std::collections::HashMap<String, f64> = req["conditioned_on"]
+        .as_object()
+        .map(|obj| obj.iter()
+            .filter_map(|(k, v)| v.as_f64().map(|f| (k.clone(), f)))
+            .collect())
+        .unwrap_or_default();
+
+    use crate::world_model_enhanced::InterventionQuery;
+    let query = InterventionQuery { outcome, intervention_var, intervention_value, conditioned_on };
+
+    match world_model.read() {
+        Ok(wm) => match wm.causal_intervention(query) {
+            Ok(result) => Json(serde_json::json!({"success": true, "outcome_probabilities": result})),
+            Err(e)     => Json(serde_json::json!({"success": false, "error": e})),
+        },
+        Err(e) => Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
+    }
+}
+
+/// POST /worldmodel/causal/counterfactual — "what if X had been x instead?"
+/// Body: {"actual_state": {"X": 0.5, "Y": 0.3}, "intervention_var": "X", "intervention_value": 1.0}
+#[cfg(feature = "web-server")]
+async fn handle_wm_causal_counterfactual(
+    world_model: Arc<RwLock<WorldModelEnhanced>>,
+    Json(req): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    let intervention_var   = req["intervention_var"].as_str().unwrap_or("").to_string();
+    let intervention_value = req["intervention_value"].as_f64().unwrap_or(0.0);
+    if intervention_var.is_empty() {
+        return Json(serde_json::json!({"success": false, "error": "intervention_var required"}));
+    }
+    let actual_state: std::collections::HashMap<String, f64> = req["actual_state"]
+        .as_object()
+        .map(|obj| obj.iter()
+            .filter_map(|(k, v)| v.as_f64().map(|f| (k.clone(), f)))
+            .collect())
+        .unwrap_or_default();
+
+    match world_model.read() {
+        Ok(wm) => match wm.counterfactual(actual_state, intervention_var, intervention_value) {
+            Ok(result) => Json(serde_json::json!({"success": true, "counterfactual_outcome": result})),
+            Err(e)     => Json(serde_json::json!({"success": false, "error": e})),
         },
         Err(e) => Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
     }

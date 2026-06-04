@@ -322,3 +322,30 @@ fn test_wm_get_all_entropy() {
     assert!(s1_a1.is_some());
     assert!(s1_a1.unwrap().2 > 0.5);
 }
+
+#[test]
+fn test_causal_intervention_empty_graph() {
+    use hipcortex::world_model_enhanced::InterventionQuery;
+    let state = make_app_state();
+    let wm = state.world_model.read().unwrap();
+    let result = wm.causal_intervention(InterventionQuery {
+        outcome: "Y".into(),
+        intervention_var: "X".into(),
+        intervention_value: 1.0,
+        conditioned_on: std::collections::HashMap::new(),
+    });
+    // May succeed or fail on empty graph — must not panic
+    let _ = result;
+}
+
+#[test]
+fn test_counterfactual_empty_graph() {
+    let state = make_app_state();
+    let wm = state.world_model.read().unwrap();
+    let mut actual = std::collections::HashMap::new();
+    actual.insert("X".to_string(), 0.5f64);
+    actual.insert("Y".to_string(), 0.3f64);
+    // Must not panic even on empty graph
+    let result = wm.counterfactual(actual, "X".into(), 1.0);
+    let _ = result;
+}
