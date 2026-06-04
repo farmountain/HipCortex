@@ -143,3 +143,55 @@ fn test_auto_feed_pinned_causal_edge() {
     }
     assert!(state.world_model.read().unwrap().has_causal_path("alice", "postgres").unwrap());
 }
+
+#[test]
+fn test_wm_observe_predict_via_state() {
+    let state = make_app_state();
+    {
+        let mut wm = state.world_model.write().unwrap();
+        for _ in 0..3 { wm.observe_transition("S1".into(), "A1".into(), "S2".into()).unwrap(); }
+        wm.observe_transition("S1".into(), "A1".into(), "S3".into()).unwrap();
+    }
+    let wm = state.world_model.read().unwrap();
+    let pred = wm.predict_next_state("S1", "A1").unwrap();
+    assert!(pred.probabilities["S2"] > pred.probabilities["S3"]);
+    assert_eq!(pred.observation_count, 4);
+}
+
+#[test]
+fn test_wm_register_entity_list() {
+    use hipcortex::world_model_enhanced::EntityState;
+    let state = make_app_state();
+    {
+        let mut wm = state.world_model.write().unwrap();
+        wm.register_entity("robot_1".into(), EntityState {
+            properties: vec![0.0, 0.0, 0.0],
+            covariance: vec![vec![1.0,0.0,0.0],vec![0.0,1.0,0.0],vec![0.0,0.0,1.0]],
+        }).unwrap();
+    }
+    let entities = state.world_model.read().unwrap().list_entities().unwrap();
+    assert!(entities.contains(&"robot_1".to_string()));
+}
+
+#[test]
+fn test_wm_causal_edges() {
+    let state = make_app_state();
+    {
+        let mut wm = state.world_model.write().unwrap();
+        wm.add_causal_edge("A".into(), "B".into()).unwrap();
+        wm.add_causal_edge("B".into(), "C".into()).unwrap();
+    }
+    let edges = state.world_model.read().unwrap().get_causal_edges();
+    assert_eq!(edges.len(), 2);
+}
+
+#[test]
+fn test_wm_transition_count_after_feed() {
+    let state = make_app_state();
+    assert_eq!(state.world_model.read().unwrap().transition_count(), 0);
+    {
+        let mut wm = state.world_model.write().unwrap();
+        wm.observe_transition("X".into(), "Y".into(), "Z".into()).unwrap();
+    }
+    assert_eq!(state.world_model.read().unwrap().transition_count(), 1);
+}

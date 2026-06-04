@@ -616,34 +616,30 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
 
     // ── Intelligence routes (filled in Tasks 5-8) ────────────────────────
     let wm_observe_route = {
-        let _wm = world_model.clone();
-        post(move || async move {
-            axum::Json(serde_json::json!({"status": "coming_soon", "endpoint": "/worldmodel/observe"}))
+        let wm = world_model.clone();
+        post(move |Json(req): Json<serde_json::Value>| async move {
+            handle_wm_observe(wm, Json(req)).await
         })
     };
     let wm_predict_route = {
-        let _wm = world_model.clone();
-        get(move || async move {
-            axum::Json(serde_json::json!({"status": "coming_soon", "endpoint": "/worldmodel/predict"}))
+        let wm = world_model.clone();
+        get(move |Query(p): Query<WmPredictParams>| async move {
+            handle_wm_predict(wm, Query(p)).await
         })
     };
     let wm_entities_route = {
-        let _wm = world_model.clone();
-        get(move || async move {
-            axum::Json(serde_json::json!({"status": "coming_soon", "endpoint": "/worldmodel/entities"}))
-        })
+        let wm = world_model.clone();
+        get(move || { let w = wm.clone(); async move { handle_wm_entities(w).await } })
     };
     let wm_entity_route = {
-        let _wm = world_model.clone();
-        post(move || async move {
-            axum::Json(serde_json::json!({"status": "coming_soon", "endpoint": "/worldmodel/entity"}))
+        let wm = world_model.clone();
+        post(move |Json(req): Json<serde_json::Value>| async move {
+            handle_wm_register_entity(wm, Json(req)).await
         })
     };
     let wm_causal_route = {
-        let _wm = world_model.clone();
-        get(move || async move {
-            axum::Json(serde_json::json!({"status": "coming_soon", "endpoint": "/worldmodel/causal"}))
-        })
+        let wm = world_model.clone();
+        get(move || { let w = wm.clone(); async move { handle_wm_causal(w).await } })
     };
     let memory_reflect_route = {
         let _au = aureus.clone();
@@ -692,7 +688,10 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         .route("/audit/export", audit_export_route)
         .route("/coherence/status", coherence_route)
         .route("/coherence/inconsistencies", get(handle_coherence_inconsistencies))
-        .route("/worldmodel/status", get(handle_worldmodel_status))
+        .route("/worldmodel/status", {
+            let wm = world_model.clone();
+            get(move || { let w = wm.clone(); async move { handle_worldmodel_status(w).await } })
+        })
         .route("/webhooks", get(handle_list_webhooks).post(handle_register_webhook))
         .route("/webhooks/:id", delete(handle_delete_webhook))
         .route("/graph/node", create_node_route)
@@ -713,7 +712,7 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         .route("/ns", get(handle_list_namespaces))
         .route("/regulatory/hold", get(handle_list_regulatory_holds).post(handle_set_regulatory_hold))
         .route("/regulatory/hold/:actor", delete(handle_release_regulatory_hold))
-        // ── Intelligence endpoints (placeholder — Tasks 5-8) ──────────────
+        // ── Intelligence endpoints (Tasks 5-8) ───────────────────────────
         .route("/worldmodel/observe",   wm_observe_route)
         .route("/worldmodel/predict",   wm_predict_route)
         .route("/worldmodel/entities",  wm_entities_route)
@@ -2006,7 +2005,10 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/audit/export", audit_export_route)
         .route("/coherence/status", coherence_route)
         .route("/coherence/inconsistencies", get(handle_coherence_inconsistencies))
-        .route("/worldmodel/status", get(handle_worldmodel_status))
+        .route("/worldmodel/status", {
+            let wm = world_model.clone();
+            get(move || { let w = wm.clone(); async move { handle_worldmodel_status(w).await } })
+        })
         .route("/webhooks", get(handle_list_webhooks).post(handle_register_webhook))
         .route("/webhooks/:id", delete(handle_delete_webhook))
         .route("/graph/node", create_node_route)
@@ -2837,19 +2839,138 @@ async fn handle_memory_context<B: MemoryBackend + Send + Sync + 'static>(
     }
 }
 
-/// GET /worldmodel/status — world model availability and state summary.
-/// Full inference (Dirichlet-Multinomial, Kalman, do-calculus) is available
-/// in the managed HipCortex hosted tier. Self-hosted returns basic state.
+// ── G6: WorldModel REST handlers ─────────────────────────────────────────────
+
+/// POST /worldmodel/observe — feed {from, action, to} into Dirichlet transition model
 #[cfg(feature = "web-server")]
-async fn handle_worldmodel_status() -> Json<serde_json::Value> {
+async fn handle_wm_observe(
+    world_model: Arc<RwLock<WorldModelEnhanced>>,
+    Json(req): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    let from   = req["from"].as_str().unwrap_or("").to_string();
+    let action = req["action"].as_str().unwrap_or("").to_string();
+    let to     = req["to"].as_str().unwrap_or("").to_string();
+    if from.is_empty() || action.is_empty() || to.is_empty() {
+        return Json(serde_json::json!({"success": false, "error": "from, action, to required"}));
+    }
+    match world_model.write() {
+        Ok(mut wm) => match wm.observe_transition(from, action, to) {
+            Ok(_)  => Json(serde_json::json!({"success": true, "total_transitions": wm.transition_count()})),
+            Err(e) => Json(serde_json::json!({"success": false, "error": e})),
+        },
+        Err(e) => Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
+    }
+}
+
+/// GET /worldmodel/predict?state=S1&action=A1 — P(s'|s,a) probability distribution
+#[cfg(feature = "web-server")]
+#[derive(serde::Deserialize)]
+struct WmPredictParams {
+    state: String,
+    action: String,
+}
+
+#[cfg(feature = "web-server")]
+async fn handle_wm_predict(
+    world_model: Arc<RwLock<WorldModelEnhanced>>,
+    Query(params): Query<WmPredictParams>,
+) -> Json<serde_json::Value> {
+    match world_model.read() {
+        Ok(wm) => match wm.predict_next_state(&params.state, &params.action) {
+            Ok(pred) => Json(serde_json::json!({
+                "from_state": pred.from_state,
+                "action": pred.action,
+                "probabilities": pred.probabilities,
+                "entropy": pred.entropy,
+                "observation_count": pred.observation_count,
+            })),
+            Err(e) => Json(serde_json::json!({"error": e})),
+        },
+        Err(e) => Json(serde_json::json!({"error": format!("lock: {}", e)})),
+    }
+}
+
+/// GET /worldmodel/entities — list Kalman-tracked entity IDs
+#[cfg(feature = "web-server")]
+async fn handle_wm_entities(
+    world_model: Arc<RwLock<WorldModelEnhanced>>,
+) -> Json<serde_json::Value> {
+    match world_model.read() {
+        Ok(wm) => match wm.list_entities() {
+            Ok(ids) => {
+                let total = ids.len();
+                Json(serde_json::json!({"entities": ids, "total": total}))
+            },
+            Err(e)  => Json(serde_json::json!({"entities": [], "error": e})),
+        },
+        Err(e) => Json(serde_json::json!({"error": format!("lock: {}", e)})),
+    }
+}
+
+/// POST /worldmodel/entity — register entity with initial Kalman state
+#[cfg(feature = "web-server")]
+async fn handle_wm_register_entity(
+    world_model: Arc<RwLock<WorldModelEnhanced>>,
+    Json(req): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    use crate::world_model_enhanced::EntityState;
+    let id = req["id"].as_str().unwrap_or("").to_string();
+    if id.is_empty() {
+        return Json(serde_json::json!({"success": false, "error": "id required"}));
+    }
+    let dims = req["dimensions"].as_u64().unwrap_or(3) as usize;
+    let initial = EntityState {
+        properties: vec![0.0; dims],
+        covariance: (0..dims)
+            .map(|i| (0..dims).map(|j| if i == j { 1.0f64 } else { 0.0 }).collect())
+            .collect(),
+    };
+    match world_model.write() {
+        Ok(mut wm) => match wm.register_entity(id.clone(), initial) {
+            Ok(_)  => Json(serde_json::json!({"success": true, "id": id})),
+            Err(e) => Json(serde_json::json!({"success": false, "error": e})),
+        },
+        Err(e) => Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
+    }
+}
+
+/// GET /worldmodel/causal — dump causal DAG edges
+#[cfg(feature = "web-server")]
+async fn handle_wm_causal(
+    world_model: Arc<RwLock<WorldModelEnhanced>>,
+) -> Json<serde_json::Value> {
+    match world_model.read() {
+        Ok(wm) => {
+            let edges: Vec<serde_json::Value> = wm.get_causal_edges().iter()
+                .map(|e| serde_json::json!({"from": e.from, "to": e.to, "strength": e.strength}))
+                .collect();
+            let total = edges.len();
+            Json(serde_json::json!({"edges": edges, "total": total}))
+        },
+        Err(e) => Json(serde_json::json!({"error": format!("lock: {}", e)})),
+    }
+}
+
+/// GET /worldmodel/status — world model availability and real state summary.
+#[cfg(feature = "web-server")]
+async fn handle_worldmodel_status(
+    world_model: Arc<RwLock<WorldModelEnhanced>>,
+) -> Json<serde_json::Value> {
+    let (total_transitions, entity_count) = match world_model.read() {
+        Ok(wm) => (wm.transition_count(), wm.list_entities().unwrap_or_default().len()),
+        Err(_) => (0, 0),
+    };
     Json(serde_json::json!({
         "status": "available",
-        "mode": "basic",
-        "note": "Full causal inference (Dirichlet-Multinomial transitions, Kalman entity tracking, do-calculus) available in managed tier at https://hipcortex.fly.dev",
+        "mode": "full",
+        "total_transitions_observed": total_transitions,
+        "tracked_entities": entity_count,
         "endpoints": {
-            "status": "GET /worldmodel/status",
-            "predict": "POST /worldmodel/predict (managed tier only)",
-            "update": "POST /worldmodel/update (managed tier only)"
+            "observe": "POST /worldmodel/observe",
+            "predict": "GET /worldmodel/predict?state=&action=",
+            "entities": "GET /worldmodel/entities",
+            "entity": "POST /worldmodel/entity",
+            "causal": "GET /worldmodel/causal"
         }
     }))
 }
