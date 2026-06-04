@@ -32,11 +32,11 @@ pub struct TransitionPrediction {
 #[derive(Debug)]
 pub struct TransitionModel {
     /// Transition counts: (state, action, next_state) → count
-    counts: HashMap<(String, String, String), usize>,
-    
+    pub(crate) counts: HashMap<(String, String, String), usize>,
+
     /// Total observations per (state, action) pair
-    totals: HashMap<(String, String), usize>,
-    
+    pub(crate) totals: HashMap<(String, String), usize>,
+
     /// Laplace smoothing parameter (α)
     smoothing: f64,
 }
@@ -54,6 +54,11 @@ impl TransitionModel {
             totals: HashMap::new(),
             smoothing,
         }
+    }
+
+    /// Return the smoothing parameter (α)
+    pub fn smoothing(&self) -> f64 {
+        self.smoothing
     }
 
     /// Record a state transition observation

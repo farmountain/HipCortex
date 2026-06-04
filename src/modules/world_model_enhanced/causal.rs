@@ -341,6 +341,15 @@ impl CausalGraph {
     pub fn edge_count(&self) -> usize {
         self.edge_data.len()
     }
+
+    /// Return all causal edges (for persistence).
+    pub fn all_edges(&self) -> Vec<CausalEdge> {
+        self.edge_data.iter().map(|((from, to), &strength)| CausalEdge {
+            from: from.clone(),
+            to: to.clone(),
+            strength,
+        }).collect()
+    }
 }
 
 impl Default for CausalGraph {

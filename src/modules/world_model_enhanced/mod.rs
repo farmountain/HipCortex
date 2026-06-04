@@ -313,6 +313,121 @@ impl WorldModelEnhanced {
         
         uncertainty.decompose(state, action)
     }
+
+    /// Return all causal edges for serialization.
+    pub fn get_causal_edges(&self) -> Vec<CausalEdge> {
+        self.causal_graph.read()
+            .map(|g| g.all_edges())
+            .unwrap_or_default()
+    }
+
+    /// Total number of state transitions observed across all (state, action) pairs.
+    pub fn transition_count(&self) -> usize {
+        self.transitions.read()
+            .map(|t| t.observation_count())
+            .unwrap_or(0)
+    }
+
+    /// Save world model state to a JSON file.
+    /// Persists: transition counts + totals, causal edges.
+    /// Entity Kalman states are NOT persisted (recoverable from live memory).
+    /// Uses atomic write: writes to .tmp file then renames.
+    pub fn save<P: AsRef<std::path::Path>>(&self, path: P) -> anyhow::Result<()> {
+        let transitions = self.transitions.read()
+            .map_err(|e| anyhow::anyhow!("transitions lock error: {}", e))?;
+        let causal = self.causal_graph.read()
+            .map_err(|e| anyhow::anyhow!("causal lock error: {}", e))?;
+
+        // Encode HashMap<(String,String,String), usize> → HashMap<String, usize>
+        // using \x1F (ASCII Unit Separator) as separator — safe in any UTF-8 string
+        let counts_encoded: std::collections::HashMap<String, usize> = transitions.counts
+            .iter()
+            .map(|((s, a, ns), &v)| (format!("{}\x1F{}\x1F{}", s, a, ns), v))
+            .collect();
+        let totals_encoded: std::collections::HashMap<String, usize> = transitions.totals
+            .iter()
+            .map(|((s, a), &v)| (format!("{}\x1F{}", s, a), v))
+            .collect();
+
+        let causal_edges: Vec<serde_json::Value> = causal.all_edges().iter().map(|e| {
+            serde_json::json!({"from": e.from, "to": e.to, "strength": e.strength})
+        }).collect();
+
+        let data = serde_json::json!({
+            "version": 1,
+            "transition_counts": counts_encoded,
+            "transition_totals": totals_encoded,
+            "smoothing": transitions.smoothing(),
+            "causal_edges": causal_edges,
+        });
+
+        // Atomic write: write to .tmp then rename
+        let tmp_path = path.as_ref().with_extension("json.tmp");
+        std::fs::write(&tmp_path, serde_json::to_string_pretty(&data)?)?;
+        std::fs::rename(&tmp_path, path.as_ref())?;
+        Ok(())
+    }
+
+    /// Load world model state from a JSON file written by save().
+    /// Returns Err if the file doesn't exist or is malformed.
+    pub fn load<P: AsRef<std::path::Path>>(path: P) -> anyhow::Result<Self> {
+        let content = std::fs::read_to_string(path.as_ref())?;
+        let data: serde_json::Value = serde_json::from_str(&content)?;
+
+        let wm = Self::new();
+
+        // Restore transition counts
+        {
+            let mut transitions = wm.transitions.write()
+                .map_err(|e| anyhow::anyhow!("lock: {}", e))?;
+            let smoothing = data["smoothing"].as_f64().unwrap_or(1.0);
+            *transitions = TransitionModel::with_smoothing(smoothing);
+
+            if let Some(obj) = data["transition_counts"].as_object() {
+                for (k, v) in obj {
+                    let parts: Vec<&str> = k.splitn(3, '\x1F').collect();
+                    if parts.len() == 3 {
+                        if let Some(count) = v.as_u64() {
+                            transitions.counts.insert(
+                                (parts[0].to_string(), parts[1].to_string(), parts[2].to_string()),
+                                count as usize,
+                            );
+                        }
+                    }
+                }
+            }
+            if let Some(obj) = data["transition_totals"].as_object() {
+                for (k, v) in obj {
+                    let parts: Vec<&str> = k.splitn(2, '\x1F').collect();
+                    if parts.len() == 2 {
+                        if let Some(total) = v.as_u64() {
+                            transitions.totals.insert(
+                                (parts[0].to_string(), parts[1].to_string()),
+                                total as usize,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        // Restore causal edges
+        {
+            let mut causal = wm.causal_graph.write()
+                .map_err(|e| anyhow::anyhow!("lock: {}", e))?;
+            if let Some(arr) = data["causal_edges"].as_array() {
+                for e in arr {
+                    let from = e["from"].as_str().unwrap_or("").to_string();
+                    let to   = e["to"].as_str().unwrap_or("").to_string();
+                    if !from.is_empty() && !to.is_empty() {
+                        let _ = causal.add_edge(from, to); // ignore cycle prevention errors on load
+                    }
+                }
+            }
+        }
+
+        Ok(wm)
+    }
 }
 
 impl Default for WorldModelEnhanced {
