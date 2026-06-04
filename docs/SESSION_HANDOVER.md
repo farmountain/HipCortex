@@ -1,6 +1,6 @@
 # HipCortex — Session Handover Document
 **Date:** 2026-05-30  
-**Branch:** `claude/pedantic-edison-28b84c` (51 commits ahead of main)  
+**Branch:** `claude/pedantic-edison-28b84c` (62 commits ahead of main)  
 **Live URL:** https://hipcortex.fly.dev  
 **PyPI:** `pip install hipcortex` (published, v0.2.0)  
 **GitHub:** https://github.com/farmountain/HipCortex (public)
@@ -52,9 +52,9 @@ HIPAA BAA template: `docs/compliance/HIPAA-BAA-template.md`
 ### Observability
 `GET /metrics` (Prometheus), `GET /stats`, `GET /coherence/status`, `GET /coherence/inconsistencies`
 
-### World Model (commercial boundary)
-`GET /worldmodel/status` — public stub (says "full inference in managed tier")  
-`POST /worldmodel/predict` + `POST /worldmodel/observe` — **commercial-moat branch only**, Dirichlet-Multinomial + Kalman
+### World Model (now fully wired — open branch)
+`GET /worldmodel/status` — live transition count + entity count (no longer a static stub)  
+`POST /worldmodel/observe`, `GET /worldmodel/predict`, `GET /worldmodel/entities`, `POST /worldmodel/entity`, `GET /worldmodel/causal` — Dirichlet-Multinomial + Kalman, fully wired in open branch (intelligence layer wiring, 2026-06-04)
 
 ### System
 `GET /health`, `GET /stats`, `GET /tier`, `GET /pricing`, `GET /openapi.json`, `GET /ns`  
@@ -312,4 +312,45 @@ S.zero_config_ingest     = 1.0  # POST /memory/ingest
 S.install_wizard         = 1.0  # interactive multi-select
 S.show_hn_posted         = 0    # HIGHEST ΔV REMAINING ACTION
 S.github_stars           = 0    # nothing posted yet
+S.world_model_wired      = 1.0  # all 5 worldmodel endpoints live
+S.aureus_bridge_wired    = 1.0  # POST /memory/reflect + GET /memory/hypotheses
+S.self_model_wired       = 1.0  # GET /self/health + GET /self/capabilities
+S.coherence_persistent   = 1.0  # coherence_arc in AppState (not recreated per-request)
+S.world_model_persists   = 1.0  # worldmodel.json save on SIGTERM + 5-min periodic flush
 ```
+
+---
+
+## Intelligence Layer Wiring (2026-06-04, Tasks 1-9)
+
+WorldModelEnhanced, AureusBridge, SelfModel, and CoherenceChecker fully wired into REST API. 88 integration tests pass. 0 cargo errors.
+
+### AppState<B>
+- `run_with_state(addr, AppState<B>)` is now the primary server entry point
+- `run_with_memory` delegates to `run_with_state`
+- `run_with_both_stores` preserved for backward compat
+
+### New REST Endpoints
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/worldmodel/observe` | Feed state transition into Dirichlet model |
+| GET | `/worldmodel/predict?state=&action=` | P(s'\|s,a) distribution + entropy |
+| GET | `/worldmodel/entities` | List Kalman-tracked entities |
+| POST | `/worldmodel/entity` | Register entity with initial state |
+| GET | `/worldmodel/causal` | Dump causal DAG edges |
+| GET | `/worldmodel/status` | Live transition count + entity count (was static stub) |
+| POST | `/memory/reflect` | AureusBridge reflexion over memory context |
+| GET | `/memory/hypotheses` | AureusBridge reflexion metadata |
+| GET | `/self/health` | SelfModel health score |
+| GET | `/self/capabilities` | Registered capability descriptors |
+
+### WorldModel Persistence
+- Loads `DATA_DIR/worldmodel.json` on startup (fallback to fresh model)
+- Saves on SIGTERM + every 5 minutes via background Tokio task
+- Key encoding: `\x1F` separator for HashMap tuple keys
+
+### Auto-feed
+- Every `POST /memory/add` and `POST /memory/ingest` → `WorldModelEnhanced.observe_transition(actor, action, target)` (non-blocking, best-effort via `try_write()`)
+- Pinned Symbolic records also register causal edges
+
+### 18 SIT tests in tests/integration/intelligence_wiring_sit.rs
