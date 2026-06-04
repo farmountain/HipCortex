@@ -86,6 +86,22 @@ impl HypothesesGraph {
         }
     }
 
+    /// Return all hypotheses sorted by descending confidence (top-K first).
+    pub fn top_hypotheses(&self, limit: usize) -> Vec<&ReflexionHypothesis> {
+        let mut all: Vec<&ReflexionHypothesis> = self.graph
+            .node_weights()
+            .map(|n| &n.hypothesis)
+            .collect();
+        all.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
+        all.truncate(limit);
+        all
+    }
+
+    /// Number of hypothesis nodes currently in the graph.
+    pub fn len(&self) -> usize {
+        self.graph.node_count()
+    }
+
     /// Check if the graph contains cycles.
     pub fn has_cycles(&self) -> bool {
         is_cyclic_directed(&self.graph)

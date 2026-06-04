@@ -680,7 +680,10 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         .route("/audit/verify", audit_verify_route)
         .route("/audit/export", audit_export_route)
         .route("/coherence/status", coherence_route)
-        .route("/coherence/inconsistencies", get(handle_coherence_inconsistencies))
+        .route("/coherence/inconsistencies", {
+            let c = coherence_arc.clone();
+            get(move || { let cc = c.clone(); async move { handle_coherence_inconsistencies(cc).await } })
+        })
         .route("/worldmodel/status", {
             let wm = world_model.clone();
             get(move || { let w = wm.clone(); async move { handle_worldmodel_status(w).await } })
@@ -710,9 +713,24 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         .route("/worldmodel/predict",   wm_predict_route)
         .route("/worldmodel/entities",  wm_entities_route)
         .route("/worldmodel/entity",    wm_entity_route)
-        .route("/worldmodel/causal",    wm_causal_route)
+        .route("/worldmodel/causal",         wm_causal_route)
+        .route("/worldmodel/causal/edge", {
+            let wm = world_model.clone();
+            post(move |Json(req): Json<serde_json::Value>| async move {
+                handle_wm_causal_add_edge(wm, Json(req)).await
+            })
+        })
         .route("/memory/reflect",       memory_reflect_route)
         .route("/memory/hypotheses",    memory_hypotheses_route)
+        .route("/memory/hypotheses/reset", {
+            let au = aureus.clone();
+            post(move || { let a = au.clone(); async move {
+                match a.lock() {
+                    Ok(mut b) => { b.reset_hypotheses(); axum::Json(serde_json::json!({"success": true})) },
+                    Err(e)    => axum::Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
+                }
+            }})
+        })
         .route("/self/health",          self_health_route)
         .route("/self/capabilities",    self_capabilities_route)
         .layer(middleware::from_fn(api_key_middleware));
@@ -2004,7 +2022,7 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/audit/verify", audit_verify_route)
         .route("/audit/export", audit_export_route)
         .route("/coherence/status", coherence_route)
-        .route("/coherence/inconsistencies", get(handle_coherence_inconsistencies))
+        .route("/coherence/inconsistencies", get(handle_coherence_inconsistencies_fresh))
         .route("/worldmodel/status", {
             let wm = world_model.clone();
             get(move || { let w = wm.clone(); async move { handle_worldmodel_status(w).await } })
@@ -2951,6 +2969,27 @@ async fn handle_wm_causal(
     }
 }
 
+/// POST /worldmodel/causal/edge — add a causal edge to WorldModelEnhanced CausalGraph
+/// Body: {"from": "X", "to": "Y"} — adds directed edge X → Y (cycle prevention enforced)
+#[cfg(feature = "web-server")]
+async fn handle_wm_causal_add_edge(
+    world_model: Arc<RwLock<WorldModelEnhanced>>,
+    Json(req): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    let from = req["from"].as_str().unwrap_or("").to_string();
+    let to   = req["to"].as_str().unwrap_or("").to_string();
+    if from.is_empty() || to.is_empty() {
+        return Json(serde_json::json!({"success": false, "error": "from and to required"}));
+    }
+    match world_model.write() {
+        Ok(mut wm) => match wm.add_causal_edge(from.clone(), to.clone()) {
+            Ok(_)  => Json(serde_json::json!({"success": true, "from": from, "to": to})),
+            Err(e) => Json(serde_json::json!({"success": false, "error": e})),
+        },
+        Err(e) => Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
+    }
+}
+
 // ── G7: AureusBridge REST handlers ───────────────────────────────────────────
 
 /// POST /memory/reflect — run AureusBridge reflexion over memory context
@@ -2970,12 +3009,17 @@ async fn handle_memory_reflect<B: MemoryBackend + Send + Sync + 'static>(
         Ok(b)  => b,
         Err(e) => return Json(serde_json::json!({"error": format!("bridge lock: {}", e)})),
     };
+    let llm_available = bridge.llm_configured();
+    let loops_before = bridge.loops_run();
     let hyp = bridge.reflect_on_memory(&query, &mut *store);
+    let is_fallback = bridge.loops_run() == loops_before; // no new loop ran → fallback
     Json(serde_json::json!({
-        "hypothesis": hyp.text,
-        "confidence": hyp.confidence,
-        "evidence": hyp.evidence,
-        "loops_run": bridge.loops_run(),
+        "hypothesis":    hyp.text,
+        "confidence":    hyp.confidence,
+        "evidence":      hyp.evidence,
+        "loops_run":     bridge.loops_run(),
+        "llm_available": llm_available,
+        "is_fallback":   is_fallback,
     }))
 }
 
@@ -2985,10 +3029,22 @@ async fn handle_memory_hypotheses(
     aureus: Arc<Mutex<AureusBridge>>,
 ) -> Json<serde_json::Value> {
     match aureus.lock() {
-        Ok(bridge) => Json(serde_json::json!({
-            "loops_run": bridge.loops_run(),
-            "note": "Hypothesis graph internals not exposed — use POST /memory/reflect to generate hypotheses"
-        })),
+        Ok(bridge) => {
+            let hyps: Vec<serde_json::Value> = bridge.top_hypotheses(10)
+                .iter()
+                .map(|h| serde_json::json!({
+                    "text":       h.text,
+                    "confidence": h.confidence,
+                    "evidence":   h.evidence,
+                }))
+                .collect();
+            Json(serde_json::json!({
+                "loops_run":        bridge.loops_run(),
+                "hypothesis_count": bridge.hypothesis_count(),
+                "llm_available":    bridge.llm_configured(),
+                "top_hypotheses":   hyps,
+            }))
+        },
         Err(e) => Json(serde_json::json!({"error": format!("lock: {}", e)})),
     }
 }
@@ -3019,9 +3075,18 @@ async fn handle_worldmodel_status(
 
 /// GET /coherence/inconsistencies — list currently detected inconsistencies
 #[cfg(feature = "web-server")]
-async fn handle_coherence_inconsistencies() -> Json<serde_json::Value> {
-    let checker = CoherenceChecker::new();
-    match checker.check_consistency() {
+/// Backward-compat wrapper: creates fresh CoherenceChecker per request.
+/// Used by run_with_both_stores only.
+#[cfg(feature = "web-server")]
+async fn handle_coherence_inconsistencies_fresh() -> Json<serde_json::Value> {
+    let checker = Arc::new(CoherenceChecker::new());
+    handle_coherence_inconsistencies(checker).await
+}
+
+async fn handle_coherence_inconsistencies(
+    coherence: Arc<CoherenceChecker>,
+) -> Json<serde_json::Value> {
+    match coherence.check_consistency() {
         Ok(reports) => {
             let items: Vec<serde_json::Value> = reports.iter().map(|r| serde_json::json!({
                 "id": r.id,

@@ -65,6 +65,11 @@ impl AureusBridge {
         self.llm = Some(client);
     }
 
+    /// Returns true if an LLM client is configured.
+    pub fn llm_configured(&self) -> bool {
+        self.llm.is_some()
+    }
+
     pub fn configure(&mut self, cfg: AureusConfig) {
         self.config = cfg;
     }
@@ -150,6 +155,23 @@ impl AureusBridge {
 
     pub fn loops_run(&self) -> usize {
         self.loops
+    }
+
+    /// Return top-K hypotheses by confidence (for REST exposure).
+    pub fn top_hypotheses(&self, limit: usize) -> Vec<ReflexionHypothesis> {
+        self.graph.top_hypotheses(limit).into_iter().cloned().collect()
+    }
+
+    /// Number of hypothesis nodes in the graph.
+    pub fn hypothesis_count(&self) -> usize {
+        self.graph.len()
+    }
+
+    /// Reset the hypothesis graph and loop counter.
+    pub fn reset_hypotheses(&mut self) {
+        self.graph = crate::hypotheses_graph::HypothesesGraph::new();
+        self.loops = 0;
+        self.current = None;
     }
 
     /// Search memory for context related to `query`, run one reflexion pass,
