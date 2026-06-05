@@ -268,6 +268,13 @@ pub struct GraphWriteResponse {
 }
 
 #[cfg(feature = "web-server")]
+#[derive(serde::Deserialize)]
+pub struct GraphSearchParams {
+    pub q: Option<String>,
+    pub limit: Option<usize>,
+}
+
+#[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
 pub struct ConsolidateParams {
     actor:     Option<String>,
@@ -586,6 +593,12 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
             handle_delete_node(ss, id).await
         })
     };
+    let graph_search_route = {
+        let ss = symbolic_store.clone();
+        get(move |Query(params): Query<GraphSearchParams>| async move {
+            handle_graph_search(ss, Query(params)).await
+        })
+    };
     let consolidate_route = {
         let store = memory_store.clone();
         post(move |Query(params): Query<ConsolidateParams>| async move {
@@ -728,6 +741,7 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         .route("/graph/node", create_node_route)
         .route("/graph/edge", create_edge_route)
         .route("/graph/node/:id", delete_node_route)
+        .route("/graph/search", graph_search_route)
         .route("/memory/consolidate", consolidate_route)
         .route("/memory/ingest", ingest_route)
         .route("/memory/quarantine/:id", quarantine_route)
@@ -1019,6 +1033,7 @@ async fn api_key_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Respons
         || path == "/worldmodel/states"
         || path == "/worldmodel/transitions"
         || path == "/worldmodel/uncertainty"
+        || path == "/graph/search"
     {
         return Ok(next.run(req).await);
     }
@@ -1906,6 +1921,97 @@ async fn handle_prometheus_metrics<B: MemoryBackend + Send + Sync + 'static>(
         .unwrap()
 }
 
+/// GET /graph/search?q=<text>&limit=<n>
+/// Search symbolic graph nodes by label or property value (case-insensitive substring).
+/// Returns matching nodes + their 1-hop neighbors for context.
+/// Used by agents to query code structure without reading source files.
+#[cfg(feature = "web-server")]
+async fn handle_graph_search(
+    store: Arc<Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>,
+    Query(params): Query<GraphSearchParams>,
+) -> Json<serde_json::Value> {
+    let q = params.q.unwrap_or_default().to_lowercase();
+    let limit = params.limit.unwrap_or(10).min(50);
+
+    if q.is_empty() {
+        return Json(serde_json::json!({ "nodes": [], "total": 0, "query": "" }));
+    }
+
+    match store.lock() {
+        Ok(ss) => {
+            let (nodes, all_edges) = ss.export_graph();
+
+            // Score nodes: label match scores 2, property value match scores 1
+            let mut scored: Vec<(usize, crate::symbolic_store::SymbolicNode)> = nodes
+                .iter()
+                .filter_map(|n| {
+                    let label_score = if n.label.to_lowercase().contains(&q) { 2usize } else { 0 };
+                    let prop_score = n.properties.values()
+                        .any(|v| v.to_lowercase().contains(&q)) as usize;
+                    let score = label_score + prop_score;
+                    if score > 0 { Some((score, n.clone())) } else { None }
+                })
+                .collect();
+
+            scored.sort_by(|a, b| b.0.cmp(&a.0));
+            scored.truncate(limit);
+
+            let matching_ids: std::collections::HashSet<uuid::Uuid> =
+                scored.iter().map(|(_, n)| n.id).collect();
+
+            // Gather 1-hop neighbors of matching nodes
+            let neighbor_ids: std::collections::HashSet<uuid::Uuid> = all_edges
+                .iter()
+                .filter_map(|e| {
+                    if matching_ids.contains(&e.from) { Some(e.to) }
+                    else if matching_ids.contains(&e.to) { Some(e.from) }
+                    else { None }
+                })
+                .filter(|id| !matching_ids.contains(id))
+                .take(limit * 2)
+                .collect();
+
+            let neighbor_nodes: Vec<serde_json::Value> = nodes
+                .iter()
+                .filter(|n| neighbor_ids.contains(&n.id))
+                .map(|n| serde_json::json!({
+                    "id": n.id.to_string(),
+                    "label": n.label,
+                    "properties": n.properties,
+                    "match": false,
+                }))
+                .collect();
+
+            let matched: Vec<serde_json::Value> = scored
+                .iter()
+                .map(|(score, n)| serde_json::json!({
+                    "id": n.id.to_string(),
+                    "label": n.label,
+                    "properties": n.properties,
+                    "score": score,
+                    "match": true,
+                }))
+                .collect();
+
+            let total = matched.len();
+            let mut result_nodes = matched;
+            result_nodes.extend(neighbor_nodes);
+
+            Json(serde_json::json!({
+                "nodes": result_nodes,
+                "total": total,
+                "query": q,
+            }))
+        }
+        Err(e) => Json(serde_json::json!({
+            "nodes": [],
+            "total": 0,
+            "query": q,
+            "error": format!("Lock error: {}", e),
+        })),
+    }
+}
+
 #[cfg(feature = "web-server")]
 pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
     addr: SocketAddr,
@@ -2057,6 +2163,12 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
             handle_delete_node(ss, id).await
         })
     };
+    let graph_search_route = {
+        let ss = symbolic_store.clone();
+        get(move |Query(params): Query<GraphSearchParams>| async move {
+            handle_graph_search(ss, Query(params)).await
+        })
+    };
     let consolidate_route = {
         let store = memory_store.clone();
         post(move |Query(params): Query<ConsolidateParams>| async move {
@@ -2128,6 +2240,7 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/graph/node", create_node_route)
         .route("/graph/edge", create_edge_route)
         .route("/graph/node/:id", delete_node_route)
+        .route("/graph/search", graph_search_route)
         .route("/memory/consolidate", consolidate_route)
         .route("/memory/ingest", ingest_route)
         .route("/memory/quarantine/:id", quarantine_route)
