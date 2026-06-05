@@ -696,22 +696,29 @@ def _getch() -> str:
 
 def _run_wizard(agents: list) -> list:
     """Interactive multi-select. Skips section headers. Returns selected agent dicts."""
-    # Separate selectable items from section dividers
+    import re as _re
     selectable = [i for i, a in enumerate(agents) if a["type"] != "section"]
     n_all = len(agents)
     selected: set = set()
-    sel_cursor = 0  # index into selectable list
+    sel_cursor = 0
 
     def _display_name(a: dict) -> str:
-        """Strip ANSI from name for width calculation."""
-        import re
-        return re.sub(r'\033\[[^m]*m', '', a["name"])
+        return _re.sub(r'\033\[[^m]*m', '', a["name"])
+
+    # On Windows, cursor-up ANSI codes corrupt the display.
+    # Use cls-style redraw: print a blank separator then full list.
+    _is_windows = platform.system() == "Windows"
 
     def render():
-        print(f"\033[{n_all + 3}A", end="")
+        cur_real = selectable[sel_cursor] if selectable else -1
+        if _is_windows:
+            # Windows: no cursor-up — just reprint with blank line separator
+            print()
+        else:
+            # Unix: move cursor up to overwrite previous render
+            print(f"\033[{n_all + 3}A", end="")
         print(f"  {_BOLD}Select what to configure:{_RESET} {_GRAY}(Space toggle · Enter confirm · q quit){_RESET}")
         print()
-        cur_real = selectable[sel_cursor] if selectable else -1
         for i, agent in enumerate(agents):
             if agent["type"] == "section":
                 print(f"  {_DIM}{agent['name']}{_RESET}")
@@ -734,15 +741,17 @@ def _run_wizard(agents: list) -> list:
         count = len(selected)
         print(f"\n  {_GREEN}{count} selected{_RESET}" if count else f"\n  {_GRAY}none selected{_RESET}")
 
-    # Initial draw (reserve lines for all rows + header + footer)
-    print(f"  {_BOLD}Select what to configure:{_RESET}")
-    print()
-    for agent in agents:
-        if agent["type"] == "section":
-            print(f"  {_DIM}{agent['name']}{_RESET}")
-        else:
-            print(f"   ○ {_display_name(agent):<20} {_DIM}{agent['desc']}{_RESET}")
-    print()
+    # Initial draw
+    if not _is_windows:
+        # Reserve lines for cursor-up redraw on Unix
+        print(f"  {_BOLD}Select what to configure:{_RESET}")
+        print()
+        for agent in agents:
+            if agent["type"] == "section":
+                print(f"  {_DIM}{agent['name']}{_RESET}")
+            else:
+                print(f"   ○ {_display_name(agent):<20} {_DIM}{agent['desc']}{_RESET}")
+        print()
 
     render()
 
