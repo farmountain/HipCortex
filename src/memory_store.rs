@@ -1,3 +1,4 @@
+use chrono::Utc;
 use indexmap::IndexMap;
 use std::collections::VecDeque;
 use std::io::{BufRead, Write};
@@ -318,7 +319,20 @@ impl<B: MemoryBackend> MemoryStore<B> {
                 } else {
                     keyword_score(query_text, rec)
                 };
-                (rec, score)
+                // Enrich raw score with confidence + recency signals
+                // Base score remains dominant; these are small multipliers
+                let enriched_score = if score > 0.0 {
+                    const RECENCY_HALF_LIFE: f64 = 604_800.0; // 7 days in seconds
+                    let now_ts = Utc::now().timestamp();
+                    let age_secs = (now_ts - rec.timestamp.timestamp()).max(0) as f64;
+                    // recency: 1.0 if just written, ~0.5 after 7 days, ~0.1 after 33 days
+                    let recency = (-age_secs / RECENCY_HALF_LIFE * std::f64::consts::LN_2).exp();
+                    // combined: 70% semantic, 20% confidence, 10% recency
+                    score * (0.7 + 0.2 * rec.confidence as f64 + 0.1 * recency)
+                } else {
+                    0.0  // irrelevant records stay irrelevant
+                };
+                (rec, enriched_score)
             })
             .filter(|(_, s)| *s > 0.0)
             .collect();
