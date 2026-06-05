@@ -1,3 +1,4 @@
+mod coherence_props;
 mod connectivity;
 mod fsm_reachability;
 mod regression_tests;

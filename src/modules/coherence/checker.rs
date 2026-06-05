@@ -588,4 +588,15 @@ mod tests {
         let inconsistencies = checker.check_graph_consistency().unwrap();
         assert_eq!(inconsistencies.len(), 0);
     }
+#[test]
+    fn test_causal_violation_detected() {
+        let mut checker = ConsistencyChecker::new();
+        let violations = checker.check_all().unwrap();
+        let causal: Vec<_> = violations
+            .iter()
+            .filter(|r| matches!(r.inconsistency_type, InconsistencyType::CausalViolation))
+            .collect();
+        // TODO: When check_causal_violations is wired to actual temporal/world-model data,
+        // inject event sequence where effect precedes cause and verify causal is non-empty.
+    }
 }

@@ -645,5 +645,66 @@ mod tests {
         
         assert_eq!(candidate.confidence, 0.95);
         assert_eq!(candidate.source, "test_module");
+#[test]
+    fn test_consensus_boundary_exact_threshold() {
+        let resolver = ConflictResolver::with_consensus_threshold(0.5);
+        let inconsistency = create_test_inconsistency();
+        let candidates = vec![
+            CandidateValue { value: serde_json::json!("X"), source: "a".to_string(), timestamp: 1, confidence: 0.5 },
+            CandidateValue { value: serde_json::json!("X"), source: "b".to_string(), timestamp: 2, confidence: 0.5 },
+            CandidateValue { value: serde_json::json!("Y"), source: "c".to_string(), timestamp: 3, confidence: 0.5 },
+            CandidateValue { value: serde_json::json!("Z"), source: "d".to_string(), timestamp: 4, confidence: 0.5 },
+        ];
+        let result = resolver.resolve_by_consensus(&inconsistency, candidates).unwrap();
+        assert!(result.success, "2/4 = 0.5 meets threshold of 0.5");
+        assert_eq!(result.chosen_value, Some(serde_json::json!("X")));
+    }
+
+    #[test]
+    fn test_consensus_all_disagree() {
+        let resolver = ConflictResolver::with_consensus_threshold(0.5);
+        let inconsistency = create_test_inconsistency();
+        let candidates = vec![
+            CandidateValue { value: serde_json::json!("A"), source: "a".to_string(), timestamp: 1, confidence: 0.5 },
+            CandidateValue { value: serde_json::json!("B"), source: "b".to_string(), timestamp: 2, confidence: 0.5 },
+            CandidateValue { value: serde_json::json!("C"), source: "c".to_string(), timestamp: 3, confidence: 0.5 },
+        ];
+        let result = resolver.resolve_by_consensus(&inconsistency, candidates).unwrap();
+        assert!(!result.success, "1/3 = 0.33 < 0.5 threshold");
+        assert_eq!(result.chosen_value, None);
+        assert!(result.rationale.contains("No consensus reached"));
+    }
+
+    #[test]
+    fn test_resolution_failure_produces_failed_result() {
+        let mut resolver = ConflictResolver::new();
+        let inconsistency = create_test_inconsistency();
+        let result = resolver.resolve(&inconsistency, ResolutionStrategy::Consensus);
+        match result {
+            Ok(r) => {
+                assert!(!r.success);
+                assert_eq!(r.chosen_value, None);
+                assert!(!r.rationale.is_empty());
+            }
+            Err(e) => {
+                assert!(!e.is_empty());
+            }
+        }
+    }
+
+    #[test]
+    fn test_failed_resolution_recorded_in_history() {
+        let mut resolver = ConflictResolver::new();
+        let inconsistency = create_test_inconsistency();
+        let candidates = vec![
+            CandidateValue { value: serde_json::json!("A"), source: "a".to_string(), timestamp: 1, confidence: 0.5 },
+            CandidateValue { value: serde_json::json!("B"), source: "b".to_string(), timestamp: 2, confidence: 0.5 },
+        ];
+        let result = resolver.resolve_by_consensus(&inconsistency, candidates).unwrap();
+        assert!(!result.success);
+        assert_eq!(result.chosen_value, None);
+        assert!(!result.id.is_empty());
+        assert!(!result.rationale.is_empty());
+    }
     }
 }

@@ -649,5 +649,32 @@ mod tests {
         
         assert_eq!(violation.diagnostics.len(), 2);
         assert!(violation.diagnostics.contains_key("cycle_length"));
+#[test]
+    fn test_critical_violation_marked_critical() {
+        let mut invariants = SystemInvariants::new();
+        invariants.entity_lifecycle.insert("entity1".to_string(), (1, 3));
+        let violations = invariants.validate_all().unwrap();
+        assert!(!violations.is_empty());
+        let conservation_v = violations.iter()
+            .find(|v| v.invariant_type == InvariantType::Conservation)
+            .expect("Should find Conservation violation");
+        assert!(conservation_v.critical);
+        assert!(!conservation_v.affected.is_empty());
+        assert!(conservation_v.affected.contains(&"entity1".to_string()));
+    }
+
+    #[test]
+    fn test_validate_specific_memory_consistency() {
+        let mut invariants = SystemInvariants::new();
+        let result = invariants.validate_specific(InvariantType::MemoryConsistency).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_validate_specific_graph_acyclicity() {
+        let invariants = SystemInvariants::new();
+        let result = invariants.validate_specific(InvariantType::GraphAcyclicity).unwrap();
+        assert!(result.is_none());
+    }
     }
 }

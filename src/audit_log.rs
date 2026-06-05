@@ -144,4 +144,91 @@ impl AuditLog {
         }
         Ok(true)
     }
+
+    /// Append a continuation checkpoint as a typed audit entry.
+    pub fn append_checkpoint(
+        &mut self,
+        actor: &str,
+        checkpoint: &crate::continuation_checkpoint::ContinuationCheckpoint,
+    ) -> anyhow::Result<()> {
+        let serialized = serde_json::to_string(checkpoint)?;
+        self.append(actor, "checkpoint", &serialized)
+    }
+
+    /// Load the latest continuation checkpoint for a task from the audit log.
+    pub fn load_latest_checkpoint(
+        &self,
+        task_id: &uuid::Uuid,
+    ) -> Option<crate::continuation_checkpoint::ContinuationCheckpoint> {
+        use std::io::BufRead;
+        if !Path::new(&self.path).exists() {
+            return None;
+        }
+        let file = std::fs::File::open(&self.path).ok()?;
+        let reader = std::io::BufReader::new(file);
+        let mut latest: Option<crate::continuation_checkpoint::ContinuationCheckpoint> = None;
+        for line in reader.lines() {
+            let line = line.ok()?;
+            if line.trim().is_empty() {
+                continue;
+            }
+            let entry: AuditEntry = match serde_json::from_str(&line) {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
+            if entry.action != "checkpoint" {
+                continue;
+            }
+            let cp: crate::continuation_checkpoint::ContinuationCheckpoint =
+                match serde_json::from_str(&entry.outcome) {
+                    Ok(cp) => cp,
+                    Err(_) => continue,
+                };
+            if &cp.task_id != task_id {
+                continue;
+            }
+            match &latest {
+                Some(existing) if cp.sequence_number > existing.sequence_number => {
+                    latest = Some(cp);
+                }
+                None => {
+                    latest = Some(cp);
+                }
+                _ => {}
+            }
+        }
+        latest
+    }
+
+    /// Count checkpoints for a task.
+    pub fn count_checkpoints(&self, task_id: &uuid::Uuid) -> usize {
+        use std::io::BufRead;
+        if !Path::new(&self.path).exists() {
+            return 0;
+        }
+        let file = match std::fs::File::open(&self.path) {
+            Ok(f) => f,
+            Err(_) => return 0,
+        };
+        let reader = std::io::BufReader::new(file);
+        let mut count = 0;
+        for line in reader.lines() {
+            let line = match line {
+                Ok(l) => l,
+                Err(_) => continue,
+            };
+            if line.trim().is_empty() {
+                continue;
+            }
+            let entry: AuditEntry = match serde_json::from_str(&line) {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
+            if entry.action == "checkpoint" && entry.outcome.contains(&task_id.to_string()) {
+                count += 1;
+            }
+        }
+        count
+    }
+
 }

@@ -90,6 +90,16 @@ pub mod world_model_enhanced;
 #[path = "modules/coherence/mod.rs"]
 pub mod coherence;
 pub use persistence::InMemoryBackend;
+#[path = "modules/continuation_checkpoint.rs"]
+pub mod continuation_checkpoint;
+#[path = "modules/session_context.rs"]
+pub mod session_context;
+#[path = "modules/lease_manager.rs"]
+pub mod lease_manager;
+#[path = "modules/broker_policy.rs"]
+pub mod broker_policy;
+#[path = "modules/working_set_broker.rs"]
+pub mod working_set_broker;
 #[cfg(feature = "async-store")]
 pub use persistence::{AsyncFileBackend, AsyncMemoryBackend};
 #[cfg(feature = "grpc-server")]
