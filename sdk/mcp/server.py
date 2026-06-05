@@ -131,6 +131,29 @@ TOOLS = [
         "description": "Get memory store statistics: total records, types, unique actors.",
         "inputSchema": {"type": "object", "properties": {}},
     },
+    {
+        "name": "search_code",
+        "description": (
+            "Search the HipCortex code knowledge graph for relevant symbols, functions, classes. "
+            "Use this BEFORE reading files — it returns targeted symbol info in ~100 tokens instead of "
+            "reading entire files (~10k tokens). Works after running 'hipcortex index' on the codebase."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "required": ["query"],
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Symbol name, function, class, or concept to find in the codebase",
+                },
+                "limit": {
+                    "type": "integer",
+                    "default": 5,
+                    "description": "Max symbols to return",
+                },
+            },
+        },
+    },
 ]
 
 # ---------------------------------------------------------------------------
@@ -203,12 +226,44 @@ def handle_get_stats(_args: dict) -> str:
     return "\n".join(lines)
 
 
+def handle_search_code(args: dict) -> str:
+    query = args.get("query", "")
+    limit = args.get("limit", 5)
+    try:
+        resp = requests.get(
+            f"{HIPCORTEX_URL}/graph/search",
+            params={"q": query, "limit": limit},
+            headers=_headers(),
+            timeout=TIMEOUT,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        nodes = data.get("nodes", [])
+        if not nodes:
+            return (
+                f"No code symbols found for '{query}'. "
+                "Run 'hipcortex index .' to index the codebase first."
+            )
+        lines = []
+        for n in nodes:
+            props = n.get("properties", {})
+            label = n.get("label", "?")
+            line = props.get("line", "?")
+            sig = props.get("signature", props.get("name", label))
+            fpath = props.get("file", "")
+            lines.append(f"• {sig}  [{fpath}:{line}]")
+        return f"Code symbols matching '{query}':\n" + "\n".join(lines)
+    except Exception as e:
+        return f"Error searching code graph: {e}. Run 'hipcortex index .' first."
+
+
 def dispatch_tool(name: str, args: dict) -> str:
     handlers = {
         "add_memory":    handle_add_memory,
         "search_memory": handle_search_memory,
         "forget_actor":  handle_forget_actor,
         "get_stats":     handle_get_stats,
+        "search_code":   handle_search_code,
     }
     handler = handlers.get(name)
     if handler is None:

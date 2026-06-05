@@ -1096,6 +1096,55 @@ def cmd_restore(args: argparse.Namespace) -> None:
         __import__('sys').exit(1)
 
 
+def cmd_index(args: argparse.Namespace) -> None:
+    """Index a codebase into HipCortex symbolic knowledge graph."""
+    url = args.url or os.environ.get("HIPCORTEX_URL", DEFAULT_URL)
+    path = args.path or "."
+    actor = args.actor or "codebase"
+
+    # Check server is reachable
+    try:
+        with urllib.request.urlopen(f"{url}/health", timeout=5) as r:
+            if r.status != 200:
+                print(f"✗ Server not reachable at {url}")
+                sys.exit(1)
+    except Exception:
+        print(f"✗ Server not reachable at {url}")
+        print(f"  Start it with: hipcortex start")
+        sys.exit(1)
+
+    try:
+        from .client import HipCortexClient
+        from .indexer import CodeIndexer
+    except ImportError:
+        from hipcortex.client import HipCortexClient
+        from hipcortex.indexer import CodeIndexer
+
+    client = HipCortexClient(base_url=url)
+    indexer = CodeIndexer(client=client)
+
+    extensions = None
+    if args.extensions:
+        extensions = [e if e.startswith(".") else f".{e}" for e in args.extensions.split(",")]
+
+    print(f"Indexing {path} into HipCortex symbolic graph...")
+    print(f"  Server: {url}")
+    print(f"  Actor:  {actor}")
+    if extensions:
+        print(f"  File types: {extensions}")
+    print()
+
+    stats = indexer.index(path=path, actor=actor, extensions=extensions)
+
+    print(f"  ✓ {stats['files']} files processed")
+    print(f"  ✓ {stats['nodes']} symbol nodes created")
+    print(f"  ✓ {stats['edges']} relationships created")
+    print()
+    print(f"Query code graph: GET {url}/graph")
+    print(f"Search symbols:   GET {url}/graph/search?q=<name>")
+    print(f"In Claude Code:   /hipcortex recall validate_token")
+
+
 # ─── Argument parser ──────────────────────────────────────────────────────────
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1135,6 +1184,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_restore.add_argument("file", help="Backup file path (.json)")
     p_restore.add_argument("--url", help="Server URL")
 
+    # index
+    p_index = sub.add_parser("index", help="Index a codebase into the HipCortex knowledge graph")
+    p_index.add_argument("path", nargs="?", default=".", help="Directory or file to index (default: current dir)")
+    p_index.add_argument("--url", help="Server URL")
+    p_index.add_argument("--actor", help="Actor label for this codebase (default: codebase)")
+    p_index.add_argument("--extensions", help="Comma-separated file extensions (default: .py,.ts,.js)")
+
     return parser
 
 
@@ -1154,6 +1210,8 @@ def main() -> None:
         cmd_backup(args)
     elif args.command == "restore":
         cmd_restore(args)
+    elif args.command == "index":
+        cmd_index(args)
     else:
         parser.print_help()
         sys.exit(1)

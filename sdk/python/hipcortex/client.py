@@ -203,6 +203,66 @@ class HipCortexClient:
         resp.raise_for_status()
         return resp.json()
 
+    def set_state(
+        self,
+        actor: str,
+        key: str,
+        value: str,
+        confidence: float = 1.0,
+    ) -> Dict[str, Any]:
+        """Store a structured state value for an actor.
+
+        Structured state is permanent (no TTL), high-confidence, pinned.
+        Use for: current goal, chosen stack, constraints, key decisions.
+
+        Args:
+            actor: Scope identifier (e.g. project name)
+            key:   State key (e.g. "goal", "stack", "constraint:no-redis")
+            value: State value (free text or JSON string)
+            confidence: How confident (default 1.0)
+
+        Returns: stored record info
+        """
+        return self.add_memory(
+            actor=actor,
+            action=f"state:{key}",
+            target=value,
+            record_type="Symbolic",
+            priority="pinned",
+            metadata={"confidence": str(confidence), "source": "user-state"},
+        )
+
+    def get_state(
+        self,
+        actor: str,
+        key: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Retrieve structured state for an actor.
+
+        Args:
+            actor: Scope identifier
+            key:   Optional specific key (e.g. "goal"). If None, returns all state.
+
+        Returns: dict of {key: value} or latest value string if key specified
+        """
+        action_filter = f"state:{key}" if key else None
+        records = self.query_memory(actor=actor, action=action_filter, limit=50)
+
+        if key:
+            # Return latest value for this specific key
+            if records:
+                return {"key": key, "value": records[-1].get("target", ""), "actor": actor}
+            return {"key": key, "value": None, "actor": actor}
+
+        # Return all state as dict
+        state: Dict[str, Any] = {}
+        for rec in records:
+            action = rec.get("action", "")
+            if action.startswith("state:"):
+                k = action[len("state:"):]
+                state[k] = rec.get("target", "")
+        return state
+
     def consolidate(self, actor: Optional[str] = None, threshold: float = 0.8, dry_run: bool = True) -> Dict[str, Any]:
         """Find near-duplicate memories and optionally merge them."""
         params: Dict[str, Any] = {"threshold": threshold, "dry_run": dry_run}
