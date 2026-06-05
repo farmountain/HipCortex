@@ -672,7 +672,7 @@ mod tests {
 
     #[test]
     fn test_validate_specific_graph_acyclicity() {
-        let invariants = SystemInvariants::new();
+        let mut invariants = SystemInvariants::new();
         let result = invariants.validate_specific(InvariantType::GraphAcyclicity).unwrap();
         assert!(result.is_none());
     }

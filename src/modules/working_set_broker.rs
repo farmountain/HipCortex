@@ -362,13 +362,13 @@ mod tests {
         let session_id = Uuid::new_v4();
 
         // First call creates
-        let ctx = broker.get_or_create_session(session_id);
+        broker.get_or_create_session(session_id);
         assert_eq!(broker.active_session_count(), 1);
 
         // Second call returns existing
-        let ctx2 = broker.get_or_create_session(session_id);
+        let ctx2_id = broker.get_or_create_session(session_id).session_id;
         assert_eq!(broker.active_session_count(), 1);
-        assert_eq!(ctx2.session_id, session_id);
+        assert_eq!(ctx2_id, session_id);
     }
 
     #[test]
