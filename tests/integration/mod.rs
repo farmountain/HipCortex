@@ -34,6 +34,7 @@ mod test_end_to_end;
 mod uat_tests;
 mod world_model_cli_sit;
 mod world_model_uat;
+#[cfg(feature = "web-server")]
 mod intelligence_sit;
 mod safety_guardrail_sit;
 mod web_server_gaps_sit;
