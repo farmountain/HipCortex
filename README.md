@@ -26,11 +26,8 @@ It is a **recursive causal world-model memory engine** — the cognitive substra
 ## Install
 
 ```bash
-# Python SDK (LangChain · LlamaIndex · AutoGen · CrewAI)
 pip install hipcortex
-
-# Rust library
-cargo add hipcortex --no-default-features --features petgraph_backend
+hipcortex install   # interactive wizard — picks your IDEs and frameworks
 ```
 
 ---
