@@ -160,7 +160,16 @@ class HipCortexMemory(BaseMemory):
         max_limit:    Max records fetched per call.
     """
 
-    # Avoid Pydantic model dependency for cross-version compatibility
+    # Declared fields (Pydantic v1 requires explicit field declarations)
+    memory_key: str = "history"
+    human_prefix: str = "Human"
+    ai_prefix: str = "AI"
+    return_messages: bool = False
+
+    class Config:
+        arbitrary_types_allowed = True
+        underscore_attrs_are_private = True
+
     def __init__(
         self,
         session_id: str = "default",
@@ -172,16 +181,19 @@ class HipCortexMemory(BaseMemory):
         return_messages: bool = False,
         max_limit: int = 100,
     ) -> None:
-        self._history = HipCortexChatMessageHistory(
+        super().__init__(
+            memory_key=memory_key,
+            human_prefix=human_prefix,
+            ai_prefix=ai_prefix,
+            return_messages=return_messages,
+        )
+        # Use object.__setattr__ to bypass Pydantic v1 validation for private attr
+        object.__setattr__(self, "_history", HipCortexChatMessageHistory(
             session_id=session_id,
             url=url,
             api_key=api_key,
             max_limit=max_limit,
-        )
-        self.memory_key = memory_key
-        self.human_prefix = human_prefix
-        self.ai_prefix = ai_prefix
-        self.return_messages = return_messages
+        ))
 
     @property
     def memory_variables(self) -> List[str]:

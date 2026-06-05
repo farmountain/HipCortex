@@ -563,10 +563,11 @@ mod tests {
         assert_eq!(result.total_count, 1);
     }
 
+    #[cfg(feature = "async-store")]
     #[test]
     fn test_batch_operations() {
         let store = OptimizedMemoryStore::new(MemoryStoreConfig::default());
-        
+
         let records: Vec<MemoryRecord> = (0..5)
             .map(|i| MemoryRecord::new(
                 MemoryType::Temporal,
@@ -576,7 +577,7 @@ mod tests {
                 serde_json::json!({"index": i}),
             ))
             .collect();
-            
+
         let rt = tokio::runtime::Runtime::new().unwrap();
         let result = rt.block_on(store.add_memories_batch(records)).unwrap();
         
