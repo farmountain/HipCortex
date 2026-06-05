@@ -156,7 +156,9 @@ jobs:
       - name: Install SDK + test deps
         run: |
           pip install -e sdk/python/
-          pip install pytest requests
+          pip install pytest requests langchain-core langchain
 
       - name: Run unit tests (no server needed)
         run: pytest sdk/python/langchain_contrib/test_hipcortex_memory.py -v -k "not integration"
+        env:
+          PYTHONPATH: ${{ github.workspace }}/sdk/python
