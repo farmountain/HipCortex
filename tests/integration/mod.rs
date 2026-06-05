@@ -30,6 +30,7 @@ mod semantic_compression_uat;
 mod smart_glasses_sit;
 mod system_integration_tests;
 mod test_end_to_end;
+#[cfg(feature = "web-server")]
 mod uat_tests;
 mod world_model_cli_sit;
 mod world_model_uat;
