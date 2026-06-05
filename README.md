@@ -1,6 +1,6 @@
 # HipCortex
 
-**Persistent causal memory for AI agents — 0.48 ms p50 writes, 295× faster than Mem0 cloud.**
+**Persistent causal memory for AI agents — 0.48 ms p50 writes, 59% token savings in steady-state.**
 
 [![CI](https://github.com/farmountain/HipCortex/actions/workflows/ci.yml/badge.svg)](https://github.com/farmountain/HipCortex/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
@@ -9,17 +9,36 @@
 HipCortex is **not** a vector database, RAG pipeline, or chat history store.  
 It is a **recursive causal world-model memory engine** — the cognitive substrate AI agents need to remember, reason, and improve over time.
 
+### 🆕 Copilot billing crisis? HipCortex fixes it.
+
+GitHub switched to token-based AI Credits billing on June 1, 2026. Teams are exhausting their monthly Copilot budget in a single day because Copilot injects full conversation history into every request.
+
+HipCortex replaces full-history injection with **selective memory retrieval** — only the most relevant context per query:
+
+| Context approach | Input tokens / query | vs Full History |
+|-----------------|----------------------|-----------------|
+| Full history injection | 923 tok (turn 20) → 2,308 tok (turn 50) | baseline |
+| Rolling-10 window | −17% | slightly better |
+| **HipCortex Top-5** | **~280 tok (flat)** | **−59% steady-state · −84% at 50 turns** |
+| HipCortex Top-3 | ~200 tok (flat) | −70% / −88% |
+
+**Net result:** same Copilot Business budget → **2× more sessions** (20-turn benchmark) → **6–8× more sessions** in long enterprise sessions.
+
+> Full methodology: [benchmarks/README.md](benchmarks/README.md) · [BENCHMARK.md](BENCHMARK.md)
+
+### Performance vs alternatives
+
 | | HipCortex | Mem0 cloud | In-process dict |
 |--|-----------|-----------|-----------------|
 | Write p50 | **0.48 ms** | 142 ms | 0.002 ms |
 | Write p95 | **1.2 ms** | 310 ms | 0.005 ms |
+| Token reduction (steady-state) | **59%** | ❌ no retrieval | ❌ |
 | Temporal decay | ✅ native | ❌ | ❌ |
 | Causal world model | ✅ | ❌ | ❌ |
 | GDPR right-to-forget | ✅ REST endpoint | ✅ | ❌ |
 | Merkle-chained audit log | ✅ | ❌ | ❌ |
 | Self-hosted, zero deps | ✅ 4 MB binary | ❌ | ✅ |
-
-> Full methodology: [BENCHMARK.md](BENCHMARK.md) · [Pricing](/pricing)
+| VS Code / Copilot LM Tool | ✅ `hipcortex_search` | ❌ | ❌ |
 
 ---
 
@@ -166,6 +185,26 @@ cargo run --bin webserver --no-default-features --features "web-server,petgraph_
 docker run -p 3030:3030 -v hipcortex_data:/app/data hipcortex:latest
 ```
 
+### Option H — VS Code Extension (GitHub Copilot integration)
+
+Reduces Copilot credit burn by registering HipCortex as a Language Model Tool — Copilot calls `hipcortex_search` automatically during reasoning instead of injecting full conversation history.
+
+```bash
+# Download hipcortex-memory-0.1.6.vsix from:
+# https://github.com/farmountain/HipCortex/tree/main/vscode-extension
+code --install-extension hipcortex-memory-0.1.6.vsix
+```
+
+**What it does:**
+- `@hipcortex query <topic>` — search memories in Copilot Chat
+- `@hipcortex add <text>` — store a memory
+- `hipcortex_search` tool — Copilot calls this automatically when it needs context (VS Code 1.90+)
+- Auto-capture — stores file saves as temporal memories (silent, best-effort)
+- Status bar — `$(database) HipCortex: ~1,200 tok saved` shows session savings
+- Token savings footer — each `@hipcortex` response shows `Used ~80 tokens (vs ~2,000 full history = 96% savings)`
+
+> VS Code marketplace publish coming after 500 stars.
+
 ### Option G — Cursor / Claude Code / Windsurf / Cline (MCP server)
 
 Give your AI coding assistant persistent memory across sessions.
@@ -244,27 +283,69 @@ tools = [HipCortexRememberTool(client=client), HipCortexRecallTool(client=client
 
 ---
 
-## REST API
+## REST API (45+ endpoints)
 
+### Memory
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/memory/ingest` | **Zero-config** — plain text, auto-classifies type/priority/tags |
+| `POST` | `/memory/add` | Full-control store (`confidence`, `source`, `priority`, `tags`, `ttl_seconds`) |
+| `POST` | `/memory/bulk` | Add multiple records in one request |
+| `GET` | `/memory/query` | Filter records — returns all 15 fields incl. confidence/priority/tags |
+| `POST` | `/memory/search` | Keyword or cosine search; add `embedding_model` to auto-embed |
+| `GET` | `/memory/search-flat` | Plain string array — for no-code tools (n8n, Flowise) |
+| `POST` | `/memory/context` | LLM-ready formatted context block (inject directly into prompts) |
+| `GET` | `/memory/latest` | Most recent fact per actor+action (no stale returns) |
+| `POST` | `/memory/reflect` | AureusBridge Bayesian reflexion over memory context |
+| `PATCH` | `/memory/update/:id` | In-place correction, version++ |
+| `POST` | `/memory/quarantine/:id` | Move to quarantine — excluded from search |
+| `POST` | `/memory/corroborate/:id` | Boost confidence (+0.10) |
+| `POST` | `/memory/contradict/:id` | Reduce confidence (−0.15); auto-quarantines below 0.30 |
+| `DELETE` | `/memory/forget/:actor` | GDPR right-to-forget (temporal + symbolic + audit) |
+| `POST` | `/memory/consolidate` | Keyword dedup report |
+| `GET` | `/memory/export` | Full data portability export |
+
+### World Model (Dirichlet + Kalman + Causal DAG)
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/worldmodel/observe` | Feed state transition → Dirichlet update |
+| `GET` | `/worldmodel/predict` | P(s'\|s,a) distribution + entropy |
+| `GET` | `/worldmodel/states` | All observed states + actions |
+| `GET` | `/worldmodel/transitions` | Transitions from a given state |
+| `GET` | `/worldmodel/uncertainty` | Bulk entropy for all (state, action) pairs |
+| `GET` | `/worldmodel/entities` | List Kalman-tracked entities |
+| `POST` | `/worldmodel/entity` | Register entity with initial Kalman state |
+| `GET` | `/worldmodel/causal` | Dump causal DAG edges |
+| `POST` | `/worldmodel/causal/edge` | Add causal edge (cycle prevention enforced) |
+| `POST` | `/worldmodel/causal/intervention` | P(Y\|do(X=x)) do-calculus |
+| `POST` | `/worldmodel/causal/counterfactual` | "what if X had been x instead?" |
+
+### Self-Model + Coherence
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/self/health` | System health score + module breakdown |
+| `GET` | `/self/capabilities` | Registered capability descriptors |
+| `POST` | `/self/capabilities` | Register capability at runtime |
+| `GET` | `/self/can-execute` | Decision engine — should I run this operation? |
+| `GET` | `/coherence/status` | Cross-module coherence metrics (persistent checker) |
+| `GET` | `/coherence/inconsistencies` | Active inconsistency reports |
+
+### Other
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/health` | Health check (public) |
-| `POST` | `/memory/add` | Store a memory record (`ttl_seconds` for auto-expiry) |
-| `POST` | `/memory/bulk` | Add up to N records in one request |
-| `GET` | `/memory/query` | Filter records (actor / action / type / limit) |
-| `POST` | `/memory/search` | Keyword or cosine search; add `embedding_model` to auto-generate query embedding |
-| `POST` | `/memory/embed` | Auto-embed then store (Ollama or OpenAI) |
-| `DELETE` | `/memory/forget/:actor` | GDPR right-to-forget (temporal + symbolic + audit) |
-| `GET` | `/coherence/status` | Cross-module coherence metrics |
-| `GET` | `/stats` | Live record counts + metering state (public) |
-| `GET` | `/graph` | Full symbolic knowledge graph |
-| `GET` | `/node/:id` | Single symbolic node by UUID |
-| `GET` | `/tier` | API key tier + limits |
-| `GET` | `/pricing` | Pricing page (public) |
+| `GET` | `/stats` | Live record counts + metering |
+| `GET` | `/metrics` | Prometheus metrics |
+| `POST` | `/webhooks/register` | Register webhook (post-write events) |
+| `GET` | `/audit/verify` | Merkle chain tamper detection |
+| `POST` | `/regulatory/hold` | MiFID II hold — blocks GDPR forget |
 | `GET` | `/openapi.json` | OpenAPI 3.0 spec (public) |
 
 **Authentication:** set `HIPCORTEX_API_KEYS=sk-mykey:pro` → send `X-Api-Key: sk-mykey`.  
 Unset = open mode (self-hosted / dev).
+
+> Every `GET /memory/query` and `GET /memory/search` response now includes all 15 fields:  
+> `id` · `record_type` · `timestamp` · `actor` · `action` · `target` · `metadata` · `integrity` · `confidence` · `source` · `priority` · `tags` · `version` · `status` · `expires_at`
 
 ---
 
