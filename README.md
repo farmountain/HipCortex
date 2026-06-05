@@ -59,7 +59,7 @@ curl https://hipcortex.fly.dev/openapi.json    # → OpenAPI 3.0 spec
 ### Option B — Python (interactive setup wizard)
 
 ```bash
-pip install "git+https://github.com/farmountain/HipCortex.git#subdirectory=sdk/python"
+pip install hipcortex
 hipcortex install
 ```
 
@@ -420,61 +420,23 @@ cargo run -- safety-audit
 
 ---
 
-## 🚀 Quickstart
+## 🚀 Building from source (Rust contributors)
 
-### Minimal Setup (Recommended)
-For quick setup without external database dependencies:
 ```sh
-git clone https://github.com/farmountain/HipCortex.git
-cd HipCortex
+# Minimal build (no external deps)
+git clone https://github.com/farmountain/HipCortex.git && cd HipCortex
 cargo build --no-default-features --features "petgraph_backend"
-cargo run --example quickstart --no-default-features --features "petgraph_backend"
-cargo test --no-default-features --features "petgraph_backend" --lib
-```
+cargo test  --no-default-features --features "petgraph_backend" --lib
 
-### Full Setup
-For complete functionality with all features:
-```sh
-git clone https://github.com/farmountain/HipCortex.git
-cd HipCortex
-cargo build --all-features  # Requires external database libraries
-cargo test                  # Run all tests
-cargo run                   # Run the CLI demo
-cargo bench                 # Run benchmarks
-```
-
-### Feature Combinations
-```sh
-# Web server with REST API
+# Web server
 cargo build --features "web-server,petgraph_backend"
 
-# GUI application
-cargo build --features "gui,petgraph_backend"
-
-# With database backends (requires external libraries)
-cargo build --features "petgraph_backend,sqlite_backend,postgres_backend"
+# All features (requires external DB libraries)
+cargo build --all-features
 ```
 
-**Note**: For detailed setup instructions including database configuration, see `Hipcortex_Env_Setup_Guide.md`.
-
-Launch the combined MCP server (REST + gRPC) with:
-
-```sh
-cargo run --example mcp_server --features "web-server,grpc-server"
-```
-
-Open http://localhost:3000/metrics to view monitoring data.
-How to Test as User:
-https://github.com/farmountain/HipCortex/blob/main/How%20to%20Test%20as%20a%20User
-
-If you encounter Codex container timeouts, run `scripts/codex_startup.sh` before heavy builds to prefetch dependencies and perform a quick `cargo check --all-features`.
-
-See `examples/quickstart.rs` for a minimal programmatic usage demo.
-`examples/world_model_example.rs` demonstrates the persistent world model API.
-The new `examples/rag_export.rs` shows retrieving content via the RAG adapter and exporting it to PDF.
-For WebAssembly extension, see `examples/plugin_host.rs` and run:
-`cargo run --example plugin_host --features plugin`.
-Detailed data model and extended architecture diagrams are available in [docs/data_model.md](docs/data_model.md) and [docs/architecture.md](docs/architecture.md).
+See [DEVELOPMENT.md](DEVELOPMENT.md) for full feature-flag matrix and per-OS setup.
+See [CLAUDE.md](CLAUDE.md) for codebase conventions (module wiring rules, safety rules, etc.).
 
 ## LLM & World Model Connectors
 
