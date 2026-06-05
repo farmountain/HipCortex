@@ -81,10 +81,6 @@ name = "webserver"
 path = "src/bin/webserver.rs"
 required-features = ["web-server"]
 
-[[bin]]
-name = "hipcortex"
-path = "src/bin/cli.rs"
-
 [features]
 # Core features - start with petgraph_backend for minimal setup
 default = ["petgraph_backend"]
