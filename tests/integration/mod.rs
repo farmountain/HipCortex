@@ -35,4 +35,5 @@ mod world_model_cli_sit;
 mod world_model_uat;
 mod safety_guardrail_sit;
 mod web_server_gaps_sit;
+#[cfg(feature = "web-server")]
 mod intelligence_wiring_sit;

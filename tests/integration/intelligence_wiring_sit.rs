@@ -1,7 +1,4 @@
-/// SIT tests for intelligence layer wiring — requires web-server feature
-// These tests use AppState from web_server which is gated on the web-server feature.
-// Skip entire file when building without web-server.
-#![cfg(feature = "web-server")]
+/// SIT tests for intelligence layer wiring (requires web-server feature — gated in mod.rs)
 use hipcortex::memory_record::{MemoryRecord, MemoryType};
 use hipcortex::memory_store::MemoryStore;
 use hipcortex::persistence::InMemoryBackend;
