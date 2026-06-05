@@ -2,9 +2,10 @@
 
 **Persistent causal memory for AI agents — 0.48 ms p50 writes, 59% token savings in steady-state.**
 
-[![CI](https://github.com/farmountain/HipCortex/actions/workflows/ci.yml/badge.svg)](https://github.com/farmountain/HipCortex/actions/workflows/ci.yml)
+[![CI](https://github.com/farmountain/HipCortex/actions/workflows/ci.yml/badge.svg?branch=claude%2Fpedantic-edison-28b84c)](https://github.com/farmountain/HipCortex/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![crates.io](https://img.shields.io/crates/v/hipcortex.svg)](https://crates.io/crates/hipcortex)
+[![PyPI](https://img.shields.io/pypi/v/hipcortex.svg)](https://pypi.org/project/hipcortex/)
+[![VS Code](https://img.shields.io/badge/VS%20Code-v0.1.6-blue.svg)](vscode-extension/)
 
 HipCortex is **not** a vector database, RAG pipeline, or chat history store.  
 It is a **recursive causal world-model memory engine** — the cognitive substrate AI agents need to remember, reason, and improve over time.
