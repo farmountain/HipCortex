@@ -80,10 +80,16 @@ impl InvariantViolation {
 pub struct SystemInvariants {
     /// Activation history for decay monitoring (entity_id -> [(timestamp, activation)])
     activation_history: HashMap<String, Vec<(u64, f64)>>,
-    
+
     /// Entity lifecycle tracking (entity_id -> (created_count, deleted_count))
     entity_lifecycle: HashMap<String, (usize, usize)>,
-    
+
+    /// Cached symbolic graph edges for acyclicity validation (from, to)
+    symbolic_edges: Vec<(String, String)>,
+
+    /// Cached causal graph edges for acyclicity validation (from, to)
+    causal_edges: Vec<(String, String)>,
+
     /// Last validation timestamp
     last_validation: u64,
 }
@@ -94,6 +100,8 @@ impl SystemInvariants {
         Self {
             activation_history: HashMap::new(),
             entity_lifecycle: HashMap::new(),
+            symbolic_edges: Vec::new(),
+            causal_edges: Vec::new(),
             last_validation: 0,
         }
     }
@@ -219,33 +227,31 @@ impl SystemInvariants {
     ///
     /// Validates: Symbolic and causal graphs remain DAGs (no cycles)
     fn check_graph_acyclicity(&self) -> Result<Option<InvariantViolation>, String> {
-        // In real implementation:
-        // 1. Get edges from symbolic store
-        // 2. Get edges from world-model causal graph
-        // 3. Check each for cycles using topological sort or DFS
-        
-        // Example validation (placeholder):
-        // let symbolic_edges = symbolic_store.get_graph_edges()?;
-        // if let Some(cycle) = self.detect_cycle(&symbolic_edges) {
-        //     return Ok(Some(InvariantViolation::new(
-        //         InvariantType::GraphAcyclicity,
-        //         format!("Cycle detected in symbolic graph: {:?}", cycle),
-        //         cycle.clone(),
-        //         true, // Critical - breaks causal reasoning
-        //     )));
-        // }
-        // 
-        // let causal_edges = world_model.get_causal_edges()?;
-        // if let Some(cycle) = self.detect_cycle(&causal_edges) {
-        //     return Ok(Some(InvariantViolation::new(
-        //         InvariantType::GraphAcyclicity,
-        //         format!("Cycle detected in causal graph: {:?}", cycle),
-        //         cycle.clone(),
-        //         true,
-        //     )));
-        // }
-        
-        Ok(None) // No cycles detected (placeholder)
+        // Check symbolic graph edges for cycles
+        if !self.symbolic_edges.is_empty() {
+            if let Some(cycle) = self.detect_cycle(&self.symbolic_edges) {
+                return Ok(Some(InvariantViolation::new(
+                    InvariantType::GraphAcyclicity,
+                    format!("Cycle detected in symbolic graph: {:?}", cycle),
+                    cycle.clone(),
+                    true, // Critical - breaks causal reasoning
+                )));
+            }
+        }
+
+        // Check causal graph edges for cycles
+        if !self.causal_edges.is_empty() {
+            if let Some(cycle) = self.detect_cycle(&self.causal_edges) {
+                return Ok(Some(InvariantViolation::new(
+                    InvariantType::GraphAcyclicity,
+                    format!("Cycle detected in causal graph: {:?}", cycle),
+                    cycle.clone(),
+                    true,
+                )));
+            }
+        }
+
+        Ok(None) // No cycles detected
     }
 
     /// Check conservation invariant
@@ -312,6 +318,40 @@ impl SystemInvariants {
             .entry(entity_id.to_string())
             .or_insert((0, 0))
             .1 += 1;
+    }
+
+    /// Update symbolic graph edges for acyclicity validation.
+    /// Called before a write that would add/remove edges.
+    pub fn set_symbolic_edges(&mut self, edges: Vec<(String, String)>) {
+        self.symbolic_edges = edges;
+    }
+
+    /// Add a single symbolic edge (for incremental updates).
+    pub fn add_symbolic_edge(&mut self, from: &str, to: &str) {
+        self.symbolic_edges.push((from.to_string(), to.to_string()));
+    }
+
+    /// Update causal graph edges for acyclicity validation.
+    pub fn set_causal_edges(&mut self, edges: Vec<(String, String)>) {
+        self.causal_edges = edges;
+    }
+
+    /// Add a single causal edge (for incremental updates).
+    pub fn add_causal_edge(&mut self, from: &str, to: &str) {
+        self.causal_edges.push((from.to_string(), to.to_string()));
+    }
+
+    /// Check if adding an edge would create a cycle (pre-flight check).
+    /// Returns the cycle path if one would be created.
+    pub fn would_create_cycle(&self, from: &str, to: &str, graph_type: &str) -> Option<Vec<String>> {
+        let edges = match graph_type {
+            "symbolic" => &self.symbolic_edges,
+            "causal" => &self.causal_edges,
+            _ => return None,
+        };
+        let mut test_edges = edges.clone();
+        test_edges.push((from.to_string(), to.to_string()));
+        self.detect_cycle(&test_edges)
     }
 
     // ========================================================================

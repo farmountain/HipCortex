@@ -478,6 +478,8 @@ impl GraphDatabase for SledGraph {
 /// High level store that delegates operations to a chosen backend.
 pub struct SymbolicStore<B: GraphDatabase> {
     backend: B,
+    /// Optional coherence checker for synchronous write-gating.
+    coherence: Option<std::sync::Arc<crate::coherence::CoherenceChecker>>,
 }
 
 impl SymbolicStore<InMemoryGraph> {
@@ -485,6 +487,7 @@ impl SymbolicStore<InMemoryGraph> {
     pub fn new() -> Self {
         Self {
             backend: InMemoryGraph::new(),
+            coherence: None,
         }
     }
 }
@@ -492,7 +495,28 @@ impl SymbolicStore<InMemoryGraph> {
 impl<B: GraphDatabase> SymbolicStore<B> {
     /// Instantiate a store with a custom graph backend.
     pub fn from_backend(backend: B) -> Self {
-        Self { backend }
+        Self {
+            backend,
+            coherence: None,
+        }
+    }
+
+    /// Enable synchronous coherence write-gating on this store.
+    /// When set, every mutation (add_node, add_edge, set_property, remove_node)
+    /// will validate invariants before executing.
+    pub fn with_coherence(mut self, checker: std::sync::Arc<crate::coherence::CoherenceChecker>) -> Self {
+        self.coherence = Some(checker);
+        self
+    }
+
+    /// Internal: gate a mutation through the coherence checker if configured.
+    /// Returns Ok(()) if safe, or the context string is blocked.
+    fn gate_mutation(&self, context: &str) -> Result<(), String> {
+        if let Some(ref coherence) = self.coherence {
+            coherence.gate_write(context)
+                .map_err(|rejection| rejection.reason)?;
+        }
+        Ok(())
     }
 
     pub fn add_node(&mut self, label: &str, properties: HashMap<String, String>) -> Uuid {

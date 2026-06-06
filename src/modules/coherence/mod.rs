@@ -44,24 +44,30 @@ pub struct CoherenceChecker {
 pub struct CoherenceMetrics {
     /// Total consistency checks performed
     pub total_checks: u64,
-    
+
     /// Total inconsistencies found
     pub inconsistencies_found: u64,
-    
+
     /// Automatic resolutions succeeded
     pub auto_resolutions_succeeded: u64,
-    
+
     /// Automatic resolutions failed
     pub auto_resolutions_failed: u64,
-    
+
     /// Invariants validated
     pub invariants_validated: u64,
-    
+
     /// Invariants violated
     pub invariants_violated: u64,
-    
+
     /// Current coherence score [0.0, 1.0] where 1.0 is perfect coherence
     pub coherence_score: f64,
+
+    /// Synchronous write-gating checks performed
+    pub writes_gated: u64,
+
+    /// Writes blocked by synchronous gating
+    pub writes_blocked: u64,
 }
 
 impl CoherenceMetrics {
@@ -74,8 +80,21 @@ impl CoherenceMetrics {
             invariants_validated: 0,
             invariants_violated: 0,
             coherence_score: 1.0,
+            writes_gated: 0,
+            writes_blocked: 0,
         }
     }
+}
+
+/// Result of a synchronous write-gate check.
+#[derive(Debug, Clone)]
+pub struct WriteRejection {
+    /// Inconsistencies that would result from the write
+    pub inconsistencies: Vec<InconsistencyReport>,
+    /// Invariant violations detected
+    pub violations: Vec<InvariantViolation>,
+    /// Reason summary for logging
+    pub reason: String,
 }
 
 impl CoherenceChecker {
@@ -253,6 +272,118 @@ impl CoherenceChecker {
         }
         
         Ok(violations)
+    }
+
+    // ========================================================================
+    // Synchronous Write-Gating
+    // ========================================================================
+
+    /// Synchronously validate a write operation before it executes.
+    ///
+    /// Runs invariants check (decay monotonicity, conservation, acyclicity) and
+    /// returns Ok(()) if the write is safe, or Err(WriteRejection) if it would
+    /// violate system invariants.
+    ///
+    /// This is the synchronous safety gate — unlike the async 60s background
+    /// checker, this blocks the write BEFORE it happens.
+    pub fn gate_write(&self, context: &str) -> Result<(), WriteRejection> {
+        let mut metrics = self.metrics.write()
+            .map_err(|_| WriteRejection {
+                inconsistencies: vec![],
+                violations: vec![],
+                reason: "failed to acquire metrics lock".into(),
+            })?;
+
+        metrics.writes_gated += 1;
+        drop(metrics);
+
+        // Run invariant validation synchronously
+        match self.enforce_invariants() {
+            Ok(violations) => {
+                let critical: Vec<_> = violations.into_iter()
+                    .filter(|v| v.critical)
+                    .collect();
+
+                if !critical.is_empty() {
+                    if let Ok(mut metrics) = self.metrics.write() {
+                        metrics.writes_blocked += 1;
+                    }
+
+                    return Err(WriteRejection {
+                        reason: format!(
+                            "{} critical invariant(s) violated: {}",
+                            critical.len(),
+                            critical.iter()
+                                .map(|v| format!("{:?}", v.invariant_type))
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        ),
+                        violations: critical,
+                        inconsistencies: vec![],
+                    });
+                }
+                Ok(())
+            }
+            Err(e) => Err(WriteRejection {
+                inconsistencies: vec![],
+                violations: vec![],
+                reason: format!("invariant check failed: {}", e),
+            }),
+        }
+    }
+
+    /// Check consistency and auto-resolve if possible. If resolution fails,
+    /// return the write rejection. Used for writes that need coherence gating
+    /// but allow auto-resolution before blocking.
+    pub fn check_and_resolve(&self, strategy: ResolutionStrategy) -> Result<(), WriteRejection> {
+        // Run consistency check
+        let inconsistencies = self.check_consistency().map_err(|e| WriteRejection {
+            inconsistencies: vec![],
+            violations: vec![],
+            reason: format!("consistency check failed: {}", e),
+        })?;
+
+        if inconsistencies.is_empty() {
+            return Ok(());
+        }
+
+        // Try auto-resolution
+        let results = self.resolve_all(strategy).map_err(|e| WriteRejection {
+            inconsistencies: vec![],
+            violations: vec![],
+            reason: format!("auto-resolution failed: {}", e),
+        })?;
+
+        let unresolved: Vec<_> = results.into_iter()
+            .filter(|r| !r.success)
+            .collect();
+
+        if !unresolved.is_empty() {
+            // Also run invariants for a complete picture
+            let violations = self.enforce_invariants().unwrap_or_default();
+
+            if let Ok(mut metrics) = self.metrics.write() {
+                metrics.writes_blocked += 1;
+            }
+
+            return Err(WriteRejection {
+                reason: format!(
+                    "{} inconsistencies could not be auto-resolved",
+                    unresolved.len()
+                ),
+                inconsistencies: vec![], // already stored in active_inconsistencies
+                violations,
+            });
+        }
+
+        Ok(())
+    }
+
+    /// Get write-gating statistics.
+    pub fn get_gate_stats(&self) -> Result<(u64, u64), String> {
+        let metrics = self.metrics.read()
+            .map_err(|e| format!("Failed to acquire metrics lock: {}", e))?;
+        Ok((metrics.writes_gated, metrics.writes_blocked))
     }
 
     /// Validate specific invariant type
