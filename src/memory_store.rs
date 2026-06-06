@@ -6,6 +6,7 @@ use std::path::Path;
 use crate::audit_log::AuditLog;
 use crate::memory_record::MemoryRecord;
 use crate::persistence::{FileBackend, InMemoryBackend, MemoryBackend};
+use crate::source_trust::SourceTrustRegistry;
 #[cfg(feature = "rocksdb-backend")]
 use crate::rocksdb_backend::RocksDbBackend;
 use anyhow::Result;
@@ -20,6 +21,8 @@ pub struct MemoryStore<B: MemoryBackend> {
 
     index_action: IndexMap<String, Vec<usize>>,
     index_target: IndexMap<String, Vec<usize>>,
+    /// Source trust registry for credibility-weighted memory operations.
+    pub source_trust: SourceTrustRegistry,
 }
 
 impl MemoryStore<FileBackend> {
@@ -44,6 +47,7 @@ impl MemoryStore<FileBackend> {
 
             index_action: IndexMap::new(),
             index_target: IndexMap::new(),
+            source_trust: SourceTrustRegistry::new(),
         };
         store.load()?;
         Ok(store)
@@ -62,6 +66,7 @@ impl MemoryStore<FileBackend> {
 
             index_action: IndexMap::new(),
             index_target: IndexMap::new(),
+            source_trust: SourceTrustRegistry::new(),
         };
         store.load()?;
         Ok(store)
@@ -84,6 +89,7 @@ impl MemoryStore<FileBackend> {
 
             index_action: IndexMap::new(),
             index_target: IndexMap::new(),
+            source_trust: SourceTrustRegistry::new(),
         };
         store.load()?;
         Ok(store)
@@ -111,6 +117,7 @@ impl MemoryStore<InMemoryBackend> {
             index_actor: IndexMap::new(),
             index_action: IndexMap::new(),
             index_target: IndexMap::new(),
+            source_trust: SourceTrustRegistry::new(),
         }
     }
 }
@@ -129,6 +136,7 @@ impl MemoryStore<RocksDbBackend> {
             index_actor: IndexMap::new(),
             index_action: IndexMap::new(),
             index_target: IndexMap::new(),
+            source_trust: SourceTrustRegistry::new(),
         };
         store.load()?;
         Ok(store)
@@ -256,6 +264,7 @@ impl<B: MemoryBackend> MemoryStore<B> {
     }
 
     /// Boost confidence by 0.10 (clamped to 1.0). Returns (before, after).
+    /// Also records corroboration in the source trust registry for this record's source.
     pub fn corroborate(&mut self, id: uuid::Uuid) -> Result<(f32, f32)> {
         let idx = self.records.iter().position(|r| r.id == id)
             .ok_or_else(|| anyhow::anyhow!("record not found: {}", id))?;
@@ -263,6 +272,10 @@ impl<B: MemoryBackend> MemoryStore<B> {
         let after = (before + 0.10).min(1.0);
         self.records[idx].confidence = after;
         self.records[idx].integrity = Some(self.records[idx].compute_hash());
+        // Track source trust
+        if let Some(ref source) = self.records[idx].source {
+            self.source_trust.record_corroboration(source);
+        }
         self.backend.clear()?;
         let snap = self.records.clone();
         for rec in &snap { self.backend.append(rec)?; }
@@ -271,6 +284,7 @@ impl<B: MemoryBackend> MemoryStore<B> {
     }
 
     /// Reduce confidence by 0.15 (clamped to 0.0). Auto-quarantines if result < 0.30.
+    /// Also records contradiction in the source trust registry for this record's source.
     /// Returns (before, after, was_quarantined).
     pub fn contradict(&mut self, id: uuid::Uuid) -> Result<(f32, f32, bool)> {
         let idx = self.records.iter().position(|r| r.id == id)
@@ -281,6 +295,10 @@ impl<B: MemoryBackend> MemoryStore<B> {
         let quarantined = after < 0.30;
         if quarantined { self.records[idx].status = "quarantine".to_string(); }
         self.records[idx].integrity = Some(self.records[idx].compute_hash());
+        // Track source trust
+        if let Some(ref source) = self.records[idx].source {
+            self.source_trust.record_contradiction(source);
+        }
         self.backend.clear()?;
         let snap = self.records.clone();
         for rec in &snap { self.backend.append(rec)?; }
@@ -292,6 +310,7 @@ impl<B: MemoryBackend> MemoryStore<B> {
     /// if they carry a `metadata.embedding` float array, otherwise fall back to
     /// keyword matching against actor + action + target.
     /// Quarantined records are excluded unless `include_quarantined` is true.
+    /// Results are trust-weighted: score is multiplied by source credibility.
     /// Returns up to `limit` records sorted by descending score.
     pub fn search_semantic(
         &self,
@@ -305,7 +324,7 @@ impl<B: MemoryBackend> MemoryStore<B> {
             .iter()
             .filter(|r| include_quarantined || r.status != "quarantine")
             .map(|rec| {
-                let score = if let Some(qe) = query_embedding {
+                let base_score = if let Some(qe) = query_embedding {
                     let doc_vec: Option<Vec<f64>> = rec
                         .metadata
                         .get("embedding")
@@ -318,7 +337,12 @@ impl<B: MemoryBackend> MemoryStore<B> {
                 } else {
                     keyword_score(query_text, rec)
                 };
-                (rec, score)
+                // Trust-weighted score: multiply by source credibility
+                let trust = rec.source.as_deref()
+                    .map(|s| self.source_trust.get_trust(s) as f64)
+                    .unwrap_or(0.5);
+                let weighted = base_score * (0.5 + 0.5 * trust); // range: 0.5x-1.0x of base
+                (rec, weighted)
             })
             .filter(|(_, s)| *s > 0.0)
             .collect();
@@ -334,6 +358,19 @@ impl<B: MemoryBackend> MemoryStore<B> {
         pinned.extend(scored);
         pinned.truncate(limit);
         pinned
+    }
+
+    /// Find records from trusted sources only.
+    /// Filters to records whose source meets or exceeds `trust_threshold`.
+    pub fn find_trusted(&self, actor: &str, trust_threshold: f64) -> Vec<&MemoryRecord> {
+        self.find_by_actor(actor)
+            .into_iter()
+            .filter(|r| {
+                r.source.as_deref()
+                    .map(|s| self.source_trust.is_trusted(s, trust_threshold))
+                    .unwrap_or(false) // records without source are not trusted
+            })
+            .collect()
     }
 
     /// GDPR right-to-forget: remove all records for `actor`, rewrite the backend

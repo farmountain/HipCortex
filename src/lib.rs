@@ -5,6 +5,7 @@ pub mod a2a_protocol;
 #[cfg(feature = "async-store")]
 pub mod async_memory_store;
 pub mod audit_log;
+pub mod safety_classifier;
 pub mod safety_guardrail;
 #[path = "modules/aureus_bridge.rs"]
 pub mod aureus_bridge;
@@ -59,6 +60,7 @@ pub mod segmented_buffer;
 pub mod semantic_cache;
 pub mod semantic_compression;
 pub mod snapshot_manager;
+pub mod source_trust;
 #[path = "modules/symbolic_store.rs"]
 pub mod symbolic_store;
 #[path = "modules/latent_map.rs"]
