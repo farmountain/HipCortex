@@ -29,17 +29,11 @@ jobs:
         working-directory: sdk/python
         run: python -m build
 
-      # Option A: API token (add PYPI_API_TOKEN secret to repo settings)
-      - name: Publish to PyPI (API token)
-        if: ${{ secrets.PYPI_API_TOKEN != '' }}
+      # Publish to PyPI — requires PYPI_API_TOKEN secret or OIDC trusted publisher setup.
+      # On release: publishes. On workflow_dispatch: builds but skips publish (continue-on-error).
+      - name: Publish to PyPI
+        if: github.event_name == 'release'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: sdk/python/dist/
           password: ${{ secrets.PYPI_API_TOKEN }}
-
-      # Option B: OIDC trusted publishing (requires pypi.org trusted publisher setup)
-      # Uncomment and remove Option A once trusted publisher is configured:
-      # - name: Publish to PyPI (OIDC)
-      #   uses: pypa/gh-action-pypi-publish@release/v1
-      #   with:
-      #     packages-dir: sdk/python/dist/
