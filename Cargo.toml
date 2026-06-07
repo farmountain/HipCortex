@@ -77,6 +77,18 @@ harness = false
 name = "symbolic_store_bench"
 harness = false
 
+[[bench]]
+name = "retrieval_quality_bench"
+harness = false
+
+[[bench]]
+name = "pipeline_latency_bench"
+harness = false
+
+[[bench]]
+name = "world_model_bench"
+harness = false
+
 [[bin]]
 name = "webserver"
 path = "src/bin/webserver.rs"
