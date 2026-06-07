@@ -3,6 +3,7 @@ mod cli_tests;
 mod conversation_memory_sit;
 mod conversation_memory_uat;
 mod edge_workflow_sit;
+mod graph_backend_sit;
 mod edge_workflow_uat;
 mod effort_confidence_sit;
 mod effort_confidence_uat;
@@ -25,6 +26,8 @@ mod retrieval_pipeline_sit;
 mod retrieval_pipeline_uat;
 mod semantic_cache_sit;
 mod semantic_cache_uat;
+#[cfg(feature = "web-server")]
+mod sit_tests;
 mod semantic_compression_sit;
 mod semantic_compression_uat;
 mod smart_glasses_sit;

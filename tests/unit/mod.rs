@@ -2,6 +2,8 @@
 mod async_memory_store_tests;
 mod audit_log_tests;
 mod aureus_bridge_tests;
+#[cfg(feature = "web-server")]
+mod api_tests;
 mod conversation_memory_tests;
 mod edge_workflow_small;
 mod effort_tests;
@@ -12,10 +14,13 @@ mod integration_layer_tests;
 mod knowledge_export_tests;
 mod llama_client_tests;
 mod memory_store_tests;
+mod memory_tests;
 mod multimodal_perception_tests;
 mod perception_adapter_tests;
 #[cfg(feature = "plugin")]
 mod plugin_host_tests;
+#[cfg(all(feature = "web-server", feature = "grpc-server"))]
+mod mcp_server_tests;
 mod procedural_cache_tests;
 mod puzzle_tests;
 mod rag_adapter_tests;
@@ -24,6 +29,7 @@ mod retrieval_pipeline_tests;
 mod segmented_ring_buffer_tests;
 mod semantic_cache_tests;
 mod safety_guardrail_tests;
+mod sled_graph_tests;
 mod snapshot_manager_tests;
 mod symbolic_store_tests;
 mod latent_map_tests;
