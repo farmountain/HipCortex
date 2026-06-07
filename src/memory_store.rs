@@ -26,6 +26,9 @@ pub struct MemoryStore<B: MemoryBackend> {
     pub source_trust: SourceTrustRegistry,
     /// Optional embedding provider for zero-config auto-embedding on ingest.
     pub embedding_provider: Option<std::sync::Arc<dyn EmbeddingProvider>>,
+    /// Active namespace for multi-tenant isolation. When set, all operations
+    /// are scoped to this namespace. Records are tagged with `ns:<namespace>`.
+    pub namespace: Option<String>,
 }
 
 impl MemoryStore<FileBackend> {
@@ -52,6 +55,7 @@ impl MemoryStore<FileBackend> {
             index_target: IndexMap::new(),
             source_trust: SourceTrustRegistry::new(),
             embedding_provider: None,
+            namespace: None,
         };
         store.load()?;
         Ok(store)
@@ -72,6 +76,7 @@ impl MemoryStore<FileBackend> {
             index_target: IndexMap::new(),
             source_trust: SourceTrustRegistry::new(),
             embedding_provider: None,
+            namespace: None,
         };
         store.load()?;
         Ok(store)
@@ -96,6 +101,7 @@ impl MemoryStore<FileBackend> {
             index_target: IndexMap::new(),
             source_trust: SourceTrustRegistry::new(),
             embedding_provider: None,
+            namespace: None,
         };
         store.load()?;
         Ok(store)
@@ -125,6 +131,7 @@ impl MemoryStore<InMemoryBackend> {
             index_target: IndexMap::new(),
             source_trust: SourceTrustRegistry::new(),
             embedding_provider: None,
+            namespace: None,
         }
     }
 }
@@ -145,6 +152,7 @@ impl MemoryStore<RocksDbBackend> {
             index_target: IndexMap::new(),
             source_trust: SourceTrustRegistry::new(),
             embedding_provider: None,
+            namespace: None,
         };
         store.load()?;
         Ok(store)
@@ -177,7 +185,14 @@ impl<B: MemoryBackend> MemoryStore<B> {
         Ok(())
     }
 
-    pub fn add(&mut self, record: MemoryRecord) -> Result<()> {
+    pub fn add(&mut self, mut record: MemoryRecord) -> Result<()> {
+        // Auto-tag with namespace for multi-tenant isolation
+        if let Some(ref ns) = self.namespace {
+            let ns_tag = format!("ns:{}", ns);
+            if !record.tags.contains(&ns_tag) {
+                record.tags.push(ns_tag);
+            }
+        }
         self.records.push(record.clone());
         self.buffer.push_back(record.clone());
         let idx = self.records.len() - 1;
@@ -368,6 +383,54 @@ impl<B: MemoryBackend> MemoryStore<B> {
         pinned
     }
 
+    /// Find records in the active namespace only.
+    /// Filters to records tagged with `ns:<namespace>` if namespace is set.
+    pub fn in_namespace(&self) -> Vec<&MemoryRecord> {
+        match self.namespace {
+            Some(ref ns) => {
+                let tag = format!("ns:{}", ns);
+                self.records.iter().filter(|r| r.tags.contains(&tag)).collect()
+            }
+            None => self.records.iter().collect(),
+        }
+    }
+
+    /// Find records by actor within the active namespace.
+    pub fn find_by_actor_ns(&self, actor: &str) -> Vec<&MemoryRecord> {
+        let candidates = self.find_by_actor(actor);
+        match self.namespace {
+            Some(ref ns) => {
+                let tag = format!("ns:{}", ns);
+                candidates.into_iter().filter(|r| r.tags.contains(&tag)).collect()
+            }
+            None => candidates,
+        }
+    }
+
+    /// List all unique namespaces from record tags.
+    pub fn list_namespaces(&self) -> Vec<String> {
+        let mut namespaces: Vec<String> = self.records.iter()
+            .filter_map(|r| r.tags.iter().find(|t| t.starts_with("ns:")))
+            .map(|t| t[3..].to_string())
+            .collect();
+        namespaces.sort();
+        namespaces.dedup();
+        namespaces
+    }
+
+    /// Count records per namespace.
+    pub fn namespace_counts(&self) -> std::collections::HashMap<String, usize> {
+        let mut counts = std::collections::HashMap::new();
+        for rec in &self.records {
+            for tag in &rec.tags {
+                if let Some(ns) = tag.strip_prefix("ns:") {
+                    *counts.entry(ns.to_string()).or_insert(0) += 1;
+                }
+            }
+        }
+        counts
+    }
+
     /// Find records from trusted sources only.
     /// Filters to records whose source meets or exceeds `trust_threshold`.
     pub fn find_trusted(&self, actor: &str, trust_threshold: f64) -> Vec<&MemoryRecord> {
@@ -379,6 +442,14 @@ impl<B: MemoryBackend> MemoryStore<B> {
                     .unwrap_or(false) // records without source are not trusted
             })
             .collect()
+    }
+
+    /// Set the active namespace for multi-tenant isolation.
+    /// When set, add() auto-tags records with `ns:<namespace>` and queries
+    /// are scoped to this namespace.
+    pub fn with_namespace(mut self, ns: String) -> Self {
+        self.namespace = Some(ns);
+        self
     }
 
     /// Set an embedding provider for zero-config auto-embedding.
