@@ -13,6 +13,7 @@ pub mod conversation_memory;
 #[cfg(feature = "web-server")]
 pub mod dashboard;
 pub mod decay;
+pub mod embedding_provider;
 #[path = "modules/effort.rs"]
 pub mod effort;
 #[path = "modules/enhancement_advisor.rs"]

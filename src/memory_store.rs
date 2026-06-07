@@ -4,6 +4,7 @@ use std::io::{BufRead, Write};
 use std::path::Path;
 
 use crate::audit_log::AuditLog;
+use crate::embedding_provider::EmbeddingProvider;
 use crate::memory_record::MemoryRecord;
 use crate::persistence::{FileBackend, InMemoryBackend, MemoryBackend};
 use crate::source_trust::SourceTrustRegistry;
@@ -23,6 +24,8 @@ pub struct MemoryStore<B: MemoryBackend> {
     index_target: IndexMap<String, Vec<usize>>,
     /// Source trust registry for credibility-weighted memory operations.
     pub source_trust: SourceTrustRegistry,
+    /// Optional embedding provider for zero-config auto-embedding on ingest.
+    pub embedding_provider: Option<std::sync::Arc<dyn EmbeddingProvider>>,
 }
 
 impl MemoryStore<FileBackend> {
@@ -48,6 +51,7 @@ impl MemoryStore<FileBackend> {
             index_action: IndexMap::new(),
             index_target: IndexMap::new(),
             source_trust: SourceTrustRegistry::new(),
+            embedding_provider: None,
         };
         store.load()?;
         Ok(store)
@@ -67,6 +71,7 @@ impl MemoryStore<FileBackend> {
             index_action: IndexMap::new(),
             index_target: IndexMap::new(),
             source_trust: SourceTrustRegistry::new(),
+            embedding_provider: None,
         };
         store.load()?;
         Ok(store)
@@ -90,6 +95,7 @@ impl MemoryStore<FileBackend> {
             index_action: IndexMap::new(),
             index_target: IndexMap::new(),
             source_trust: SourceTrustRegistry::new(),
+            embedding_provider: None,
         };
         store.load()?;
         Ok(store)
@@ -118,6 +124,7 @@ impl MemoryStore<InMemoryBackend> {
             index_action: IndexMap::new(),
             index_target: IndexMap::new(),
             source_trust: SourceTrustRegistry::new(),
+            embedding_provider: None,
         }
     }
 }
@@ -137,6 +144,7 @@ impl MemoryStore<RocksDbBackend> {
             index_action: IndexMap::new(),
             index_target: IndexMap::new(),
             source_trust: SourceTrustRegistry::new(),
+            embedding_provider: None,
         };
         store.load()?;
         Ok(store)
@@ -371,6 +379,28 @@ impl<B: MemoryBackend> MemoryStore<B> {
                     .unwrap_or(false) // records without source are not trusted
             })
             .collect()
+    }
+
+    /// Set an embedding provider for zero-config auto-embedding.
+    pub fn with_embedding_provider(mut self, provider: std::sync::Arc<dyn EmbeddingProvider>) -> Self {
+        self.embedding_provider = Some(provider);
+        self
+    }
+
+    /// Add a record and auto-embed its text content if an embedding provider is set.
+    /// The embedding is stored in `metadata.embedding` for later semantic search.
+    pub fn embed_and_add(&mut self, record: MemoryRecord, text_to_embed: &str) -> Result<()> {
+        if let Some(ref provider) = self.embedding_provider {
+            let embedding: Vec<f64> = provider.embed(text_to_embed)
+                .into_iter()
+                .map(|v| v as f64)
+                .collect();
+            let mut rec = record;
+            rec.set_metadata_field("embedding", embedding).ok();
+            self.add(rec)
+        } else {
+            self.add(record)
+        }
     }
 
     /// GDPR right-to-forget: remove all records for `actor`, rewrite the backend
