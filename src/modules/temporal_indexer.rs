@@ -29,6 +29,10 @@ pub struct TemporalIndexer<T> {
     self_model: Option<Arc<crate::self_model::SelfModel>>,
     world_model: Option<Arc<crate::world_model_enhanced::WorldModelEnhanced>>,
     coherence: Option<Arc<crate::coherence::CoherenceChecker>>,
+    // Health tracking
+    op_count: u64,
+    error_count: u64,
+    total_latency_ms: f64,
 }
 
 impl<T: Clone> TemporalIndexer<T> {
@@ -43,6 +47,9 @@ impl<T: Clone> TemporalIndexer<T> {
             self_model: None,
             world_model: None,
             coherence: None,
+            op_count: 0,
+            error_count: 0,
+            total_latency_ms: 0.0,
         }
     }
 
@@ -116,6 +123,8 @@ impl<T: Clone> TemporalIndexer<T> {
         self.buffer.push_back(trace);
 
         let elapsed = start.elapsed();
+        self.op_count += 1;
+        self.total_latency_ms += elapsed.as_secs_f64() * 1000.0;
 
         // 7.3: Resource usage reporting
         if let Some(ref sm) = self.self_model {
@@ -221,6 +230,31 @@ impl<T: Clone> TemporalIndexer<T> {
 
     pub fn is_bursty(&self) -> bool {
         self.poisson.is_bursty()
+    }
+}
+
+impl<T> crate::health_reporter::HealthReporter for TemporalIndexer<T> {
+    fn report_health(&self) -> crate::self_model::ModuleHealth {
+        let avg_latency_ms = if self.op_count > 0 {
+            self.total_latency_ms / self.op_count as f64
+        } else {
+            0.0
+        };
+        let error_rate = if self.op_count > 0 {
+            self.error_count as f64 / self.op_count as f64
+        } else {
+            0.0
+        };
+        let buffer_fullness = self.buffer.len() as f64 / self._capacity.max(1) as f64;
+        crate::self_model::ModuleHealth {
+            latency_ms: avg_latency_ms,
+            error_rate,
+            resource_usage: buffer_fullness.min(1.0),
+        }
+    }
+
+    fn health_module_name(&self) -> &'static str {
+        "temporal_indexer"
     }
 }
 

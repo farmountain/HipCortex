@@ -92,6 +92,8 @@ pub mod self_model;
 pub mod world_model_enhanced;
 #[path = "modules/coherence/mod.rs"]
 pub mod coherence;
+#[path = "modules/health_reporter.rs"]
+pub mod health_reporter;
 pub use persistence::InMemoryBackend;
 #[path = "modules/continuation_checkpoint.rs"]
 pub mod continuation_checkpoint;

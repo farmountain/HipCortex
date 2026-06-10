@@ -45,11 +45,22 @@ pub trait FSMBackend {
 }
 
 use crate::latent_map::LatentMapVersion;
+use std::sync::Arc;
+use std::time::Instant;
+
 /// Procedural cache storing FSM traces and versioned latent maps.
 pub struct ProceduralCache<B: FSMBackend = RustFSMBackend> {
     backend: B,
     maps: HashMap<Uuid, Vec<LatentMapVersion>>,
     snapshot: HashMap<Uuid, Vec<LatentMapVersion>>, // immutable rollback
+    // Intelligence layer hooks (optional, set via with_* builders)
+    self_model: Option<Arc<crate::self_model::SelfModel>>,
+    world_model: Option<Arc<crate::world_model_enhanced::WorldModelEnhanced>>,
+    coherence: Option<Arc<crate::coherence::CoherenceChecker>>,
+    // Health tracking
+    op_count: u64,
+    error_count: u64,
+    total_latency_ms: f64,
 }
 
 impl ProceduralCache<RustFSMBackend> {
@@ -58,6 +69,12 @@ impl ProceduralCache<RustFSMBackend> {
             backend: RustFSMBackend::new(),
             maps: HashMap::new(),
             snapshot: HashMap::new(),
+            self_model: None,
+            world_model: None,
+            coherence: None,
+            op_count: 0,
+            error_count: 0,
+            total_latency_ms: 0.0,
         }
     }
 
@@ -75,6 +92,12 @@ impl ProceduralCache<RustFSMBackend> {
             backend,
             maps: HashMap::new(),
             snapshot: HashMap::new(),
+            self_model: None,
+            world_model: None,
+            coherence: None,
+            op_count: 0,
+            error_count: 0,
+            total_latency_ms: 0.0,
         })
     }
 }
@@ -85,7 +108,38 @@ impl<B: FSMBackend> ProceduralCache<B> {
             backend,
             maps: HashMap::new(),
             snapshot: HashMap::new(),
+            self_model: None,
+            world_model: None,
+            coherence: None,
+            op_count: 0,
+            error_count: 0,
+            total_latency_ms: 0.0,
         }
+    }
+
+    /// Attach self-model for operation gating before FSM transitions.
+    pub fn with_self_model(mut self, sm: Arc<crate::self_model::SelfModel>) -> Self {
+        let _ = sm.register_capability(crate::self_model::CapabilityDescriptor {
+            name: "fsm_advance".to_string(),
+            description: "Advance FSM trace to next state".to_string(),
+            required_cpu_percent: 5.0,
+            required_memory_mb: 10.0,
+            limitations: vec![],
+        });
+        self.self_model = Some(sm);
+        self
+    }
+
+    /// Attach world-model for state transition observation.
+    pub fn with_world_model(mut self, wm: Arc<crate::world_model_enhanced::WorldModelEnhanced>) -> Self {
+        self.world_model = Some(wm);
+        self
+    }
+
+    /// Attach coherence checker for pre-transition consistency validation.
+    pub fn with_coherence(mut self, cc: Arc<crate::coherence::CoherenceChecker>) -> Self {
+        self.coherence = Some(cc);
+        self
     }
 
     pub fn add_trace(&mut self, trace: ProceduralTrace) {
@@ -108,7 +162,54 @@ impl<B: FSMBackend> ProceduralCache<B> {
     }
 
     pub fn advance(&mut self, trace_id: Uuid, condition: Option<&str>) -> Option<FSMState> {
-        self.backend.advance(trace_id, condition)
+        // 9.2: Self-model operation gating
+        if let Some(ref sm) = self.self_model {
+            let context = crate::self_model::DecisionContext::default_context();
+            match sm.can_execute("fsm_advance", context) {
+                Ok(decision) if !decision.should_execute => return None,
+                Err(_) => {
+                    let _ = sm.register_capability(crate::self_model::CapabilityDescriptor {
+                        name: "fsm_advance".to_string(),
+                        description: "Advance FSM trace".to_string(),
+                        required_cpu_percent: 5.0,
+                        required_memory_mb: 10.0,
+                        limitations: vec![],
+                    });
+                }
+                _ => {}
+            }
+        }
+
+        // 9.5: Coherence pre-transition check
+        if let Some(ref cc) = self.coherence {
+            let context = format!("fsm_advance:{}", trace_id);
+            if cc.gate_write(&context).is_err() {
+                return None;
+            }
+        }
+
+        let prev_state = self.backend.traces().get(&trace_id).map(|t| t.current_state.clone());
+        let start = Instant::now();
+        let result = self.backend.advance(trace_id, condition);
+        let elapsed = start.elapsed();
+
+        self.op_count += 1;
+        self.total_latency_ms += elapsed.as_secs_f64() * 1000.0;
+
+        // 9.4: World-model transition observation
+        if let Some(ref wm) = self.world_model {
+            if let (Some(ref prev), Some(ref next)) = (&prev_state, &result) {
+                let from = format!("{:?}", prev);
+                let to = format!("{:?}", next);
+                let _ = wm.observe_transition(
+                    from,
+                    format!("condition:{:?}", condition),
+                    to,
+                );
+            }
+        }
+
+        result
     }
 
     pub fn advance_batch(
@@ -116,7 +217,39 @@ impl<B: FSMBackend> ProceduralCache<B> {
         trace_ids: &[Uuid],
         condition: Option<&str>,
     ) -> Vec<Option<FSMState>> {
-        self.backend.advance_batch(trace_ids, condition)
+        // 9.3: Health-based transition filtering — skip batch if health < 0.5
+        if let Some(ref sm) = self.self_model {
+            if let Ok(healthy) = sm.is_healthy() {
+                if !healthy {
+                    return vec![None; trace_ids.len()];
+                }
+            }
+        }
+
+        let start = Instant::now();
+        let results = self.backend.advance_batch(trace_ids, condition);
+        let elapsed = start.elapsed();
+
+        self.op_count += results.len() as u64;
+        self.total_latency_ms += elapsed.as_secs_f64() * 1000.0;
+
+        // 9.4: World-model observation for batch transitions
+        if let Some(ref wm) = self.world_model {
+            for (i, result) in results.iter().enumerate() {
+                if let Some(ref next) = result {
+                    if let Some(trace_id) = trace_ids.get(i) {
+                        let to = format!("{:?}", next);
+                        let _ = wm.observe_transition(
+                            format!("batch_trace:{}", trace_id),
+                            format!("condition:{:?}", condition),
+                            to,
+                        );
+                    }
+                }
+            }
+        }
+
+        results
     }
 
     pub fn get_trace(&self, trace_id: Uuid) -> Option<&ProceduralTrace> {
@@ -170,6 +303,32 @@ impl<B: FSMBackend> ProceduralCache<B> {
         } else {
             None
         }
+    }
+}
+
+impl<B: FSMBackend> crate::health_reporter::HealthReporter for ProceduralCache<B> {
+    fn report_health(&self) -> crate::self_model::ModuleHealth {
+        let avg_latency_ms = if self.op_count > 0 {
+            self.total_latency_ms / self.op_count as f64
+        } else {
+            0.0
+        };
+        let error_rate = if self.op_count > 0 {
+            self.error_count as f64 / self.op_count as f64
+        } else {
+            0.0
+        };
+        let trace_count = self.backend.traces().len();
+        let resource_usage = (trace_count as f64 / 10_000.0).min(1.0);
+        crate::self_model::ModuleHealth {
+            latency_ms: avg_latency_ms,
+            error_rate,
+            resource_usage,
+        }
+    }
+
+    fn health_module_name(&self) -> &'static str {
+        "procedural_cache"
     }
 }
 

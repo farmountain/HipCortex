@@ -285,3 +285,105 @@ fn test_symbolic_store_full_intelligence_pipeline() {
     let violations = cc.enforce_invariants().unwrap();
     assert!(violations.is_empty());
 }
+
+// ============================================================================
+// HealthReporter Trait Tests (Sections 7.6 + 8.6)
+// ============================================================================
+
+#[test]
+fn test_temporal_indexer_health_reporter() {
+    use hipcortex::health_reporter::HealthReporter;
+
+    let mut idx: TemporalIndexer<String> = TemporalIndexer::new(10, 3600);
+    for i in 0..5 {
+        let trace = make_temporal_trace(Uuid::new_v4(), format!("event_{}", i), 0.8);
+        idx.insert(trace);
+    }
+
+    let health = idx.report_health();
+    assert_eq!(idx.health_module_name(), "temporal_indexer");
+    assert!(health.error_rate >= 0.0);
+    assert!(health.resource_usage >= 0.0 && health.resource_usage <= 1.0);
+    // After 5 inserts, resource usage should reflect buffer fullness
+    assert!(health.resource_usage > 0.0, "Resource usage should be >0 after inserts");
+}
+
+#[test]
+fn test_temporal_indexer_health_reporter_initial_state() {
+    use hipcortex::health_reporter::HealthReporter;
+
+    let idx: TemporalIndexer<String> = TemporalIndexer::new(10, 3600);
+    let health = idx.report_health();
+    assert_eq!(health.error_rate, 0.0, "No errors in fresh indexer");
+    assert_eq!(health.resource_usage, 0.0, "Empty buffer means 0 resource usage");
+}
+
+#[test]
+fn test_symbolic_store_health_reporter() {
+    use hipcortex::health_reporter::HealthReporter;
+
+    let mut store = SymbolicStore::new();
+    store.add_node("health_test_node", HashMap::new());
+
+    let health = store.report_health();
+    assert_eq!(store.health_module_name(), "symbolic_store");
+    assert!(health.error_rate >= 0.0);
+    assert!(health.resource_usage >= 0.0 && health.resource_usage <= 1.0);
+}
+
+#[test]
+fn test_symbolic_store_health_reporter_initial_state() {
+    use hipcortex::health_reporter::HealthReporter;
+
+    let store = SymbolicStore::new();
+    let health = store.report_health();
+    assert_eq!(health.error_rate, 0.0);
+    assert_eq!(health.resource_usage, 0.0);
+}
+
+// ============================================================================
+// Entity Deletion Validation via Coherence (Section 8.5)
+// ============================================================================
+
+#[test]
+fn test_symbolic_store_entity_deletion_with_coherence_validation() {
+    let cc = Arc::new(CoherenceChecker::new());
+    let mut store = SymbolicStore::new().with_coherence(cc.clone());
+
+    // Add and remove a node — coherence should stay consistent
+    let node_id = store.add_node("removable_entity", HashMap::new());
+    assert_ne!(node_id, Uuid::nil());
+    assert!(store.get_node(node_id).is_some());
+
+    let removed = store.remove_node(node_id);
+    assert!(removed, "Should successfully remove node");
+    assert!(store.get_node(node_id).is_none());
+
+    // Coherence should still be clean after deletion
+    let active = cc.get_active_inconsistencies().unwrap();
+    assert!(active.is_empty(), "No inconsistencies after node deletion");
+}
+
+#[test]
+fn test_symbolic_store_multi_delete_coherence() {
+    let cc = Arc::new(CoherenceChecker::new());
+    let mut store = SymbolicStore::new().with_coherence(cc.clone());
+
+    let ids: Vec<Uuid> = (0..5)
+        .map(|i| store.add_node(&format!("del_node_{}", i), HashMap::new()))
+        .collect();
+
+    // Remove all
+    for id in &ids {
+        assert!(store.remove_node(*id));
+    }
+
+    // All should be gone
+    for id in &ids {
+        assert!(store.get_node(*id).is_none());
+    }
+
+    // Coherence invariant check
+    let violations = cc.enforce_invariants().unwrap();
+    assert!(violations.is_empty());
+}

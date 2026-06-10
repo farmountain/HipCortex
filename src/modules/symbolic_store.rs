@@ -484,6 +484,10 @@ pub struct SymbolicStore<B: GraphDatabase> {
     self_model: Option<std::sync::Arc<crate::self_model::SelfModel>>,
     /// Optional world-model for entity tracking.
     world_model: Option<std::sync::Arc<crate::world_model_enhanced::WorldModelEnhanced>>,
+    /// Health tracking
+    op_count: u64,
+    error_count: u64,
+    total_latency_ms: f64,
 }
 
 impl SymbolicStore<InMemoryGraph> {
@@ -494,6 +498,9 @@ impl SymbolicStore<InMemoryGraph> {
             coherence: None,
             self_model: None,
             world_model: None,
+            op_count: 0,
+            error_count: 0,
+            total_latency_ms: 0.0,
         }
     }
 }
@@ -506,6 +513,9 @@ impl<B: GraphDatabase> SymbolicStore<B> {
             coherence: None,
             self_model: None,
             world_model: None,
+            op_count: 0,
+            error_count: 0,
+            total_latency_ms: 0.0,
         }
     }
 
@@ -588,6 +598,7 @@ impl<B: GraphDatabase> SymbolicStore<B> {
                 let _ = wm.register_entity(node_id.to_string(), entity_state);
             }
         }
+        self.op_count += 1;
         node_id
     }
 
@@ -626,6 +637,7 @@ impl<B: GraphDatabase> SymbolicStore<B> {
             let _ = wm.update_entity(&from.to_string(), obs.clone());
             let _ = wm.update_entity(&to.to_string(), obs);
         }
+        self.op_count += 1;
     }
 
     pub fn get_node(&self, node_id: Uuid) -> Option<SymbolicNode> {
@@ -696,6 +708,33 @@ impl<B: GraphDatabase> SymbolicStore<B> {
     /// Retrieve neighbors up to a given depth.
     pub fn neighbors_depth(&self, node: Uuid, depth: usize) -> Vec<Uuid> {
         self.backend.neighbors_depth(node, depth)
+    }
+}
+
+impl<B: GraphDatabase> crate::health_reporter::HealthReporter for SymbolicStore<B> {
+    fn report_health(&self) -> crate::self_model::ModuleHealth {
+        let avg_latency_ms = if self.op_count > 0 {
+            self.total_latency_ms / self.op_count as f64
+        } else {
+            0.0
+        };
+        let error_rate = if self.op_count > 0 {
+            self.error_count as f64 / self.op_count as f64
+        } else {
+            0.0
+        };
+        // Resource usage based on graph size — rough heuristic
+        let graph_size = self.backend.all_nodes().len() + self.backend.all_edges().len();
+        let resource_usage = (graph_size as f64 / 10_000.0).min(1.0);
+        crate::self_model::ModuleHealth {
+            latency_ms: avg_latency_ms,
+            error_rate,
+            resource_usage,
+        }
+    }
+
+    fn health_module_name(&self) -> &'static str {
+        "symbolic_store"
     }
 }
 
