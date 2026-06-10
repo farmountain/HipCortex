@@ -15,7 +15,7 @@
 use proptest::prelude::*;
 use hipcortex::coherence::{
     ConsistencyChecker, ConflictResolver, InconsistencyReport, InconsistencyType,
-    ResolutionStrategy, CandidateValue, SystemInvariants, InvariantType,
+    CandidateValue, SystemInvariants, InvariantType,
 };
 
 // ============================================================================
@@ -36,7 +36,7 @@ proptest! {
 
         for op in &operations {
             let entity_id = "e1";
-            match op.as_str() {
+            match op.as_ref() {
                 "create" => {
                     invariants.record_entity_creation(entity_id);
                     created += 1;
@@ -195,7 +195,7 @@ proptest! {
 
     #[test]
     fn checker_produces_valid_reports(
-        seed in 0u64..1000u64,
+        _seed in 0u64..1000u64,
     ) {
         let mut checker = ConsistencyChecker::new();
         let results = checker.check_all().unwrap();

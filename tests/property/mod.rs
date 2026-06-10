@@ -1,4 +1,3 @@
-#[cfg(feature = "web-server")]
 mod coherence_props;
 mod connectivity;
 mod fsm_reachability;

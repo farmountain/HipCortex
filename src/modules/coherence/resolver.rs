@@ -11,7 +11,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Serialize, Deserialize};
 
 /// Resolution strategies for conflict resolution
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ResolutionStrategy {
     /// Select value that appears in majority of modules
     Consensus,
@@ -224,7 +224,7 @@ impl ConflictResolver {
     // ========================================================================
 
     /// Resolve by consensus (majority vote)
-    fn resolve_by_consensus(
+    pub fn resolve_by_consensus(
         &self,
         inconsistency: &InconsistencyReport,
         candidates: Vec<CandidateValue>,
@@ -284,7 +284,7 @@ impl ConflictResolver {
     }
 
     /// Resolve by recency (most recent timestamp)
-    fn resolve_by_recency(
+    pub fn resolve_by_recency(
         &self,
         inconsistency: &InconsistencyReport,
         candidates: Vec<CandidateValue>,
@@ -310,7 +310,7 @@ impl ConflictResolver {
     }
 
     /// Resolve by confidence (highest confidence score)
-    fn resolve_by_confidence(
+    pub fn resolve_by_confidence(
         &self,
         inconsistency: &InconsistencyReport,
         candidates: Vec<CandidateValue>,

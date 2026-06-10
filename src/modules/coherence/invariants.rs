@@ -79,7 +79,7 @@ impl InvariantViolation {
 /// System invariant validator
 pub struct SystemInvariants {
     /// Activation history for decay monitoring (entity_id -> [(timestamp, activation)])
-    activation_history: HashMap<String, Vec<(u64, f64)>>,
+    pub activation_history: HashMap<String, Vec<(u64, f64)>>,
 
     /// Entity lifecycle tracking (entity_id -> (created_count, deleted_count))
     entity_lifecycle: HashMap<String, (usize, usize)>,
@@ -195,7 +195,7 @@ impl SystemInvariants {
     /// Check decay monotonicity invariant
     ///
     /// Validates: ∀ t1 < t2, activation(t2) ≤ activation(t1)
-    fn check_decay_monotonicity(&self) -> Result<Option<InvariantViolation>, String> {
+    pub fn check_decay_monotonicity(&self) -> Result<Option<InvariantViolation>, String> {
         for (entity_id, history) in &self.activation_history {
             // Check if activation scores are monotonically non-increasing
             for i in 1..history.len() {
@@ -226,7 +226,7 @@ impl SystemInvariants {
     /// Check graph acyclicity invariant
     ///
     /// Validates: Symbolic and causal graphs remain DAGs (no cycles)
-    fn check_graph_acyclicity(&self) -> Result<Option<InvariantViolation>, String> {
+    pub fn check_graph_acyclicity(&self) -> Result<Option<InvariantViolation>, String> {
         // Check symbolic graph edges for cycles
         if !self.symbolic_edges.is_empty() {
             if let Some(cycle) = self.detect_cycle(&self.symbolic_edges) {
@@ -257,7 +257,7 @@ impl SystemInvariants {
     /// Check conservation invariant
     ///
     /// Validates: entities_created - entities_deleted = net_change
-    fn check_conservation(&self) -> Result<Option<InvariantViolation>, String> {
+    pub fn check_conservation(&self) -> Result<Option<InvariantViolation>, String> {
         for (entity_id, (created, deleted)) in &self.entity_lifecycle {
             // Net change should be non-negative and <= created
             let net = created.saturating_sub(*deleted);
@@ -361,7 +361,7 @@ impl SystemInvariants {
     /// Detect cycle in directed graph using DFS
     ///
     /// Returns Some(cycle_nodes) if cycle detected, None otherwise
-    fn detect_cycle(&self, edges: &[(String, String)]) -> Option<Vec<String>> {
+    pub fn detect_cycle(&self, edges: &[(String, String)]) -> Option<Vec<String>> {
         // Build adjacency list
         let mut graph: HashMap<String, Vec<String>> = HashMap::new();
         let mut nodes = HashSet::new();

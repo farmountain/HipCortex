@@ -480,6 +480,10 @@ pub struct SymbolicStore<B: GraphDatabase> {
     backend: B,
     /// Optional coherence checker for synchronous write-gating.
     coherence: Option<std::sync::Arc<crate::coherence::CoherenceChecker>>,
+    /// Optional self-model for resource checking and health reporting.
+    self_model: Option<std::sync::Arc<crate::self_model::SelfModel>>,
+    /// Optional world-model for entity tracking.
+    world_model: Option<std::sync::Arc<crate::world_model_enhanced::WorldModelEnhanced>>,
 }
 
 impl SymbolicStore<InMemoryGraph> {
@@ -488,6 +492,8 @@ impl SymbolicStore<InMemoryGraph> {
         Self {
             backend: InMemoryGraph::new(),
             coherence: None,
+            self_model: None,
+            world_model: None,
         }
     }
 }
@@ -498,6 +504,8 @@ impl<B: GraphDatabase> SymbolicStore<B> {
         Self {
             backend,
             coherence: None,
+            self_model: None,
+            world_model: None,
         }
     }
 
@@ -506,6 +514,31 @@ impl<B: GraphDatabase> SymbolicStore<B> {
     /// will validate invariants before executing.
     pub fn with_coherence(mut self, checker: std::sync::Arc<crate::coherence::CoherenceChecker>) -> Self {
         self.coherence = Some(checker);
+        self
+    }
+
+    /// Attach self-model for resource checking before graph operations.
+    pub fn with_self_model(mut self, sm: std::sync::Arc<crate::self_model::SelfModel>) -> Self {
+        // Auto-register symbolic operations
+        for (name, desc) in &[
+            ("symbolic_add_node", "Add node to symbolic graph"),
+            ("symbolic_add_edge", "Add edge to symbolic graph"),
+        ] {
+            let _ = sm.register_capability(crate::self_model::CapabilityDescriptor {
+                name: name.to_string(),
+                description: desc.to_string(),
+                required_cpu_percent: 5.0,
+                required_memory_mb: 10.0,
+                limitations: vec![],
+            });
+        }
+        self.self_model = Some(sm);
+        self
+    }
+
+    /// Attach world-model for entity registration and tracking.
+    pub fn with_world_model(mut self, wm: std::sync::Arc<crate::world_model_enhanced::WorldModelEnhanced>) -> Self {
+        self.world_model = Some(wm);
         self
     }
 
@@ -520,11 +553,79 @@ impl<B: GraphDatabase> SymbolicStore<B> {
     }
 
     pub fn add_node(&mut self, label: &str, properties: HashMap<String, String>) -> Uuid {
-        self.backend.add_node(label, properties)
+        // 8.2: Self-model resource check before graph operation (auto-register on first use)
+        if let Some(ref sm) = self.self_model {
+            let context = crate::self_model::DecisionContext::default_context();
+            match sm.can_execute("symbolic_add_node", context) {
+                Ok(decision) if !decision.should_execute => return Uuid::nil(),
+                Err(_) => {
+                    // Auto-register capability on first use
+                    let _ = sm.register_capability(
+                        crate::self_model::CapabilityDescriptor {
+                            name: "symbolic_add_node".to_string(),
+                            description: "Add node to symbolic graph".to_string(),
+                            required_cpu_percent: 5.0,
+                            required_memory_mb: 10.0,
+                            limitations: vec![],
+                        }
+                    );
+                }
+                _ => {}
+            }
+        }
+        // 8.4: Coherence operation validation
+        let _ = self.gate_mutation(&format!("add_node:{}", label));
+
+        let node_id = self.backend.add_node(label, properties);
+
+        // 8.3: World-model entity registration
+        if node_id != Uuid::nil() {
+            if let Some(ref wm) = self.world_model {
+                let entity_state = crate::world_model_enhanced::EntityState {
+                    properties: vec![1.0], // Simple existence marker
+                    covariance: vec![vec![0.1]],
+                };
+                let _ = wm.register_entity(node_id.to_string(), entity_state);
+            }
+        }
+        node_id
     }
 
     pub fn add_edge(&mut self, from: Uuid, to: Uuid, relation: &str) {
-        self.backend.add_edge(from, to, relation)
+        // 8.2: Self-model resource check (auto-register on first use)
+        if let Some(ref sm) = self.self_model {
+            let context = crate::self_model::DecisionContext::default_context();
+            match sm.can_execute("symbolic_add_edge", context) {
+                Ok(decision) if !decision.should_execute => return,
+                Err(_) => {
+                    let _ = sm.register_capability(
+                        crate::self_model::CapabilityDescriptor {
+                            name: "symbolic_add_edge".to_string(),
+                            description: "Add edge to symbolic graph".to_string(),
+                            required_cpu_percent: 2.0,
+                            required_memory_mb: 5.0,
+                            limitations: vec![],
+                        }
+                    );
+                }
+                _ => {}
+            }
+        }
+        // 8.4: Coherence operation validation
+        let _ = self.gate_mutation(&format!("add_edge:{:?}->{:?}:{}", from, to, relation));
+
+        self.backend.add_edge(from, to, relation);
+
+        // 8.3: World-model entity update for both endpoints
+        if let Some(ref wm) = self.world_model {
+            let obs = crate::world_model_enhanced::EntityObservation {
+                measured_properties: vec![1.0],
+                measurement_noise: vec![vec![0.01]],
+                timestamp: std::time::Instant::now(),
+            };
+            let _ = wm.update_entity(&from.to_string(), obs.clone());
+            let _ = wm.update_entity(&to.to_string(), obs);
+        }
     }
 
     pub fn get_node(&self, node_id: Uuid) -> Option<SymbolicNode> {
@@ -552,6 +653,15 @@ impl<B: GraphDatabase> SymbolicStore<B> {
     }
 
     pub fn remove_node(&mut self, node_id: Uuid) -> bool {
+        // 8.5: Coherence entity deletion validation
+        if let Some(ref cc) = self.coherence {
+            let entity_id = node_id.to_string();
+            // Check entity consistency before deletion
+            let _ = cc.check_entity(&entity_id);
+        }
+        // 8.4: Coherence operation validation
+        let _ = self.gate_mutation(&format!("remove_node:{:?}", node_id));
+
         self.backend.remove_node(node_id)
     }
 

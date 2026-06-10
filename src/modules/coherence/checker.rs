@@ -93,10 +93,10 @@ impl InconsistencyReport {
 /// Consistency checker for cross-module validation
 pub struct ConsistencyChecker {
     /// Threshold for graph edit distance (inconsistent if distance > threshold)
-    graph_edit_distance_threshold: usize,
-    
+    pub graph_edit_distance_threshold: usize,
+
     /// Probability threshold for procedural-world conflicts (P < threshold is conflict)
-    probability_threshold: f64,
+    pub probability_threshold: f64,
     
     /// Entity count cache for efficiency
     entity_cache: HashMap<String, EntityCounts>,
@@ -400,7 +400,7 @@ impl ConsistencyChecker {
     /// Compute graph edit distance between two sets of edges
     ///
     /// Edit distance = min number of edge insertions/deletions to transform one graph into another
-    fn compute_graph_edit_distance(
+    pub fn compute_graph_edit_distance(
         &self,
         edges1: &[(String, String)],
         edges2: &[(String, String)],

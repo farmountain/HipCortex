@@ -11,7 +11,7 @@ mod resolver;
 mod invariants;
 
 pub use checker::{ConsistencyChecker, InconsistencyType, InconsistencyReport};
-pub use resolver::{ConflictResolver, ResolutionStrategy, ResolutionResult, ResolutionHistory};
+pub use resolver::{ConflictResolver, ResolutionStrategy, ResolutionResult, ResolutionHistory, CandidateValue};
 pub use invariants::{SystemInvariants, InvariantType, InvariantViolation};
 
 use std::sync::{Arc, RwLock};

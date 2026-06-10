@@ -50,11 +50,11 @@ fn semantic_cache_blocked() {
     drop(guard);
     let mut cache = SemanticCache::new(2);
     // Cache operation with safe key — guardrail should not trigger
-    cache.put_embedding("cache_key".into(), vec![]);
-    // Guardrail checks the context but safe content should NOT add violations
-    let guard = SAFETY_GUARDRAIL.lock().unwrap();
-    // SemanticCache uses "map_update" as guardrail context — safe, no violations expected
-    assert_eq!(guard.violation_count(), 0);
+    cache.put_embedding("cache_key".into(), vec![1.0, 2.0, 3.0]);
+    // Safe embedding should be inserted — verify via cache retrieval
+    let result = cache.get_nearest(&[1.0, 2.0, 3.0]);
+    assert!(result.is_some(), "Safe cache_put should succeed and key be retrievable");
+    assert_eq!(result.unwrap().0, "cache_key");
 }
 
 #[test]

@@ -39,6 +39,7 @@ mod world_model_cli_sit;
 mod world_model_uat;
 #[cfg(feature = "web-server")]
 mod intelligence_sit;
+mod intelligence_hooks_sit;
 mod safety_guardrail_sit;
 mod web_server_gaps_sit;
 #[cfg(feature = "web-server")]

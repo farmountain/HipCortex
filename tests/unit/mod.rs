@@ -4,6 +4,7 @@ mod audit_log_tests;
 mod aureus_bridge_tests;
 #[cfg(feature = "web-server")]
 mod api_tests;
+mod coherence_tests;
 mod conversation_memory_tests;
 mod edge_workflow_small;
 mod effort_tests;
