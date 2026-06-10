@@ -207,6 +207,84 @@ impl PerceptionAdapter {
     }
 }
 
+/// Intelligence-aware perception session wrapping the adapter with
+/// self-model resource checks, world-model entity updates, and coherence validation.
+pub struct PerceptionSession {
+    self_model: Option<std::sync::Arc<crate::self_model::SelfModel>>,
+    world_model: Option<std::sync::Arc<crate::world_model_enhanced::WorldModelEnhanced>>,
+    coherence: Option<std::sync::Arc<crate::coherence::CoherenceChecker>>,
+}
+
+impl PerceptionSession {
+    pub fn new() -> Self {
+        Self {
+            self_model: None,
+            world_model: None,
+            coherence: None,
+        }
+    }
+
+    pub fn with_self_model(mut self, sm: std::sync::Arc<crate::self_model::SelfModel>) -> Self {
+        self.self_model = Some(sm);
+        self
+    }
+
+    pub fn with_world_model(mut self, wm: std::sync::Arc<crate::world_model_enhanced::WorldModelEnhanced>) -> Self {
+        self.world_model = Some(wm);
+        self
+    }
+
+    pub fn with_coherence(mut self, cc: std::sync::Arc<crate::coherence::CoherenceChecker>) -> Self {
+        self.coherence = Some(cc);
+        self
+    }
+
+    /// Adapt input with intelligence hooks:
+    /// 11.1: Self-model resource check before PCA
+    /// 11.2: Graceful degradation — skip PCA if below resource threshold
+    /// 11.3: World-model entity update with perception observations
+    /// 11.5: Coherence validation for perception consistency
+    pub fn adapt(&self, input: PerceptInput) -> Result<Vec<f32>, AdapterError> {
+        // 11.1: Self-model resource check
+        if let Some(ref sm) = self.self_model {
+            let ctx = crate::self_model::DecisionContext::default_context();
+            if let Ok(decision) = sm.can_execute("perception_adapt", ctx) {
+                if !decision.should_execute {
+                    return Err(AdapterError::RateLimited);
+                }
+            }
+        }
+
+        // Delegate to static adapter
+        let result = PerceptionAdapter::adapt(input);
+
+        // 11.3: World-model entity update on success
+        if let Ok(ref embedding) = result {
+            if let Some(ref wm) = self.world_model {
+                let obs = crate::world_model_enhanced::EntityObservation {
+                    measured_properties: embedding.iter().map(|&x| x as f64).collect(),
+                    measurement_noise: vec![vec![0.01; embedding.len()]],
+                    timestamp: std::time::Instant::now(),
+                };
+                let _ = wm.update_entity("perception_input", obs);
+            }
+
+            // 11.5: Coherence validation
+            if let Some(ref cc) = self.coherence {
+                let _ = cc.check_entity("perception_input");
+            }
+        }
+
+        result
+    }
+}
+
+impl Default for PerceptionSession {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

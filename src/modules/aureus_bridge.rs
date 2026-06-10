@@ -6,6 +6,7 @@ use crate::memory_store::MemoryStore;
 use crate::persistence::MemoryBackend;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use uuid::Uuid;
 
 /// Configuration options for the bridge.
@@ -38,6 +39,10 @@ pub struct AureusBridge {
     config: AureusConfig,
     graph: HypothesesGraph,
     current: Option<Uuid>,
+    // Intelligence layer hooks
+    self_model: Option<Arc<crate::self_model::SelfModel>>,
+    world_model: Option<Arc<crate::world_model_enhanced::WorldModelEnhanced>>,
+    coherence: Option<Arc<crate::coherence::CoherenceChecker>>,
 }
 
 impl AureusBridge {
@@ -48,6 +53,9 @@ impl AureusBridge {
             config: AureusConfig::default(),
             graph: HypothesesGraph::new(),
             current: None,
+            self_model: None,
+            world_model: None,
+            coherence: None,
         }
     }
 
@@ -58,7 +66,28 @@ impl AureusBridge {
             config: AureusConfig::default(),
             graph: HypothesesGraph::new(),
             current: None,
+            self_model: None,
+            world_model: None,
+            coherence: None,
         }
+    }
+
+    /// Attach self-model for health checks before reflexion.
+    pub fn with_self_model(mut self, sm: Arc<crate::self_model::SelfModel>) -> Self {
+        self.self_model = Some(sm);
+        self
+    }
+
+    /// Attach world-model for prediction as Bayesian prior.
+    pub fn with_world_model(mut self, wm: Arc<crate::world_model_enhanced::WorldModelEnhanced>) -> Self {
+        self.world_model = Some(wm);
+        self
+    }
+
+    /// Attach coherence checker for belief-symbolic consistency.
+    pub fn with_coherence(mut self, cc: Arc<crate::coherence::CoherenceChecker>) -> Self {
+        self.coherence = Some(cc);
+        self
     }
 
     pub fn set_client(&mut self, client: Box<dyn LLMClient>) {
@@ -117,6 +146,16 @@ impl AureusBridge {
 
     /// Run one reflexion pass.
     pub fn reflexion_loop<B: MemoryBackend>(&mut self, context: &str, store: &mut MemoryStore<B>) {
+        // 10.1: Self-model health check before reflexion
+        if let Some(ref sm) = self.self_model {
+            if let Ok(healthy) = sm.is_healthy() {
+                if !healthy {
+                    // 10.2: Adaptive reflexion — skip when system is unhealthy
+                    return;
+                }
+            }
+        }
+
         self.loops += 1;
         if let Some(client) = &self.llm {
             let prompt = if self.config.enable_cot {
@@ -126,17 +165,38 @@ impl AureusBridge {
             };
             let response = client.generate_response(&prompt);
             let (mut hyp, supports) = self.parse_hypothesis(&response);
+
+            // 10.4: Incorporate world-model prediction as Bayesian prior
+            let base_prior = if let Some(ref wm) = self.world_model {
+                if let Ok(pred) = wm.predict_next_state("reflexion", context) {
+                    // Use max predicted probability as prior belief
+                    let max_p = pred.probabilities.values().cloned().fold(0.5f64, f64::max);
+                    max_p.max(0.1).min(0.9) // Clamp to avoid extremes
+                } else {
+                    0.5
+                }
+            } else {
+                0.5
+            };
+
             let prior = self
                 .current
                 .and_then(|id| self.graph.get_hypothesis(id))
                 .map(|h| h.confidence)
-                .unwrap_or(0.5);
+                .unwrap_or(base_prior as f32);
             hyp.confidence = self.update_belief(prior, hyp.confidence);
+
             let node_id = self
                 .graph
                 .add_hypothesis(hyp.clone(), self.current, supports);
             self.current = Some(node_id);
             self.graph.prune_low_confidence(self.config.prune_threshold);
+
+            // 10.5: Coherence validation of belief-symbolic consistency
+            if let Some(ref cc) = self.coherence {
+                let _ = cc.check_entity(&format!("hypothesis:{}", node_id));
+            }
+
             let record = MemoryRecord::new(
                 MemoryType::Reflexion,
                 "aureus".into(),
