@@ -800,6 +800,35 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
                 handle_self_can_execute(sm, Query(p)).await
             })
         })
+        // ── 12.8: POST /decide/batch — batch can_execute ─────────────────────
+        .route("/decide/batch", {
+            let sm = self_model_arc.clone();
+            post(move |Json(req): Json<serde_json::Value>| async move {
+                handle_decide_batch(sm, Json(req)).await
+            })
+        })
+        // ── 12.9: POST /coherence/check — full consistency check ───────────────
+        .route("/coherence/check", {
+            let cc = coherence_arc.clone();
+            post(move || { let c = cc.clone(); async move { handle_coherence_check(c).await } })
+        })
+        // ── 12.11: POST /coherence/resolve/:id — resolve inconsistency ───────
+        .route("/coherence/resolve/:id", {
+            let cc = coherence_arc.clone();
+            post(move |Path(id): Path<String>, Json(req): Json<serde_json::Value>| async move {
+                handle_coherence_resolve(cc, Path(id), Json(req)).await
+            })
+        })
+        // ── 12.12: GET /health/summary — aggregated health ───────────────────
+        .route("/health/summary", {
+            let sm = self_model_arc.clone();
+            let wm = world_model.clone();
+            let cc = coherence_arc.clone();
+            get(move || {
+                let s = sm.clone(); let w = wm.clone(); let c = cc.clone();
+                async move { handle_health_summary(s, w, c).await }
+            })
+        })
         .layer(middleware::from_fn(api_key_middleware));
 
     // G10: Background CoherenceChecker — runs check_consistency every 60s
@@ -3580,4 +3609,183 @@ async fn handle_coherence_status(
         invariants_violated: metrics.invariants_violated,
         healthy: metrics.coherence_score >= 0.8,
     })
+}
+
+// ── 12.8: POST /decide/batch ──────────────────────────────────────────────
+
+#[cfg(feature = "web-server")]
+async fn handle_decide_batch(
+    self_model: Arc<SelfModel>,
+    Json(req): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    let operations: Vec<String> = req
+        .get("operations")
+        .and_then(|v| v.as_array())
+        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .unwrap_or_default();
+
+    let context = crate::self_model::DecisionContext::default_context();
+    let results: Vec<serde_json::Value> = operations
+        .iter()
+        .map(|op| match self_model.can_execute(op, context.clone()) {
+            Ok(decision) => serde_json::json!({
+                "operation": op,
+                "should_execute": decision.should_execute,
+                "confidence": decision.confidence,
+                "rationale": decision.rationale,
+            }),
+            Err(e) => serde_json::json!({"operation": op, "error": e}),
+        })
+        .collect();
+
+    Json(serde_json::json!({
+        "decisions": results,
+        "total": results.len(),
+    }))
+}
+
+// ── 12.9: POST /coherence/check ───────────────────────────────────────────
+
+#[cfg(feature = "web-server")]
+async fn handle_coherence_check(
+    coherence: Arc<CoherenceChecker>,
+) -> Json<serde_json::Value> {
+    let inconsistencies = match coherence.check_consistency() {
+        Ok(reports) => {
+            reports.iter().map(|r| serde_json::json!({
+                "id": r.id,
+                "type": format!("{:?}", r.inconsistency_type),
+                "affected": r.affected_entities,
+                "description": r.description,
+                "detected_at": r.detected_at,
+            })).collect::<Vec<_>>()
+        }
+        Err(e) => {
+            return Json(serde_json::json!({
+                "inconsistencies": [],
+                "total": 0,
+                "error": e,
+                "checked_at": chrono::Utc::now().to_rfc3339()
+            }));
+        }
+    };
+
+    let invariant_violations = match coherence.enforce_invariants() {
+        Ok(violations) => {
+            violations.iter().map(|v| serde_json::json!({
+                "type": format!("{:?}", v.invariant_type),
+                "description": v.description,
+                "affected": v.affected,
+            })).collect::<Vec<_>>()
+        }
+        Err(e) => {
+            return Json(serde_json::json!({
+                "inconsistencies": [],
+                "invariant_violations": [],
+                "error": e,
+                "checked_at": chrono::Utc::now().to_rfc3339()
+            }));
+        }
+    };
+
+    let metrics = coherence.get_metrics().unwrap_or_else(|_| crate::coherence::CoherenceMetrics::new());
+    Json(serde_json::json!({
+        "inconsistencies": inconsistencies,
+        "total_inconsistencies": inconsistencies.len(),
+        "invariant_violations": invariant_violations,
+        "total_violations": invariant_violations.len(),
+        "coherence_score": metrics.coherence_score,
+        "healthy": metrics.coherence_score >= 0.8,
+        "checked_at": chrono::Utc::now().to_rfc3339()
+    }))
+}
+
+// ── 12.11: POST /coherence/resolve/:id ────────────────────────────────────
+
+#[cfg(feature = "web-server")]
+async fn handle_coherence_resolve(
+    coherence: Arc<CoherenceChecker>,
+    Path(id): Path<String>,
+    Json(req): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    use crate::coherence::ResolutionStrategy;
+
+    let strategy_str = req
+        .get("strategy")
+        .and_then(|v| v.as_str())
+        .unwrap_or("recency");
+    let strategy = match strategy_str.to_lowercase().as_str() {
+        "consensus" => ResolutionStrategy::Consensus,
+        "confidence" => ResolutionStrategy::Confidence,
+        _ => ResolutionStrategy::Recency,
+    };
+
+    // Resolve all active inconsistencies with chosen strategy
+    match coherence.resolve_all(strategy) {
+        Ok(results) => {
+            let attempts: Vec<serde_json::Value> = results.iter().map(|r| serde_json::json!({
+                "id": r.inconsistency_id,
+                "success": r.success,
+                "rationale": r.rationale,
+            })).collect();
+            Json(serde_json::json!({
+                "strategy": strategy_str,
+                "total_attempted": results.len(),
+                "results": attempts,
+            }))
+        }
+        Err(e) => Json(serde_json::json!({"error": e})),
+    }
+}
+
+// ── 12.12: GET /health/summary ────────────────────────────────────────────
+
+#[cfg(feature = "web-server")]
+async fn handle_health_summary(
+    self_model: Arc<SelfModel>,
+    world_model: Arc<std::sync::RwLock<WorldModelEnhanced>>,
+    coherence: Arc<CoherenceChecker>,
+) -> Json<serde_json::Value> {
+    // Self-model health
+    let self_health = self_model.get_health().ok();
+    let self_healthy = self_model.is_healthy().unwrap_or(false);
+
+    // Coherence metrics
+    let coherence_metrics = coherence.get_metrics().unwrap_or_else(|_| crate::coherence::CoherenceMetrics::new());
+    let coherence_healthy = coherence_metrics.coherence_score >= 0.8;
+
+    // World-model metrics (need lock)
+    let wm = world_model.read().ok();
+    let wm_entity_count = wm.as_ref().and_then(|w| w.list_entities().ok()).map(|e| e.len()).unwrap_or(0);
+    let wm_transition_count = wm.as_ref().map(|w| w.transition_count()).unwrap_or(0);
+    let wm_calibration = wm.as_ref().and_then(|w| w.get_calibration_metrics().ok());
+    let wm_healthy = wm_calibration
+        .as_ref()
+        .map(|c| c.ece < 0.2)
+        .unwrap_or(true);
+
+    let overall_healthy = self_healthy && coherence_healthy && wm_healthy;
+
+    Json(serde_json::json!({
+        "overall_healthy": overall_healthy,
+        "checked_at": chrono::Utc::now().to_rfc3339(),
+        "self_model": {
+            "healthy": self_healthy,
+            "score": self_health.as_ref().map(|s| s.overall).unwrap_or(0.0),
+            "degraded_modules": self_health.map(|s| s.degraded_modules).unwrap_or_default(),
+        },
+        "coherence": {
+            "healthy": coherence_healthy,
+            "coherence_score": coherence_metrics.coherence_score,
+            "total_checks": coherence_metrics.total_checks,
+            "inconsistencies_found": coherence_metrics.inconsistencies_found,
+            "invariants_violated": coherence_metrics.invariants_violated,
+        },
+        "world_model": {
+            "healthy": wm_healthy,
+            "calibration_error": wm_calibration.map(|c| c.ece).unwrap_or(0.0),
+            "entities_tracked": wm_entity_count,
+            "transitions_observed": wm_transition_count,
+        },
+    }))
 }
