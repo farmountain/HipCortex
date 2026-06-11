@@ -1,11 +1,65 @@
-// Self-Model Module - Metacognitive awareness and decision-making
-//
-// This module provides the system with self-awareness capabilities:
-// - Capability Registry: Track what the system can do
-// - Resource Monitoring: Monitor CPU, memory, I/O usage
-// - Performance Tracking: Learn operation latencies and success rates
-// - Health Aggregation: Compute overall system health
-// - Decision Engine: Decide whether to execute operations
+//! # Self-Model — Metacognitive Awareness and Decision-Making
+//!
+//! The self-model gives HipCortex runtime awareness of its own capabilities,
+//! resource consumption, performance characteristics, and health. It uses
+//! these signals to make informed decisions about whether to accept or reject
+//! incoming operations.
+//!
+//! ## Components
+//!
+//! | Component | Role | Key Metric |
+//! |-----------|------|-----------|
+//! | [`CapabilityRegistry`] | Track registered capabilities and their resource requirements | Capability count |
+//! | [`ResourceMonitor`] | Record CPU/memory/IO usage, predict future needs via linear regression | R² fit quality |
+//! | [`PerformanceTracker`] | EWMA-based latency tracking with Bayesian success-rate estimation | EWMA latency |
+//! | [`HealthAggregator`] | Weighted geometric mean over module health scores → overall health ∈ [0,1] | Overall health |
+//! | [`DecisionEngine`] | Expected-utility maximization: accept/reject operations with rationale | Decision confidence |
+//!
+//! ## Quick Start
+//!
+//! ```rust
+//! use hipcortex::self_model::*;
+//! use std::time::Instant;
+//!
+//! // Monitor resources
+//! let mut monitor = ResourceMonitor::new();
+//! monitor.record("search", ResourceUsage {
+//!     cpu_percent: 25.0, memory_mb: 512.0,
+//!     disk_io_mbps: 5.0, network_io_mbps: 2.0,
+//!     timestamp: Instant::now(),
+//! }).unwrap();
+//!
+//! // Check health
+//! let mut health = HealthAggregator::new();
+//! health.report("store".to_string(), ModuleHealth {
+//!     latency_ms: 12.0, error_rate: 0.001, resource_usage: 0.3,
+//! }).unwrap();
+//! let overall = health.get_overall_health().unwrap();
+//! assert!(overall.overall >= 0.0 && overall.overall <= 1.0);
+//!
+//! // Decide whether to execute
+//! let mut engine = DecisionEngine::new();
+//! let decision = engine.evaluate(
+//!     "search",
+//!     DecisionContext { priority: 0.8, deadline: None, user_facing: true, cascading_impact: false },
+//!     0.95,  // success rate
+//!     ResourceUsage { cpu_percent: 20.0, memory_mb: 200.0, disk_io_mbps: 3.0, network_io_mbps: 1.0, timestamp: Instant::now() },
+//!     0.9,   // health score
+//! );
+//! println!("Decision: confidence={:.2}, execute={}", decision.confidence, decision.should_execute);
+//! ```
+//!
+//! ## Health Score Formula
+//!
+//! Each module's health is: `exp(-latency_ms/100) * (1 - error_rate) * (1 - resource_usage)`
+//! The overall health is a weighted geometric mean of per-module scores.
+//!
+//! ## Invariants
+//!
+//! - All health scores ∈ [0, 1]
+//! - Resource predictions must be non-negative
+//! - Decision confidence ∈ [0, 1]
+//! - Performance metrics improve (lower variance) with more data
 
 mod capability;
 mod resource;

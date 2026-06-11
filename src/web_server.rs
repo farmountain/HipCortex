@@ -765,6 +765,13 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         .route("/worldmodel/predict",   wm_predict_route)
         .route("/worldmodel/entities",  wm_entities_route)
         .route("/worldmodel/entity",    wm_entity_route)
+        // ── 12.6: GET /predict/entity/:id — predict entity state N steps ahead ──
+        .route("/predict/entity/:id", {
+            let wm = world_model.clone();
+            get(move |Path(id): Path<String>, Query(params): Query<PredictEntityParams>| async move {
+                handle_predict_entity(wm, Path(id), Query(params)).await
+            })
+        })
         .route("/worldmodel/causal",         wm_causal_route)
         .route("/worldmodel/causal/edge", {
             let wm = world_model.clone();
@@ -3280,6 +3287,28 @@ async fn handle_wm_register_entity(
     }
 }
 
+/// GET /predict/entity/:id — predict entity state N steps ahead (default: 1)
+#[cfg(feature = "web-server")]
+async fn handle_predict_entity(
+    world_model: Arc<RwLock<WorldModelEnhanced>>,
+    Path(id): Path<String>,
+    Query(params): Query<PredictEntityParams>,
+) -> Json<serde_json::Value> {
+    let steps = params.steps.unwrap_or(1).max(1).min(100);
+    match world_model.read() {
+        Ok(wm) => match wm.predict_entity(&id, steps) {
+            Ok(state) => Json(serde_json::json!({
+                "entity_id": id,
+                "steps": steps,
+                "predicted_properties": state.properties,
+                "covariance": state.covariance,
+            })),
+            Err(e) => Json(serde_json::json!({"error": e})),
+        },
+        Err(e) => Json(serde_json::json!({"error": format!("lock: {}", e)})),
+    }
+}
+
 /// GET /worldmodel/causal — dump causal DAG edges
 #[cfg(feature = "web-server")]
 async fn handle_wm_causal(
@@ -3505,6 +3534,8 @@ async fn handle_coherence_inconsistencies(
 #[cfg(feature = "web-server")]
 #[derive(serde::Deserialize)]
 struct SelfCanExecuteParams { operation: String }
+#[derive(serde::Deserialize)]
+struct PredictEntityParams { steps: Option<usize> }
 
 #[cfg(feature = "web-server")]
 async fn handle_self_can_execute(

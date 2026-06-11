@@ -463,6 +463,36 @@ cargo run --example mcp_server --features web-server
 cargo run -- llm-generate --model mistral "Hello"
 ```
 
+## 🧠 Intelligence Layer
+
+HipCortex includes a metacognitive intelligence layer with three subsystems:
+
+| Subsystem | Role | Key Capability |
+|-----------|------|---------------|
+| **Self-Model** | Runtime self-awareness | Health monitoring, resource prediction, execution decisions |
+| **World-Model Enhanced** | Predictive modeling | Dirichlet-Multinomial transitions, Kalman entity tracking, causal do-calculus |
+| **Coherence Checker** | Cross-module consistency | 5 inconsistency types, 3 resolution strategies, 4 mathematical invariants |
+
+```sh
+# Check self-model health
+curl https://hipcortex.fly.dev/self/health
+
+# Predict next state from world-model
+curl -X POST https://hipcortex.fly.dev/worldmodel/predict \
+  -H "Content-Type: application/json" \
+  -d '{"state":"idle","action":"process"}'
+
+# Run coherence check
+curl -X POST https://hipcortex.fly.dev/coherence/check
+
+# Get aggregated health summary
+curl https://hipcortex.fly.dev/health/summary
+```
+
+**Design principles**: All intelligence hooks are opt-in (`Option<Arc<>>`). Modules function with or without them. Write-gating is synchronous — violating operations are blocked pre-execution.
+
+📖 Full docs: [`INTELLIGENCE.md`](INTELLIGENCE.md) · [`docs/intelligence_architecture.md`](docs/intelligence_architecture.md) · [`docs/intelligence_integration_guide.md`](docs/intelligence_integration_guide.md)
+
 ## Safety & Guardrail
 
 HipCortex enforces runtime policies through the `SafetyGuardrail` module.

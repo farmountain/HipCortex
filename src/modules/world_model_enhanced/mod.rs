@@ -1,11 +1,63 @@
-// World-Model Enhanced Module - Predictive state modeling and causal reasoning
-//
-// This module extends the basic World-Model with:
-// - Probabilistic state transition learning (Dirichlet-Multinomial)
-// - Entity tracking with Kalman filtering
-// - Causal graph for causal reasoning and do-calculus
-// - Multi-step predictive models
-// - Calibrated uncertainty quantification
+//! # World-Model Enhanced — Predictive State Modeling and Causal Reasoning
+//!
+//! The world-model enables HipCortex to learn transition dynamics, track
+//! entities through time, reason about causality, and quantify uncertainty.
+//! It combines probabilistic learning with structured causal graphs.
+//!
+//! ## Components
+//!
+//! | Component | Role | Algorithm |
+//! |-----------|------|-----------|
+//! | [`TransitionModel`] | Learn P(next_state | state, action) from observations | Dirichlet-Multinomial |
+//! | [`EntityTracker`] | Estimate entity state with uncertainty via Kalman filter | Linear Kalman |
+//! | [`CausalGraph`] | Build and query directed acyclic causal graphs, with do-calculus interventions | DAG + cycle prevention |
+//! | [`UncertaintyEstimator`] | Decompose uncertainty into epistemic vs aleatoric, calibration tracking | ECE ≤ 0.1 target |
+//!
+//! ## Quick Start
+//!
+//! ```rust
+//! use hipcortex::world_model_enhanced::*;
+//!
+//! // Learn transition dynamics
+//! let mut model = TransitionModel::new();
+//! model.record_transition(StateTransition {
+//!     from_state: "idle".into(), action: "process".into(), to_state: "busy".into(),
+//! }).unwrap();
+//! let pred = model.predict("idle", "process").unwrap();
+//! // pred.probabilities → {"busy": 1.0}
+//!
+//! // Track an entity with Kalman filtering
+//! let mut wm = WorldModelEnhanced::new();
+//! wm.register_entity("robot_1".into(), EntityState {
+//!     properties: vec![0.0, 0.0],
+//!     covariance: vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+//! }).unwrap();
+//! wm.update_entity("robot_1", EntityObservation {
+//!     measured_properties: vec![0.5, 0.3],
+//!     measurement_noise: vec![vec![0.1, 0.0], vec![0.0, 0.1]],
+//!     timestamp: std::time::Instant::now(),
+//! }).unwrap();
+//!
+//! // Predict entity state 3 steps ahead
+//! let future = wm.predict_entity("robot_1", 3).unwrap();
+//! // future.properties → predicted [x, y]
+//! // future.covariance → increased uncertainty
+//!
+//! // Build causal graph
+//! let mut graph = CausalGraph::new();
+//! graph.add_node("treatment".into());
+//! graph.add_node("outcome".into());
+//! graph.add_edge("treatment".into(), "outcome".into()).unwrap();
+//! assert!(graph.is_acyclic());
+//! ```
+//!
+//! ## Mathematical Guarantees
+//!
+//! - **Probability conservation**: Sum of P(next_state | state, action) = 1.0 for all pairs
+//! - **Acyclicity**: Causal graph remains a DAG — adding a cycle-forming edge returns `Err`
+//! - **Covariance positive semi-definiteness**: Kalman covariance matrices remain PSD
+//! - **Prediction uncertainty growth**: Covariance trace grows monotonically with prediction steps
+//! - **Transitivity**: If A→B and B→C, then path A→C exists
 
 mod transition;
 mod entity;

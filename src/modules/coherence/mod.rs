@@ -1,10 +1,83 @@
-// Coherence Module - Cross-module consistency checking and resolution
-//
-// This module ensures consistency across memory subsystems:
-// - Inconsistency Detection: Identify conflicts between temporal, symbolic, procedural, and world-model
-// - Automatic Resolution: Resolve conflicts using consensus, recency, or confidence strategies
-// - Invariant Enforcement: Validate mathematical invariants (acyclicity, monotonicity, conservation)
-// - Real-time Monitoring: Continuous coherence scoring and metrics
+//! # Coherence — Cross-Module Consistency and Conflict Resolution
+//!
+//! The coherence module ensures all HipCortex memory subsystems remain
+//! consistent. It detects conflicts, resolves them automatically, enforces
+//! mathematical invariants, and gates writes to prevent inconsistency.
+//!
+//! ## Components
+//!
+//! | Component | Role | Key Behavior |
+//! |-----------|------|-------------|
+//! | [`CoherenceChecker`] | Central coordinator: check, resolve, enforce, gate | Background 60s cycle |
+//! | [`ConsistencyChecker`] | Detect 5 types of inconsistency across modules | Check-by-entity or full scan |
+//! | [`ConflictResolver`] | 3 resolution strategies + manual override | Consensus/Recency/Confidence |
+//! | [`SystemInvariants`] | 4 mathematical invariants | Critical violations halt ops |
+//!
+//! ## Inconsistency Types
+//!
+//! | Type | Description | Severity |
+//! |------|-------------|----------|
+//! | `TemporalSymbolicConflict` | Entity exists in one store but not the other | High |
+//! | `ProceduralWorldConflict` | FSM state disagrees with world-model prediction | Medium |
+//! | `CausalInconsistency` | Causal graph edge contradicts observed transitions | High |
+//! | `EntityPermanenceViolation` | Entity disappeared without deletion record | Medium |
+//! | `BeliefSymbolicInconsistency` | Reflexion belief conflicts with symbolic fact | Low |
+//!
+//! ## Invariants
+//!
+//! | Invariant | Formula | Critical |
+//! |-----------|---------|----------|
+//! | Memory Consistency | ∀e: temporal_count(e) = symbolic_count(e) | Yes |
+//! | Decay Monotonicity | ∀t₁<t₂: activation(t₂) ≤ activation(t₁) | No |
+//! | Graph Acyclicity | Symbolic and causal graphs are DAGs | Yes |
+//! | Conservation | created − deleted = net_change | No |
+//!
+//! ## Quick Start
+//!
+//! ```rust
+//! use hipcortex::coherence::*;
+//!
+//! let checker = CoherenceChecker::new();
+//!
+//! // Check an entity
+//! let _ = checker.check_entity("my_entity");
+//!
+//! // Run full consistency check
+//! let reports = checker.check_consistency().unwrap();
+//! for r in &reports {
+//!     eprintln!("Inconsistency: {:?} — {}", r.inconsistency_type, r.description);
+//! }
+//!
+//! // Auto-resolve with preferred strategy
+//! let results = checker.resolve_all(ResolutionStrategy::Consensus).unwrap();
+//! for r in &results {
+//!     println!("Resolved {}: success={}", r.inconsistency_id, r.success);
+//! }
+//!
+//! // Enforce invariants
+//! let violations = checker.enforce_invariants().unwrap();
+//! for v in &violations {
+//!     if v.critical {
+//!         eprintln!("CRITICAL: {}", v.description);
+//!     }
+//! }
+//!
+//! // Gate a write operation
+//! match checker.gate_write("insert_temporal") {
+//!     Ok(()) => { /* proceed */ },
+//!     Err(rejection) => eprintln!("Write blocked: {}", rejection.reason),
+//! }
+//!
+//! // Monitor coherence health
+//! let metrics = checker.get_metrics().unwrap();
+//! println!("Coherence score: {:.2}", metrics.coherence_score);
+//! ```
+//!
+//! ## Resolution Strategies
+//!
+//! - **Consensus**: Majority vote among candidate values — best for disputed facts
+//! - **Recency**: Newest timestamp wins — best for rapidly changing state
+//! - **Confidence**: Highest confidence score wins — best for reliability-weighted decisions
 
 mod checker;
 mod resolver;
