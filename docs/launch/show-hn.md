@@ -6,32 +6,42 @@
 
 ## Post text
 
-Show HN: HipCortex – Rust AI memory engine, 295× faster than Mem0, with causal world model
+Show HN: HipCortex — Rust AI memory with metacognitive intelligence layer, MCP for Cursor/Claude Code
 
-I built HipCortex because every memory system I evaluated treated memory as a retrieval problem. HipCortex treats it as cognition: temporal decay, causal world modeling, cross-module coherence checking.
+I built HipCortex because every memory system treats memory as retrieval. HipCortex treats it as cognition: temporal decay, causal world modeling, cross-module coherence, and metacognitive self-awareness.
 
 What's different:
-- **0.6ms p50 write latency** on Linux (1.7ms on Windows) — with SHA-256 audit trail included
-- **MCP server** for Cursor, Claude Code, Windsurf — `curl install.sh | bash` and your AI coding assistant gains persistent memory across sessions
-- **GDPR right-to-forget** as a REST endpoint: `DELETE /memory/forget/:actor`
-- **ARM64 binary** — 4MB, runs on Raspberry Pi 5, Jetson, AWS Graviton, M1/M2/M4 Mac
-- **Zero dependencies** — single binary, no database, no Docker required
-- **Works with**: LangChain, LlamaIndex, AutoGen 0.4, CrewAI, Continue.dev, Flowise, Dify
+- **0.6ms p50 write latency** on Linux (1.7ms on Windows) — SHA-256 audit trail included
+- **Intelligence layer** — Self-Model (metacognitive health + decision engine), World-Model Enhanced (Dirichlet-Multinomial transitions, Kalman entity tracking, causal do-calculus), Coherence Checker (5 inconsistency types, 3 resolution strategies, 4 mathematical invariants with synchronous write-gating)
+- **MCP server** for Cursor, Claude Code, Windsurf — `curl install.sh | bash` → persistent memory across sessions
+- **GDPR right-to-forget**: `DELETE /memory/forget/:actor` — atomic across temporal + symbolic + audit
+- **ARM64 binary** — 4MB, Raspberry Pi 5, Jetson, AWS Graviton, M1/M2/M4 Mac
+- **Zero dependencies** — single binary, no database required
+- **Framework integrations**: LangChain, LlamaIndex, AutoGen 0.4, CrewAI, Continue.dev, Flowise, Dify
+- **45+ REST endpoints** — health monitoring, prediction, counterfactual reasoning, coherence resolution
+- **npm + PyPI + VS Code extension**: `npm i hipcortex` / `pip install hipcortex`
 
-**Framework integrations (pip install hipcortex):**
-- LangChain: drop-in for `ConversationBufferMemory`
-- LlamaIndex: `SimpleChatStore`-compatible
-- AutoGen 0.4: `Memory` protocol implementation
-- CrewAI: `BaseTool` subclasses (Remember/Recall/Forget)
+**Metacognitive intelligence (what makes this different):**
+```sh
+# Self-model: check system health, get execution decisions
+curl https://hipcortex.fly.dev/self/health
+# World-model: predict next state, counterfactual reasoning
+curl -X POST https://hipcortex.fly.dev/worldmodel/predict \
+  -d '{"state":"idle","action":"process"}'
+# Coherence: detect and auto-resolve memory inconsistencies
+curl -X POST https://hipcortex.fly.dev/coherence/check
+```
 
 **Deploy:**
-- Single binary: `cargo build --release --bin webserver --features "web-server,petgraph_backend"`
-- Fly.io: `fly launch && fly deploy` (fly.toml included, Frankfurt region for GDPR)
+- Binary: `cargo build --release --bin webserver --features "web-server,petgraph_backend"`
+- Fly.io: `fly launch && fly deploy` (fly.toml included)
 - Docker: `docker run -p 3030:3030 hipcortex:latest`
+- npm: `npm i hipcortex` — TypeScript SDK v0.2.0
+- Python: `pip install hipcortex` — v0.2.0 on PyPI
 
-The architecture comes from reverse-engineering what AGI memory actually requires: not retrieval, but continuous reality compression. I wrote up the theory in docs/whitepaper.md if you're into the cognitive architecture angle.
+The architecture reverse-engineers what AGI memory actually requires: not retrieval, but continuous reality compression with metacognitive self-awareness. Whitepaper: docs/whitepaper.md. Full intelligence docs: INTELLIGENCE.md.
 
-Happy to answer questions on the Rust design, the coherence checker, or the AGI framing.
+Happy to answer questions on the Rust design, intelligence layer architecture, or the AGI framing.
 
 GitHub: https://github.com/farmountain/HipCortex
 Benchmark methodology: https://github.com/farmountain/HipCortex/blob/main/BENCHMARK.md

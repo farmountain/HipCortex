@@ -1,8 +1,8 @@
 {
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Integration",
-    "description": "Integrate HipCortex memory operations with VS Code chat",
-    "version": "0.1.6",
+    "description": "HipCortex — Persistent AI memory with metacognitive intelligence. Search, health check, predictions.",
+    "version": "0.2.0",
     "publisher": "hipcortex",
     "engines": {
         "vscode": "^1.90.0"
@@ -25,6 +25,16 @@
             {
                 "command": "hipcortex.testExtension",
                 "title": "Test HipCortex Extension",
+                "category": "HipCortex"
+            },
+            {
+                "command": "hipcortex.healthCheck",
+                "title": "System Health Check",
+                "category": "HipCortex"
+            },
+            {
+                "command": "hipcortex.predictState",
+                "title": "Predict Next State",
                 "category": "HipCortex"
             }
         ],
@@ -50,6 +60,14 @@
                     {
                         "name": "help",
                         "description": "Show help information"
+                    },
+                    {
+                        "name": "predict",
+                        "description": "Predict next state using world-model"
+                    },
+                    {
+                        "name": "coherence",
+                        "description": "Check memory coherence"
                     }
                 ]
             }
@@ -65,10 +83,35 @@
                     "properties": {
                         "query": {
                             "type": "string",
-                            "description": "What to search for in memory (e.g. 'database decision', 'authentication approach', 'recent bug fix')"
+                            "description": "What to search for in memory"
                         }
                     },
                     "required": ["query"]
+                }
+            },
+            {
+                "name": "hipcortex_health",
+                "displayName": "HipCortex System Health",
+                "description": "Check HipCortex system health including self-model, world-model, and coherence status.",
+                "modelDescription": "Use this tool to check if the memory system is healthy before relying on it for critical decisions. Returns health scores for all modules.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            },
+            {
+                "name": "hipcortex_predict",
+                "displayName": "HipCortex State Prediction",
+                "description": "Predict next state using the world-model's Dirichlet-Multinomial transition model.",
+                "modelDescription": "Use this tool to ask the world-model what it expects to happen next given a current state and action.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "state": { "type": "string", "description": "Current state" },
+                        "action": { "type": "string", "description": "Action being taken" }
+                    },
+                    "required": ["state", "action"]
                 }
             }
         ],
