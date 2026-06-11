@@ -50,37 +50,7 @@ pip install hipcortex
 hipcortex install   # interactive wizard — picks your IDEs and frameworks
 ```
 
----
-
-## 60-second quickstart
-
-### Option A — Live demo (no install)
-```bash
-curl https://hipcortex.fly.dev/health          # → ok
-curl https://hipcortex.fly.dev/stats           # → {"total_records":0,...}
-curl https://hipcortex.fly.dev/openapi.json    # → OpenAPI 3.0 spec
-```
-
-> **⚡ Start the server first** (required for Options B, C, D):
-> ```bash
-> # Fastest: use the managed free tier (always running)
-> # Set HIPCORTEX_URL=https://hipcortex.fly.dev in your code
->
-> # Or download + run locally (no Rust needed):
-> curl -L https://github.com/farmountain/HipCortex/releases/latest/download/hipcortex-linux-amd64 \
->   -o hipcortex && chmod +x hipcortex && ./hipcortex
-> # macOS ARM64: use hipcortex-macos-arm64 instead
-> ```
-> Server starts on http://localhost:3030 · Verify: `curl http://localhost:3030/health` → `ok`
-
-### Option B — Python (interactive setup wizard)
-
-```bash
-pip install hipcortex
-hipcortex install
-```
-
-An interactive wizard appears — use **Space** to select, **Enter** to confirm:
+The wizard auto-detects your setup and configures everything:
 
 ```
   ██╗  ██╗██╗██████╗  ██████╗ ██████╗ ██████╗ ████████╗███████╗██╗  ██╗
@@ -92,160 +62,80 @@ An interactive wizard appears — use **Space** to select, **Enter** to confirm:
   ── Coding Assistants ──────────────────────────────────────
  › ● Claude Code        Anthropic · SKILL.md native, no MCP process
    ● Cursor             Anysphere · MCP tools in AI panel
-   ○ Windsurf           Codeium · global MCP settings
-   ○ VS Code            Microsoft · MCP via settings.json
-   ○ Cline              saoudrizwan · .cline/mcp.json
-   ○ RooCode            RooVeterinary · .roo/mcp.json
-   ○ Continue           continuedev · /remember /recall         [guide]
-   ○ GitHub Copilot     GitHub · OpenAPI tool registration      [guide]
+   ● Windsurf           Codeium · global MCP settings
+   ● VS Code            Microsoft · MCP via settings.json
+   ● GitHub Copilot     GitHub · OpenAPI tool registration
    ...
 
   ── Agent Frameworks ───────────────────────────────────────
-   ● LangChain [detected]  drop-in ConversationBufferMemory  [starter file]
-   ○ CrewAI             RememberTool + RecallTool             [starter file]
-   ○ AutoGen            AutoGen 0.4 Memory protocol           [starter file]
-   ○ LlamaIndex         SimpleChatStore-compatible            [starter file]
-   ○ Pydantic AI        tool-use memory via REST              [starter file]
-   ○ n8n / Make.com     workflow · HTTP Request node          [starter file]
-   ○ DSPy               trace storage for compilation         [starter file]
-
-  3 selected
+   ● LangChain [detected]  drop-in ConversationBufferMemory
+   ● CrewAI             RememberTool + RecallTool
+   ● AutoGen            AutoGen 0.4 Memory protocol
+   ● LlamaIndex         SimpleChatStore-compatible
 ```
 
 **Coding assistants** → writes MCP config / SKILL.md automatically.  
-**Agent frameworks** → writes a ready-to-import starter file in your project (`hipcortex_langchain.py`, `hipcortex_crewai.py`, etc.). The wizard auto-detects which frameworks are in your `requirements.txt`.
+**Agent frameworks** → writes a ready-to-import starter file in your project.
 
 ```bash
 hipcortex start          # download binary + start server on :3030
 hipcortex install --yes  # non-interactive: configure all supported agents
-hipcortex install --url https://hipcortex.fly.dev  # use managed tier instead
+hipcortex install --url https://hipcortex.fly.dev  # use managed free tier
 ```
-```python
-from hipcortex import HipCortexClient, AsyncHipCortexClient
 
-# Sync
+## 60-second quickstart
+
+**Try live (no install):**
+```bash
+curl https://hipcortex.fly.dev/health          # → ok
+curl https://hipcortex.fly.dev/stats           # → {"total_records":0,...}
+curl https://hipcortex.fly.dev/openapi.json    # → OpenAPI 3.0 spec
+```
+
+**Use from Python:**
+```python
+from hipcortex import HipCortexClient
+
 client = HipCortexClient("http://localhost:3030")
 client.add_memory(actor="alice", action="said", target="The meeting is at 3pm")
-client.bulk_add([                                       # add multiple at once
+client.bulk_add([
     {"actor": "alice", "action": "noted", "target": "Budget approved"},
     {"actor": "alice", "action": "noted", "target": "Q3 deadline is Sep 30",
      "ttl_seconds": 7776000},                          # auto-expire in 90 days
 ])
-results = client.search("meeting time", limit=5)       # keyword or cosine sim
-print(client.stats())
+results = client.search("meeting time", limit=5)
 client.forget("alice")                                 # GDPR right-to-forget
-
-# Async (LangChain 0.3+, FastAPI, Django async)
-async with AsyncHipCortexClient("http://localhost:3030") as aclient:
-    await aclient.add_memory(actor="bob", action="said", target="Hello")
-    results = await aclient.search("Hello")
-
-# Jupyter notebook users — add this before using async methods:
-# import nest_asyncio; nest_asyncio.apply()
 ```
 
-### Option C — TypeScript / JavaScript
-
+**Use from TypeScript:**
 ```bash
-# From GitHub (npm publish coming soon)
-npm install github:farmountain/HipCortex#main --prefix sdk/typescript
-# Or clone and build:
-# git clone https://github.com/farmountain/HipCortex && cd HipCortex/sdk/typescript && npm install && npm run build
+npm install hipcortex
 ```
 ```typescript
 import { HipCortexClient } from "hipcortex";
-
 const client = new HipCortexClient({ baseUrl: "http://localhost:3030" });
 await client.addMemory({ actor: "alice", action: "said", target: "Hello!" });
 const { results } = await client.search({ query: "Hello", limit: 5 });
-await client.forget("alice");
 ```
 
-### Option D — Pre-built binary (no Rust needed)
+**Other install paths:**
+
+| Platform | Command |
+|----------|---------|
+| Pre-built binary | `curl -L <url> -o hipcortex && chmod +x hipcortex && ./hipcortex` |
+| Docker | `docker run -p 3030:3030 hipcortex:latest` |
+| Build from source | `cargo run --bin webserver --features "web-server,petgraph_backend"` |
+| VS Code extension | `code --install-extension hipcortex-memory-0.2.0.vsix` |
+| MCP (Cursor/Claude/Windsurf) | `curl -fsSL <install.sh> | bash` |
+
+> Binary downloads: [GitHub Releases](https://github.com/farmountain/HipCortex/releases) · Docker: [Docker Hub](https://hub.docker.com) · VS Code: [Marketplace](https://marketplace.visualstudio.com) · MCP guide: [sdk/mcp/README.md](sdk/mcp/README.md)
+
+**Auto-embedding (Ollama / OpenAI):**
 ```bash
-# Linux ARM64 (Raspberry Pi 4/5, Jetson, AWS Graviton)
-curl -L https://github.com/farmountain/HipCortex/releases/latest/download/hipcortex-linux-arm64 \
-  -o hipcortex && chmod +x hipcortex && PORT=3030 ./hipcortex
-
-# macOS ARM64 (M1/M2/M3/M4)
-curl -L https://github.com/farmountain/HipCortex/releases/latest/download/hipcortex-macos-arm64 \
-  -o hipcortex && chmod +x hipcortex && PORT=3030 ./hipcortex
-
-# Linux AMD64
-curl -L https://github.com/farmountain/HipCortex/releases/latest/download/hipcortex-linux-amd64 \
-  -o hipcortex && chmod +x hipcortex && PORT=3030 ./hipcortex
-```
-
-### Option E — Build from source (Rust)
-```bash
-cargo run --bin webserver --no-default-features --features "web-server,petgraph_backend"
-```
-
-### Option F — Docker
-```bash
-docker run -p 3030:3030 -v hipcortex_data:/app/data hipcortex:latest
-```
-
-### Option H — VS Code Extension (GitHub Copilot integration)
-
-Reduces Copilot credit burn by registering HipCortex as a Language Model Tool — Copilot calls `hipcortex_search` automatically during reasoning instead of injecting full conversation history.
-
-```bash
-# Download hipcortex-memory-0.1.6.vsix from:
-# https://github.com/farmountain/HipCortex/tree/main/vscode-extension
-code --install-extension hipcortex-memory-0.1.6.vsix
-```
-
-**What it does:**
-- `@hipcortex query <topic>` — search memories in Copilot Chat
-- `@hipcortex add <text>` — store a memory
-- `hipcortex_search` tool — Copilot calls this automatically when it needs context (VS Code 1.90+)
-- Auto-capture — stores file saves as temporal memories (silent, best-effort)
-- Status bar — `$(database) HipCortex: ~1,200 tok saved` shows session savings
-- Token savings footer — each `@hipcortex` response shows `Used ~80 tokens (vs ~2,000 full history = 96% savings)`
-
-> VS Code marketplace publish coming after 500 stars.
-
-### Option G — Cursor / Claude Code / Windsurf / Cline (MCP server)
-
-Give your AI coding assistant persistent memory across sessions.
-
-**Fastest path** — the `hipcortex install` wizard (Option B) handles this automatically: select your coding assistants, and it writes the MCP config for you.
-
-**Manual install** (if you prefer):
-```bash
-curl -fsSL https://raw.githubusercontent.com/farmountain/HipCortex/main/sdk/mcp/install.sh | bash
-```
-The script installs the MCP server and prints exact config snippets for your IDE.
-
-**Supported assistants via MCP:** Cursor · Windsurf · VS Code · Cline · RooCode  
-**Via SKILL.md (no MCP process):** Claude Code — select it in the wizard for native `/hipcortex` slash commands.
-
-Tools available: `add_memory` · `search_memory` · `forget_actor` · `get_stats`
-
-Full guide: [sdk/mcp/README.md](sdk/mcp/README.md)
-
----
-
-### Auto-embedding (Ollama / OpenAI)
-```bash
-# Store with auto-generated embedding:
 curl -X POST http://localhost:3030/memory/embed \
   -H "Content-Type: application/json" \
   -d '{"actor":"alice","action":"noted","target":"Budget approved","embedding_model":"ollama/nomic-embed-text"}'
-
-# Unified search — server generates query embedding automatically:
-curl -X POST http://localhost:3030/memory/search \
-  -H "Content-Type: application/json" \
-  -d '{"query":"financial decisions","embedding_model":"ollama/nomic-embed-text","limit":5}'
-
-# Or keyword-only search (no embedding_model needed):
-curl -X POST http://localhost:3030/memory/search \
-  -H "Content-Type: application/json" \
-  -d '{"query":"financial decisions","limit":5}'
 ```
-
-> Full deploy guide: [DEPLOY.md](DEPLOY.md) · Benchmark: [BENCHMARK.md](BENCHMARK.md) · API spec: [/openapi.json](https://hipcortex.fly.dev/openapi.json)
 
 ---
 
