@@ -3,7 +3,7 @@
     "displayName": "HipCortex Memory Integration",
     "description": "HipCortex — Persistent AI memory with metacognitive intelligence. Search, health check, predictions.",
     "version": "0.2.0",
-    "publisher": "hipcortex",
+    "publisher": "farmountain",
     "engines": {
         "vscode": "^1.90.0"
     },
