@@ -8,6 +8,7 @@
         "vscode": "^1.90.0"
     },
     "categories": ["Machine Learning", "Data Science", "Other"],
+    "icon": "icon.png",
     "keywords": ["ai", "memory", "agent", "chat", "hipcortex"],
     "main": "./dist/extension.js",
     "contributes": {
