@@ -1,7 +1,7 @@
 # HipCortex
 
 <p align="center">
-  <img src="hipcortex_logo.png" alt="HipCortex Logo" width="200"/>
+  <img src="https://raw.githubusercontent.com/farmountain/HipCortex/main/hipcortex_logo.png" alt="HipCortex Logo" width="200"/>
 </p>
 
 **Persistent causal memory for AI agents — 0.48 ms p50 writes, 59% token savings in steady-state.**
