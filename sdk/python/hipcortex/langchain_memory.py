@@ -9,7 +9,7 @@ Usage::
     from langchain.chains import ConversationChain
     from langchain.chat_models import ChatOpenAI
 
-    client = HipCortexClient(base_url="http://localhost:3000")
+    client = HipCortexClient(base_url="http://127.0.0.1:3030")
     memory = HipCortexMemory(client=client, session_id="user-42")
 
     chain = ConversationChain(llm=ChatOpenAI(), memory=memory)
@@ -139,7 +139,7 @@ class AsyncHipCortexMemory:
         from hipcortex.langchain_memory import AsyncHipCortexMemory
 
         async def chat(user_input: str):
-            client = AsyncHipCortexClient("http://localhost:3030")
+            client = AsyncHipCortexClient("http://127.0.0.1:3030")
             memory = AsyncHipCortexMemory(client=client, session_id="user-42")
             history = await memory.aload_memory_variables({})
             await memory.asave_context({"input": user_input}, {"output": ai_response})

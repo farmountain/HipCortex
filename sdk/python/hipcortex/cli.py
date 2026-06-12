@@ -25,7 +25,7 @@ from typing import Optional
 GITHUB_RELEASES = "https://github.com/farmountain/HipCortex/releases/latest/download"
 INSTALL_DIR = Path.home() / ".hipcortex"
 BINARY_NAME = "hipcortex-server"
-DEFAULT_URL = "http://localhost:3030"
+DEFAULT_URL = "http://127.0.0.1:3030"
 MANAGED_URL = "https://hipcortex.fly.dev"
 
 # Claude Code registration line appended to ~/.claude/CLAUDE.md

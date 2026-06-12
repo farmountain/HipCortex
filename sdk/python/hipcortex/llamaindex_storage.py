@@ -10,7 +10,7 @@ Usage::
     from hipcortex.llamaindex_storage import HipCortexChatStore
     from llama_index.core.memory import ChatMemoryBuffer
 
-    client = HipCortexClient(base_url="http://localhost:3000")
+    client = HipCortexClient(base_url="http://127.0.0.1:3030")
     store = HipCortexChatStore(client=client)
 
     memory = ChatMemoryBuffer.from_defaults(
@@ -103,5 +103,5 @@ class HipCortexStorageContext:
         self.chat_store = HipCortexChatStore(client=client)
 
     @classmethod
-    def from_url(cls, base_url: str = "http://localhost:3000") -> "HipCortexStorageContext":
+    def from_url(cls, base_url: str = "http://127.0.0.1:3030") -> "HipCortexStorageContext":
         return cls(client=HipCortexClient(base_url=base_url))

@@ -3129,33 +3129,45 @@ async fn handle_wm_states(
 /// GET /worldmodel/transitions?state=S1 — all predictions from a given state
 #[cfg(feature = "web-server")]
 #[derive(serde::Deserialize)]
-struct WmTransitionsParams { state: String }
+struct WmTransitionsParams { state: Option<String> }
 
 #[cfg(feature = "web-server")]
 async fn handle_wm_transitions(
     world_model: Arc<RwLock<WorldModelEnhanced>>,
     Query(params): Query<WmTransitionsParams>,
 ) -> Json<serde_json::Value> {
-    let actions = match world_model.read() {
-        Ok(wm) => wm.get_actions(),
+    let (states, actions) = match world_model.read() {
+        Ok(wm) => (wm.get_states(), wm.get_actions()),
         Err(e) => return Json(serde_json::json!({"error": format!("lock: {}", e)})),
     };
-    let mut predictions = Vec::new();
+    let target_states: Vec<String> = match &params.state {
+        Some(s) => vec![s.clone()],
+        None    => states,
+    };
+    let mut all_predictions = Vec::new();
     if let Ok(wm) = world_model.read() {
-        for action in &actions {
-            if let Ok(pred) = wm.predict_next_state(&params.state, action) {
-                predictions.push(serde_json::json!({
-                    "action":            action,
-                    "probabilities":     pred.probabilities,
-                    "entropy":           pred.entropy,
-                    "observation_count": pred.observation_count,
-                }));
+        for state in &target_states {
+            let mut predictions = Vec::new();
+            for action in &actions {
+                if let Ok(pred) = wm.predict_next_state(state, action) {
+                    predictions.push(serde_json::json!({
+                        "action":            action,
+                        "probabilities":     pred.probabilities,
+                        "entropy":           pred.entropy,
+                        "observation_count": pred.observation_count,
+                    }));
+                }
             }
+            all_predictions.push(serde_json::json!({
+                "state":       state,
+                "transitions": predictions,
+            }));
         }
     }
     Json(serde_json::json!({
-        "state":       params.state,
-        "transitions": predictions,
+        "filtered_state": params.state,
+        "states":         all_predictions,
+        "total_actions":  actions.len(),
     }))
 }
 

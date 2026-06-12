@@ -13,7 +13,7 @@ Usage::
         HipCortexForgetTool,
     )
 
-    client = HipCortexClient(base_url="http://localhost:3000")
+    client = HipCortexClient(base_url="http://127.0.0.1:3030")
     tools = [
         HipCortexRememberTool(client=client, agent_id="researcher"),
         HipCortexRecallTool(client=client, agent_id="researcher"),

@@ -131,3 +131,9 @@ neo4j_backend = ["neo4rs", "tokio"]    # Neo4j support (requires Neo4j server)
 # Compatibility features
 rustfsm_backend = []
 temporal_backend = []
+
+[profile.release]
+opt-level = "s"       # optimize for size
+lto = true            # link-time optimization
+strip = true          # strip symbols
+codegen-units = 1     # single codegen unit for better optimization

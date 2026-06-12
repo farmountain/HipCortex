@@ -33,7 +33,7 @@ class AsyncHipCortexClient:
 
     def __init__(
         self,
-        base_url: str = "http://localhost:3030",
+        base_url: str = "http://127.0.0.1:3030",
         timeout: float = 10.0,
         api_key: Optional[str] = None,
     ) -> None:

@@ -12,7 +12,7 @@ pub const OPENAPI_SPEC: &str = r##"{
   },
   "servers": [
     { "url": "https://hipcortex.fly.dev", "description": "Managed SaaS (Frankfurt)" },
-    { "url": "http://localhost:3030", "description": "Local self-hosted" }
+    { "url": "http://127.0.0.1:3030", "description": "Local self-hosted" }
   ],
   "security": [{ "ApiKeyAuth": [] }],
   "components": {

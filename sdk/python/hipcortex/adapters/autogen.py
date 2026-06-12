@@ -7,7 +7,7 @@ Usage (AutoGen 0.4+):
     from hipcortex import HipCortexClient
     from hipcortex.adapters.autogen import HipCortexAutoGenMemory
 
-    client = HipCortexClient(base_url="http://localhost:3030")
+    client = HipCortexClient(base_url="http://127.0.0.1:3030")
     memory = HipCortexAutoGenMemory(client=client, agent_id="researcher")
     agent = AssistantAgent(name="researcher", model_client=..., memory=[memory])
 
