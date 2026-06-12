@@ -1,5 +1,9 @@
 # HipCortex
 
+<p align="center">
+  <img src="hipcortex_logo.png" alt="HipCortex Logo" width="200"/>
+</p>
+
 **Persistent causal memory for AI agents — 0.48 ms p50 writes, 59% token savings in steady-state.**
 
 [![CI](https://github.com/farmountain/HipCortex/actions/workflows/ci.yml/badge.svg?branch=claude%2Fpedantic-edison-28b84c)](https://github.com/farmountain/HipCortex/actions/workflows/ci.yml)
