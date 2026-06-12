@@ -154,10 +154,41 @@ impl MemoryBackend for FileBackend {
     fn load(&mut self) -> Result<Vec<MemoryRecord>> {
         let mut records = Vec::new();
         if self.path.exists() {
-            let file = std::fs::File::open(&self.path)?;
-            let reader = BufReader::new(file);
-            for line in reader.lines() {
-                let line = line?;
+            let content = std::fs::read_to_string(&self.path)?;
+            let mut lines: Vec<&str> = content.lines().collect();
+
+            // ── Crash recovery: truncate incomplete trailing line ──────
+            // If the server crashed mid-write, the last line may be a
+            // partial JSON record. Scan backward and drop broken lines.
+            let mut dropped = 0u64;
+            while let Some(last) = lines.last() {
+                let trimmed = last.trim();
+                if trimmed.is_empty() { lines.pop(); continue; }
+                if !trimmed.starts_with('{') { lines.pop(); dropped += 1; continue; }
+                let parse_ok = if self.cipher.is_some() {
+                    #[derive(serde::Deserialize)]
+                    struct EncLine { nonce: String, data: String }
+                    serde_json::from_str::<EncLine>(trimmed).is_ok()
+                } else if self.compress {
+                    base64::engine::general_purpose::STANDARD.decode(trimmed).is_ok()
+                } else {
+                    serde_json::from_str::<MemoryRecord>(trimmed).is_ok()
+                };
+                if !parse_ok { lines.pop(); dropped += 1; continue; }
+                break; // last line is valid
+            }
+
+            if dropped > 0 {
+                let fixed = lines.join("\n") + "\n";
+                std::fs::write(&self.path, &fixed)?;
+                eprintln!(
+                    "[MemoryStore] Crash recovery: dropped {} incomplete line(s) from {}",
+                    dropped, self.path.display()
+                );
+            }
+
+            for line in &lines {
+                let line = *line;
                 if line.trim().is_empty() {
                     continue;
                 }

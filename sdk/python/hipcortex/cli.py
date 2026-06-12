@@ -27,6 +27,7 @@ INSTALL_DIR = Path.home() / ".hipcortex"
 BINARY_NAME = "hipcortex-server"
 DEFAULT_URL = "http://127.0.0.1:3030"
 MANAGED_URL = "https://hipcortex.fly.dev"
+PID_FILE = INSTALL_DIR / "hipcortex.pid"
 
 # Claude Code registration line appended to ~/.claude/CLAUDE.md
 _CLAUDE_REGISTRATION = """
@@ -969,6 +970,45 @@ def cmd_start(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     port = args.port or int(os.environ.get("PORT", "3030"))
+    health_url = f"http://127.0.0.1:{port}/health"
+
+    # ── Check if something is already on this port ──────────────────────
+    import socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(0.5)
+    port_taken = sock.connect_ex(("127.0.0.1", port)) == 0
+    sock.close()
+
+    if port_taken:
+        try:
+            import json as _json, urllib.request as _ur
+            with _ur.urlopen(health_url, timeout=2) as r:
+                data = _json.loads(r.read())
+                if data.get("service") == "hipcortex":
+                    print(f"✓ HipCortex already running on http://127.0.0.1:{port}")
+                    print(f"  Version: {data.get('version', 'unknown')}")
+                    print(f"  Run 'hipcortex stop' to stop it first.")
+                    sys.exit(1)
+        except Exception:
+            pass
+        print(f"✗ Port {port} already in use by another application.")
+        print(f"  Use --port to pick a different port.")
+        sys.exit(1)
+
+    # ── Check PID file for stale daemon ─────────────────────────────────
+    if PID_FILE.exists():
+        try:
+            old_pid = int(PID_FILE.read_text().strip())
+            import signal
+            os.kill(old_pid, 0)  # check if alive
+            print(f"✗ HipCortex daemon already running (PID {old_pid}).")
+            print(f"  Run 'hipcortex stop' to stop it first.")
+            sys.exit(1)
+        except (OSError, ValueError):
+            # PID file exists but process is dead — clean it up
+            print(f"Cleaning up stale PID file (PID {old_pid} no longer running)")
+            PID_FILE.unlink(missing_ok=True)
+
     data_dir = args.data_dir or os.environ.get("DATA_DIR", str(Path.home() / ".hipcortex" / "data"))
     Path(data_dir).mkdir(parents=True, exist_ok=True)
 
@@ -976,36 +1016,100 @@ def cmd_start(args: argparse.Namespace) -> None:
     env["PORT"] = str(port)
     env["DATA_DIR"] = data_dir
 
-    print(f"Starting HipCortex on http://localhost:{port}")
+    print(f"Starting HipCortex on http://127.0.0.1:{port}")
     print(f"Data: {data_dir}")
-    print("Ctrl+C to stop\n")
 
     import subprocess
     proc = subprocess.Popen([str(binary)], env=env)
+
+    # Write PID file
+    PID_FILE.write_text(str(proc.pid))
+    print(f"PID: {proc.pid}")
+
     # Poll /health until server is ready (max 10 seconds)
     import time
-    health_url = f"http://localhost:{port}/health"
     for _ in range(20):
         time.sleep(0.5)
         try:
             with urllib.request.urlopen(health_url, timeout=1) as r:
+                import json as _json2
                 if r.status == 200:
-                    print(f"✓ HipCortex running on http://localhost:{port}")
+                    data = _json2.loads(r.read())
+                    ver = data.get("version", "?")
+                    print(f"✓ HipCortex v{ver} running on http://127.0.0.1:{port}")
                     print(f"  /hipcortex remember 'your note'   (Claude Code)")
                     print(f"  curl {health_url}")
+                    print(f"  hipcortex stop   (to shut down)")
                     print()
                     break
         except Exception:
             pass
     else:
         print("  Server may still be starting... check health manually.")
-        print(f"  curl {health_url}")
-        print()
+
+
+def cmd_stop(args: argparse.Namespace) -> None:
+    """Stop the local HipCortex server."""
+    import signal
+
+    port = args.port or int(os.environ.get("PORT", "3030"))
+
+    # Try PID file first
+    if PID_FILE.exists():
+        try:
+            pid = int(PID_FILE.read_text().strip())
+            os.kill(pid, signal.SIGTERM)
+            print(f"✓ Sent stop signal to HipCortex (PID {pid})")
+            PID_FILE.unlink()
+            # Wait for graceful shutdown
+            import time
+            for _ in range(10):
+                time.sleep(0.3)
+                try:
+                    os.kill(pid, 0)
+                except OSError:
+                    print(f"  Process exited cleanly.")
+                    return
+            # Force kill if still alive
+            try:
+                os.kill(pid, signal.SIGKILL)
+                print(f"  Force-killed after timeout.")
+            except OSError:
+                pass
+            return
+        except (ValueError, OSError) as e:
+            print(f"PID file exists but process unreachable: {e}")
+            PID_FILE.unlink(missing_ok=True)
+
+    # Fallback: find and kill process on port
+    import subprocess, platform
     try:
-        proc.wait()
-    except KeyboardInterrupt:
-        proc.terminate()
-        proc.wait()
+        if platform.system() == "Windows":
+            result = subprocess.run(
+                ["netstat", "-ano"], capture_output=True, text=True
+            )
+            for line in result.stdout.splitlines():
+                if f":{port}" in line and "LISTENING" in line:
+                    pid = line.strip().split()[-1]
+                    subprocess.run(["taskkill", "/PID", pid, "/F"], capture_output=True)
+                    print(f"✓ Stopped HipCortex on port {port} (PID {pid})")
+                    PID_FILE.unlink(missing_ok=True)
+                    return
+        else:
+            result = subprocess.run(
+                ["lsof", "-ti", f":{port}"], capture_output=True, text=True
+            )
+            pids = result.stdout.strip().split()
+            for pid in pids:
+                os.kill(int(pid), signal.SIGTERM)
+                print(f"✓ Stopped HipCortex on port {port} (PID {pid})")
+            PID_FILE.unlink(missing_ok=True)
+            return
+    except Exception:
+        pass
+
+    print(f"No HipCortex process found on port {port}.")
+    PID_FILE.unlink(missing_ok=True)
 
 
 def cmd_status(args: argparse.Namespace) -> None:
@@ -1169,6 +1273,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_status = sub.add_parser("status", help="Check server health")
     p_status.add_argument("--url", help="Server URL to check")
 
+    # stop
+    p_stop = sub.add_parser("stop", help="Stop the local HipCortex server")
+    p_stop.add_argument("--port", type=int, help="Port (default: 3030)")
+
     # uninstall
     p_uninstall = sub.add_parser("uninstall", help="Remove HipCortex configuration")
     p_uninstall.add_argument("--purge", action="store_true", help="Also delete downloaded binary and data")
@@ -1204,6 +1312,8 @@ def main() -> None:
         cmd_start(args)
     elif args.command == "status":
         cmd_status(args)
+    elif args.command == "stop":
+        cmd_stop(args)
     elif args.command == "uninstall":
         cmd_uninstall(args)
     elif args.command == "backup":

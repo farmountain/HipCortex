@@ -712,7 +712,13 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     };
     let app = Router::new()
         .route("/", get(|| async { axum::response::Redirect::permanent("/pricing") }))
-        .route("/health", get(|| async { "ok" }))
+        .route("/health", get(|| async {
+    axum::Json(serde_json::json!({
+        "service": "hipcortex",
+        "version": env!("CARGO_PKG_VERSION"),
+        "status": "ok"
+    }))
+}))
         .route("/graph", graph_route)
         .route("/node/:id", node_route)
         .route("/memory/add", add_memory_route)
@@ -887,7 +893,13 @@ pub async fn run_with_store(addr: SocketAddr, store: Arc<Mutex<SymbolicStore<InM
     };
     let app = Router::new()
         .route("/", get(|| async { axum::response::Redirect::permanent("/pricing") }))
-        .route("/health", get(|| async { "ok" }))
+        .route("/health", get(|| async {
+    axum::Json(serde_json::json!({
+        "service": "hipcortex",
+        "version": env!("CARGO_PKG_VERSION"),
+        "status": "ok"
+    }))
+}))
         .route("/graph", graph_route)
         .route("/node/:id", node_route);
     axum::Server::bind(&addr)
@@ -2250,7 +2262,13 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
 
     let app = Router::new()
         .route("/", get(|| async { axum::response::Redirect::permanent("/pricing") }))
-        .route("/health", get(|| async { "ok" }))
+        .route("/health", get(|| async {
+    axum::Json(serde_json::json!({
+        "service": "hipcortex",
+        "version": env!("CARGO_PKG_VERSION"),
+        "status": "ok"
+    }))
+}))
         .route("/graph", graph_route)
         .route("/node/:id", node_route)
         .route("/memory/add", add_memory_route)
