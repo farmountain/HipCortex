@@ -1,14 +1,18 @@
 #[cfg(all(feature = "web-server", feature = "grpc-server"))]
 use crate::{
     aureus_bridge::AureusBridge,
+    coherence::CoherenceChecker,
     grpc_server,
     integration_layer::IntegrationLayer,
     memory_store::MemoryStore,
+    perception_adapter::PerceptionSession,
     persistence::MemoryBackend,
     procedural_cache::ProceduralCache,
+    self_model::SelfModel,
     symbolic_store::{InMemoryGraph, SymbolicStore},
     temporal_indexer::TemporalIndexer,
     web_server,
+    world_model_enhanced::WorldModelEnhanced,
 };
 #[cfg(all(feature = "web-server", feature = "grpc-server"))]
 use std::net::SocketAddr;
@@ -26,19 +30,35 @@ pub struct McpServer<B: MemoryBackend + Send + 'static> {
     fsm: Arc<Mutex<ProceduralCache>>,
     bridge: Arc<Mutex<AureusBridge>>,
     pub layer: IntegrationLayer,
+    // held for rich agent defaults + live_beliefs wiring (conditional on HIPCORTEX_AGENT_DEFAULTS)
+    self_model: Option<Arc<SelfModel>>,
+    world_model: Option<Arc<WorldModelEnhanced>>,
+    coherence: Option<Arc<CoherenceChecker>>,
 }
 
 #[cfg(all(feature = "web-server", feature = "grpc-server"))]
 impl<B: MemoryBackend + Send + 'static> McpServer<B> {
     /// Create a new MCP server using the provided MemoryStore.
     pub fn new(store: MemoryStore<B>) -> Self {
+        // default PerceptionSession with self/world/coherence for agent paths (mcp); gated by HIPCORTEX_AGENT_DEFAULTS (default off for conservative per spec)
+        let sm = std::sync::Arc::new(SelfModel::new());
+        let wm = std::sync::Arc::new(WorldModelEnhanced::new());
+        let cc = std::sync::Arc::new(CoherenceChecker::new());
+        let session = if std::env::var("HIPCORTEX_AGENT_DEFAULTS").is_ok() {
+            PerceptionSession::new().with_self_model(sm.clone()).with_world_model(wm.clone()).with_coherence(cc.clone())
+        } else {
+            PerceptionSession::new()
+        };
         Self {
             store: Arc::new(Mutex::new(store)),
             symbolic: Arc::new(Mutex::new(SymbolicStore::new())),
             indexer: Arc::new(Mutex::new(TemporalIndexer::new(256, 60))),
             fsm: Arc::new(Mutex::new(ProceduralCache::new())),
             bridge: Arc::new(Mutex::new(AureusBridge::new())),
-            layer: IntegrationLayer::new(),
+            layer: IntegrationLayer::new().with_perception_session(session),
+            self_model: Some(sm),
+            world_model: Some(wm),
+            coherence: Some(cc),
         }
     }
 

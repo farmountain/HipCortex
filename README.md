@@ -31,6 +31,15 @@ HipCortex replaces full-history injection with **selective memory retrieval** â€
 
 > Full methodology: [benchmarks/README.md](benchmarks/README.md) Â· [BENCHMARK.md](BENCHMARK.md)
 
+### Agent Harness (Memory-Centric Loop)
+Proactive substrate-first usage (per agent-substrate-autonomy + unified-beliefs-surface):
+- Call `GET /memory/live_beliefs?actor=...` (or enhance /memory/context) **first** for unified merge: symbolic_facts + current_hypotheses (Aureus) + world_state + intel (self/coherence/pinned) from existing stores (simple queries).
+- Then `POST /memory/reflect` for substrate CoT (with world prior + coherence).
+- Agent orchestrates substrate as mind; frontier LLM only for final language or high-entropy creative hyp.
+- `benchmarks/token_reduction_benchmark.py` includes proactive harness scenario (live_beliefs + reflect calls) asserting **80%+** reduction (benchmarks verify; karpathy goal-driven, minimal).
+
+See `openspec/changes/agent-substrate-autonomy/specs/{unified-beliefs-surface,validation-benchmarks}`. Non-breaking (explicit paths + conservative use preserved).
+
 ### Performance vs alternatives
 
 | | HipCortex | Mem0 cloud | In-process dict |

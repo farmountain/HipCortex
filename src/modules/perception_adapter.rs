@@ -277,6 +277,16 @@ impl PerceptionSession {
 
         result
     }
+
+    /// Automatically record a perceived action (from agent message) into the world model transition.
+    /// Called from the auto-ingest path in IntegrationLayer for AgentMessage so the substrate
+    /// does not "wait for user to trigger" the latest state/world model update.
+    /// Gated by the same health/rate/safety as the rest of adapt.
+    pub fn record_perceived_action(&self, action: String) {
+        if let Some(ref wm) = self.world_model {
+            wm.record_perceived_action(action);
+        }
+    }
 }
 
 impl Default for PerceptionSession {

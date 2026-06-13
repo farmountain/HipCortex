@@ -104,6 +104,20 @@ impl WorldModelEnhanced {
         }
     }
 
+    /// Record a perceived action from the agent stream as a world model transition.
+    /// This is called automatically from the auto AgentMessage path (no explicit user/agent trigger required).
+    /// Feeds the Dirichlet transition model so the substrate maintains latest state predictions
+    /// and can answer "what happens if we do X" without the LLM having to remember to tell it.
+    pub fn record_perceived_action(&self, action: String) {
+        if let Ok(mut t) = self.transitions.write() {
+            let _ = t.record_transition(StateTransition {
+                from_state: "agent_perceived".to_string(),
+                action,
+                to_state: "updated".to_string(),
+            });
+        }
+    }
+
     // ========================================================================
     // State Transition Learning
     // ========================================================================

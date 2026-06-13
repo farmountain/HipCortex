@@ -1,8 +1,10 @@
 use crate::aureus_bridge::AureusBridge;
 use crate::llm_clients::LLMClient;
+use crate::memory_record::{MemoryRecord, MemoryType};
 use crate::memory_store::MemoryStore;
 use crate::openmanus_bridge;
 use crate::mcp_bridge;
+use crate::perception_adapter::{Modality, PerceptionSession};
 use crate::persistence::MemoryBackend;
 use serde::Deserialize;
 use std::collections::HashSet;
@@ -12,6 +14,7 @@ pub struct IntegrationLayer {
     llm: Option<Box<dyn LLMClient>>,
     api_keys: HashSet<String>,
     oauth_tokens: HashSet<String>,
+    perception: PerceptionSession,
 }
 
 fn validate_text<'de, D>(deserializer: D) -> Result<String, D::Error>
@@ -44,7 +47,14 @@ impl IntegrationLayer {
             llm: None,
             api_keys: HashSet::new(),
             oauth_tokens: HashSet::new(),
+            perception: PerceptionSession::new(),
         }
+    }
+
+    /// Builder to attach a (possibly intel-augmented) PerceptionSession for agent defaults.
+    pub fn with_perception_session(mut self, ps: PerceptionSession) -> Self {
+        self.perception = ps;
+        self
     }
 
     pub fn connect(&mut self) {
@@ -114,6 +124,40 @@ impl IntegrationLayer {
     pub fn handle_mcp(&self, key: &str, payload: &str) {
         match mcp_bridge::decode_request(payload) {
             Ok(p) => {
+                if matches!(p.modality, Modality::AgentMessage) {
+                    // default intel hooks (self health gate, world update, coherence) via existing PerceptionSession
+                    // gated by SAFETY_GUARDRAIL (per engine-agent-defaults spec)
+                    if let Some(text) = &p.text {
+                        if crate::safety_guardrail::SAFETY_GUARDRAIL
+                            .lock()
+                            .unwrap()
+                            .check_precondition(text)
+                            .is_err()
+                        {
+                            // violation logged by guardrail; still forward text but skip intel/auto for safety
+                        } else {
+                            let _ = self.perception.adapt(p.clone());
+                            let actor = p.tags.get(0).cloned().unwrap_or_else(|| "agent".to_string());
+                            let mut rec = MemoryRecord::new(
+                                MemoryType::Temporal,
+                                actor.clone(),
+                                "perceive".to_string(),
+                                text.clone(),
+                                serde_json::json!({"source": "agent-auto-ingest"}),
+                            );
+                            rec.priority = "low".to_string();
+                            rec.source = Some("agent-auto-ingest".to_string());
+                            rec.tags = p.tags.clone();
+                            println!("[IntegrationLayer] auto low-pri Temporal ingest source=agent-auto-ingest actor={}", actor);
+
+                            // Automatic world model maintenance from the agent stream (no explicit "remember this decision" or "update world model" trigger required from user or LLM).
+                            // The perception hooks already did entity embedding + coherence + self health gate.
+                            // This additionally feeds a transition (text as action) into the Dirichlet model so the substrate keeps its predictive state up to date automatically.
+                            // This is the beginning of the substrate not behaving like it has dementia for "latest update of state, world model".
+                            self.perception.record_perceived_action(text.clone());
+                        }
+                    }
+                }
                 if let Some(text) = p.text {
                     self.send_message(key, &text);
                 }

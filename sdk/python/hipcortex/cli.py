@@ -3,6 +3,7 @@
 Usage:
     hipcortex install           # download binary + configure Claude Code + Cursor
     hipcortex install --url URL # use existing server instead of local binary
+    hipcortex install --mode proactive  # substrate-first harness (MUST get_live_beliefs first etc)
     hipcortex start             # start the local server (downloads if needed)
     hipcortex status            # check server health
 """
@@ -101,8 +102,10 @@ def _skill_dir() -> Path:
     return Path.home() / ".claude" / "skills" / "hipcortex"
 
 
-def _install_claude_code(server_url: str) -> bool:
-    """Write SKILL.md + append to CLAUDE.md. Returns True on success."""
+def _install_claude_code(server_url: str, mode: str = "conservative") -> bool:
+    """Write SKILL.md + append to CLAUDE.md. Returns True on success.
+    Supports --mode proactive (uses substrate-first template + harness registration).
+    """
     claude_dir = Path.home() / ".claude"
     if not claude_dir.exists():
         return False  # Claude Code not installed
@@ -115,14 +118,28 @@ def _install_claude_code(server_url: str) -> bool:
     # Read template and substitute server URL
     content = skill_md_src.read_text(encoding="utf-8")
     content = content.replace("http://localhost:3030", server_url)
+    # If proactive, ensure the (now substrate-first) content; modify for emphasis if needed (minimal)
+    if mode == "proactive":
+        # Ensure key harness language is present (source is proactive base; this guards)
+        if "MUST: Before any question" not in content:
+            content = content.replace(
+                "Invoke HipCortex when the user asks you to:",
+                "You are a memory-centric agent. MUST search/get_live_beliefs first (substrate for state/hyp/pred); LLM only final/creative hyp.",
+            )
     (skill_dir / "SKILL.md").write_text(content, encoding="utf-8")
 
-    # Append registration to CLAUDE.md if not already present
+    # Append registration to CLAUDE.md if not already present (update for proactive)
     claude_md = claude_dir / "CLAUDE.md"
     existing = claude_md.read_text(encoding="utf-8") if claude_md.exists() else ""
     if "hipcortex" not in existing:
+        reg = _CLAUDE_REGISTRATION
+        if mode == "proactive":
+            reg = reg.replace(
+                "Persistent memory for AI agents",
+                "Proactive substrate-first memory (Claude Agent Harness) for AI agents. MUST search/get_live_beliefs first; use substrate for state/hyp/pred; LLM only final or creative hyp",
+            )
         with claude_md.open("a", encoding="utf-8") as f:
-            f.write(_CLAUDE_REGISTRATION)
+            f.write(reg)
 
     return True
 
@@ -812,6 +829,13 @@ def cmd_install(args: argparse.Namespace) -> None:
     # ── 3. Agent selection ────────────────────────────────────────────────────
     agents = _build_agent_registry(server_url, sys.executable)
 
+    # Support --mode proactive for claude (surgical: patch claude fn only; other fns unchanged)
+    mode = getattr(args, "mode", "conservative")
+    for a in agents:
+        if a.get("id") == "claude-code":
+            a["fn"] = lambda: (_install_claude_code(server_url, mode), "~/.claude/skills/hipcortex/")
+            break
+
     yes_all = getattr(args, "yes", False)
     if yes_all:
         # Non-interactive: configure all auto-configurable agents
@@ -1263,6 +1287,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_install.add_argument("--url", help=f"Use an existing server instead of local binary (e.g. {MANAGED_URL})")
     p_install.add_argument("--force", action="store_true", help="Re-download binary even if it exists")
     p_install.add_argument("--yes", "-y", action="store_true", help="Non-interactive: configure all supported agents")
+    p_install.add_argument("--mode", choices=["conservative", "proactive"], default="conservative", help="SKILL policy: conservative (explicit) or proactive (substrate-first harness; MUST search/get_live_beliefs first)")
 
     # start
     p_start = sub.add_parser("start", help="Start the local HipCortex server")

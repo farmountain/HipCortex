@@ -637,6 +637,19 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         })
     };
 
+    // Unified live beliefs (symbolic + hyp + world + coherence/self) — surgical per agent-substrate-autonomy
+    let live_beliefs_route = {
+        let ms = memory_store.clone();
+        let ss = symbolic_store.clone();
+        let wm = world_model.clone();
+        let au = aureus.clone();
+        let sm = self_model_arc.clone();
+        let cc = coherence_arc.clone();
+        get(move |Query(p): Query<LiveBeliefsParams>| async move {
+            handle_memory_live_beliefs(ms, ss, wm, au, sm, cc, Query(p)).await
+        })
+    };
+
     let metrics_route = {
         let store = memory_store.clone();
         get(move || { let s = store.clone(); async move { handle_prometheus_metrics(s).await } })
@@ -755,6 +768,7 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         .route("/memory/corroborate/:id", corroborate_route)
         .route("/memory/contradict/:id", contradict_route)
         .route("/memory/context", context_route)
+        .route("/memory/live_beliefs", live_beliefs_route)
         .route("/metrics", metrics_route)
         .route("/stats", stats_route)
         .route("/tier", get(handle_tier))
@@ -3066,6 +3080,16 @@ struct ContextRequest {
     format: Option<String>,  // "markdown" (default) | "plain" | "xml"
 }
 
+/// GET /memory/live_beliefs?actor=&limit= — unified beliefs surface per unified-beliefs-surface spec.
+/// Merges symbolic facts (incl. graph search / code KG) + current hypotheses (from Aureus/HypGraph) +
+/// world state/preds + intel (self health, coherence, pinned) using existing queries/stores. Simple impl.
+#[cfg(feature = "web-server")]
+#[derive(serde::Deserialize)]
+struct LiveBeliefsParams {
+    actor: Option<String>,
+    limit: Option<usize>,
+}
+
 #[cfg(feature = "web-server")]
 #[derive(serde::Serialize)]
 struct ContextResponse {
@@ -3125,6 +3149,136 @@ async fn handle_memory_context<B: MemoryBackend + Send + Sync + 'static>(
             context: format!("Error: {}", e), record_count: 0, estimated_tokens: 0,
         }))),
     }
+}
+
+/// GET /memory/live_beliefs — unified live beliefs surface (surgical, simple queries on existing stores).
+/// Merges: symbolic_facts (from export + graph search style for code KG), current_hypotheses (Aureus top_hypotheses),
+/// world_state (states/entities/transitions), intel (self health + coherence + pinned memories).
+/// Actor scoped, limited. Used as default first call in proactive harness (see benchmarks + spec).
+#[cfg(feature = "web-server")]
+async fn handle_memory_live_beliefs<B: MemoryBackend + Send + Sync + 'static>(
+    memory_store: Arc<Mutex<MemoryStore<B>>>,
+    symbolic_store: Arc<Mutex<SymbolicStore<InMemoryGraph>>>,
+    world_model: Arc<RwLock<WorldModelEnhanced>>,
+    aureus: Arc<Mutex<AureusBridge>>,
+    self_model: Arc<SelfModel>,
+    coherence: Arc<CoherenceChecker>,
+    Query(params): Query<LiveBeliefsParams>,
+) -> Json<serde_json::Value> {
+    let limit = params.limit.unwrap_or(5).min(20);
+    let actor = params.actor.clone();
+
+    // 1. Symbolic facts (reuse export_graph logic from handle_graph_search / graph routes)
+    let symbolic_facts = match symbolic_store.lock() {
+        Ok(ss) => {
+            let (all_nodes, all_edges) = ss.export_graph();
+            let node_count = all_nodes.len();
+            let edge_count = all_edges.len();
+            let limited_nodes: Vec<_> = all_nodes.into_iter().take(limit).map(|n| serde_json::json!({
+                "id": n.id.to_string(),
+                "label": n.label,
+                "properties": n.properties,
+            })).collect();
+            let limited_edges: Vec<_> = all_edges.into_iter().take(limit).map(|e| serde_json::json!({
+                "from": e.from.to_string(),
+                "to": e.to.to_string(),
+                "relation": e.relation,
+            })).collect();
+            serde_json::json!({ "nodes": limited_nodes, "edges": limited_edges, "total_nodes": node_count, "total_edges": edge_count })
+        }
+        Err(_) => serde_json::json!({ "nodes": [], "edges": [], "error": "lock" }),
+    };
+    // code KG enhancement (per unified-beliefs-surface spec + tasks 2.3): include search_code style facts for symbols/files
+    let code_facts: Vec<_> = match symbolic_store.lock() {
+        Ok(ss) => {
+            let (all_nodes, _) = ss.export_graph();
+            all_nodes.into_iter().filter(|n| n.label.contains("::") || n.label.ends_with(".rs") || n.properties.get("kind").map_or(false, |k| matches!(k.as_str(), Some("function") | Some("struct") | Some("module")))).take(5).map(|n| serde_json::json!({"id": n.id.to_string(), "label": n.label, "props": n.properties})).collect()
+        }
+        _ => vec![],
+    };
+
+    // 2. Current hypotheses (direct from AureusBridge existing query)
+    let current_hypotheses = match aureus.lock() {
+        Ok(au) => {
+            let hyps = au.top_hypotheses(limit);
+            let items: Vec<_> = hyps.into_iter().map(|h| serde_json::json!({
+                "text": h.text,
+                "confidence": h.confidence,
+                "evidence": h.evidence,
+            })).collect();
+            serde_json::json!({ "top": items, "count": au.hypothesis_count(), "loops": au.loops_run() })
+        }
+        Err(e) => serde_json::json!({ "top": [], "error": format!("lock: {}", e) }),
+    };
+
+    // 3. World state/preds (using existing WorldModelEnhanced queries like handle_*)
+    let world_state = match world_model.read() {
+        Ok(wm) => {
+            let states = wm.get_states();
+            let ents = wm.list_entities().unwrap_or_default();
+            let trans = wm.transition_count();
+            serde_json::json!({
+                "states": states,
+                "tracked_entities": ents.len(),
+                "total_transitions": trans,
+                "sample_entities": ents.into_iter().take(3).collect::<Vec<_>>(),
+            })
+        }
+        Err(e) => serde_json::json!({ "error": format!("lock: {}", e) }),
+    };
+
+    // 4. Intel: self + coherence + pinned (pinned from memory like other queries)
+    let intel_self = match self_model.is_healthy() {
+        Ok(h) => serde_json::json!({ "healthy": h }),
+        Err(e) => serde_json::json!({ "healthy": false, "error": e }),
+    };
+    let intel_coherence = match coherence.check_consistency() {
+        Ok(reps) => serde_json::json!({ "inconsistencies": reps.len() }),
+        Err(e) => serde_json::json!({ "inconsistencies": 0, "error": e }),
+    };
+    let pinned = match memory_store.lock() {
+        Ok(ms) => {
+            let all = ms.all();
+            let filtered: Vec<_> = all.into_iter().filter(|r| {
+                r.priority == "pinned" && actor.as_ref().map_or(true, |a| &r.actor == a)
+            }).take(limit).map(|r| serde_json::json!({
+                "id": r.id.to_string(),
+                "action": r.action,
+                "target": r.target,
+                "confidence": r.confidence,
+            })).collect();
+            filtered
+        }
+        Err(_) => vec![],
+    };
+
+    let summary = format!(
+        "Live beliefs: {} symbolic nodes/edges, {} hyps ({} loops), {} world states, self={}, coherence_incons={}, pinned={}",
+        // simplistic counts
+        symbolic_facts.get("nodes").and_then(|v| v.as_array().map(|a| a.len())).unwrap_or(0),
+        current_hypotheses.get("top").and_then(|v| v.as_array().map(|a| a.len())).unwrap_or(0),
+        current_hypotheses.get("loops").and_then(|v| v.as_u64()).unwrap_or(0),
+        world_state.get("states").and_then(|v| v.as_array().map(|a| a.len())).unwrap_or(0),
+        intel_self.get("healthy").and_then(|v| v.as_bool()).unwrap_or(false),
+        intel_coherence.get("inconsistencies").and_then(|v| v.as_u64()).unwrap_or(0),
+        pinned.len()
+    );
+
+    Json(serde_json::json!({
+        "symbolic_facts": symbolic_facts,
+        "code_facts": code_facts,
+        "current_hypotheses": current_hypotheses,
+        "world_state": world_state,
+        "intel": {
+            "self": intel_self,
+            "coherence": intel_coherence,
+            "pinned_memories": pinned,
+        },
+        "summary": summary,
+        "actor": actor,
+        "limit": limit,
+        "source": "unified /memory/live_beliefs (existing stores, no new persistence)",
+    }))
 }
 
 // ── G5/G6: WorldModel state introspection REST ────────────────────────────────

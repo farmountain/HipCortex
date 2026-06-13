@@ -85,6 +85,26 @@ def test_install_cursor_writes_mcp_json(tmp_path):
     assert config["mcpServers"]["hipcortex"]["env"]["HIPCORTEX_URL"] == "http://localhost:3030"
 
 
+def test_install_claude_code_proactive_mode_writes_harness(tmp_path):
+    """--mode proactive writes substrate-first SKILL with MUST + Harness and updates CLAUDE reg."""
+    home = _make_fake_home(tmp_path)
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import _install_claude_code
+        result = _install_claude_code("http://localhost:3030", mode="proactive")
+
+    assert result is True
+    skill_file = home / ".claude" / "skills" / "hipcortex" / "SKILL.md"
+    content = skill_file.read_text(encoding="utf-8")
+    assert "You are a memory-centric agent" in content
+    assert "MUST: Before any question involving project state" in content
+    assert "Harness: Action space = MCP tools" in content
+    assert "80-99%+ reduction" in content
+
+    claude_md = home / ".claude" / "CLAUDE.md"
+    reg = claude_md.read_text(encoding="utf-8")
+    assert "Proactive substrate-first memory (Claude Agent Harness)" in reg or "MUST search/get_live_beliefs" in reg
+
+
 def test_install_cursor_merges_existing_config(tmp_path):
     """install_cursor preserves existing mcpServers entries."""
     project_dir = tmp_path / "project"
