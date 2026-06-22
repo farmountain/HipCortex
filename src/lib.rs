@@ -90,6 +90,8 @@ pub mod world_model_client;
 pub mod self_model;
 #[path = "modules/world_model_enhanced/mod.rs"]
 pub mod world_model_enhanced;
+#[path = "modules/topological_memory/mod.rs"]  // ADD
+pub mod topological_memory;
 #[path = "modules/coherence/mod.rs"]
 pub mod coherence;
 #[path = "modules/health_reporter.rs"]

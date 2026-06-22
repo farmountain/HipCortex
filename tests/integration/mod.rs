@@ -45,3 +45,5 @@ mod web_server_gaps_sit;
 #[cfg(feature = "web-server")]
 mod intelligence_wiring_sit;
 mod intelligence_uat;
+
+mod topological_substrate_tests;
