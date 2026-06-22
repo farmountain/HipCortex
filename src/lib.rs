@@ -92,6 +92,8 @@ pub mod self_model;
 pub mod world_model_enhanced;
 #[path = "modules/topological_memory/mod.rs"]  // ADD
 pub mod topological_memory;
+#[path = "modules/loop_engine.rs"]
+pub mod loop_engine;
 #[path = "modules/coherence/mod.rs"]
 pub mod coherence;
 #[path = "modules/health_reporter.rs"]
