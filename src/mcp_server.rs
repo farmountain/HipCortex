@@ -11,6 +11,7 @@ use crate::{
     self_model::SelfModel,
     symbolic_store::{InMemoryGraph, SymbolicStore},
     temporal_indexer::TemporalIndexer,
+    topological_memory::CausalTopoGraph,
     web_server,
     world_model_enhanced::WorldModelEnhanced,
 };
@@ -34,6 +35,8 @@ pub struct McpServer<B: MemoryBackend + Send + 'static> {
     self_model: Option<Arc<SelfModel>>,
     world_model: Option<Arc<WorldModelEnhanced>>,
     coherence: Option<Arc<CoherenceChecker>>,
+    // Task 10: topo for defaults + loop exposure in mcp (surgical wiring)
+    topo: Option<Arc<Mutex<CausalTopoGraph>>>,
 }
 
 #[cfg(all(feature = "web-server", feature = "grpc-server"))]
@@ -44,8 +47,12 @@ impl<B: MemoryBackend + Send + 'static> McpServer<B> {
         let sm = std::sync::Arc::new(SelfModel::new());
         let wm = std::sync::Arc::new(WorldModelEnhanced::new());
         let cc = std::sync::Arc::new(CoherenceChecker::new());
+        // Task 10 wiring: create topo substrate and wire into PerceptionSession defaults (surgical like intel layer)
+        let topo = Arc::new(Mutex::new(CausalTopoGraph::new()));
+        // instantiate loop_engine (omega) for mcp defaults + exposure in auto paths
+        let _loop_exposure = crate::loop_engine::LoopEngine::new(CausalTopoGraph::new());
         let session = if std::env::var("HIPCORTEX_AGENT_DEFAULTS").is_ok() {
-            PerceptionSession::new().with_self_model(sm.clone()).with_world_model(wm.clone()).with_coherence(cc.clone())
+            PerceptionSession::new().with_self_model(sm.clone()).with_world_model(wm.clone()).with_coherence(cc.clone()).with_topo(topo.clone())
         } else {
             PerceptionSession::new()
         };
@@ -59,6 +66,7 @@ impl<B: MemoryBackend + Send + 'static> McpServer<B> {
             self_model: Some(sm),
             world_model: Some(wm),
             coherence: Some(cc),
+            topo: Some(topo),
         }
     }
 

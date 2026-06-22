@@ -94,6 +94,9 @@ pub mod world_model_enhanced;
 pub mod topological_memory;
 #[path = "modules/loop_engine.rs"]
 pub mod loop_engine;
+// Reexports for mcp/integration + auto paths exposure (Task 10 wiring)
+pub use topological_memory::{CausalTopoGraph, EdgeType};
+pub use loop_engine::LoopEngine;
 #[path = "modules/coherence/mod.rs"]
 pub mod coherence;
 #[path = "modules/health_reporter.rs"]

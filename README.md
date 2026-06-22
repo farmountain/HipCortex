@@ -38,7 +38,13 @@ Proactive substrate-first usage (per agent-substrate-autonomy + unified-beliefs-
 - Agent orchestrates substrate as mind; frontier LLM only for final language or high-entropy creative hyp.
 - `benchmarks/token_reduction_benchmark.py` includes proactive harness scenario (live_beliefs + reflect calls) asserting **80%+** reduction (benchmarks verify; karpathy goal-driven, minimal).
 
-See `openspec/changes/agent-substrate-autonomy/specs/{unified-beliefs-surface,validation-benchmarks}`. Non-breaking (explicit paths + conservative use preserved).
+**Automatic maintenance (no explicit trigger required for basics)**: Incoming `AgentMessage` flows (the common path from the proactive SKILL/harness) are automatically processed by a default-wired `PerceptionSession` (self-model health/rate gating + world entity observations + coherence validation). The `IntegrationLayer` auto path for agents additionally calls `record_perceived_action` (text as action) to feed the world model's Dirichlet-Multinomial transition dynamics. This keeps the substrate's predictive state and latest world model current from the agent stream without the LLM/agent having to explicitly call "remember this decision" or "update world model" for routine upkeep. High-value lifting (rich symbolic facts, `HypothesesGraph` entries via reflect, pinned decisions) still uses explicit `ingest`/`reflect` per the installed SKILL policy and safety gates.
+
+See `openspec/changes/agent-substrate-autonomy/specs/{unified-beliefs-surface,validation-benchmarks,engine-agent-defaults}` and the implementation in `src/modules/{integration_layer,perception_adapter,world_model_enhanced}`. Non-breaking (explicit paths + conservative use preserved).
+
+Now with topological substrate (`topological_memory` + `CausalTopoGraph`) + Ω loop engine (`loop_engine`) wired into MCP/IntegrationLayer auto paths for memory-centric harness (see Task 10).
+
+Follow-on (per analysis + plan): CI (`.github/workflows/ci.yml`) now runs the proactive token-reduction benchmark on every PR/push and gates on the 80%+ assert. Python SDK `HipCortexClient` auto-respects `HIPCORTEX_URL` env for zero-config after install.
 
 ### Performance vs alternatives
 

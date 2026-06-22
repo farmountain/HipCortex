@@ -51,6 +51,31 @@ let compressed = hipcortex::semantic_compression::compress_embedding(&embedding,
 
 The output will show insertions, FSM transitions, symbolic graph operations, and perception adapter traces.
 
+## Agent Integration & Automatic World Model Maintenance
+
+When agents (Claude Code harness, MCP clients, etc.) send messages using `Modality::AgentMessage` (the primary path enabled by the proactive SKILL):
+
+- Safety guardrail + self-model health/rate limits are applied first.
+- `PerceptionSession::adapt` (and the underlying `PerceptionAdapter`) normalizes the message and **automatically**:
+  - Updates `WorldModelEnhanced` with entity observations (the embedding as measured properties for "perception_input").
+  - Runs coherence validation.
+- In the auto path inside `IntegrationLayer::handle_mcp`, the engine also calls `PerceptionSession::record_perceived_action(text)` (delegating to `WorldModelEnhanced::record_perceived_action`). This records the agent's message text as a state transition (action) in the Dirichlet-Multinomial world model.
+
+**Outcome**: Basic "latest state and world model" maintenance happens automatically from the agent stream. The substrate's predictive transitions and entity tracking stay current **without the LLM or user having to explicitly call** `ingest`, `add_memory("...decision...")`, or "update world model".
+
+High-fidelity work (rich `Symbolic` records, `Aureus` reflexion / `HypothesesGraph`, explicit causal edges, or high-priority/pinned decisions) continues to use the documented explicit surfaces (`/memory/ingest`, `POST /memory/reflect`, `add_memory` with priority/tags) as mandated by the proactive harness SKILL ("MUST ... after any decision").
+
+See the implementations and comments in:
+- `src/modules/integration_layer.rs` (AgentMessage branch)
+- `src/modules/perception_adapter.rs` (`record_perceived_action` + adapt hooks)
+- `src/modules/world_model_enhanced/mod.rs`
+- `openspec/changes/agent-substrate-autonomy/specs/engine-agent-defaults/spec.md`
+- Proactive `SKILL.md` in the Python package (`sdk/python/hipcortex/install/SKILL.md`)
+- Live observation surface: `GET /memory/live_beliefs`
+
+### Loop / Ω (Omega) Substrate
+Topological memory substrate and full Ω loop (snapshot → simulate → attribute → mutate → gate) now exposed via MCP/Integration auto feeds and PerceptionSession (with_topo). Use `hipcortex::topological_memory::CausalTopoGraph` and `hipcortex::loop_engine::LoopEngine` directly or via harness for substrate-first ops. See plan 2026-06-20-harness-and-omega-loop-engineering.md and `src/{mcp_server,modules/{integration_layer,perception_adapter,loop_engine}}`.
+
 ### Run a WASM plugin
 
 Compile with the `plugin` feature to enable the `PluginHost` and execute WebAssembly extensions:

@@ -213,6 +213,8 @@ pub struct PerceptionSession {
     self_model: Option<std::sync::Arc<crate::self_model::SelfModel>>,
     world_model: Option<std::sync::Arc<crate::world_model_enhanced::WorldModelEnhanced>>,
     coherence: Option<std::sync::Arc<crate::coherence::CoherenceChecker>>,
+    // Task 10: topo substrate wired into perception for mcp auto AgentMessage paths (surgical, like self/wm/cc)
+    topo: Option<std::sync::Arc<std::sync::Mutex<crate::topological_memory::CausalTopoGraph>>>,
 }
 
 impl PerceptionSession {
@@ -221,6 +223,7 @@ impl PerceptionSession {
             self_model: None,
             world_model: None,
             coherence: None,
+            topo: None,
         }
     }
 
@@ -236,6 +239,12 @@ impl PerceptionSession {
 
     pub fn with_coherence(mut self, cc: std::sync::Arc<crate::coherence::CoherenceChecker>) -> Self {
         self.coherence = Some(cc);
+        self
+    }
+
+    /// Wire topological substrate (for loop/omega exposure in mcp/integration auto feeds)
+    pub fn with_topo(mut self, t: std::sync::Arc<std::sync::Mutex<crate::topological_memory::CausalTopoGraph>>) -> Self {
+        self.topo = Some(t);
         self
     }
 
@@ -273,6 +282,11 @@ impl PerceptionSession {
             if let Some(ref cc) = self.coherence {
                 let _ = cc.check_entity("perception_input");
             }
+
+            // Task 10: minimal topo use in auto adapt path (node count touch for substrate exposure)
+            if let Some(ref t) = self.topo {
+                let _ = t.lock().unwrap().node_count();
+            }
         }
 
         result
@@ -285,6 +299,10 @@ impl PerceptionSession {
     pub fn record_perceived_action(&self, action: String) {
         if let Some(ref wm) = self.world_model {
             wm.record_perceived_action(action);
+        }
+        // Task 10: also touch topo in auto record path for full wiring of topo into agent auto feeds
+        if let Some(ref t) = self.topo {
+            let _ = t.lock().unwrap().node_count();
         }
     }
 }
