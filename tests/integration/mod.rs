@@ -47,3 +47,4 @@ mod intelligence_wiring_sit;
 mod intelligence_uat;
 
 mod topological_substrate_tests;
+mod omega_loop_auditable_tests;
