@@ -1,6 +1,8 @@
 use petgraph::graph::{DiGraph, NodeIndex};
 use std::collections::{HashMap, HashSet, VecDeque};
 
+use nalgebra::DVector;
+
 #[derive(Clone, Debug)]
 pub struct TopoNode {
     pub symbolic_id: String,
@@ -180,5 +182,131 @@ impl CausalTopoGraph {
         }
 
         sub
+    }
+
+    /// Personalized PageRank using iterative method with nalgebra::DVector.
+    /// Seeds receive initial preference mass. Damping default 0.85.
+    /// Returns normalized ranks by symbolic id.
+    pub fn personalized_pagerank(&self, seeds: &[String], damping: f32, max_iter: usize) -> HashMap<String, f32> {
+        let n = self.graph.node_count();
+        if n == 0 {
+            return HashMap::new();
+        }
+        let mut node_list: Vec<String> = self.id_map.keys().cloned().collect();
+        node_list.sort();
+        let idx_of: HashMap<String, usize> = node_list.iter().enumerate().map(|(i, s)| (s.clone(), i)).collect();
+
+        let mut pref = vec![0.0f32; n];
+        let num_seeds = seeds.len().max(1) as f32;
+        for s in seeds {
+            if let Some(&pos) = idx_of.get(s) {
+                pref[pos] = 1.0 / num_seeds;
+            }
+        }
+        let mut rank: DVector<f32> = DVector::from_vec(pref.clone());
+
+        // out degrees for normalization
+        let mut out_deg: Vec<f32> = vec![0.0; n];
+        for (i, nid) in node_list.iter().enumerate() {
+            if let Some(&gidx) = self.id_map.get(nid) {
+                out_deg[i] = self.graph.neighbors(gidx).count() as f32;
+            }
+        }
+
+        let d = damping.clamp(0.0, 0.99);
+        for _ in 0..max_iter {
+            let mut new_r = DVector::<f32>::zeros(n);
+            for (i, nid) in node_list.iter().enumerate() {
+                if let Some(&gidx) = self.id_map.get(nid) {
+                    let mut sum_in = 0.0f32;
+                    for in_idx in self.graph.neighbors_directed(gidx, petgraph::Direction::Incoming) {
+                        if let Some(in_node) = self.graph.node_weight(in_idx) {
+                            if let Some(&src_pos) = idx_of.get(&in_node.symbolic_id) {
+                                if out_deg[src_pos] > 0.0 {
+                                    sum_in += rank[src_pos] / out_deg[src_pos];
+                                }
+                            }
+                        }
+                    }
+                    new_r[i] = d * sum_in + (1.0 - d) * pref[i];
+                }
+            }
+            // normalize to keep stable
+            let tot: f32 = new_r.iter().sum();
+            if tot > 1e-9 {
+                new_r /= tot;
+            }
+            rank = new_r;
+        }
+
+        let mut res: HashMap<String, f32> = HashMap::new();
+        for (i, nid) in node_list.iter().enumerate() {
+            res.insert(nid.clone(), rank[i]);
+        }
+        res
+    }
+
+    /// Find all simple multi-hop paths from -> to with at most max_hops hops (DFS, no cycles in path).
+    pub fn find_multi_hop_paths(&self, from: &str, to: &str, max_hops: usize) -> Vec<Vec<String>> {
+        let mut res: Vec<Vec<String>> = vec![];
+        if !self.id_map.contains_key(from) || !self.id_map.contains_key(to) {
+            return res;
+        }
+        fn dfs(
+            g: &CausalTopoGraph,
+            curr: &str,
+            target: &str,
+            rem_hops: usize,
+            path: &mut Vec<String>,
+            out: &mut Vec<Vec<String>>,
+        ) {
+            if rem_hops == 0 {
+                return;
+            }
+            if curr == target && path.len() > 1 {
+                out.push(path.clone());
+                return;
+            }
+            if let Some(&idx) = g.id_map.get(curr) {
+                for neigh in g.graph.neighbors(idx) {
+                    if let Some(nw) = g.graph.node_weight(neigh) {
+                        let nid = nw.symbolic_id.clone();
+                        if !path.contains(&nid) {
+                            path.push(nid.clone());
+                            dfs(g, &nid, target, rem_hops - 1, path, out);
+                            path.pop();
+                        }
+                    }
+                }
+            }
+        }
+        let mut start_path = vec![from.to_string()];
+        dfs(self, from, to, max_hops, &mut start_path, &mut res);
+        res
+    }
+
+    /// Detect if adding (new_from -> new_to, et) would create a contradiction:
+    /// - self-loop or would introduce cycle
+    /// - or reverse high-strength Causal edge exists
+    pub fn detect_contradiction(&self, new_from: String, new_to: String, et: EdgeType) -> bool {
+        if new_from == new_to {
+            return true;
+        }
+        // would create cycle if path new_to -> ... -> new_from already
+        if self.has_path(&new_to, &new_from) {
+            return true;
+        }
+        // reverse high strength causal conflict (common case)
+        if let (Some(&fidx), Some(&tidx)) = (self.id_map.get(&new_from), self.id_map.get(&new_to)) {
+            if let Some(eidx) = self.graph.find_edge(tidx, fidx) {
+                if let Some(e) = self.graph.edge_weight(eidx) {
+                    if matches!(e.edge_type, EdgeType::Causal) && et == EdgeType::Causal && e.strength > 0.5 && e.confidence > 0.5 {
+                        return true;
+                    }
+                }
+            }
+        }
+        // same pair different type could be added but YAGNI for MVP
+        false
     }
 }
