@@ -10,19 +10,23 @@ MUST: Before any question involving project state, architecture, decisions, bugs
 
 MUST: After any decision, architectural discussion, bug fix, or important finding, use /memory/ingest or add_memory (or reflect for CoT).
 
-Use worldmodel/*, self/*, coherence/* as reasoning primitives (predict, health, invariants).
+Use worldmodel/*, self/*, coherence/* as reasoning primitives (predict, health, invariants). Use loop/omega primitives for topo reasoning, simulation, attribution, sparse mutation, and error-driven updates (after surprise signals).
 
-LLM (you) only for final natural language output or creative hypothesis generation when substrate signals high entropy/uncertainty (via reflect or explicit). Offload state, beliefs, prediction, consistency to substrate.
+LLM (you) only for final natural language output or creative hypothesis generation when substrate signals high entropy/uncertainty (via reflect or explicit). Offload state, beliefs, prediction, consistency to substrate. Harness enforces substrate-first (topo + loop for 80-99%+ reduction).
 
-Harness: Action space = MCP tools (/memory/*, /hipcortex) + REST equivalents. Observations = live_beliefs (merged symbolic + hyp + world + intel), context, hyp updates. Goal: maximize substrate use for completion; minimize frontier LLM context/effort (target 80-99%+ reduction per benchmarks).
+Harness: Action space = MCP tools (/memory/*, /hipcortex, loop/*, omega/*) + REST equivalents. Observations = live_beliefs (merged symbolic + hyp + world + intel + topo attributions), context, hyp updates. Goal: maximize substrate use for completion (loop/omega for attribution + topo sim + sparse updates); minimize frontier LLM context/effort (target 80-99%+ reduction per benchmarks).
 
 Explicit/conservative paths remain fully supported for compatibility and overrides (e.g. direct `/hipcortex` or user "remember this").
 
 ## Harness few-shot examples (for compliance)
 - User: "What DB decision did we make?" → MUST first call search_memory or get_live_beliefs(query="DB decision") → use substrate facts → answer.
 - After deciding "use Postgres for X" → call /memory/ingest {"text": "decided to use Postgres for X", "actor": "project"} (or add_memory).
-- Uncertainty on arch → POST /memory/reflect "Postgres vs RocksDB?" (substrate CoT + WM) → then minimal final language.
-- Multi-turn agent: perceive → live_beliefs first (observations) → ingest decision → minimal LLM only.
+- Uncertainty on arch → POST /memory/reflect "Postgres vs RocksDB?" (substrate CoT + WM) → then use loop/omega for attribution + mutation before minimal final language.
+- After error/surprise in decision → use omega primitives or loop for topo sim + Bayesian attribution on substrate (see plan: "use loop for attribution", "after error use omega primitives") → sparse update, then reflect/ingest.
+- Multi-turn agent: perceive → live_beliefs first (observations) → ingest decision → use loop for attribution if high surprise → minimal LLM only.
+
+## Loop/Omega integration
+After high surprise (from loop_engine error signal or coherence), MUST call loop primitives (e.g. /memory/loop or reflect + topo) or omega primitives to use topo substrate for attribution + mutation + simulation. Reference plan: harness now drives topo reasoning + sim + attr for full substrate policy. LLM only on remaining high-entropy creative hyp. Use loop for attribution after errors; omega for full cycle sims. Conservative explicit paths (direct ingest) remain supported.
 
 ## How to use
 
