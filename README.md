@@ -9,7 +9,7 @@
 [![CI](https://github.com/farmountain/HipCortex/actions/workflows/ci.yml/badge.svg?branch=claude%2Fpedantic-edison-28b84c)](https://github.com/farmountain/HipCortex/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/hipcortex.svg)](https://pypi.org/project/hipcortex/)
-[![VS Code](https://img.shields.io/badge/VS%20Code-v0.1.6-blue.svg)](vscode-extension/)
+[![VS Code](https://img.shields.io/badge/VS%20Code-v0.3.0-blue.svg)](vscode-extension/)
 
 HipCortex is **not** a vector database, RAG pipeline, or chat history store.  
 It is a **recursive causal world-model memory engine** — the cognitive substrate AI agents need to remember, reason, and improve over time.
@@ -144,7 +144,7 @@ const { results } = await client.search({ query: "Hello", limit: 5 });
 | Pre-built binary | `curl -L <url> -o hipcortex && chmod +x hipcortex && ./hipcortex` |
 | Docker | `docker run -p 3030:3030 hipcortex:latest` |
 | Build from source | `cargo run --bin webserver --features "web-server,petgraph_backend"` |
-| VS Code extension | `code --install-extension hipcortex-memory-0.2.0.vsix` |
+| VS Code extension | `code --install-extension hipcortex-memory-0.3.0.vsix` |
 | MCP (Cursor/Claude/Windsurf) | `curl -fsSL <install.sh> | bash` |
 
 > Binary downloads: [GitHub Releases](https://github.com/farmountain/HipCortex/releases) · Docker: [Docker Hub](https://hub.docker.com) · VS Code: [Marketplace](https://marketplace.visualstudio.com) · MCP guide: [sdk/mcp/README.md](sdk/mcp/README.md)

@@ -1,6 +1,10 @@
 # 🧠 HipCortex VS Code Extension
 
-Direct integration between VS Code Copilot chat and HipCortex memory system.
+Direct integration between VS Code Copilot chat and HipCortex — the **executable causal topological memory substrate** for AI agents.
+
+HipCortex provides a persistent, self-updating world model with topological reasoning (PPR, Markov blankets, multi-hop paths), Ω Loop Engine for simulation/attribution/self-distillation, and proactive harness so the substrate acts as the primary "mind". LLM (Copilot) is used only as a narrow hypothesis generator for high-entropy cases.
+
+This extension surfaces the full power of the new substrate directly in Copilot chat and tools.
 
 ## 🚀 Installation
 
@@ -17,7 +21,7 @@ npm run compile
 ```bash
 npm install -g vsce
 vsce package
-code --install-extension hipcortex-memory-0.1.0.vsix
+code --install-extension hipcortex-memory-0.3.0.vsix
 ```
 
 ### 3. Start HipCortex API Server
@@ -65,18 +69,25 @@ Open VS Code Settings and search for "HipCortex":
 
 ## 🔧 Features
 
-### ✅ Implemented
-- ✅ REST API with memory operations
+### ✅ Core Integration
 - ✅ VS Code chat participant (@hipcortex)
+- ✅ Language Model Tools (hipcortex_search, hipcortex_health, hipcortex_predict, hipcortex_coherence)
 - ✅ Command palette integration
-- ✅ Input validation and sanitization
-- ✅ Authentication support (Bearer token)
 - ✅ Auto-start server functionality
 - ✅ Comprehensive error handling
 - ✅ Health check and status monitoring
 
+### 🧠 New Substrate Features (v0.3.0+)
+- **Topological Memory**: Hybrid graph with micro-embeddings, Personalized PageRank, Markov blanket localization, multi-hop causal paths (instead of simple vector search).
+- **Ω Loop Engine**: Transactional simulation, Bayesian attribution (topology/policy/utility), error-driven sparse updates, self-distillation of traces + strategies.
+- **Memory-Centric Harness**: Substrate as primary mind (live_beliefs, topo reasoning, predictions, coherence). LLM only for final language or creative hyp when entropy is high.
+- **Automatic Maintenance**: AgentMessage paths auto-feed world model + trigger loop updates.
+- **Epistemic Grounding**: Contradiction detection before integrating hypotheses.
+
 ### 🎨 Advanced Features
-- 🧠 **Natural language parsing** for memory commands
+- 🧠 **Topological reasoning** over persistent causal graph
+- 🔄 **Predictive simulation** and counterfactuals via world model + loop
+- 📉 **Measurable LLM reduction** (80-99%+ in benchmarks with proactive harness + loop)
 - 🔐 **Secure communication** with API authentication
 - 🚀 **Auto-recovery** - starts server if not running
 - 📊 **Rich formatting** - markdown responses in chat
@@ -125,13 +136,14 @@ Rich markdown display in VS Code
 - **Warm requests**: ~100-300ms
 - **Memory footprint**: ~10-20MB (extension)
 - **Network**: HTTP/1.1 with Keep-Alive
+- **Token savings**: 80-99%+ with proactive harness + Ω loop (see root benchmarks)
 
 ## 🛡️ Security
 
 - ✅ Input validation and sanitization
 - ✅ Bearer token authentication support
 - ✅ Timeout protection (3s for health checks)
-- ✅ Limited stored data (prompt truncated to 500 chars)
+- ✅ Full original prompt is stored in memory metadata (no artificial truncation; previously capped at 500 chars)
 - ✅ No sensitive data logged in debug mode
 
 ## 🎉 Success Metrics
@@ -141,3 +153,12 @@ Rich markdown display in VS Code
 - **Error Handling**: ✅ Graceful degradation
 - **User Experience**: ✅ Rich, interactive chat responses
 - **Reliability**: ✅ Auto-recovery and health monitoring
+
+## 🚀 v0.3.0+ New Capabilities (Powered by Topological Substrate + Ω Loop)
+
+- Use substrate for **topological reasoning** (PPR, causal paths, localized subgraphs) instead of raw history.
+- Trigger **Ω Loop** for simulation, Bayesian attribution, and sparse world-model updates.
+- Benefit from **automatic maintenance** and live beliefs — the extension now surfaces the full memory-centric architecture.
+- Expect **dramatically lower token usage** in long sessions.
+
+See the [main HipCortex README](https://github.com/farmountain/HipCortex/blob/main/README.md) and [implementation plan](https://github.com/farmountain/HipCortex/blob/main/docs/superpowers/plans/2026-06-20-harness-and-omega-loop-engineering.md) for full details on the topological substrate and Ω Loop.
