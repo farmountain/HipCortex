@@ -290,6 +290,18 @@ pub struct MemoryNeighborsResponse {
     pub incoming:     Vec<String>,
 }
 
+/// GET /memory/search/related — find memories related to a seed by Personalized PageRank.
+/// The seed must have been linked via POST /memory/link before it will appear in the graph.
+/// Returns an empty `related` array (not 404) if the seed has no graph edges yet.
+#[cfg(feature = "web-server")]
+#[derive(serde::Deserialize)]
+pub struct MemoryRelatedParams {
+    /// UUID of the seed MemoryRecord (bare UUID, no "mem-" prefix)
+    pub seed_id: String,
+    /// Max results (default 10, capped at 50)
+    pub limit: Option<usize>,
+}
+
 #[cfg(feature = "web-server")]
 #[derive(serde::Deserialize)]
 pub struct GraphSearchParams {
@@ -651,6 +663,13 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         })
     };
 
+    let memory_search_related_route: axum::routing::MethodRouter = {
+        let tg = topo_arc.clone();
+        get(move |Query(p): Query<MemoryRelatedParams>| async move {
+            handle_memory_search_related(tg, Query(p)).await
+        })
+    };
+
     let ingest_route = {
         let store = memory_store.clone();
         let wm = world_model.clone();
@@ -809,6 +828,7 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         .route("/memory/consolidate", consolidate_route)
         .route("/memory/link",            memory_link_route)
         .route("/memory/neighbors/:id",   memory_neighbors_route)
+        .route("/memory/search/related",  memory_search_related_route)
         .route("/memory/ingest", ingest_route)
         .route("/memory/quarantine/:id", quarantine_route)
         .route("/memory/restore/:id", restore_route)
@@ -2054,6 +2074,67 @@ async fn handle_memory_neighbors(
                 .map(|s| s.trim_start_matches("mem-").to_string())
                 .collect();
             Json(MemoryNeighborsResponse { id, neighbors, incoming })
+        }
+    }
+}
+
+/// GET /memory/search/related handler.
+///
+/// Runs PPR (α=0.85 fixed, 20 iterations) over the CausalTopoGraph rooted at
+/// "mem-{seed_id}". Strips the "mem-" prefix from results before returning.
+///
+/// α=0.85 is standard PageRank damping (15% restart probability). This value
+/// works well for graphs up to ~10K nodes. Expose as a query param in a future
+/// change if empirical evidence calls for a different default.
+#[cfg(feature = "web-server")]
+async fn handle_memory_search_related(
+    topo: Arc<Mutex<crate::topological_memory::CausalTopoGraph>>,
+    Query(params): Query<MemoryRelatedParams>,
+) -> Json<serde_json::Value> {
+    let limit    = params.limit.unwrap_or(10).min(50);
+    let seed_sym = format!("mem-{}", params.seed_id);
+
+    match topo.lock() {
+        Err(e) => Json(serde_json::json!({
+            "seed_id": params.seed_id,
+            "related": [],
+            "error":   format!("lock: {}", e),
+        })),
+        Ok(tg) => {
+            let raw = tg.ppr(&seed_sym, limit, 0.85, 20);
+
+            if raw.is_empty() {
+                // Distinguish "seed not in graph" from "seed has no reachable nodes"
+                // by checking whether the node exists at all (via neighbors probe).
+                let has_any_edge = !tg.get_neighbors(&seed_sym).is_empty()
+                    || !tg.get_incoming(&seed_sym).is_empty();
+                if !has_any_edge {
+                    return Json(serde_json::json!({
+                        "seed_id": params.seed_id,
+                        "related": [],
+                        "note":    "seed_id has no graph edges — link it first via POST /memory/link",
+                    }));
+                }
+            }
+
+            let related: Vec<serde_json::Value> = raw
+                .into_iter()
+                .map(|(sym_id, score)| {
+                    let id = sym_id.trim_start_matches("mem-").to_string();
+                    serde_json::json!({
+                        "id":    id,
+                        "score": (score * 1000.0).round() / 1000.0,
+                    })
+                })
+                .collect();
+
+            Json(serde_json::json!({
+                "seed_id":   params.seed_id,
+                "related":   related,
+                "limit":     limit,
+                "algorithm": "ppr",
+                "alpha":     0.85,
+            }))
         }
     }
 }

@@ -115,7 +115,8 @@ fn ppr_results_sorted_descending_by_score() {
 }
 
 #[test]
-fn ppr_mem_prefix_convention_strips_correctly() {
+fn ppr_with_mem_prefix_convention_strips_correctly() {
+    // Verifies that ppr() returns symbolic_ids as-is and the caller strips "mem-"
     let mut g = CausalTopoGraph::new();
     let from = "mem-00000000-0000-0000-0000-000000000001";
     let to   = "mem-00000000-0000-0000-0000-000000000002";
@@ -127,6 +128,7 @@ fn ppr_mem_prefix_convention_strips_correctly() {
 
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].0, to, "ppr returns full symbolic_id including mem- prefix");
+    // REST handler strips "mem-" — the convention check
     assert_eq!(
         results[0].0.trim_start_matches("mem-"),
         "00000000-0000-0000-0000-000000000002"
