@@ -1910,7 +1910,7 @@ async fn handle_delete_node(
 }
 
 /// POST /memory/consolidate — merge near-duplicate records for an actor.
-/// Keyword-similarity based dedup. ML-based dedup available in managed tier.
+/// Keyword-similarity based dedup. Executes deletes when dry_run=false (default).
 #[cfg(feature = "web-server")]
 async fn handle_consolidate<B: MemoryBackend + Send + Sync + 'static>(
     store: Arc<Mutex<MemoryStore<B>>>,
@@ -1920,48 +1920,73 @@ async fn handle_consolidate<B: MemoryBackend + Send + Sync + 'static>(
     let dry_run = params.dry_run.unwrap_or(false);
 
     match store.lock() {
-        Ok(ms) => {
-            let records = ms.all();
-            let candidates: Vec<_> = records.iter()
+        Err(e) => Json(serde_json::json!({"error": format!("Lock error: {}", e)})),
+        Ok(mut ms) => {
+            let records = ms.all().to_vec(); // clone to release borrow before mutations
+            let candidates: Vec<_> = records
+                .iter()
                 .filter(|r| params.actor.as_ref().map_or(true, |a| &r.actor == a))
                 .collect();
 
-            // Find pairs with keyword similarity above threshold
-            let mut merge_groups: Vec<(String, String, f64)> = Vec::new(); // (keep_id, drop_id, similarity)
+            // Find near-duplicate pairs by Jaccard token similarity on `.target`
+            let mut pairs: Vec<(String, String, u32)> = Vec::new(); // (keep_id, drop_id, pct)
+            let mut drop_set: std::collections::HashSet<String> = std::collections::HashSet::new();
             for i in 0..candidates.len() {
                 for j in (i + 1)..candidates.len() {
-                    let words_i: std::collections::HashSet<&str> = candidates[i].target.split_whitespace().collect();
-                    let words_j: std::collections::HashSet<&str> = candidates[j].target.split_whitespace().collect();
-                    if words_i.is_empty() || words_j.is_empty() { continue; }
+                    // Skip records already marked for dropping
+                    if drop_set.contains(&candidates[j].id.to_string()) {
+                        continue;
+                    }
+                    let words_i: std::collections::HashSet<&str> =
+                        candidates[i].target.split_whitespace().collect();
+                    let words_j: std::collections::HashSet<&str> =
+                        candidates[j].target.split_whitespace().collect();
+                    if words_i.is_empty() || words_j.is_empty() {
+                        continue;
+                    }
                     let intersection = words_i.intersection(&words_j).count();
-                    let sim = intersection as f64 / words_i.len().max(words_j.len()) as f64;
+                    let sim = intersection as f64
+                        / words_i.len().max(words_j.len()) as f64;
                     if sim >= threshold {
-                        // Keep the newer one (higher confidence wins)
+                        // Keep newer; drop older
                         let (keep, drop) = if candidates[i].timestamp >= candidates[j].timestamp {
                             (candidates[i].id.to_string(), candidates[j].id.to_string())
                         } else {
                             (candidates[j].id.to_string(), candidates[i].id.to_string())
                         };
-                        merge_groups.push((keep, drop, sim));
+                        drop_set.insert(drop.clone());
+                        pairs.push((keep, drop, (sim * 100.0) as u32));
+                    }
+                }
+            }
+
+            let found = pairs.len();
+            let mut deleted = 0usize;
+
+            if !dry_run && !pairs.is_empty() {
+                for (_, drop_id, _) in &pairs {
+                    if let Ok(uuid) = uuid::Uuid::parse_str(drop_id) {
+                        if ms.delete_by_id(uuid) {
+                            deleted += 1;
+                        }
                     }
                 }
             }
 
             Json(serde_json::json!({
-                "found_duplicates": merge_groups.len(),
+                "found_duplicates": found,
                 "dry_run": dry_run,
-                "pairs": merge_groups.iter().map(|(k, d, s)| serde_json::json!({
-                    "keep": k, "drop": d,
-                    "similarity": (s * 100.0) as u32
+                "deleted": deleted,
+                "pairs": pairs.iter().map(|(k, d, s)| serde_json::json!({
+                    "keep": k, "drop": d, "similarity_pct": s
                 })).collect::<Vec<_>>(),
                 "note": if dry_run {
-                    "Dry run — no changes made. Re-run without dry_run=true to consolidate."
+                    "Dry run — no changes made. Re-run without ?dry_run=true to execute."
                 } else {
-                    "ML-based consolidation available in managed tier. Keyword consolidation: use GDPR forget on 'drop' IDs listed above."
+                    "Duplicates deleted. Re-run with ?dry_run=true to preview without changes."
                 }
             }))
         }
-        Err(e) => Json(serde_json::json!({"error": format!("Lock error: {}", e)})),
     }
 }
 

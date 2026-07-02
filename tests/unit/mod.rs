@@ -42,3 +42,4 @@ mod vision_encoder_tests;
 mod world_model_export_tests;
 mod world_model_tests;
 mod memory_store_eviction_tests;
+mod memory_store_delete_tests;
