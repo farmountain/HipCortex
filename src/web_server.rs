@@ -401,6 +401,10 @@ pub struct QueryMemoryParams {
     as_of:    Option<String>,    // ISO 8601 timestamp — return records with timestamp <= as_of
     /// If "true", include quarantined records. Default: exclude quarantine.
     include_quarantined: Option<String>,
+    /// If "true", include records whose `expires_at` is in the past.
+    /// Default: exclude expired (consistent with /memory/query and /memory/search).
+    /// Use ?include_expired=true for full backup/migration exports.
+    include_expired: Option<String>,
 }
 
 #[cfg(feature = "web-server")]
@@ -1346,6 +1350,8 @@ async fn handle_search_memory<B: MemoryBackend + Send + Sync + 'static>(
 #[derive(Serialize)]
 struct StatsResponse {
     total_records: usize,
+    /// Records whose `expires_at` is None or in the future. Always ≤ total_records.
+    active_records: usize,
     by_type: HashMap<String, usize>,
     unique_actors: usize,
     metering_enabled: bool,
@@ -1370,8 +1376,11 @@ async fn handle_export_memory<B: MemoryBackend + Send + Sync + 'static>(
     match store.lock() {
         Ok(ms) => {
             let records = ms.all();
+            let now_ts = chrono::Utc::now().timestamp();
+            let include_expired = params.include_expired.as_deref() == Some("true");
             let filtered: Vec<_> = records.iter().filter(|r| {
                 params.actor.as_ref().map_or(true, |a| &r.actor == a)
+                    && (include_expired || r.expires_at.map_or(true, |exp| exp > now_ts))
             }).collect();
             let json_records: Vec<serde_json::Value> = filtered.iter().map(|r| {
                 serde_json::json!({
@@ -1409,19 +1418,24 @@ async fn handle_export_memory<B: MemoryBackend + Send + Sync + 'static>(
 async fn handle_stats<B: MemoryBackend + Send + Sync + 'static>(
     store: Arc<Mutex<MemoryStore<B>>>,
 ) -> Json<StatsResponse> {
-    let (total_records, by_type, unique_actors) = match store.lock() {
+    let (total_records, active_records, by_type, unique_actors) = match store.lock() {
         Ok(ms) => {
             let records = ms.all();
             let total = records.len();
+            let now_ts = chrono::Utc::now().timestamp();
+            let active = records
+                .iter()
+                .filter(|r| r.expires_at.map_or(true, |exp| exp > now_ts))
+                .count();
             let mut by_type: HashMap<String, usize> = HashMap::new();
             let mut actors: std::collections::HashSet<&str> = std::collections::HashSet::new();
             for r in records {
                 *by_type.entry(format!("{:?}", r.record_type)).or_insert(0) += 1;
                 actors.insert(&r.actor);
             }
-            (total, by_type, actors.len())
+            (total, active, by_type, actors.len())
         }
-        Err(_) => (0, HashMap::new(), 0),
+        Err(_) => (0, 0, HashMap::new(), 0),
     };
 
     let metering_enabled = !load_api_keys().is_empty();
@@ -1429,7 +1443,7 @@ async fn handle_stats<B: MemoryBackend + Send + Sync + 'static>(
         .map(|m| m.clone())
         .unwrap_or_default();
 
-    Json(StatsResponse { total_records, by_type, unique_actors, metering_enabled, tier_counts })
+    Json(StatsResponse { total_records, active_records, by_type, unique_actors, metering_enabled, tier_counts })
 }
 
 /// GET /pricing — static pricing page (HTML)
@@ -2058,9 +2072,11 @@ async fn handle_consolidate<B: MemoryBackend + Send + Sync + 'static>(
         Err(e) => Json(serde_json::json!({"error": format!("Lock error: {}", e)})),
         Ok(mut ms) => {
             let records = ms.all().to_vec(); // clone to release borrow before mutations
+            let now_ts_consolidate = chrono::Utc::now().timestamp();
             let candidates: Vec<_> = records
                 .iter()
                 .filter(|r| params.actor.as_ref().map_or(true, |a| &r.actor == a))
+                .filter(|r| r.expires_at.map_or(true, |exp| exp > now_ts_consolidate))
                 .collect();
 
             // Find near-duplicate pairs by Jaccard token similarity on `.target`
@@ -2970,11 +2986,12 @@ async fn handle_query_memory<B: MemoryBackend + Send + Sync + 'static>(
                 filtered_records.retain(|r| r.record_type == target_type);
             }
 
-            // Exclude records past their TTL
+            // Exclude records past their TTL (unless ?include_expired=true for debugging)
             let now_ts = chrono::Utc::now().timestamp();
-            filtered_records.retain(|r| {
-                r.expires_at.map_or(true, |exp| exp > now_ts)
-            });
+            let include_expired = params.include_expired.as_deref() == Some("true");
+            if !include_expired {
+                filtered_records.retain(|r| r.expires_at.map_or(true, |exp| exp > now_ts));
+            }
 
             // Filter by tags (any match)
             if let Some(tags_str) = &params.tags {
