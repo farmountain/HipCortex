@@ -56,6 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         aureus: Arc::new(Mutex::new(AureusBridge::new())),
         self_model,
         coherence: Arc::new(CoherenceChecker::new()),
+        topo_graph: Arc::new(Mutex::new(hipcortex::topological_memory::CausalTopoGraph::new())),
     };
 
     // ── Periodic WorldModel flush every 5 minutes ────────────────────────────

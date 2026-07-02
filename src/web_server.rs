@@ -131,6 +131,8 @@ pub struct AppState<B: MemoryBackend + Send + Sync + 'static> {
     pub self_model:     Arc<SelfModel>,
     /// Cross-module consistency checker — persistent, not recreated per request
     pub coherence:      Arc<CoherenceChecker>,
+    /// Memory-to-memory relational graph. Nodes use "mem-{uuid}" as symbolic_id.
+    pub topo_graph:     Arc<Mutex<crate::topological_memory::CausalTopoGraph>>,
 }
 
 /// Manual Clone: all fields are Arc<…> so clone is a ref-count bump regardless of B.
@@ -144,6 +146,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> Clone for AppState<B> {
             aureus:         self.aureus.clone(),
             self_model:     self.self_model.clone(),
             coherence:      self.coherence.clone(),
+            topo_graph:     self.topo_graph.clone(),
         }
     }
 }
@@ -265,6 +268,26 @@ pub struct GraphWriteResponse {
     success: bool,
     id:      Option<String>,
     error:   Option<String>,
+}
+
+/// POST /memory/link — create a directed relational edge between two MemoryRecords.
+/// relation: "supports" | "caused_by" | "follows" | "contradicts"
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct MemoryLinkRequest {
+    pub from_id:  String,  // MemoryRecord UUID
+    pub to_id:    String,  // MemoryRecord UUID
+    pub relation: String,
+}
+
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct MemoryNeighborsResponse {
+    pub id:           String,
+    /// Outgoing edges ("this memory supports/caused/follows these")
+    pub neighbors:    Vec<String>,
+    /// Incoming edges ("these memories support/caused/led to this one")
+    pub incoming:     Vec<String>,
 }
 
 #[cfg(feature = "web-server")]
@@ -432,6 +455,7 @@ pub async fn run_with_memory<B: MemoryBackend + Send + Sync + 'static>(
         aureus: Arc::new(Mutex::new(AureusBridge::new())),
         self_model: Arc::new(SelfModel::new()),
         coherence: Arc::new(CoherenceChecker::new()),
+        topo_graph: Arc::new(Mutex::new(crate::topological_memory::CausalTopoGraph::new())),
     };
     run_with_state(addr, state).await;
 }
@@ -451,6 +475,7 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     let aureus          = state.aureus.clone();
     let self_model_arc  = state.self_model.clone();
     let coherence_arc   = state.coherence.clone();
+    let topo_arc        = state.topo_graph.clone();
 
     // ── Symbolic store routes ─────────────────────────────────────────────
     let graph_route = {
@@ -603,6 +628,22 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         let store = memory_store.clone();
         post(move |Query(params): Query<ConsolidateParams>| async move {
             handle_consolidate(store, Query(params)).await
+        })
+    };
+
+    let memory_link_route: axum::routing::MethodRouter = {
+        let ms  = memory_store.clone();
+        let tg  = topo_arc.clone();
+        post(move |Json(req): Json<MemoryLinkRequest>| {
+            let ms2 = ms.clone();
+            let tg2 = tg.clone();
+            async move { handle_memory_link(ms2, tg2, req).await }
+        })
+    };
+    let memory_neighbors_route: axum::routing::MethodRouter = {
+        let tg = topo_arc.clone();
+        get(move |Path(id): Path<String>| async move {
+            handle_memory_neighbors(tg, id).await
         })
     };
 
@@ -762,6 +803,8 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         .route("/graph/node/:id", delete_node_route)
         .route("/graph/search", graph_search_route)
         .route("/memory/consolidate", consolidate_route)
+        .route("/memory/link",            memory_link_route)
+        .route("/memory/neighbors/:id",   memory_neighbors_route)
         .route("/memory/ingest", ingest_route)
         .route("/memory/quarantine/:id", quarantine_route)
         .route("/memory/restore/:id", restore_route)
@@ -1906,6 +1949,98 @@ async fn handle_delete_node(
         Err(e) => Json(GraphWriteResponse {
             success: false, id: None, error: Some(format!("Lock error: {}", e)),
         }),
+    }
+}
+
+/// POST /memory/link — link two MemoryRecords with a typed directed edge.
+/// Uses "mem-{uuid}" convention in CausalTopoGraph.
+/// Rejects cycles (causal DAG invariant preserved by CausalTopoGraph::add_edge).
+/// Returns 404 if either record UUID does not exist in the memory store.
+#[cfg(feature = "web-server")]
+async fn handle_memory_link<B: MemoryBackend + Send + Sync + 'static>(
+    memory_store: Arc<Mutex<MemoryStore<B>>>,
+    topo: Arc<Mutex<crate::topological_memory::CausalTopoGraph>>,
+    req: MemoryLinkRequest,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let from_uuid = uuid::Uuid::parse_str(&req.from_id).map_err(|_| (
+        StatusCode::BAD_REQUEST,
+        Json(serde_json::json!({"success": false, "error": "invalid from_id UUID"})),
+    ))?;
+    let to_uuid = uuid::Uuid::parse_str(&req.to_id).map_err(|_| (
+        StatusCode::BAD_REQUEST,
+        Json(serde_json::json!({"success": false, "error": "invalid to_id UUID"})),
+    ))?;
+
+    // Validate both records exist
+    {
+        let ms = memory_store.lock().map_err(|e| (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
+        ))?;
+        if ms.find_by_id(from_uuid).is_none() {
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"success": false, "error": "from_id not found"})),
+            ));
+        }
+        if ms.find_by_id(to_uuid).is_none() {
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"success": false, "error": "to_id not found"})),
+            ));
+        }
+    }
+
+    let from_sym = format!("mem-{}", req.from_id);
+    let to_sym   = format!("mem-{}", req.to_id);
+
+    let edge_type = match req.relation.as_str() {
+        "caused_by" | "causal" => crate::topological_memory::EdgeType::Causal,
+        "follows"   | "temporal" => crate::topological_memory::EdgeType::Temporal,
+        "contradicts" | "taxonomic" => crate::topological_memory::EdgeType::Taxonomic,
+        _ => crate::topological_memory::EdgeType::Supports,
+    };
+
+    let mut tg = topo.lock().map_err(|e| (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
+    ))?;
+
+    // add_node is idempotent — returns Err("exists") which we ignore
+    let _ = tg.add_node(from_sym.clone(), [0.0f32; 128], std::collections::HashMap::new());
+    let _ = tg.add_node(to_sym.clone(), [0.0f32; 128], std::collections::HashMap::new());
+
+    match tg.add_edge(from_sym, to_sym, edge_type, 1.0, 1.0) {
+        Ok(_) => Ok(Json(serde_json::json!({"success": true}))),
+        Err(e) => Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(serde_json::json!({"success": false, "error": e})),
+        )),
+    }
+}
+
+/// GET /memory/neighbors/:id — return outgoing and incoming linked records for a MemoryRecord.
+#[cfg(feature = "web-server")]
+async fn handle_memory_neighbors(
+    topo: Arc<Mutex<crate::topological_memory::CausalTopoGraph>>,
+    id: String,
+) -> Json<MemoryNeighborsResponse> {
+    let sym_id = format!("mem-{}", id);
+    match topo.lock() {
+        Err(_) => Json(MemoryNeighborsResponse { id, neighbors: vec![], incoming: vec![] }),
+        Ok(tg) => {
+            let neighbors: Vec<String> = tg
+                .get_neighbors(&sym_id)
+                .into_iter()
+                .map(|s| s.trim_start_matches("mem-").to_string())
+                .collect();
+            let incoming: Vec<String> = tg
+                .get_incoming(&sym_id)
+                .into_iter()
+                .map(|s| s.trim_start_matches("mem-").to_string())
+                .collect();
+            Json(MemoryNeighborsResponse { id, neighbors, incoming })
+        }
     }
 }
 

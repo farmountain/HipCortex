@@ -184,6 +184,34 @@ impl CausalTopoGraph {
         sub
     }
 
+    /// Return the `symbolic_id`s of all outgoing (downstream) neighbors.
+    /// Returns empty Vec if `symbolic_id` is not in the graph.
+    pub fn get_neighbors(&self, symbolic_id: &str) -> Vec<String> {
+        match self.id_map.get(symbolic_id) {
+            None => vec![],
+            Some(&idx) => self
+                .graph
+                .neighbors(idx)
+                .filter_map(|n| self.graph.node_weight(n))
+                .map(|n| n.symbolic_id.clone())
+                .collect(),
+        }
+    }
+
+    /// Return the `symbolic_id`s of all incoming (upstream) neighbors.
+    /// Returns empty Vec if `symbolic_id` is not in the graph.
+    pub fn get_incoming(&self, symbolic_id: &str) -> Vec<String> {
+        match self.id_map.get(symbolic_id) {
+            None => vec![],
+            Some(&idx) => self
+                .graph
+                .neighbors_directed(idx, petgraph::Direction::Incoming)
+                .filter_map(|n| self.graph.node_weight(n))
+                .map(|n| n.symbolic_id.clone())
+                .collect(),
+        }
+    }
+
     /// Personalized PageRank using iterative method with nalgebra::DVector.
     /// Seeds receive initial preference mass. Damping default 0.85.
     /// Returns normalized ranks by symbolic id.
