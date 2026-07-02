@@ -858,6 +858,26 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         })
         .layer(middleware::from_fn(api_key_middleware));
 
+    // G11: Background TTL eviction — purges expired records every 5 minutes.
+    // This is separate from the read-time filter in query handlers, which hides
+    // expired records but does not reclaim storage. This thread actually removes them.
+    {
+        let eviction_store = memory_store.clone();
+        tokio::spawn(async move {
+            let mut interval =
+                tokio::time::interval(tokio::time::Duration::from_secs(300));
+            loop {
+                interval.tick().await;
+                if let Ok(mut ms) = eviction_store.lock() {
+                    let removed = ms.purge_expired();
+                    if removed > 0 {
+                        eprintln!("[EvictionThread] purged {} expired records", removed);
+                    }
+                }
+            }
+        });
+    }
+
     // G10: Background CoherenceChecker — runs check_consistency every 60s
     {
         let coherence_bg = coherence_arc.clone();
@@ -3192,7 +3212,7 @@ async fn handle_memory_live_beliefs<B: MemoryBackend + Send + Sync + 'static>(
     let code_facts: Vec<_> = match symbolic_store.lock() {
         Ok(ss) => {
             let (all_nodes, _) = ss.export_graph();
-            all_nodes.into_iter().filter(|n| n.label.contains("::") || n.label.ends_with(".rs") || n.properties.get("kind").map_or(false, |k| matches!(k.as_str(), Some("function") | Some("struct") | Some("module")))).take(5).map(|n| serde_json::json!({"id": n.id.to_string(), "label": n.label, "props": n.properties})).collect()
+            all_nodes.into_iter().filter(|n| n.label.contains("::") || n.label.ends_with(".rs") || n.properties.get("kind").map(|k| k.as_str()).map_or(false, |k| matches!(k, "function" | "struct" | "module"))).take(5).map(|n| serde_json::json!({"id": n.id.to_string(), "label": n.label, "props": n.properties})).collect()
         }
         _ => vec![],
     };
