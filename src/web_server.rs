@@ -131,6 +131,8 @@ pub struct AppState<B: MemoryBackend + Send + Sync + 'static> {
     pub self_model:     Arc<SelfModel>,
     /// Cross-module consistency checker — persistent, not recreated per request
     pub coherence:      Arc<CoherenceChecker>,
+    /// Memory-to-memory relational graph. Nodes use "mem-{uuid}" as symbolic_id.
+    pub topo_graph:     Arc<Mutex<crate::topological_memory::CausalTopoGraph>>,
 }
 
 /// Manual Clone: all fields are Arc<…> so clone is a ref-count bump regardless of B.
@@ -144,6 +146,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> Clone for AppState<B> {
             aureus:         self.aureus.clone(),
             self_model:     self.self_model.clone(),
             coherence:      self.coherence.clone(),
+            topo_graph:     self.topo_graph.clone(),
         }
     }
 }
@@ -267,6 +270,38 @@ pub struct GraphWriteResponse {
     error:   Option<String>,
 }
 
+/// POST /memory/link — create a directed relational edge between two MemoryRecords.
+/// relation: "supports" | "caused_by" | "follows" | "contradicts"
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct MemoryLinkRequest {
+    pub from_id:  String,  // MemoryRecord UUID
+    pub to_id:    String,  // MemoryRecord UUID
+    pub relation: String,
+}
+
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize)]
+pub struct MemoryNeighborsResponse {
+    pub id:           String,
+    /// Outgoing edges ("this memory supports/caused/follows these")
+    pub neighbors:    Vec<String>,
+    /// Incoming edges ("these memories support/caused/led to this one")
+    pub incoming:     Vec<String>,
+}
+
+/// GET /memory/search/related — find memories related to a seed by Personalized PageRank.
+/// The seed must have been linked via POST /memory/link before it will appear in the graph.
+/// Returns an empty `related` array (not 404) if the seed has no graph edges yet.
+#[cfg(feature = "web-server")]
+#[derive(serde::Deserialize)]
+pub struct MemoryRelatedParams {
+    /// UUID of the seed MemoryRecord (bare UUID, no "mem-" prefix)
+    pub seed_id: String,
+    /// Max results (default 10, capped at 50)
+    pub limit: Option<usize>,
+}
+
 #[cfg(feature = "web-server")]
 #[derive(serde::Deserialize)]
 pub struct GraphSearchParams {
@@ -378,6 +413,10 @@ pub struct QueryMemoryParams {
     as_of:    Option<String>,    // ISO 8601 timestamp — return records with timestamp <= as_of
     /// If "true", include quarantined records. Default: exclude quarantine.
     include_quarantined: Option<String>,
+    /// If "true", include records whose `expires_at` is in the past.
+    /// Default: exclude expired (consistent with /memory/query and /memory/search).
+    /// Use ?include_expired=true for full backup/migration exports.
+    include_expired: Option<String>,
 }
 
 #[cfg(feature = "web-server")]
@@ -432,6 +471,7 @@ pub async fn run_with_memory<B: MemoryBackend + Send + Sync + 'static>(
         aureus: Arc::new(Mutex::new(AureusBridge::new())),
         self_model: Arc::new(SelfModel::new()),
         coherence: Arc::new(CoherenceChecker::new()),
+        topo_graph: Arc::new(Mutex::new(crate::topological_memory::CausalTopoGraph::new())),
     };
     run_with_state(addr, state).await;
 }
@@ -451,6 +491,7 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     let aureus          = state.aureus.clone();
     let self_model_arc  = state.self_model.clone();
     let coherence_arc   = state.coherence.clone();
+    let topo_arc        = state.topo_graph.clone();
 
     // ── Symbolic store routes ─────────────────────────────────────────────
     let graph_route = {
@@ -603,6 +644,29 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         let store = memory_store.clone();
         post(move |Query(params): Query<ConsolidateParams>| async move {
             handle_consolidate(store, Query(params)).await
+        })
+    };
+
+    let memory_link_route: axum::routing::MethodRouter = {
+        let ms  = memory_store.clone();
+        let tg  = topo_arc.clone();
+        post(move |Json(req): Json<MemoryLinkRequest>| {
+            let ms2 = ms.clone();
+            let tg2 = tg.clone();
+            async move { handle_memory_link(ms2, tg2, req).await }
+        })
+    };
+    let memory_neighbors_route: axum::routing::MethodRouter = {
+        let tg = topo_arc.clone();
+        get(move |Path(id): Path<String>| async move {
+            handle_memory_neighbors(tg, id).await
+        })
+    };
+
+    let memory_search_related_route: axum::routing::MethodRouter = {
+        let tg = topo_arc.clone();
+        get(move |Query(p): Query<MemoryRelatedParams>| async move {
+            handle_memory_search_related(tg, Query(p)).await
         })
     };
 
@@ -762,6 +826,9 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         .route("/graph/node/:id", delete_node_route)
         .route("/graph/search", graph_search_route)
         .route("/memory/consolidate", consolidate_route)
+        .route("/memory/link",            memory_link_route)
+        .route("/memory/neighbors/:id",   memory_neighbors_route)
+        .route("/memory/search/related",  memory_search_related_route)
         .route("/memory/ingest", ingest_route)
         .route("/memory/quarantine/:id", quarantine_route)
         .route("/memory/restore/:id", restore_route)
@@ -857,6 +924,26 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
             })
         })
         .layer(middleware::from_fn(api_key_middleware));
+
+    // G11: Background TTL eviction — purges expired records every 5 minutes.
+    // This is separate from the read-time filter in query handlers, which hides
+    // expired records but does not reclaim storage. This thread actually removes them.
+    {
+        let eviction_store = memory_store.clone();
+        tokio::spawn(async move {
+            let mut interval =
+                tokio::time::interval(tokio::time::Duration::from_secs(300));
+            loop {
+                interval.tick().await;
+                if let Ok(mut ms) = eviction_store.lock() {
+                    let removed = ms.purge_expired();
+                    if removed > 0 {
+                        eprintln!("[EvictionThread] purged {} expired records", removed);
+                    }
+                }
+            }
+        });
+    }
 
     // G10: Background CoherenceChecker — runs check_consistency every 60s
     {
@@ -1283,6 +1370,8 @@ async fn handle_search_memory<B: MemoryBackend + Send + Sync + 'static>(
 #[derive(Serialize)]
 struct StatsResponse {
     total_records: usize,
+    /// Records whose `expires_at` is None or in the future. Always ≤ total_records.
+    active_records: usize,
     by_type: HashMap<String, usize>,
     unique_actors: usize,
     metering_enabled: bool,
@@ -1307,8 +1396,11 @@ async fn handle_export_memory<B: MemoryBackend + Send + Sync + 'static>(
     match store.lock() {
         Ok(ms) => {
             let records = ms.all();
+            let now_ts = chrono::Utc::now().timestamp();
+            let include_expired = params.include_expired.as_deref() == Some("true");
             let filtered: Vec<_> = records.iter().filter(|r| {
                 params.actor.as_ref().map_or(true, |a| &r.actor == a)
+                    && (include_expired || r.expires_at.map_or(true, |exp| exp > now_ts))
             }).collect();
             let json_records: Vec<serde_json::Value> = filtered.iter().map(|r| {
                 serde_json::json!({
@@ -1346,19 +1438,24 @@ async fn handle_export_memory<B: MemoryBackend + Send + Sync + 'static>(
 async fn handle_stats<B: MemoryBackend + Send + Sync + 'static>(
     store: Arc<Mutex<MemoryStore<B>>>,
 ) -> Json<StatsResponse> {
-    let (total_records, by_type, unique_actors) = match store.lock() {
+    let (total_records, active_records, by_type, unique_actors) = match store.lock() {
         Ok(ms) => {
             let records = ms.all();
             let total = records.len();
+            let now_ts = chrono::Utc::now().timestamp();
+            let active = records
+                .iter()
+                .filter(|r| r.expires_at.map_or(true, |exp| exp > now_ts))
+                .count();
             let mut by_type: HashMap<String, usize> = HashMap::new();
             let mut actors: std::collections::HashSet<&str> = std::collections::HashSet::new();
             for r in records {
                 *by_type.entry(format!("{:?}", r.record_type)).or_insert(0) += 1;
                 actors.insert(&r.actor);
             }
-            (total, by_type, actors.len())
+            (total, active, by_type, actors.len())
         }
-        Err(_) => (0, HashMap::new(), 0),
+        Err(_) => (0, 0, HashMap::new(), 0),
     };
 
     let metering_enabled = !load_api_keys().is_empty();
@@ -1366,7 +1463,7 @@ async fn handle_stats<B: MemoryBackend + Send + Sync + 'static>(
         .map(|m| m.clone())
         .unwrap_or_default();
 
-    Json(StatsResponse { total_records, by_type, unique_actors, metering_enabled, tier_counts })
+    Json(StatsResponse { total_records, active_records, by_type, unique_actors, metering_enabled, tier_counts })
 }
 
 /// GET /pricing — static pricing page (HTML)
@@ -1889,8 +1986,161 @@ async fn handle_delete_node(
     }
 }
 
+/// POST /memory/link — link two MemoryRecords with a typed directed edge.
+/// Uses "mem-{uuid}" convention in CausalTopoGraph.
+/// Rejects cycles (causal DAG invariant preserved by CausalTopoGraph::add_edge).
+/// Returns 404 if either record UUID does not exist in the memory store.
+#[cfg(feature = "web-server")]
+async fn handle_memory_link<B: MemoryBackend + Send + Sync + 'static>(
+    memory_store: Arc<Mutex<MemoryStore<B>>>,
+    topo: Arc<Mutex<crate::topological_memory::CausalTopoGraph>>,
+    req: MemoryLinkRequest,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let from_uuid = uuid::Uuid::parse_str(&req.from_id).map_err(|_| (
+        StatusCode::BAD_REQUEST,
+        Json(serde_json::json!({"success": false, "error": "invalid from_id UUID"})),
+    ))?;
+    let to_uuid = uuid::Uuid::parse_str(&req.to_id).map_err(|_| (
+        StatusCode::BAD_REQUEST,
+        Json(serde_json::json!({"success": false, "error": "invalid to_id UUID"})),
+    ))?;
+
+    // Validate both records exist
+    {
+        let ms = memory_store.lock().map_err(|e| (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
+        ))?;
+        if ms.find_by_id(from_uuid).is_none() {
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"success": false, "error": "from_id not found"})),
+            ));
+        }
+        if ms.find_by_id(to_uuid).is_none() {
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"success": false, "error": "to_id not found"})),
+            ));
+        }
+    }
+
+    let from_sym = format!("mem-{}", req.from_id);
+    let to_sym   = format!("mem-{}", req.to_id);
+
+    let edge_type = match req.relation.as_str() {
+        "caused_by" | "causal" => crate::topological_memory::EdgeType::Causal,
+        "follows"   | "temporal" => crate::topological_memory::EdgeType::Temporal,
+        "contradicts" | "taxonomic" => crate::topological_memory::EdgeType::Taxonomic,
+        _ => crate::topological_memory::EdgeType::Supports,
+    };
+
+    let mut tg = topo.lock().map_err(|e| (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
+    ))?;
+
+    // add_node is idempotent — returns Err("exists") which we ignore
+    let _ = tg.add_node(from_sym.clone(), [0.0f32; 128], std::collections::HashMap::new());
+    let _ = tg.add_node(to_sym.clone(), [0.0f32; 128], std::collections::HashMap::new());
+
+    match tg.add_edge(from_sym, to_sym, edge_type, 1.0, 1.0) {
+        Ok(_) => Ok(Json(serde_json::json!({"success": true}))),
+        Err(e) => Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(serde_json::json!({"success": false, "error": e})),
+        )),
+    }
+}
+
+/// GET /memory/neighbors/:id — return outgoing and incoming linked records for a MemoryRecord.
+#[cfg(feature = "web-server")]
+async fn handle_memory_neighbors(
+    topo: Arc<Mutex<crate::topological_memory::CausalTopoGraph>>,
+    id: String,
+) -> Json<MemoryNeighborsResponse> {
+    let sym_id = format!("mem-{}", id);
+    match topo.lock() {
+        Err(_) => Json(MemoryNeighborsResponse { id, neighbors: vec![], incoming: vec![] }),
+        Ok(tg) => {
+            let neighbors: Vec<String> = tg
+                .get_neighbors(&sym_id)
+                .into_iter()
+                .map(|s| s.trim_start_matches("mem-").to_string())
+                .collect();
+            let incoming: Vec<String> = tg
+                .get_incoming(&sym_id)
+                .into_iter()
+                .map(|s| s.trim_start_matches("mem-").to_string())
+                .collect();
+            Json(MemoryNeighborsResponse { id, neighbors, incoming })
+        }
+    }
+}
+
+/// GET /memory/search/related handler.
+///
+/// Runs PPR (α=0.85 fixed, 20 iterations) over the CausalTopoGraph rooted at
+/// "mem-{seed_id}". Strips the "mem-" prefix from results before returning.
+///
+/// α=0.85 is standard PageRank damping (15% restart probability). This value
+/// works well for graphs up to ~10K nodes. Expose as a query param in a future
+/// change if empirical evidence calls for a different default.
+#[cfg(feature = "web-server")]
+async fn handle_memory_search_related(
+    topo: Arc<Mutex<crate::topological_memory::CausalTopoGraph>>,
+    Query(params): Query<MemoryRelatedParams>,
+) -> Json<serde_json::Value> {
+    let limit    = params.limit.unwrap_or(10).min(50);
+    let seed_sym = format!("mem-{}", params.seed_id);
+
+    match topo.lock() {
+        Err(e) => Json(serde_json::json!({
+            "seed_id": params.seed_id,
+            "related": [],
+            "error":   format!("lock: {}", e),
+        })),
+        Ok(tg) => {
+            let raw = tg.ppr(&seed_sym, limit, 0.85, 20);
+
+            if raw.is_empty() {
+                // Distinguish "seed not in graph" from "seed has no reachable nodes"
+                // by checking whether the node exists at all (via neighbors probe).
+                let has_any_edge = !tg.get_neighbors(&seed_sym).is_empty()
+                    || !tg.get_incoming(&seed_sym).is_empty();
+                if !has_any_edge {
+                    return Json(serde_json::json!({
+                        "seed_id": params.seed_id,
+                        "related": [],
+                        "note":    "seed_id has no graph edges — link it first via POST /memory/link",
+                    }));
+                }
+            }
+
+            let related: Vec<serde_json::Value> = raw
+                .into_iter()
+                .map(|(sym_id, score)| {
+                    let id = sym_id.trim_start_matches("mem-").to_string();
+                    serde_json::json!({
+                        "id":    id,
+                        "score": (score * 1000.0).round() / 1000.0,
+                    })
+                })
+                .collect();
+
+            Json(serde_json::json!({
+                "seed_id":   params.seed_id,
+                "related":   related,
+                "limit":     limit,
+                "algorithm": "ppr",
+                "alpha":     0.85,
+            }))
+        }
+    }
+}
+
 /// POST /memory/consolidate — merge near-duplicate records for an actor.
-/// Keyword-similarity based dedup. ML-based dedup available in managed tier.
+/// Keyword-similarity based dedup. Executes deletes when dry_run=false (default).
 #[cfg(feature = "web-server")]
 async fn handle_consolidate<B: MemoryBackend + Send + Sync + 'static>(
     store: Arc<Mutex<MemoryStore<B>>>,
@@ -1900,48 +2150,75 @@ async fn handle_consolidate<B: MemoryBackend + Send + Sync + 'static>(
     let dry_run = params.dry_run.unwrap_or(false);
 
     match store.lock() {
-        Ok(ms) => {
-            let records = ms.all();
-            let candidates: Vec<_> = records.iter()
+        Err(e) => Json(serde_json::json!({"error": format!("Lock error: {}", e)})),
+        Ok(mut ms) => {
+            let records = ms.all().to_vec(); // clone to release borrow before mutations
+            let now_ts_consolidate = chrono::Utc::now().timestamp();
+            let candidates: Vec<_> = records
+                .iter()
                 .filter(|r| params.actor.as_ref().map_or(true, |a| &r.actor == a))
+                .filter(|r| r.expires_at.map_or(true, |exp| exp > now_ts_consolidate))
                 .collect();
 
-            // Find pairs with keyword similarity above threshold
-            let mut merge_groups: Vec<(String, String, f64)> = Vec::new(); // (keep_id, drop_id, similarity)
+            // Find near-duplicate pairs by Jaccard token similarity on `.target`
+            let mut pairs: Vec<(String, String, u32)> = Vec::new(); // (keep_id, drop_id, pct)
+            let mut drop_set: std::collections::HashSet<String> = std::collections::HashSet::new();
             for i in 0..candidates.len() {
                 for j in (i + 1)..candidates.len() {
-                    let words_i: std::collections::HashSet<&str> = candidates[i].target.split_whitespace().collect();
-                    let words_j: std::collections::HashSet<&str> = candidates[j].target.split_whitespace().collect();
-                    if words_i.is_empty() || words_j.is_empty() { continue; }
+                    // Skip records already marked for dropping
+                    if drop_set.contains(&candidates[j].id.to_string()) {
+                        continue;
+                    }
+                    let words_i: std::collections::HashSet<&str> =
+                        candidates[i].target.split_whitespace().collect();
+                    let words_j: std::collections::HashSet<&str> =
+                        candidates[j].target.split_whitespace().collect();
+                    if words_i.is_empty() || words_j.is_empty() {
+                        continue;
+                    }
                     let intersection = words_i.intersection(&words_j).count();
-                    let sim = intersection as f64 / words_i.len().max(words_j.len()) as f64;
+                    let sim = intersection as f64
+                        / words_i.len().max(words_j.len()) as f64;
                     if sim >= threshold {
-                        // Keep the newer one (higher confidence wins)
+                        // Keep newer; drop older
                         let (keep, drop) = if candidates[i].timestamp >= candidates[j].timestamp {
                             (candidates[i].id.to_string(), candidates[j].id.to_string())
                         } else {
                             (candidates[j].id.to_string(), candidates[i].id.to_string())
                         };
-                        merge_groups.push((keep, drop, sim));
+                        drop_set.insert(drop.clone());
+                        pairs.push((keep, drop, (sim * 100.0) as u32));
+                    }
+                }
+            }
+
+            let found = pairs.len();
+            let mut deleted = 0usize;
+
+            if !dry_run && !pairs.is_empty() {
+                for (_, drop_id, _) in &pairs {
+                    if let Ok(uuid) = uuid::Uuid::parse_str(drop_id) {
+                        if ms.delete_by_id(uuid) {
+                            deleted += 1;
+                        }
                     }
                 }
             }
 
             Json(serde_json::json!({
-                "found_duplicates": merge_groups.len(),
+                "found_duplicates": found,
                 "dry_run": dry_run,
-                "pairs": merge_groups.iter().map(|(k, d, s)| serde_json::json!({
-                    "keep": k, "drop": d,
-                    "similarity": (s * 100.0) as u32
+                "deleted": deleted,
+                "pairs": pairs.iter().map(|(k, d, s)| serde_json::json!({
+                    "keep": k, "drop": d, "similarity_pct": s
                 })).collect::<Vec<_>>(),
                 "note": if dry_run {
-                    "Dry run — no changes made. Re-run without dry_run=true to consolidate."
+                    "Dry run — no changes made. Re-run without ?dry_run=true to execute."
                 } else {
-                    "ML-based consolidation available in managed tier. Keyword consolidation: use GDPR forget on 'drop' IDs listed above."
+                    "Duplicates deleted. Re-run with ?dry_run=true to preview without changes."
                 }
             }))
         }
-        Err(e) => Json(serde_json::json!({"error": format!("Lock error: {}", e)})),
     }
 }
 
@@ -2790,11 +3067,12 @@ async fn handle_query_memory<B: MemoryBackend + Send + Sync + 'static>(
                 filtered_records.retain(|r| r.record_type == target_type);
             }
 
-            // Exclude records past their TTL
+            // Exclude records past their TTL (unless ?include_expired=true for debugging)
             let now_ts = chrono::Utc::now().timestamp();
-            filtered_records.retain(|r| {
-                r.expires_at.map_or(true, |exp| exp > now_ts)
-            });
+            let include_expired = params.include_expired.as_deref() == Some("true");
+            if !include_expired {
+                filtered_records.retain(|r| r.expires_at.map_or(true, |exp| exp > now_ts));
+            }
 
             // Filter by tags (any match)
             if let Some(tags_str) = &params.tags {
@@ -3192,7 +3470,7 @@ async fn handle_memory_live_beliefs<B: MemoryBackend + Send + Sync + 'static>(
     let code_facts: Vec<_> = match symbolic_store.lock() {
         Ok(ss) => {
             let (all_nodes, _) = ss.export_graph();
-            all_nodes.into_iter().filter(|n| n.label.contains("::") || n.label.ends_with(".rs") || n.properties.get("kind").map_or(false, |k| matches!(k.as_str(), Some("function") | Some("struct") | Some("module")))).take(5).map(|n| serde_json::json!({"id": n.id.to_string(), "label": n.label, "props": n.properties})).collect()
+            all_nodes.into_iter().filter(|n| n.label.contains("::") || n.label.ends_with(".rs") || n.properties.get("kind").map(|k| k.as_str()).map_or(false, |k| matches!(k, "function" | "struct" | "module"))).take(5).map(|n| serde_json::json!({"id": n.id.to_string(), "label": n.label, "props": n.properties})).collect()
         }
         _ => vec![],
     };

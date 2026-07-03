@@ -184,6 +184,138 @@ impl CausalTopoGraph {
         sub
     }
 
+    /// Return the `symbolic_id`s of all outgoing (downstream) neighbors.
+    /// Returns empty Vec if `symbolic_id` is not in the graph.
+    pub fn get_neighbors(&self, symbolic_id: &str) -> Vec<String> {
+        match self.id_map.get(symbolic_id) {
+            None => vec![],
+            Some(&idx) => self
+                .graph
+                .neighbors(idx)
+                .filter_map(|n| self.graph.node_weight(n))
+                .map(|n| n.symbolic_id.clone())
+                .collect(),
+        }
+    }
+
+    /// Return the `symbolic_id`s of all incoming (upstream) neighbors.
+    /// Returns empty Vec if `symbolic_id` is not in the graph.
+    pub fn get_incoming(&self, symbolic_id: &str) -> Vec<String> {
+        match self.id_map.get(symbolic_id) {
+            None => vec![],
+            Some(&idx) => self
+                .graph
+                .neighbors_directed(idx, petgraph::Direction::Incoming)
+                .filter_map(|n| self.graph.node_weight(n))
+                .map(|n| n.symbolic_id.clone())
+                .collect(),
+        }
+    }
+
+    /// Personalized PageRank over this directed graph.
+    ///
+    /// Returns up to `limit` nodes (excluding seed) ranked by their PPR score —
+    /// a measure of weighted graph proximity from the seed via power iteration.
+    ///
+    /// Edge weight = `strength × confidence`. Dangling nodes (no outgoing edges)
+    /// contribute only through the teleport term.
+    ///
+    /// # Parameters
+    /// - `seed_id`: symbolic_id of the starting node (e.g. `"mem-{uuid}"`)
+    /// - `limit`: maximum number of results to return
+    /// - `alpha`: damping factor — 0.85 is standard PageRank (15% restart).
+    ///   Fixed at 0.85 at call-sites for v1; expose as a param in a future change
+    ///   if empirical evidence calls for a different default.
+    /// - `iterations`: power iteration rounds; 20 is sufficient for graphs ≤ 10K nodes.
+    ///
+    /// Returns empty vec if seed is not in graph, graph is empty, or no
+    /// nodes are reachable from the seed.
+    pub fn ppr(
+        &self,
+        seed_id: &str,
+        limit: usize,
+        alpha: f64,
+        iterations: usize,
+    ) -> Vec<(String, f64)> {
+        let node_count = self.graph.node_count();
+        if node_count == 0 || limit == 0 {
+            return vec![];
+        }
+
+        let seed_idx = match self.id_map.get(seed_id) {
+            None     => return vec![],
+            Some(&i) => i,
+        };
+
+        // Build a contiguous usize position for each NodeIndex so we can use plain Vec
+        let all_indices: Vec<petgraph::graph::NodeIndex> = self.graph.node_indices().collect();
+        let idx_to_pos: std::collections::HashMap<petgraph::graph::NodeIndex, usize> =
+            all_indices.iter().enumerate().map(|(pos, &idx)| (idx, pos)).collect();
+        let seed_pos = idx_to_pos[&seed_idx];
+
+        // Build normalized adjacency list: adj[src_pos] = Vec<(dst_pos, weight)>
+        // where weights are row-normalized so each source's outgoing weights sum to 1.
+        let mut adj: Vec<Vec<(usize, f64)>> = vec![vec![]; node_count];
+        for (src_pos, &src_idx) in all_indices.iter().enumerate() {
+            // Iterate over raw edge indices from this node using petgraph 0.6 API
+            let mut out: Vec<(usize, f64)> = Vec::new();
+            for nb_idx in self.graph.neighbors(src_idx) {
+                if let Some(edge_idx) = self.graph.find_edge(src_idx, nb_idx) {
+                    if let Some(ew) = self.graph.edge_weight(edge_idx) {
+                        let w = ew.strength as f64 * ew.confidence as f64;
+                        if w > 0.0 {
+                            if let Some(&dst) = idx_to_pos.get(&nb_idx) {
+                                out.push((dst, w));
+                            }
+                        }
+                    }
+                }
+            }
+            let total: f64 = out.iter().map(|(_, w)| w).sum();
+            if total > 0.0 {
+                for (_, w) in &mut out {
+                    *w /= total;
+                }
+                adj[src_pos] = out;
+            }
+            // Dangling nodes (total == 0): contribute only to teleport, handled below
+        }
+
+        // Power iteration
+        let mut scores     = vec![0.0f64; node_count];
+        let mut new_scores = vec![0.0f64; node_count];
+        scores[seed_pos] = 1.0;
+
+        for _ in 0..iterations {
+            for s in new_scores.iter_mut() { *s = 0.0; }
+            // Teleport: (1 - alpha) of all mass returns to seed
+            new_scores[seed_pos] += 1.0 - alpha;
+            // Diffusion: alpha * normalized adjacency * current scores
+            for (src_pos, edges) in adj.iter().enumerate() {
+                for &(dst_pos, w) in edges {
+                    new_scores[dst_pos] += alpha * w * scores[src_pos];
+                }
+            }
+            std::mem::swap(&mut scores, &mut new_scores);
+        }
+
+        // Collect, exclude seed, remove zero-score nodes, sort descending, truncate
+        let mut results: Vec<(String, f64)> = all_indices
+            .iter()
+            .enumerate()
+            .filter_map(|(pos, &idx)| {
+                if idx == seed_idx { return None; }
+                let score = scores[pos];
+                if score <= 0.0 { return None; }
+                self.graph.node_weight(idx).map(|n| (n.symbolic_id.clone(), score))
+            })
+            .collect();
+
+        results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        results.truncate(limit);
+        results
+    }
+
     /// Personalized PageRank using iterative method with nalgebra::DVector.
     /// Seeds receive initial preference mass. Damping default 0.85.
     /// Returns normalized ranks by symbolic id.

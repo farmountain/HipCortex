@@ -41,3 +41,10 @@ mod procedural_cache_map_tests;
 mod vision_encoder_tests;
 mod world_model_export_tests;
 mod world_model_tests;
+mod memory_store_eviction_tests;
+mod memory_store_delete_tests;
+mod memory_graph_tests;
+mod memory_expiry_consistency_tests;
+mod memory_ppr_tests;
+
+

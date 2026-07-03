@@ -185,6 +185,59 @@ impl<B: MemoryBackend> MemoryStore<B> {
         Ok(())
     }
 
+    /// Rebuild all positional indices from scratch after structural Vec changes.
+    /// Called after any retain/remove operation to keep index_actor / index_action /
+    /// index_target consistent with the current Vec positions.
+    fn rebuild_indices(&mut self) {
+        self.index_actor.clear();
+        self.index_action.clear();
+        self.index_target.clear();
+        for (i, rec) in self.records.iter().enumerate() {
+            self.index_actor
+                .entry(rec.actor.clone())
+                .or_default()
+                .push(i);
+            self.index_action
+                .entry(rec.action.clone())
+                .or_default()
+                .push(i);
+            self.index_target
+                .entry(rec.target.clone())
+                .or_default()
+                .push(i);
+        }
+    }
+
+    /// Remove all records whose `expires_at` is in the past.
+    /// Rebuilds indices if any records were removed.
+    /// Returns the number of records removed.
+    pub fn purge_expired(&mut self) -> usize {
+        let now = chrono::Utc::now().timestamp();
+        let before = self.records.len();
+        self.records
+            .retain(|r| r.expires_at.map_or(true, |exp| exp > now));
+        let removed = before - self.records.len();
+        if removed > 0 {
+            self.rebuild_indices();
+        }
+        removed
+    }
+
+    /// Remove the single record with the given `id`.
+    /// Rebuilds indices if a record was deleted.
+    /// Returns `true` if a record was found and removed, `false` if not found.
+    pub fn delete_by_id(&mut self, id: uuid::Uuid) -> bool {
+        let before = self.records.len();
+        self.records.retain(|r| r.id != id);
+        let removed = before - self.records.len();
+        if removed > 0 {
+            self.rebuild_indices();
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn add(&mut self, mut record: MemoryRecord) -> Result<()> {
         // Auto-tag with namespace for multi-tenant isolation
         if let Some(ref ns) = self.namespace {
