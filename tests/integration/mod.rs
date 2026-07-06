@@ -48,6 +48,3 @@ mod intelligence_uat;
 
 mod topological_substrate_tests;
 mod omega_loop_auditable_tests;
-
-#[cfg(feature = "web-server")]
-mod v040_contract_sit;

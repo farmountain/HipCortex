@@ -101,6 +101,11 @@ harness = false
 name = "integration_bench"
 harness = false
 
+[[test]]
+name = "v040_contract_sit"
+path = "tests/integration/v040_contract_sit.rs"
+required-features = ["web-server"]
+
 [[bin]]
 name = "webserver"
 path = "src/bin/webserver.rs"
