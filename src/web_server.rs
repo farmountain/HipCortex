@@ -3555,6 +3555,7 @@ async fn handle_memory_live_beliefs<B: MemoryBackend + Send + Sync + 'static>(
             "pinned_memories": pinned,
         },
         "summary": summary,
+        "loops_run": current_hypotheses.get("loops").and_then(|v| v.as_u64()).unwrap_or(0),
         "actor": actor,
         "limit": limit,
         "source": "unified /memory/live_beliefs (existing stores, no new persistence)",

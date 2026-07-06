@@ -48,3 +48,33 @@ fn test_memory_link_request_still_accepts_from_id_to_id() {
     assert_eq!(req.from_id, "00000000-0000-0000-0000-000000000003");
     assert_eq!(req.to_id,   "00000000-0000-0000-0000-000000000004");
 }
+
+// ── G-BELIEFS: loops_run present at top level ─────────────────────────────────
+
+#[tokio::test]
+async fn test_live_beliefs_has_loops_run_at_top_level() {
+    let state = make_state();
+    let addr: std::net::SocketAddr = "127.0.0.1:3050".parse().unwrap();
+    let srv = tokio::spawn(async move {
+        hipcortex::web_server::run_with_state(addr, state).await;
+    });
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+    let resp = reqwest::get("http://127.0.0.1:3050/memory/live_beliefs")
+        .await
+        .expect("request failed");
+    assert_eq!(resp.status().as_u16(), 200);
+
+    let body: serde_json::Value = resp.json().await.expect("invalid JSON");
+    assert!(
+        body.get("loops_run").is_some(),
+        "loops_run key missing — extension status bar will always show 0"
+    );
+    assert!(
+        body["loops_run"].is_number(),
+        "loops_run must be a number, got: {:?}",
+        body["loops_run"]
+    );
+
+    srv.abort();
+}
