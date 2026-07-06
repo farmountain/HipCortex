@@ -8,16 +8,18 @@ use hipcortex::aureus_bridge::AureusBridge;
 use hipcortex::self_model::SelfModel;
 use hipcortex::coherence::CoherenceChecker;
 use hipcortex::symbolic_store::{InMemoryGraph, SymbolicStore};
+use hipcortex::CausalTopoGraph;
 use std::sync::{Arc, Mutex, RwLock};
 
 pub fn make_app_state() -> AppState<InMemoryBackend> {
     AppState {
-        memory_store: Arc::new(Mutex::new(MemoryStore::new_in_memory())),
+        memory_store:   Arc::new(Mutex::new(MemoryStore::new_in_memory())),
         symbolic_store: Arc::new(Mutex::new(SymbolicStore::new())),
-        world_model: Arc::new(RwLock::new(WorldModelEnhanced::new())),
-        aureus: Arc::new(Mutex::new(AureusBridge::new())),
-        self_model: Arc::new(SelfModel::new()),
-        coherence: Arc::new(CoherenceChecker::new()),
+        world_model:    Arc::new(RwLock::new(WorldModelEnhanced::new())),
+        aureus:         Arc::new(Mutex::new(AureusBridge::new())),
+        self_model:     Arc::new(SelfModel::new()),
+        coherence:      Arc::new(CoherenceChecker::new()),
+        topo_graph:     Arc::new(Mutex::new(CausalTopoGraph::new())),
     }
 }
 

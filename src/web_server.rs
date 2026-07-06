@@ -275,7 +275,9 @@ pub struct GraphWriteResponse {
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
 pub struct MemoryLinkRequest {
+    #[serde(alias = "source_id")]
     pub from_id:  String,  // MemoryRecord UUID
+    #[serde(alias = "target_id")]
     pub to_id:    String,  // MemoryRecord UUID
     pub relation: String,
 }
