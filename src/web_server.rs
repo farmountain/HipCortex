@@ -2138,7 +2138,11 @@ async fn handle_memory_search_related<B: MemoryBackend + Send + Sync + 'static>(
                 })
                 .collect();
 
-            // Build enriched results vec — look up full MemoryRecord for each result
+            // Build enriched results vec — look up full MemoryRecord for each result.
+            // LOCK ORDER: topo (already held above) → memory_store. All write paths
+            // (handle_memory_link) acquire memory_store first, then topo — but never hold
+            // both simultaneously. This read-only path nests them; preserve non-overlapping
+            // order in future write paths to avoid circular wait.
             let results: Vec<serde_json::Value> = match memory_store.lock() {
                 Ok(ms) => raw
                     .iter()
