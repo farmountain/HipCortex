@@ -667,8 +667,9 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
 
     let memory_search_related_route: axum::routing::MethodRouter = {
         let tg = topo_arc.clone();
+        let ms = memory_store.clone();
         get(move |Query(p): Query<MemoryRelatedParams>| async move {
-            handle_memory_search_related(tg, Query(p)).await
+            handle_memory_search_related(tg, ms, Query(p)).await
         })
     };
 
@@ -2084,13 +2085,17 @@ async fn handle_memory_neighbors(
 ///
 /// Runs PPR (α=0.85 fixed, 20 iterations) over the CausalTopoGraph rooted at
 /// "mem-{seed_id}". Strips the "mem-" prefix from results before returning.
+/// Returns `results` (extension-compatible: [{score, record}]) and `related`
+/// (backward-compat: [{id, score}]). If a record UUID is not found in the store,
+/// the result entry still has `score` but `record` contains only `{id}`.
 ///
 /// α=0.85 is standard PageRank damping (15% restart probability). This value
 /// works well for graphs up to ~10K nodes. Expose as a query param in a future
 /// change if empirical evidence calls for a different default.
 #[cfg(feature = "web-server")]
-async fn handle_memory_search_related(
+async fn handle_memory_search_related<B: MemoryBackend + Send + Sync + 'static>(
     topo: Arc<Mutex<crate::topological_memory::CausalTopoGraph>>,
+    memory_store: Arc<Mutex<MemoryStore<B>>>,
     Query(params): Query<MemoryRelatedParams>,
 ) -> Json<serde_json::Value> {
     let limit    = params.limit.unwrap_or(10).min(50);
@@ -2099,6 +2104,7 @@ async fn handle_memory_search_related(
     match topo.lock() {
         Err(e) => Json(serde_json::json!({
             "seed_id": params.seed_id,
+            "results": [],
             "related": [],
             "error":   format!("lock: {}", e),
         })),
@@ -2113,14 +2119,16 @@ async fn handle_memory_search_related(
                 if !has_any_edge {
                     return Json(serde_json::json!({
                         "seed_id": params.seed_id,
+                        "results": [],
                         "related": [],
                         "note":    "seed_id has no graph edges — link it first via POST /memory/link",
                     }));
                 }
             }
 
+            // Build lightweight related vec (backward compat)
             let related: Vec<serde_json::Value> = raw
-                .into_iter()
+                .iter()
                 .map(|(sym_id, score)| {
                     let id = sym_id.trim_start_matches("mem-").to_string();
                     serde_json::json!({
@@ -2130,8 +2138,34 @@ async fn handle_memory_search_related(
                 })
                 .collect();
 
+            // Build enriched results vec — look up full MemoryRecord for each result
+            let results: Vec<serde_json::Value> = match memory_store.lock() {
+                Ok(ms) => raw
+                    .iter()
+                    .map(|(sym_id, score)| {
+                        let id_str = sym_id.trim_start_matches("mem-");
+                        let score_rounded = (score * 1000.0).round() / 1000.0;
+                        let record = id_str
+                            .parse::<uuid::Uuid>()
+                            .ok()
+                            .and_then(|uid| ms.find_by_id(uid))
+                            .map(|rec| serde_json::json!({
+                                "id":         rec.id.to_string(),
+                                "actor":      rec.actor,
+                                "action":     rec.action,
+                                "target":     rec.target,
+                                "confidence": rec.confidence,
+                            }))
+                            .unwrap_or_else(|| serde_json::json!({"id": id_str}));
+                        serde_json::json!({ "score": score_rounded, "record": record })
+                    })
+                    .collect(),
+                Err(_) => vec![],
+            };
+
             Json(serde_json::json!({
                 "seed_id":   params.seed_id,
+                "results":   results,
                 "related":   related,
                 "limit":     limit,
                 "algorithm": "ppr",
