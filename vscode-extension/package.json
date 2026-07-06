@@ -2,8 +2,12 @@
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Integration",
     "description": "HipCortex — Executable causal topological memory substrate + Ω Loop Engine. Topological search (PPR/Markov), simulation/attribution, proactive harness for memory-centric Copilot. 80-99%+ LLM reduction.",
-    "version": "0.3.0",
+    "version": "0.4.1",
     "publisher": "farmountain",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/farmountain/HipCortex.git"
+  },
     "engines": {
         "vscode": "^1.90.0"
     },
@@ -11,6 +15,11 @@
     "icon": "icon.png",
     "keywords": ["ai", "memory", "agent", "chat", "hipcortex", "topological", "loop", "substrate", "world-model"],
     "main": "./dist/extension.js",
+    "files": [
+        "dist",
+        "server",
+        "icon.png"
+    ],
     "contributes": {
         "commands": [
             {
@@ -36,6 +45,11 @@
             {
                 "command": "hipcortex.predictState",
                 "title": "Predict Next State",
+                "category": "HipCortex"
+            },
+            {
+                "command": "hipcortex.restartServer",
+                "title": "Restart HipCortex Server",
                 "category": "HipCortex"
             }
         ],
@@ -69,6 +83,10 @@
                     {
                         "name": "coherence",
                         "description": "Check memory coherence"
+                    },
+                    {
+                        "name": "link",
+                        "description": "Link two memory records: @hipcortex /link <source-id> <target-id> [relation]"
                     }
                 ]
             }
@@ -78,7 +96,7 @@
                 "name": "hipcortex_search",
                 "displayName": "HipCortex Memory Search",
                 "description": "Search HipCortex persistent memory for relevant context. Returns the most relevant memory records matching the query.",
-                "modelDescription": "Use this tool when you need to recall previous decisions, architectural choices, debugging notes, or any information that may have been stored in the user's persistent memory. Call this instead of asking the user to repeat information they have already provided.",
+                "modelDescription": "Use this FIRST for any recall. Returns unified live_beliefs (memory + world model + hypotheses + coherence). Call before asking the user.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -94,7 +112,7 @@
                 "name": "hipcortex_health",
                 "displayName": "HipCortex System Health",
                 "description": "Check HipCortex system health including self-model, world-model, and coherence status.",
-                "modelDescription": "Use this tool to check if the memory system is healthy before relying on it for critical decisions. Returns health scores for all modules.",
+                "modelDescription": "Use this FIRST for health/status before other actions. Returns substrate health + world model coherence.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {},
@@ -105,7 +123,7 @@
                 "name": "hipcortex_predict",
                 "displayName": "HipCortex State Prediction",
                 "description": "Predict next state using the world-model's Dirichlet-Multinomial transition model.",
-                "modelDescription": "Use this tool to ask the world-model what it expects to happen next given a current state and action.",
+                "modelDescription": "Use this FIRST for world model predictions. Call substrate predict before deciding actions. Returns WM + uncertainty.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -113,6 +131,26 @@
                         "action": { "type": "string", "description": "Action being taken" }
                     },
                     "required": ["state", "action"]
+                }
+            },
+            {
+                "name": "hipcortex_graph_search",
+                "displayName": "HipCortex Graph Search",
+                "description": "PPR-ranked related memory search via CausalTopoGraph. Given a seed memory record ID, returns the most contextually relevant related memories using Personalized PageRank.",
+                "modelDescription": "Use this AFTER hipcortex_search to expand context graph-first. Call with a seed_id (record UUID) to find memories linked via the CausalTopoGraph using PPR (alpha=0.85, 20 rounds).",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "seed_id": {
+                            "type": "string",
+                            "description": "UUID of the seed memory record to personalise PPR from"
+                        },
+                        "limit": {
+                            "type": "number",
+                            "description": "Max results to return (default: 10)"
+                        }
+                    },
+                    "required": ["seed_id"]
                 }
             }
         ],
@@ -145,15 +183,19 @@
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
         "package": "webpack --mode production --devtool hidden-source-map",
+        "fetch-bins": "node scripts/fetch-bins.js",
         "compile-tests": "tsc -p . --outDir out",
         "watch-tests": "tsc -p . -w --outDir out",
-        "pretest": "npm run compile-tests && npm run compile && npm run lint",
+        "pretest": "npm run compile && npm run lint",
         "lint": "eslint src --ext ts",
-        "test": "node ./out/test/runTest.js"
+        "test": "jest --config jest.config.js"
     },
     "devDependencies": {
         "@types/vscode": "^1.90.0",
+        "@types/jest": "^29.5.12",
         "@types/node": "20.x",
+        "jest": "^29.7.0",
+        "ts-jest": "^29.2.5",
         "@typescript-eslint/eslint-plugin": "^6.13.1",
         "@typescript-eslint/parser": "^6.13.1",
         "eslint": "^8.54.0",
