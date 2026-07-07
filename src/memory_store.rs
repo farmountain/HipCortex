@@ -382,6 +382,39 @@ impl<B: MemoryBackend> MemoryStore<B> {
         Ok((before, after, quarantined))
     }
 
+    /// Compute time-based confidence decay for a memory record.
+    ///
+    /// Formula: `confidence × exp(−λ × elapsed_seconds / t½)`
+    ///
+    /// Parameters read from `rec.metadata`:
+    ///   - `"decay_factor"` (λ): rate multiplier, default 1.0; 0.0 = no decay
+    ///   - `"decay_half_life_secs"` (t½): seconds for confidence to halve, default 2,592,000 (30 days)
+    ///
+    /// Returns `rec.confidence as f64` unchanged when λ=0 or elapsed < 1s.
+    fn compute_decay(rec: &MemoryRecord) -> f64 {
+        let elapsed_secs = (chrono::Utc::now().timestamp() - rec.timestamp.timestamp()).max(0) as f64;
+        let conf = rec.confidence as f64;
+        if elapsed_secs < 1.0 {
+            return conf;
+        }
+        let lambda = rec
+            .metadata
+            .get("decay_factor")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1.0)
+            .clamp(0.0, 10.0);
+        if lambda < f64::EPSILON {
+            return conf; // λ=0 → no decay
+        }
+        let half_life = rec
+            .metadata
+            .get("decay_half_life_secs")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(2_592_000.0) // 30 days
+            .max(1.0);
+        conf * (-lambda * elapsed_secs / half_life).exp()
+    }
+
     /// Semantic search: rank records by cosine similarity against `query_embedding`
     /// if they carry a `metadata.embedding` float array, otherwise fall back to
     /// keyword matching against actor + action + target.
@@ -428,7 +461,7 @@ impl<B: MemoryBackend> MemoryStore<B> {
                     "low"  => 0.5,
                     _      => 1.0,
                 };
-                let weighted = base_score * (0.5 + 0.5 * trust) * priority_mult;
+                let weighted = base_score * (0.5 + 0.5 * trust) * priority_mult * Self::compute_decay(rec);
                 (rec, weighted)
             })
             .filter(|(_, s)| *s > 0.0)

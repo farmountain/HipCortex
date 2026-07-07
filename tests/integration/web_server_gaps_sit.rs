@@ -300,3 +300,50 @@ fn test_low_priority_ranks_below_normal_for_same_content() {
         low_pos, normal_pos
     );
 }
+
+// ── Task 3: time-based decay scoring ─────────────────────────────────────────
+
+#[test]
+fn test_old_record_with_short_half_life_scores_lower_than_fresh() {
+    let mut store = make_store();
+
+    // "Old" record: 200 seconds old, half-life 100s → 2 half-lives → score ≈0.25×
+    let mut old_r = make_record("alice", "decided", "use postgres now");
+    old_r.timestamp = Utc::now() - Duration::seconds(200);
+    old_r.metadata = serde_json::json!({
+        "decay_factor": 1.0,
+        "decay_half_life_secs": 100
+    });
+    store.add(old_r.clone()).unwrap();
+
+    // "Fresh" record: same content, just created (timestamp = Utc::now())
+    let fresh_r = make_record("bob", "decided", "use postgres now");
+    store.add(fresh_r.clone()).unwrap();
+
+    let results = store.search_semantic(None, "use postgres now", 10, false);
+    let old_score = results.iter().find(|(r, _)| r.id == old_r.id).map(|(_, s)| *s).unwrap_or(0.0);
+    let fresh_score = results.iter().find(|(r, _)| r.id == fresh_r.id).map(|(_, s)| *s).unwrap_or(0.0);
+    assert!(
+        old_score < fresh_score,
+        "decayed old record (score {:.4}) must score lower than fresh record (score {:.4})",
+        old_score, fresh_score
+    );
+}
+
+#[test]
+fn test_zero_decay_factor_record_is_not_decayed() {
+    let mut store = make_store();
+
+    // Very old record but λ=0 → no decay regardless of age
+    let mut r = make_record("alice", "decided", "use postgres");
+    r.timestamp = Utc::now() - Duration::seconds(999_999_999); // ancient
+    r.metadata = serde_json::json!({"decay_factor": 0.0});
+    r.confidence = 1.0;
+    store.add(r.clone()).unwrap();
+
+    let results = store.search_semantic(None, "use postgres", 10, false);
+    let score = results.iter().find(|(rec, _)| rec.id == r.id).map(|(_, s)| *s).unwrap_or(0.0);
+    // λ=0 → decay=1.0, conf=1.0, trust default=0.5, keyword=1.0, priority=1.0
+    // weighted = 1.0 * (0.5 + 0.5*0.5) * 1.0 * 1.0 = 0.75
+    assert!(score > 0.5, "λ=0 record must not decay (score {:.4} must be > 0.5)", score);
+}
