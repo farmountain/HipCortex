@@ -3024,8 +3024,10 @@ async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
                             record.action.clone(),
                             record.target.clone(),
                         );
-                        // Register causal edge for pinned symbolic decisions
-                        if record.priority == "pinned" && record.record_type == MemoryType::Symbolic {
+                        // Register causal edge for any Symbolic record OR any pinned record.
+                        // Symbolic = intentional decision (feeds causal reasoning regardless of priority).
+                        // Pinned = explicitly important (feeds causal reasoning regardless of type).
+                        if record.record_type == MemoryType::Symbolic || record.priority == "pinned" {
                             let _ = wm.add_causal_edge(record.actor.clone(), record.target.clone());
                         }
                     }
