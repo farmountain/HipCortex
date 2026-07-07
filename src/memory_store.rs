@@ -433,7 +433,8 @@ impl<B: MemoryBackend> MemoryStore<B> {
             .records
             .iter()
             .filter(|r| {
-                (include_quarantined || r.status != "quarantine")
+                r.priority != "pinned"
+                    && (include_quarantined || r.status != "quarantine")
                     && r.expires_at.map_or(true, |exp| exp > now_ts)
             })
             .map(|rec| {
@@ -468,7 +469,9 @@ impl<B: MemoryBackend> MemoryStore<B> {
             .collect();
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
-        // Pinned active records always appear first, regardless of score
+        // Pinned records always surface at score 2.0 — they are excluded from the main
+        // scored pipeline above so decay and priority_mult do not apply.
+        // Non-expired, non-quarantined pinned records always appear first.
         let mut pinned: Vec<(&MemoryRecord, f64)> = self.records.iter()
             .filter(|r| {
                 r.priority == "pinned"

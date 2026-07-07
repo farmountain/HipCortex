@@ -257,6 +257,34 @@ fn test_search_excludes_expired_pinned_record() {
     );
 }
 
+#[test]
+fn test_pinned_record_with_query_match_scores_2_0_not_decayed() {
+    let mut store = make_store();
+
+    // Old pinned record with short half-life — WITHOUT the fix it would get decayed and score < 2.0
+    let mut pinned_r = make_record("alice", "decided", "use postgres architecture");
+    pinned_r.priority = "pinned".to_string();
+    pinned_r.timestamp = Utc::now() - Duration::seconds(200);
+    pinned_r.metadata = serde_json::json!({
+        "decay_factor": 1.0,
+        "decay_half_life_secs": 100  // 2 half-lives → would decay to ~0.25× without fix
+    });
+    store.add(pinned_r.clone()).unwrap();
+
+    // Fresh normal record, same content
+    let normal_r = make_record("bob", "decided", "use postgres architecture");
+    store.add(normal_r.clone()).unwrap();
+
+    let results = store.search_semantic(None, "use postgres architecture", 10, false);
+    let pinned_pos = results.iter().position(|(r, _)| r.id == pinned_r.id).expect("pinned missing");
+    let normal_pos = results.iter().position(|(r, _)| r.id == normal_r.id).expect("normal missing");
+    let pinned_score = results[pinned_pos].1;
+
+    assert_eq!(pinned_pos, 0, "pinned record must appear first (pos 0), got pos {}", pinned_pos);
+    assert!(pinned_pos < normal_pos, "pinned must rank above normal");
+    assert!((pinned_score - 2.0).abs() < f64::EPSILON, "pinned record must score 2.0, got {}", pinned_score);
+}
+
 // ── Task 2: priority multipliers (high=1.5×, low=0.5×) ───────────────────────
 
 #[test]
