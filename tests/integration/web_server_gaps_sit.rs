@@ -256,3 +256,47 @@ fn test_search_excludes_expired_pinned_record() {
         "expired pinned record must not appear in search_semantic (pinned bypass is score, not expiry)"
     );
 }
+
+// ── Task 2: priority multipliers (high=1.5×, low=0.5×) ───────────────────────
+
+#[test]
+fn test_high_priority_ranks_above_normal_for_same_content() {
+    let mut store = make_store();
+
+    let mut high_r = make_record("alice", "decided", "use postgres as database");
+    high_r.priority = "high".to_string();
+    store.add(high_r.clone()).unwrap();
+
+    let normal_r = make_record("bob", "decided", "use postgres as database");
+    store.add(normal_r.clone()).unwrap();
+
+    let results = store.search_semantic(None, "use postgres as database", 10, false);
+    let high_pos = results.iter().position(|(r, _)| r.id == high_r.id).expect("high record missing");
+    let normal_pos = results.iter().position(|(r, _)| r.id == normal_r.id).expect("normal record missing");
+    assert!(
+        high_pos < normal_pos,
+        "high priority record (pos {}) must rank above normal priority (pos {})",
+        high_pos, normal_pos
+    );
+}
+
+#[test]
+fn test_low_priority_ranks_below_normal_for_same_content() {
+    let mut store = make_store();
+
+    let mut low_r = make_record("alice", "decided", "use redis for cache");
+    low_r.priority = "low".to_string();
+    store.add(low_r.clone()).unwrap();
+
+    let normal_r = make_record("bob", "decided", "use redis for cache");
+    store.add(normal_r.clone()).unwrap();
+
+    let results = store.search_semantic(None, "use redis for cache", 10, false);
+    let low_pos = results.iter().position(|(r, _)| r.id == low_r.id).expect("low record missing");
+    let normal_pos = results.iter().position(|(r, _)| r.id == normal_r.id).expect("normal record missing");
+    assert!(
+        low_pos > normal_pos,
+        "low priority record (pos {}) must rank below normal priority (pos {})",
+        low_pos, normal_pos
+    );
+}

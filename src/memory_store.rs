@@ -421,7 +421,14 @@ impl<B: MemoryBackend> MemoryStore<B> {
                 let trust = rec.source.as_deref()
                     .map(|s| self.source_trust.get_trust(s) as f64)
                     .unwrap_or(0.5);
-                let weighted = base_score * (0.5 + 0.5 * trust); // range: 0.5x-1.0x of base
+                // Priority multiplier: high=1.5×, low=0.5×, normal/pinned=1.0×
+                // Note: pinned records take a separate code path (score 2.0 override).
+                let priority_mult: f64 = match rec.priority.as_str() {
+                    "high" => 1.5,
+                    "low"  => 0.5,
+                    _      => 1.0,
+                };
+                let weighted = base_score * (0.5 + 0.5 * trust) * priority_mult;
                 (rec, weighted)
             })
             .filter(|(_, s)| *s > 0.0)
