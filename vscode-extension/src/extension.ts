@@ -919,9 +919,30 @@ export function activate(context: vscode.ExtensionContext) {
             const trans = 0;
             const loops = r && r.loops_run ? r.loops_run : 0;
             const saved = tokenTracker.getSnapshot().savedTokens.toLocaleString();
-            const summaryLive = `edited ${fileName}`;
-            statusBarItem.text = `$(database) HipCortex: WM ${trans} | loops ${loops} | ${saved} tok`;
-            serverChannel.appendLine(`Live: ${summaryLive}`);
+
+            // WM predict: what file will likely be edited next?
+            const pred = await api.predictState('vscode-user', 'edited').catch(() => null);
+            let predSuffix = '';
+            if (
+                pred &&
+                pred.probabilities &&
+                typeof pred.observation_count === 'number' &&
+                pred.observation_count >= 3
+            ) {
+                // Find highest-probability next target
+                const entries = Object.entries(pred.probabilities as Record<string, number>);
+                if (entries.length > 0) {
+                    entries.sort(([, a], [, b]) => b - a);
+                    const [topTarget] = entries[0];
+                    // Show just the filename portion (strip path prefix if present)
+                    const topFile = topTarget.split(/[\\/]/).pop()?.split(' ')[0] || topTarget;
+                    const entropy = typeof pred.entropy === 'number' ? pred.entropy.toFixed(1) : '?';
+                    predSuffix = ` | →${topFile}? H:${entropy}`;
+                }
+            }
+
+            statusBarItem.text = `$(database) HipCortex: WM ${trans} | loops ${loops}${predSuffix} | ${saved} tok`;
+            serverChannel.appendLine(`Live: edited ${fileName}${predSuffix}`);
             updateStatusBar(trans, loops);
         } catch (err) {
             serverChannel.appendLine(`Auto-capture error: ${err instanceof Error ? err.message : String(err)}`);
