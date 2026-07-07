@@ -9,6 +9,7 @@
 use hipcortex::memory_record::{MemoryRecord, MemoryType};
 use hipcortex::memory_store::MemoryStore;
 use hipcortex::persistence::InMemoryBackend;
+use chrono::{Duration, Utc};
 
 fn make_store() -> MemoryStore<InMemoryBackend> {
     MemoryStore::new_in_memory()
@@ -212,4 +213,46 @@ fn test_contradict_clamps_at_0_0() {
 
     let (_before, after, _) = store.contradict(id).unwrap();
     assert!(after >= 0.0, "confidence went negative: {}", after);
+}
+
+// ── Task 1: search_semantic excludes expired records ─────────────────────────
+
+#[test]
+fn test_search_excludes_expired_records() {
+    let mut store = make_store();
+    let mut r = make_record("alice", "decided", "use postgres");
+    r.expires_at = Some(Utc::now().timestamp() - 1); // 1 second in the past
+    store.add(r).unwrap();
+    let results = store.search_semantic(None, "postgres", 10, false);
+    assert!(
+        results.is_empty(),
+        "expired record must not appear in search_semantic results"
+    );
+}
+
+#[test]
+fn test_search_includes_non_expired_record() {
+    let mut store = make_store();
+    let mut r = make_record("alice", "decided", "use postgres");
+    r.expires_at = Some(Utc::now().timestamp() + 3600); // 1 hour from now
+    store.add(r).unwrap();
+    let results = store.search_semantic(None, "postgres", 10, false);
+    assert!(
+        !results.is_empty(),
+        "non-expired record must appear in search_semantic results"
+    );
+}
+
+#[test]
+fn test_search_excludes_expired_pinned_record() {
+    let mut store = make_store();
+    let mut r = make_record("alice", "decided", "use postgres");
+    r.priority = "pinned".to_string();
+    r.expires_at = Some(Utc::now().timestamp() - 1); // expired
+    store.add(r).unwrap();
+    let results = store.search_semantic(None, "postgres", 10, false);
+    assert!(
+        results.is_empty(),
+        "expired pinned record must not appear in search_semantic (pinned bypass is score, not expiry)"
+    );
 }

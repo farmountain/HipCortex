@@ -395,10 +395,14 @@ impl<B: MemoryBackend> MemoryStore<B> {
         limit: usize,
         include_quarantined: bool,
     ) -> Vec<(&MemoryRecord, f64)> {
+        let now_ts = chrono::Utc::now().timestamp();
         let mut scored: Vec<(&MemoryRecord, f64)> = self
             .records
             .iter()
-            .filter(|r| include_quarantined || r.status != "quarantine")
+            .filter(|r| {
+                (include_quarantined || r.status != "quarantine")
+                    && r.expires_at.map_or(true, |exp| exp > now_ts)
+            })
             .map(|rec| {
                 let base_score = if let Some(qe) = query_embedding {
                     let doc_vec: Option<Vec<f64>> = rec
@@ -426,7 +430,11 @@ impl<B: MemoryBackend> MemoryStore<B> {
 
         // Pinned active records always appear first, regardless of score
         let mut pinned: Vec<(&MemoryRecord, f64)> = self.records.iter()
-            .filter(|r| r.priority == "pinned" && (include_quarantined || r.status != "quarantine"))
+            .filter(|r| {
+                r.priority == "pinned"
+                    && (include_quarantined || r.status != "quarantine")
+                    && r.expires_at.map_or(true, |exp| exp > now_ts)
+            })
             .map(|r| (r, 2.0f64))
             .collect();
         let scored_ids: std::collections::HashSet<uuid::Uuid> = scored.iter().map(|(r, _)| r.id).collect();
