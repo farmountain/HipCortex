@@ -167,8 +167,9 @@ fn test_symbolic_store_constructs_with_intelligence() {
         .with_world_model(wm.clone())
         .with_coherence(cc.clone());
 
+    // SymbolicStore::new() always seeds System:Self — baseline is 1, not 0.
     let (nodes, edges) = store.export_graph();
-    assert!(nodes.is_empty());
+    assert_eq!(nodes.len(), 1, "Fresh store should contain only the System:Self anchor");
     assert!(edges.is_empty());
 }
 
@@ -176,12 +177,14 @@ fn test_symbolic_store_constructs_with_intelligence() {
 fn test_symbolic_store_add_node_with_self_model() {
     let sm = setup_self_model();
     let mut store = SymbolicStore::new().with_self_model(sm.clone());
+    let (initial, _) = store.export_graph();
+    let baseline = initial.len(); // includes System:Self anchor
 
     let node_id = store.add_node("test_entity", HashMap::new());
     assert_ne!(node_id, Uuid::nil());
 
     let (nodes, _) = store.export_graph();
-    assert_eq!(nodes.len(), 1);
+    assert_eq!(nodes.len(), baseline + 1, "Should have 1 user node beyond the anchor");
 }
 
 #[test]
@@ -219,6 +222,8 @@ fn test_symbolic_store_nodes_and_edges_with_intelligence() {
         .with_self_model(sm.clone())
         .with_world_model(wm.clone())
         .with_coherence(cc.clone());
+    let (initial, _) = store.export_graph();
+    let baseline = initial.len(); // includes System:Self anchor
 
     // Add nodes
     let a = store.add_node("A", HashMap::new());
@@ -230,9 +235,10 @@ fn test_symbolic_store_nodes_and_edges_with_intelligence() {
     store.add_edge(a, b, "knows");
 
     let (nodes, edges) = store.export_graph();
-    assert_eq!(nodes.len(), 2);
+    assert_eq!(nodes.len(), baseline + 2, "Should have 2 user nodes beyond the anchor");
     // Edge count depends on safety guardrail — may be 0 if blocked
     // The important thing is that add_edge didn't panic
+    let _ = edges;
 }
 
 #[test]
@@ -260,6 +266,8 @@ fn test_symbolic_store_full_intelligence_pipeline() {
         .with_self_model(sm.clone())
         .with_world_model(wm.clone())
         .with_coherence(cc.clone());
+    let (initial, _) = store.export_graph();
+    let baseline = initial.len(); // includes System:Self anchor
 
     // Add nodes
     let e1 = store.add_node("entity_1", HashMap::from([
@@ -274,9 +282,9 @@ fn test_symbolic_store_full_intelligence_pipeline() {
     // Add edge
     store.add_edge(e1, e2, "knows");
 
-    // Verify graph has nodes
+    // Verify graph has nodes (delta from baseline to account for System:Self)
     let (nodes, _edges) = store.export_graph();
-    assert_eq!(nodes.len(), 2);
+    assert_eq!(nodes.len(), baseline + 2, "Should have 2 user nodes beyond the anchor");
 
     // Verify intelligence layer state
     assert!(sm.is_healthy().unwrap());
@@ -335,10 +343,15 @@ fn test_symbolic_store_health_reporter() {
 fn test_symbolic_store_health_reporter_initial_state() {
     use hipcortex::health_reporter::HealthReporter;
 
+    // SymbolicStore::new() seeds System:Self, so resource_usage > 0 is expected.
+    // We assert it is valid (in range) rather than zero.
     let store = SymbolicStore::new();
     let health = store.report_health();
-    assert_eq!(health.error_rate, 0.0);
-    assert_eq!(health.resource_usage, 0.0);
+    assert_eq!(health.error_rate, 0.0, "No errors in fresh store");
+    assert!(
+        health.resource_usage >= 0.0 && health.resource_usage <= 1.0,
+        "resource_usage must be in [0,1], got {}", health.resource_usage
+    );
 }
 
 // ============================================================================

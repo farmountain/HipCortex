@@ -116,6 +116,14 @@ pub const OPENAPI_SPEC: &str = r##"{
       "requestBody": { "required": true, "content": { "application/json": {
         "schema": { "$ref": "#/components/schemas/SearchRequest" } } } },
       "responses": { "200": { "description": "Search results" } } } },
+    "/memory/search/related": { "get": { "operationId": "searchRelated",
+      "summary": "Find memories related to a seed by Personalized PageRank (PPR) over the CausalTopoGraph.",
+      "description": "Scores reflect graph centrality from the seed node (topological proximity via PPR, alpha=0.85, 20 iterations). This is independent of record priority: the pinned=2.0 score override used by search_semantic does NOT apply. Pinned records appear only if topologically reachable from the seed via explicit /memory/link edges. A pinned record's prominence here is determined by its graph in-degree, not its priority label.",
+      "parameters": [
+        { "name": "seed_id", "in": "query", "required": true, "schema": { "type": "string", "format": "uuid" }, "description": "UUID of the seed memory record" },
+        { "name": "limit",   "in": "query", "schema": { "type": "integer", "default": 10, "maximum": 50 }, "description": "Max number of results" }
+      ],
+      "responses": { "200": { "description": "PPR-ranked related records" } } } },
     "/memory/embed": { "post": { "operationId": "embedAndStore", "summary": "Auto-generate embedding then store memory",
       "requestBody": { "required": true, "content": { "application/json": {
         "schema": { "$ref": "#/components/schemas/EmbedAndAddRequest" } } } },

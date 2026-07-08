@@ -75,8 +75,8 @@ interface AddMemoryRequest {
     actor: string;
     action: string;
     target: string;
-    record_type?: string;
-    metadata?: any;
+    record_type?: "Temporal" | "Symbolic" | "Procedural" | "Reflexion" | "Perception";
+    metadata?: Record<string, unknown>;
     /** Unix TTL in seconds. Server deletes record after this duration. */
     ttl_seconds?: number;
     /** "pinned" | "high" | "normal" | "low". Affects search ranking. */

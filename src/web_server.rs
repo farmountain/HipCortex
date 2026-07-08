@@ -2092,6 +2092,15 @@ async fn handle_memory_neighbors(
 /// α=0.85 is standard PageRank damping (15% restart probability). This value
 /// works well for graphs up to ~10K nodes. Expose as a query param in a future
 /// change if empirical evidence calls for a different default.
+///
+/// # Scoring Model (PPR vs search_semantic)
+///
+/// PPR scores reflect **graph centrality from the seed node** (topological proximity).
+/// The `pinned=2.0` score override used by `search_semantic` does NOT apply here.
+/// Priority labels (pinned/high/normal/low) have no effect on PPR scores.
+/// If a pinned record is unreachable from the seed via CausalTopoGraph edges,
+/// it will not appear in results. A pinned record's PPR prominence is determined
+/// entirely by its in-degree in the link graph, not its priority label.
 #[cfg(feature = "web-server")]
 async fn handle_memory_search_related<B: MemoryBackend + Send + Sync + 'static>(
     topo: Arc<Mutex<crate::topological_memory::CausalTopoGraph>>,

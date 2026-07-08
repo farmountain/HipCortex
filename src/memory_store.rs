@@ -391,6 +391,20 @@ impl<B: MemoryBackend> MemoryStore<B> {
     ///   - `"decay_half_life_secs"` (t½): seconds for confidence to halve, default 2,592,000 (30 days)
     ///
     /// Returns `rec.confidence as f64` unchanged when λ=0 or elapsed < 1s.
+    ///
+    /// # Invariant
+    ///
+    /// The return value is always in `[0.0, rec.confidence]`. This function is
+    /// **purely suppressive** — it can reduce or preserve a record's contribution
+    /// to the final weighted score, but never amplify it beyond what confidence allows.
+    ///
+    /// `rec.confidence` at ingestion time acts as a **permanent score ceiling**:
+    /// a record with `confidence=0.5` can contribute at most `0.5 × base_score × trust`
+    /// to the final weighted score, regardless of query relevance or time elapsed.
+    ///
+    /// This is intentional: low-confidence memories should not dominate retrieval
+    /// even when they are semantically relevant. To allow a memory to rank higher,
+    /// ingest it with a higher `confidence` value.
     fn compute_decay(rec: &MemoryRecord) -> f64 {
         let elapsed_secs = (chrono::Utc::now().timestamp() - rec.timestamp.timestamp()).max(0) as f64;
         let conf = rec.confidence as f64;
