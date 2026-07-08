@@ -38,7 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── SelfModel: bootstrap with registered capabilities ────────────────────
     let self_model = Arc::new(SelfModel::new());
     for op in &["add_memory", "search_memory", "query_memory", "ingest",
-                "bulk_add", "forget", "reflect", "context"] {
+                "bulk_add", "forget", "reflect", "context", "predict", "rollout"] {
         self_model.register_capability(CapabilityDescriptor {
             name: op.to_string(),
             description: format!("HipCortex {} operation", op),

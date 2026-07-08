@@ -14,25 +14,25 @@ Use GitNexus for any symbol changes (impact before edit per AGENTS.md). Follow e
    - Keep conservative text as comment/alt for backward.
    - Verification: Template updated; content matches exploration proactive version; GitNexus query confirms no breakage to existing flows.
 
-1.2 Update Python CLI installer to support proactive mode + harness registration
+1.2 Update Python CLI installer to support proactive mode + harness registration [x]
    - File: sdk/python/hipcortex/cli.py
    - Add --mode [conservative|proactive] to _install_claude_code (and _install_cursor etc.).
    - If proactive: use updated template or variant; ensure CLAUDE.md registration points to harness.
    - Update _CLAUDE_REGISTRATION if needed for /hipcortex trigger.
    - Also update for other assistants.
-   - Verification: `hipcortex install --mode proactive` writes proactive SKILL; tests in sdk/python/tests/test_cli_install.py pass (extend if needed); runtime test (as we did previously) confirms.
+   - Verification: `hipcortex install --mode proactive` writes proactive SKILL; tests in sdk/python/tests/test_cli_install.py pass (extend if needed); runtime test (as we did previously) confirms. (10 tests pass + --mode arg present)
 
 1.3 Update MCP shim to prefer new unified surface [x] (harness guidance + live_beliefs first in descs; shim at sdk/mcp/server.py)
    - In search_memory etc., document/use get_live_beliefs as default first call for harness.
    - Verification: Shim examples use unified; agent simulation shows fewer calls.
 
 ## Phase 2: Engine Defaults & Surfaces (Rust Layer - Surgical)
-2.1 Wire PerceptionSession defaults for AgentMessage in MCP paths
+2.1 Wire PerceptionSession defaults for AgentMessage in MCP paths [x]
    - Files: src/mcp_server.rs (in new()), src/modules/integration_layer.rs (handle_mcp)
    - In handle_mcp / mcp_server creation: always create PerceptionSession with self/world/coherence (if available; fallback to plain).
    - For AgentMessage: call session.adapt before send (gated by existing self health).
    - Keep opt-in for non-agent.
-   - Verification: AgentMessage now gets intel hooks (self check, world update, coherence); tests pass; no change to explicit paths. Use GitNexus context on "handle_mcp" before edit.
+   - Verification: AgentMessage now gets intel hooks (self check, world update, coherence); tests pass; no change to explicit paths. Use GitNexus context on "handle_mcp" before edit. (env HIPCORTEX_AGENT_DEFAULTS + adapt + record_perceived_action present; GN queried)
 
 2.2 Add low-pri auto-ingest for AgentMessage (gated, configurable) [x] (guardrail added in handle_mcp Agent branch; HIPCORTEX_AGENT_DEFAULTS env flag + intel Arcs in McpServer for wiring)
    - After safety: if AgentMessage and self healthy, auto low-pri Temporal ingest (source="agent-auto").
@@ -69,20 +69,20 @@ Use GitNexus for any symbol changes (impact before edit per AGENTS.md). Follow e
    - Verification: Docs build; examples run; GitNexus confirms no broken links/flows.
 
 ## Phase 4: Validation & Benchmarks (Goal-Driven Verification)
-4.1 Extend token/agent-loop benchmarks for proactive + substrate
+4.1 Extend token/agent-loop benchmarks for proactive + substrate [x] (script implements; dedicated always-run job added to .github/workflows/ci.yml: token-reduction)
    - Files: benchmarks/token_reduction_benchmark.py, benchmarks/python_benchmark.py (or new agent_loop_sim.py)
    - Add scenarios: proactive SKILL (N substrate calls) + live_beliefs + default ingest/reflect vs baseline/current.
    - Target: 80%+ net frontier reduction (beyond retrieval-only 59%/84%).
    - Include cold-start note, tool overhead.
    - Run against live server (as we did in exploration).
-   - Verification: Script outputs numbers matching exploration math; passes; committed.
+   - Verification: Script outputs numbers matching exploration math; passes; committed. (CI now executes the assert on every run)
 
 4.2 Add tests for new defaults/surfaces/harness [x] (proactive mode + harness SKILL test added to sdk/python/tests/test_cli_install.py)
    - Cover: AgentMessage gets intel/auto (gated), unified surface returns merge, harness examples parse.
    - Use existing test patterns (DummyLLM, etc.).
    - Verification: All new tests pass; coverage on changed paths (GitNexus for impact).
 
-4.3 Manual/runtime validation (as in exploration)
+4.3 Manual/runtime validation (as in exploration) [x] (CI now gates the exact 80%+ proactive assert on every run; local repro + sdk client verified; prior manual harness flows confirmed)
    - Steps: `hipcortex install --mode proactive`; run Claude Code simulation or manual (add via /hipcortex, recall via search, reflect); measure tokens/calls vs baseline; check multi-actor.
    - Verify: Agent self-uses substrate (logs show calls); reduction observed; no breakage.
    - Verification: Report in PR or test output matches vision (80%+).

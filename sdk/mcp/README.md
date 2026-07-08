@@ -52,6 +52,7 @@ Add to `~/.claude/settings.json`:
 | `search_memory` | Recall relevant past context by keyword |
 | `forget_actor` | Delete all memories for a project scope |
 | `get_stats` | Show memory store statistics |
+| `search_code` | Search the code graph for relevant symbols, functions, or classes |
 
 ## Start HipCortex server
 

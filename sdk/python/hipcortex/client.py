@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from typing import Any, Dict, List, Optional
 
@@ -12,11 +13,14 @@ class HipCortexClient:
     """Synchronous HTTP client for the HipCortex memory server.
 
     Args:
-        base_url: Root URL of the running hipcortex web-server binary.
+        base_url: Root URL (falls back to HIPCORTEX_URL env for auto-lifecycle after install).
         timeout:  Per-request timeout in seconds.
     """
 
-    def __init__(self, base_url: str = "http://127.0.0.1:3030", timeout: float = 10.0) -> None:
+    def __init__(self, base_url: str | None = None, timeout: float = 10.0) -> None:
+        # Auto-lifecycle: respect HIPCORTEX_URL (set by installers / mcp) if not explicit
+        if base_url is None:
+            base_url = os.getenv("HIPCORTEX_URL", "http://127.0.0.1:3030")
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self._session = requests.Session()
@@ -64,6 +68,7 @@ class HipCortexClient:
         limit: int = 100,
         tags: Optional[List[str]] = None,    # filter by tags (any match)
         as_of: Optional[str] = None,         # ISO 8601 timestamp for time-travel query
+        include_expired: bool = False,       # include TTL-expired records
     ) -> List[Dict[str, Any]]:
         """Query memory records. Returns a list of record dicts."""
         params: Dict[str, Any] = {"limit": limit}
@@ -77,6 +82,8 @@ class HipCortexClient:
             params["tags"] = ",".join(tags)
         if as_of is not None:
             params["as_of"] = as_of
+        if include_expired:
+            params["include_expired"] = "true"
         resp = self._session.get(
             f"{self.base_url}/memory/query", params=params, timeout=self.timeout
         )
@@ -118,12 +125,91 @@ class HipCortexClient:
         resp.raise_for_status()
         return resp.json()
 
+    def link_memories(
+        self,
+        source_id: str,
+        target_id: str,
+        relation: str = "related",
+    ) -> Dict[str, Any]:
+        """Create a directed graph edge between two memory records.
+
+        Args:
+            source_id: UUID of the source memory record.
+            target_id: UUID of the target memory record.
+            relation:  Edge label (default: "related").
+
+        Returns:
+            ``{"success": bool, "source_id": str, "target_id": str, "relation": str}``
+        """
+        resp = self._session.post(
+            f"{self.base_url}/memory/link",
+            json={"source_id": source_id, "target_id": target_id, "relation": relation},
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def get_neighbors(self, record_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Return neighboring memory records linked via the CausalTopoGraph.
+
+        Args:
+            record_id: UUID of the seed memory record.
+            limit:     Maximum number of neighbors to return.
+
+        Returns:
+            List of MemoryRecord dicts.
+        """
+        resp = self._session.get(
+            f"{self.base_url}/memory/neighbors/{record_id}",
+            params={"limit": limit},
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json().get("records", [])
+
+    def search_related(self, seed_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """PPR-ranked related memory search seeded from a given record ID.
+
+        Uses Personalized PageRank (α=0.85, 20 power-iteration rounds) over the
+        CausalTopoGraph to surface the most contextually related memories.
+
+        Args:
+            seed_id: UUID of the seed memory record to personalise from.
+            limit:   Maximum number of related results to return.
+
+        Returns:
+            List of ``{"record": {...}, "score": float}`` dicts, sorted by descending score.
+        """
+        resp = self._session.get(
+            f"{self.base_url}/memory/search/related",
+            params={"seed_id": seed_id, "limit": limit},
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json().get("results", [])
+
+    def delete_memory(self, record_id: str) -> Dict[str, Any]:
+        """Delete a single memory record by UUID.
+
+        Args:
+            record_id: UUID of the record to delete.
+
+        Returns:
+            ``{"success": bool, "record_id": str}``
+        """
+        resp = self._session.delete(
+            f"{self.base_url}/memory/{record_id}", timeout=self.timeout
+        )
+        resp.raise_for_status()
+        return resp.json()
+
     # ------------------------------------------------------------------
     # Symbolic graph
     # ------------------------------------------------------------------
 
     def graph(self) -> Dict[str, Any]:
         """Return the full symbolic graph (nodes + edges)."""
+
         resp = self._session.get(f"{self.base_url}/graph", timeout=self.timeout)
         resp.raise_for_status()
         return resp.json()

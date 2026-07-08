@@ -174,6 +174,73 @@ pub const OPENAPI_SPEC: &str = r##"{
           "session_id": { "type": "string" },
           "context": { "type": "string", "enum": ["meeting", "code", "chat", "sensor", "decision"] }
         }}}}},
-      "responses": { "200": { "description": "Stored with auto-classification result" } } } }
+      "responses": { "200": { "description": "Stored with auto-classification result" } } } },
+    "/worldmodel/predict": {
+      "post": {
+        "operationId": "predictNextState",
+        "summary": "Predict next state using the world-model's transition model",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["state", "action"],
+                "properties": {
+                  "state": { "type": "string" },
+                  "action": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Prediction result" } }
+      },
+      "get": {
+        "operationId": "predictNextStateGet",
+        "summary": "Predict next state via query params (GET)",
+        "security": [],
+        "parameters": [
+          { "name": "state", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "action", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Prediction result" } }
+      }
+    },
+    "/worldmodel/rollout": {
+      "post": {
+        "operationId": "worldModelRollout",
+        "summary": "Multi-step ensemble rollout sequence",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["initial_state", "actions"],
+                "properties": {
+                  "initial_state": { "type": "string" },
+                  "actions": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Rollout prediction sequence" } }
+      }
+    },
+    "/self/can-execute": {
+      "get": {
+        "operationId": "selfCanExecute",
+        "summary": "Query SelfModel decision engine if operation is safe to execute",
+        "security": [],
+        "parameters": [
+          { "name": "operation", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Decision approval/rejection" } }
+      }
+    }
   }
 }"##;

@@ -107,12 +107,19 @@ docker run -d --name neo4j-dev -p 7474:7474 -p 7687:7687 -e NEO4J_AUTH=neo4j/tes
 
 ## Code Structure
 
-- `src/lib.rs` - Main library exports
-- `src/modules/` - Core memory modules
+- `src/lib.rs` - Main crate namespace attribute hoisting (`#[path = "modules/..."]`)
+- `src/modules/` - Core memory modules (must be hoisted in `src/lib.rs`)
 - `src/backends/` - Database backend implementations
 - `examples/` - Runnable examples
 - `tests/` - Test suites
 - `benches/` - Performance benchmarks
+
+### Contributor Preflight Checklist (Human & AI Agents)
+Before submitting code or making edits inside `src/modules/`:
+1. **Verify Attribute Hoisting**: Ensure any new or modified module files are explicitly bound in `src/lib.rs` (do not rely on physical directory hierarchy).
+2. **Review Execution Traces**: Consult `docs/execution_flows.md` to understand step-by-step multi-hop data flow across subsystems.
+3. **SafetyGuardrail Interception**: Ensure all mutations invoke `SafetyGuardrail::check_precondition` to prevent breaking Merkle audit invariants.
+
 
 ## Troubleshooting
 

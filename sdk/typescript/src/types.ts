@@ -2,7 +2,8 @@ export interface AddMemoryRequest {
   actor: string;
   action: string;
   target: string;
-  record_type?: "Temporal" | "Symbolic" | "Procedural" | "Reflexion" | "Perception";
+  record_type?: "Temporal" | "Symbolic" | "Procedural" | "Reflexion" | "Perception" |
+    "Episodic" | "Semantic" | "LongTerm" | "ShortTerm" | "Working" | "Reflexive" | "Perceptual";
   metadata?: Record<string, unknown>;
   ttl_seconds?: number;
   /** Reliability signal [0.0, 1.0]. Acts as a permanent score ceiling in search ranking. Default 1.0. */

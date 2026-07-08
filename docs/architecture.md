@@ -24,9 +24,10 @@ HipCortex is a modular AI memory engine with these key principles:
 - **GraphDB Backends:** Neo4j and Postgres implementations extend the `GraphDatabase` trait.
 - **Semantic Cache:** LRU embedding store used before hitting the graph DB.
 - **Monitoring Service:** captures metrics served to a web dashboard.
-- **Perception Adapter:** Handles multimodal input (text, embeddings, agent messages, vision via `VisionEncoder`).
+- **Perception Adapter + Session:** Handles multimodal input (text, embeddings, agent messages, vision via `VisionEncoder`). The wrapping `PerceptionSession` adds gated intelligence hooks: self-model resource checks, automatic world-model entity observation updates (embeddings as measured properties), and coherence validation on every adapt. For agent streams a convenience `record_perceived_action` feeds the text directly as a transition into `WorldModelEnhanced`.
 - **Aureus Bridge:** Reflexion and reasoning integration (for AUREUS, chain-of-thought, and agent feedback).
-- **Integration Layer:** Ready for REST/gRPC/agent protocols (OpenManus, MCP, etc).
+- **Integration Layer:** Ready for REST/gRPC/agent protocols (OpenManus, MCP, etc). The `handle_mcp` path for `AgentMessage` (the primary harness entry) performs gated automatic low-pri Temporal construction + the perception/world-model hooks described above. This provides basic "latest state / world model" maintenance without explicit triggers from the calling agent (while high-value symbolic/hypothesis work remains explicit per the proactive SKILL policy).
+- **Safety Guardrail:** Intercepts state mutations across the engine (Integration Layer, Symbolic Store, Procedural Cache, LLM clients) and enforces memory invariants. If an agent attempts malformed or unauthorized state updates, the guardrail logs a security violation and skips automated side-effects to preserve substrate integrity.
 
 ## Module Interaction Diagram
 
@@ -48,6 +49,7 @@ flowchart TD
     FSM --> Reason[AureusBridge]
     Reason --> API[IntegrationLayer]
     Reason --> LLMs[LLM Connectors]
+    Percept --auto for AgentMessage--> WM[WorldModelEnhanced (transitions + entities)]
     FSM --> WM[World Model Connector]
 ```
 
@@ -61,7 +63,7 @@ extended as your use case grows.
    long‑term retention.
 3. **Symbolic Store** – maintains a graph of concepts and relationships via a
    pluggable `GraphDatabase` backend. Supports both in-memory graphs and the
-   persistent `SledGraph` implementation for durability.
+   persistent `RocksDBGraph` implementation for durability.
 4. **Procedural Cache** – drives FSM-based workflows and regenerative actions.
 5. **Aureus Bridge** – plugs in reflexion or chain‑of‑thought reasoning loops.
 6. **Integration Layer** – exposes REST/gRPC endpoints and protocol adapters.
@@ -251,4 +253,54 @@ sequenceDiagram
     Layer->>Conn: generate(prompt)
     Conn-->>Layer: text
 ```
+
+## Agent Operating Rules & GitNexus Code Intelligence
+
+### GitNexus Code Intelligence Overview
+HipCortex is indexed by GitNexus as **HipCortex** (`gitnexus://repo/HipCortex`).
+
+| Metric | Graph Intelligence Stat | Notes |
+| :--- | :--- | :--- |
+| **Total Symbols** | **5,665** | Functions, struct definitions, traits, enums, modules |
+| **Relationships** | **11,432** | `CALLS`, `IMPORTS`, `IMPLEMENTS`, `EXTENDS`, `DEFINES` edges |
+| **Execution Flows** | **259** | End-to-end multi-hop procedural processes |
+
+### Formalized Agent Operating Rules
+Autonomous AI agents contributing to HipCortex MUST follow these rules without exception:
+
+1. **Crate Root Namespace Hoisting (`src/lib.rs`)**: Physical file locations under `src/modules/<name>.rs` DO NOT map to `hipcortex::modules::<name>`. [src/lib.rs](file:///d:/all_projects/HipCortex/src/lib.rs) hoists modules directly to the crate root via `#[path = "modules/..."]`. Whenever adding, removing, or relocating files in `src/modules/`, you MUST update `src/lib.rs`.
+2. **Cryptographic Storage Routing**: Every memory record carries a SHA-256 cryptographic integrity hash verified on load. Never write raw text/binary to storage files directly; all writes MUST route through [MemoryStore::append](file:///d:/all_projects/HipCortex/src/memory_store.rs) to maintain Merkle audit chaining in `audit.log`.
+3. **Pre-Mutation Guardrail Interception**: All mutations across graph stores, FSM traces, and LLM clients MUST invoke [SafetyGuardrail::check_precondition](file:///d:/all_projects/HipCortex/src/safety_guardrail.rs). Any operation returning `Action::Block` must immediately halt execution.
+
+## The AGI Cognitive Triad Foundation
+
+In an advanced artificial general intelligence (AGI) architecture—particularly one utilizing a symbolic memory engine like HipCortex alongside an active orchestration layer like AUREUS—core cognitive functions are separated by domain but tightly coupled through topological retrieval and active inference.
+
+### 1. The World Model (Environmental Dynamics & Rules)
+* **Analog**: Neocortical analog (Generalized Semantic Layer).
+* **Function**: Repository of objective reality, system rules, and domain logic. Answers: *How does the external environment behave?*
+* **Mechanism**: Maps transition dynamics, predicting future states based on current conditions and actions via Bayesian probability: $P(S_{t+1} | S_t, A_t)$.
+* **Structure**: Recursive, topological causal graph (`SymbolicStore` & `WorldModelEnhanced`). Promotes frequent episodic observations into immutable first principles.
+
+### 2. The Self Model (Metacognition & Episodic Identity)
+* **Analog**: Hippocampal analog (Episodic Identity & Continuous Evaluation).
+* **Function**: Tracks internal state, capabilities, historical decisions, and confidence bounds. Answers: *What have I done, why did I do it, and what are my limitations?*
+* **Mechanism**: Maps agent interaction drift, error patterns, mastery progression (e.g., confidence jump from 82% to 94%), and explicit justifications (`AureusBridge`).
+* **Structure**: Anchored by a persistent `"System:Self"` node in the symbolic graph (via Hybrid Epoch Mirroring). Enables continuous sessions without context collapse.
+
+### 3. Working Memory State Management (Active Inference)
+* **Analog**: Prefrontal Cortex analog (Active Orchestrator / Agentic OS).
+* **Function**: Dynamic reasoning loop operating within the active context window, applying critical thinking frameworks to current inputs.
+* **Mechanism**: Holds current state variables ($S_t$) and orchestrates execution lifecycle, deciding what data to page in/out (`WorkingSetBroker`).
+* **Structure**: Volatile and transient. Relies on real-time Model Context Protocol (`McpBridge`) grounding to fetch necessary causal subgraphs on demand.
+
+### Architectural Trace Route
+During a live task execution, HipCortex routes through a 5-step operational lifecycle:
+1. **Observation (State Mgmt)**: The orchestrator updates active state variables and formulates a memory query.
+2. **Topological Search (Retrieval)**: Pings `GET /memory/live_beliefs` across temporal ring buffers and semantic graph DBs.
+3. **Self Model Injection**: Retrieves metacognitive constraints (e.g., *"The last time I attempted asynchronous auth, it failed due to a race condition"*).
+4. **World Model Injection**: Retrieves domain causal physics (e.g., *"These are the invariant concurrency rules of this environment"*).
+5. **Active Inference & Consolidation**: Updates Bayesian priors, executes deterministic action, and consolidates the event via `POST /memory/reflect` -> `MemoryStore::append` -> Merkle SHA-256 audit log sealing.
+
+
 

@@ -51,12 +51,20 @@ flowchart LR
 
 ## Component Design
 
-### PerceptionAdapter
+### PerceptionAdapter + Session
 *Normalises raw input into symbols and decorrelated features.*
 - **Math**: PCA / ICA decorrelate embeddings.
 - **Logic**: Output symbols follow a schema.
 - **Symbolic**: `"Paris" -> Symbol(Place, Paris)` then embedded.
 - **CoT Flow**: Input -> Symbol Parse -> PCA -> Output vector.
+
+When the input is an `AgentMessage` (common in the proactive harness), the `PerceptionSession` wrapper automatically:
+- Applies self-model health/rate gating before expensive work.
+- Updates the world model with entity observations (embedding as measured properties) via `WorldModelEnhanced::update_entity`.
+- Runs coherence validation.
+- From the `IntegrationLayer` auto path: additionally calls `record_perceived_action(text)` so the agent's message text is recorded as a state transition in the Dirichlet-Multinomial model.
+
+This gives automatic "latest state / world model" upkeep from the agent stream with no explicit user or LLM trigger required for routine cases (high-value symbolic, hypotheses, or specific decision modeling still use explicit `ingest`/`reflect`).
 
 ### TemporalIndexer
 *Buffers perception traces ordered by time.*

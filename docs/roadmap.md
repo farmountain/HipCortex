@@ -20,6 +20,7 @@
 - ✅ DONE: HypothesisManager and quantized state tree for multi-path reasoning
 - ✅ DONE: Procedural backtracking and fallback logic
 - ✅ DONE: Puzzle benchmark harness for algorithmic planning tasks
+- ✅ DONE: Automatic world model transition feeding from agent streams (record_perceived_action in PerceptionSession + IntegrationLayer auto path for AgentMessage). Reduces reliance on explicit triggers for basic latest-state / predictive model maintenance (part of agent-substrate-autonomy work).
 
 ## Roadmap Highlights
 

@@ -127,6 +127,11 @@ jobs:
             --url http://localhost:3030 -n 50 --no-baseline \
             | tee benchmark_results.txt
 
+      - name: Run token reduction benchmark (proactive harness; in-process sim but in live-server-provisioned job per spec 4.1; asserts 80%+)
+        run: python benchmarks/token_reduction_benchmark.py
+        env:
+          PYTHONPATH: ${{ github.workspace }}/sdk/python
+
       - name: Post benchmark comment
         uses: actions/github-script@v7
         if: always()
@@ -164,3 +169,21 @@ jobs:
         run: pytest sdk/python/langchain_contrib/test_hipcortex_memory.py -v -k "not integration"
         env:
           PYTHONPATH: ${{ github.workspace }}/sdk/python
+
+  # ------------------------------------------------------------------
+  # Token reduction benchmark (proactive harness) — always runs, in-process sim
+  # Validates 80%+ reduction per validation-benchmarks spec + agent-substrate plan follow-on.
+  # ------------------------------------------------------------------
+  token-reduction:
+    name: Token Reduction Benchmark (Proactive Harness)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run proactive token reduction benchmark (asserts >=80% savings)
+        run: python benchmarks/token_reduction_benchmark.py

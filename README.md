@@ -112,6 +112,9 @@ curl https://hipcortex.fly.dev/openapi.json    # → OpenAPI 3.0 spec
 ```
 
 **Use from Python:**
+```bash
+pip install hipcortex
+```
 ```python
 from hipcortex import HipCortexClient
 
@@ -323,7 +326,6 @@ and reasoning components.
 - **Optional GUI:** compile with `--features "gui,petgraph_backend"` to launch a Tauri desktop client.
 - **Database Backends:** 
   - `--features "petgraph_backend"` for in-memory graphs (no external deps)
-  - `--features "sqlite_backend"` for SQLite support (requires SQLite libraries)
   - `--features "postgres_backend"` for PostgreSQL support (requires PostgreSQL libraries)
   - `--features "neo4j_backend"` for Neo4j support (requires Neo4j server)
 - **RocksDB Backend:** compile with `--features rocksdb-backend` and use `MemoryStore::new_rocksdb` for an embedded key-value database.
@@ -417,17 +419,17 @@ cargo run -- safety-audit
 
 ## 🏗️ Project Structure
 
-| Path/Module                    | Purpose                                 |
-|------------------------------- |-----------------------------------------|
-| `src/lib.rs`                   | Main library module, re-exports others  |
-| `src/main.rs`                  | CLI/demo entry (optional)               |
-| `src/temporal_indexer.rs`      | STM/LTM temporal buffer                 |
-| `src/procedural_cache.rs`      | FSM-based procedural cache              |
-| `src/symbolic_store.rs`        | Symbolic graph & key-value memory       |
-| `src/perception_adapter.rs`    | Multimodal input                        |
-| `src/integration_layer.rs`     | Agentic/REST/gRPC stubs                 |
-| `src/mcp_server.rs`            | Combined REST + gRPC MCP server         |
-| `src/aureus_bridge.rs`         | Reflexion/reasoning loop                |
+| Path/Module                           | Purpose                                 |
+|---------------------------------------|-----------------------------------------|
+| `src/lib.rs`                          | Main library module, re-exports others  |
+| `src/main.rs`                         | CLI/demo entry (optional)               |
+| `src/modules/temporal_indexer.rs`     | STM/LTM temporal buffer                 |
+| `src/modules/procedural_cache.rs`     | FSM-based procedural cache              |
+| `src/modules/symbolic_store.rs`       | Symbolic graph & key-value memory       |
+| `src/modules/perception_adapter.rs`   | Multimodal input                        |
+| `src/modules/integration_layer.rs`    | Agentic/REST/gRPC stubs                 |
+| `src/mcp_server.rs`                   | Combined REST + gRPC MCP server         |
+| `src/modules/aureus_bridge.rs`        | Reflexion/reasoning loop                |
 | `src/vision_encoder.rs`        | Simple image to embedding converter     |
 | `tests/`                       | Integration and property tests          |
 | `benches/`                     | Criterion benchmarks                    |
@@ -565,8 +567,9 @@ real-time CLI/web tools, and expanded LLM connectors.
 | Doc                  | Purpose                                               |
 | -------------------- | ----------------------------------------------------- |
 | README.md            | Project overview, structure, TDD, quickstart, roadmap |
-| src/lib.rs           | Library entry (export modules)                        |
-| docs/architecture.md | System design, extensibility, diagram                 |
+| src/lib.rs           | Library entry (export modules & attribute hoisting)   |
+| docs/architecture.md | System design, Agent Operating Rules, diagram         |
+| docs/execution_flows.md | Step-by-step code execution traces across all flows |
 | docs/memory_design.md | Math, logic and symbolic reasoning extension |
 | docs/business_context.md | Business requirements and use cases |
 | docs/data_model.md | MemoryRecord schema and API notes |

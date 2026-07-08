@@ -493,8 +493,14 @@ pub struct SymbolicStore<B: GraphDatabase> {
 impl SymbolicStore<InMemoryGraph> {
     /// Create a new store using the default in-memory backend.
     pub fn new() -> Self {
+        let mut backend = InMemoryGraph::new();
+        if backend.find_by_label("System:Self").is_empty() {
+            let mut props = HashMap::new();
+            props.insert("role".to_string(), "canonical_identity_anchor".to_string());
+            backend.add_node("System:Self", props);
+        }
         Self {
-            backend: InMemoryGraph::new(),
+            backend,
             coherence: None,
             self_model: None,
             world_model: None,
@@ -507,7 +513,12 @@ impl SymbolicStore<InMemoryGraph> {
 
 impl<B: GraphDatabase> SymbolicStore<B> {
     /// Instantiate a store with a custom graph backend.
-    pub fn from_backend(backend: B) -> Self {
+    pub fn from_backend(mut backend: B) -> Self {
+        if backend.find_by_label("System:Self").is_empty() {
+            let mut props = HashMap::new();
+            props.insert("role".to_string(), "canonical_identity_anchor".to_string());
+            backend.add_node("System:Self", props);
+        }
         Self {
             backend,
             coherence: None,
@@ -550,6 +561,30 @@ impl<B: GraphDatabase> SymbolicStore<B> {
     pub fn with_world_model(mut self, wm: std::sync::Arc<crate::world_model_enhanced::WorldModelEnhanced>) -> Self {
         self.world_model = Some(wm);
         self
+    }
+
+    /// Flush current self-model metacognitive health stats to canonical node "System:Self".
+    pub fn sync_self_model_snapshot(&mut self) -> bool {
+        if let Some(sm) = &self.self_model {
+            if let Ok(health) = sm.get_health() {
+                if crate::safety_guardrail::SAFETY_GUARDRAIL
+                    .lock()
+                    .unwrap()
+                    .check_precondition("System:Self:epoch_sync")
+                    .is_err()
+                {
+                    return false;
+                }
+                let nodes = self.backend.find_by_label("System:Self");
+                if let Some(self_node) = nodes.first() {
+                    let id = self_node.id;
+                    self.backend.update_property(id, "overall_health", &health.overall.to_string());
+                    self.backend.update_property(id, "total_modules", &health.modules.len().to_string());
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     /// Internal: gate a mutation through the coherence checker if configured.

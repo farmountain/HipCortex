@@ -144,3 +144,104 @@ async fn test_search_related_returns_results_with_record_data() {
 
     srv.abort();
 }
+
+#[tokio::test]
+async fn test_worldmodel_rollout_endpoint() {
+    let state = make_state();
+    let addr: std::net::SocketAddr = "127.0.0.1:3052".parse().unwrap();
+    let srv = tokio::spawn(async move {
+        hipcortex::web_server::run_with_state(addr, state).await;
+    });
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+    let client = reqwest::Client::new();
+    let base = "http://127.0.0.1:3052";
+
+    // 1. Empty actions should return error
+    let resp = client
+        .post(&format!("{}/worldmodel/rollout", base))
+        .json(&serde_json::json!({"initial_state": "idle", "actions": []}))
+        .send().await.unwrap();
+    assert_eq!(resp.status().as_u16(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["error"], "actions must be non-empty");
+
+    // 2. Normal actions sequence with no trained predictors should return rollout error
+    let resp2 = client
+        .post(&format!("{}/worldmodel/rollout", base))
+        .json(&serde_json::json!({"initial_state": "idle", "actions": ["start", "stop"]}))
+        .send().await.unwrap();
+    assert_eq!(resp2.status().as_u16(), 200);
+    let body2: serde_json::Value = resp2.json().await.unwrap();
+    assert_eq!(body2["error"], "No trained predictors available");
+
+    srv.abort();
+}
+
+#[tokio::test]
+async fn test_record_type_aliases() {
+    let state = make_state();
+    let addr: std::net::SocketAddr = "127.0.0.1:3053".parse().unwrap();
+    let srv = tokio::spawn(async move {
+        hipcortex::web_server::run_with_state(addr, state).await;
+    });
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+    let client = reqwest::Client::new();
+    let base = "http://127.0.0.1:3053";
+
+    // Add memory with Episodic alias
+    let resp_episodic: serde_json::Value = client
+        .post(&format!("{}/memory/add", base))
+        .json(&serde_json::json!({
+            "actor": "user",
+            "action": "wrote",
+            "target": "episodic note",
+            "record_type": "Episodic"
+        }))
+        .send().await.unwrap()
+        .json().await.unwrap();
+    let id_episodic = resp_episodic["record_id"].as_str().unwrap().to_string();
+
+    // Query episodic record and assert it resolves to Temporal
+    let query_episodic: serde_json::Value = client
+        .get(&format!("{}/memory/query?limit=10", base))
+        .send().await.unwrap()
+        .json().await.unwrap();
+    let records = query_episodic["records"].as_array().unwrap();
+    let rec_episodic = records.iter().find(|r| r["id"] == id_episodic).unwrap();
+    assert_eq!(rec_episodic["record_type"], "Temporal");
+
+    // Bulk add memories with various aliases
+    let resp_bulk: serde_json::Value = client
+        .post(&format!("{}/memory/bulk", base))
+        .json(&serde_json::json!({
+            "records": [
+                {"actor": "user", "action": "decided", "target": "semantic fact", "record_type": "Semantic"},
+                {"actor": "user", "action": "stored", "target": "long term item", "record_type": "LongTerm"},
+                {"actor": "user", "action": "focused", "target": "reflexive trace", "record_type": "Reflexive"}
+            ]
+        }))
+        .send().await.unwrap()
+        .json().await.unwrap();
+    assert!(resp_bulk["success"].as_bool().unwrap());
+    assert_eq!(resp_bulk["inserted"].as_u64().unwrap(), 3);
+
+    // Query and check they resolved correctly
+    let query_bulk: serde_json::Value = client
+        .get(&format!("{}/memory/query?limit=10", base))
+        .send().await.unwrap()
+        .json().await.unwrap();
+    let records_bulk = query_bulk["records"].as_array().unwrap();
+
+    let rec_semantic = records_bulk.iter().find(|r| r["target"] == "semantic fact").unwrap();
+    assert_eq!(rec_semantic["record_type"], "Symbolic");
+
+    let rec_long_term = records_bulk.iter().find(|r| r["target"] == "long term item").unwrap();
+    assert_eq!(rec_long_term["record_type"], "Symbolic");
+
+    let rec_reflexive = records_bulk.iter().find(|r| r["target"] == "reflexive trace").unwrap();
+    assert_eq!(rec_reflexive["record_type"], "Reflexion");
+
+    srv.abort();
+}

@@ -53,7 +53,19 @@ def test_tools_list():
     ])
     tools_resp = next(r for r in resp if r.get("id") == 2)
     tool_names = {t["name"] for t in tools_resp["result"]["tools"]}
-    assert tool_names == {"add_memory", "search_memory", "forget_actor", "get_stats"}
+    assert tool_names == {
+        "add_memory",
+        "search_memory",
+        "forget_actor",
+        "get_stats",
+        "search_code",
+        "link_memories",
+        "get_neighbors",
+        "search_related",
+        "delete_memory",
+        "get_live_beliefs",
+        "purge_expired",
+    }
 
 
 def test_tools_call_add_memory():

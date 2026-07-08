@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from typing import Any, Dict, List, Optional
 
@@ -16,7 +17,7 @@ class AsyncHipCortexClient:
     LangChain 0.3+ async chains, and any asyncio / anyio event loop.
 
     Args:
-        base_url: Root URL of the running hipcortex web-server binary.
+        base_url: Root URL (falls back to HIPCORTEX_URL env for auto-lifecycle after install).
         timeout:  Per-request timeout in seconds.
         api_key:  Optional Bearer token sent as ``Authorization: Bearer <key>``.
 
@@ -33,10 +34,13 @@ class AsyncHipCortexClient:
 
     def __init__(
         self,
-        base_url: str = "http://127.0.0.1:3030",
+        base_url: str | None = None,
         timeout: float = 10.0,
         api_key: Optional[str] = None,
     ) -> None:
+        # Auto-lifecycle: respect HIPCORTEX_URL (set by installers / mcp) if not explicit
+        if base_url is None:
+            base_url = os.getenv("HIPCORTEX_URL", "http://127.0.0.1:3030")
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self._api_key = api_key
@@ -95,6 +99,7 @@ class AsyncHipCortexClient:
         action: Optional[str] = None,
         record_type: Optional[str] = None,
         limit: int = 100,
+        include_expired: bool = False,  # include TTL-expired records
     ) -> List[Dict[str, Any]]:
         """Query memory records. Returns a list of record dicts."""
         params: Dict[str, Any] = {"limit": limit}
@@ -104,9 +109,84 @@ class AsyncHipCortexClient:
             params["action"] = action
         if record_type is not None:
             params["record_type"] = record_type
+        if include_expired:
+            params["include_expired"] = "true"
         resp = await self._client.get(f"{self.base_url}/memory/query", params=params)
         resp.raise_for_status()
         return resp.json().get("records", [])
+
+    async def link_memories(
+        self,
+        source_id: str,
+        target_id: str,
+        relation: str = "related",
+    ) -> Dict[str, Any]:
+        """Create a directed graph edge between two memory records.
+
+        Args:
+            source_id: UUID of the source memory record.
+            target_id: UUID of the target memory record.
+            relation:  Edge label (default: "related").
+
+        Returns:
+            ``{"success": bool, "source_id": str, "target_id": str, "relation": str}``
+        """
+        resp = await self._client.post(
+            f"{self.base_url}/memory/link",
+            json={"source_id": source_id, "target_id": target_id, "relation": relation},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    async def get_neighbors(self, record_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Return neighboring memory records linked via the CausalTopoGraph.
+
+        Args:
+            record_id: UUID of the seed memory record.
+            limit:     Maximum number of neighbors to return.
+
+        Returns:
+            List of MemoryRecord dicts.
+        """
+        resp = await self._client.get(
+            f"{self.base_url}/memory/neighbors/{record_id}",
+            params={"limit": limit},
+        )
+        resp.raise_for_status()
+        return resp.json().get("records", [])
+
+    async def search_related(self, seed_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """PPR-ranked related memory search seeded from a given record ID.
+
+        Uses Personalized PageRank (α=0.85, 20 power-iteration rounds) over the
+        CausalTopoGraph to surface the most contextually related memories.
+
+        Args:
+            seed_id: UUID of the seed memory record to personalise from.
+            limit:   Maximum number of related results to return.
+
+        Returns:
+            List of ``{"record": {...}, "score": float}`` dicts, sorted by descending score.
+        """
+        resp = await self._client.get(
+            f"{self.base_url}/memory/search/related",
+            params={"seed_id": seed_id, "limit": limit},
+        )
+        resp.raise_for_status()
+        return resp.json().get("results", [])
+
+    async def delete_memory(self, record_id: str) -> Dict[str, Any]:
+        """Delete a single memory record by UUID.
+
+        Args:
+            record_id: UUID of the record to delete.
+
+        Returns:
+            ``{"success": bool, "record_id": str}``
+        """
+        resp = await self._client.delete(f"{self.base_url}/memory/{record_id}")
+        resp.raise_for_status()
+        return resp.json()
 
     async def search(
         self,

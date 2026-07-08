@@ -89,7 +89,7 @@ TOOLS = [
                 },
                 "record_type": {
                     "type": "string",
-                    "enum": ["Temporal", "Symbolic", "Procedural", "Reflexion"],
+                    "enum": ["Temporal", "Symbolic", "Procedural", "Reflexion", "Perception", "Episodic", "Semantic", "LongTerm", "ShortTerm", "Working", "Reflexive", "Perceptual"],
                     "default": "Temporal",
                 },
                 "ttl_seconds": {
@@ -154,6 +154,74 @@ TOOLS = [
                 },
             },
         },
+    },
+    {
+        "name": "link_memories",
+        "description": "Create a directed graph edge between two memory records in the CausalTopoGraph. Use to model causal, temporal, or semantic relationships between memories.",
+        "inputSchema": {
+            "type": "object",
+            "required": ["source_id", "target_id"],
+            "properties": {
+                "source_id": {"type": "string", "description": "UUID of the source memory record"},
+                "target_id": {"type": "string", "description": "UUID of the target memory record"},
+                "relation": {"type": "string", "default": "related", "description": "Edge label (e.g. \"caused\", \"follows\", \"related\")"},
+            },
+        },
+    },
+    {
+        "name": "get_neighbors",
+        "description": "Return memory records directly linked to a seed record via the CausalTopoGraph. Use to explore local context around a known memory.",
+        "inputSchema": {
+            "type": "object",
+            "required": ["record_id"],
+            "properties": {
+                "record_id": {"type": "string", "description": "UUID of the seed memory record"},
+                "limit": {"type": "integer", "default": 10, "description": "Max neighbors to return"},
+            },
+        },
+    },
+    {
+        "name": "search_related",
+        "description": "PPR-ranked related memory search. Uses Personalized PageRank (alpha=0.85, 20 rounds) to surface the most contextually relevant memories seeded from a given record. Call after search_memory to expand context graph-first.",
+        "inputSchema": {
+            "type": "object",
+            "required": ["seed_id"],
+            "properties": {
+                "seed_id": {"type": "string", "description": "UUID of the seed memory record"},
+                "limit": {"type": "integer", "default": 10, "description": "Max results to return"},
+            },
+        },
+    },
+    {
+        "name": "delete_memory",
+        "description": "Delete a single memory record by UUID. Use for targeted removal without forgetting an entire actor.",
+        "inputSchema": {
+            "type": "object",
+            "required": ["record_id"],
+            "properties": {
+                "record_id": {"type": "string", "description": "UUID of the memory record to delete"},
+            },
+        },
+    },
+    {
+        "name": "get_live_beliefs",
+        "description": (
+            "Get the latest unique beliefs per actor+action pair. "
+            "Returns the most recent value for each fact the system has observed. "
+            "Per Claude Agent Harness: call this FIRST before any project-state question."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "actor": {"type": "string", "description": "Filter to a specific actor (optional)"},
+                "limit": {"type": "integer", "default": 20, "description": "Max beliefs to return"},
+            },
+        },
+    },
+    {
+        "name": "purge_expired",
+        "description": "Trigger purge of all TTL-expired memory records from the store.",
+        "inputSchema": {"type": "object", "properties": {}},
     },
 ]
 
@@ -258,13 +326,97 @@ def handle_search_code(args: dict) -> str:
         return f"Error searching code graph: {e}. Run 'hipcortex index .' first."
 
 
+def handle_link_memories(args: dict) -> str:
+    body = {
+        "source_id": args["source_id"],
+        "target_id": args["target_id"],
+        "relation": args.get("relation", "related"),
+    }
+    result = _post("/memory/link", body)
+    ok = result.get("success", False)
+    rel = result.get("relation", "related")
+    return (
+        f"✓ Link created: {args['source_id']} --[{rel}]--> {args['target_id']}"
+        if ok else f"✗ Link failed: {result}"
+    )
+
+
+def handle_get_neighbors(args: dict) -> str:
+    record_id = args["record_id"]
+    limit = args.get("limit", 10)
+    qs = urllib.parse.urlencode({"limit": limit})
+    result = _get(f"/memory/neighbors/{record_id}?{qs}")
+    records = result.get("records", [])
+    if not records:
+        return f"No neighbors found for record {record_id}."
+    lines = [
+        f"• [{r.get('action', '?')}] {r.get('target', '')} (actor: {r.get('actor', '?')}, id: {r.get('id', '?')})"
+        for r in records
+    ]
+    return f"{len(lines)} neighbor(s) of {record_id}:\n" + "\n".join(lines)
+
+
+def handle_search_related(args: dict) -> str:
+    seed_id = args["seed_id"]
+    limit = args.get("limit", 10)
+    qs = urllib.parse.urlencode({"seed_id": seed_id, "limit": limit})
+    result = _get(f"/memory/search/related?{qs}")
+    results = result.get("results", [])
+    if not results:
+        return f"No related memories found for seed {seed_id}. Ensure the record is linked to others."
+    lines = [
+        f"• [{r.get('record', {}).get('action', '?')}] {r.get('record', {}).get('target', '')} "
+        f"(score: {r.get('score', 0):.3f})"
+        for r in results
+    ]
+    return f"{len(lines)} PPR-related result(s):\n" + "\n".join(lines)
+
+
+def handle_delete_memory(args: dict) -> str:
+    record_id = args["record_id"]
+    result = _delete(f"/memory/{record_id}")
+    ok = result.get("success", False)
+    return (
+        f"✓ Deleted record {record_id}."
+        if ok else f"✗ Delete failed: {result}"
+    )
+
+
+def handle_get_live_beliefs(args: dict) -> str:
+    params: dict = {"limit": args.get("limit", 20)}
+    if "actor" in args:
+        params["actor"] = args["actor"]
+    qs = urllib.parse.urlencode(params)
+    result = _get(f"/memory/live_beliefs?{qs}")
+    beliefs = result.get("beliefs", [])
+    if not beliefs:
+        return "No live beliefs found."
+    lines = [
+        f"• [{b.get('action', '?')}] {b.get('target', '')} (actor: {b.get('actor', '?')})"
+        for b in beliefs
+    ]
+    return f"Live beliefs ({result.get('total', len(beliefs))}):\n" + "\n".join(lines)
+
+
+def handle_purge_expired(_args: dict) -> str:
+    result = _post("/memory/consolidate", {"dry_run": False})
+    deleted = result.get("deleted", 0)
+    return f"✓ Purge completed. Deleted {deleted} expired records."
+
+
 def dispatch_tool(name: str, args: dict) -> str:
     handlers = {
-        "add_memory":    handle_add_memory,
-        "search_memory": handle_search_memory,
-        "forget_actor":  handle_forget_actor,
-        "get_stats":     handle_get_stats,
-        "search_code":   handle_search_code,
+        "add_memory":      handle_add_memory,
+        "search_memory":   handle_search_memory,
+        "forget_actor":    handle_forget_actor,
+        "get_stats":       handle_get_stats,
+        "search_code":     handle_search_code,
+        "link_memories":   handle_link_memories,
+        "get_neighbors":   handle_get_neighbors,
+        "search_related":  handle_search_related,
+        "delete_memory":   handle_delete_memory,
+        "get_live_beliefs": handle_get_live_beliefs,
+        "purge_expired":    handle_purge_expired,
     }
     handler = handlers.get(name)
     if handler is None:

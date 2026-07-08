@@ -71,7 +71,7 @@ interface MemoryRecord {
     integrity?: string;
 }
 
-interface AddMemoryRequest {
+export interface AddMemoryRequest {
     actor: string;
     action: string;
     target: string;
@@ -88,6 +88,18 @@ interface AddMemoryRequest {
     /** Categorization tags for RAG filtering. */
     tags?: string[];
 }
+
+export type SelfModelOperation =
+    | 'add_memory'
+    | 'search_memory'
+    | 'query_memory'
+    | 'ingest'
+    | 'bulk_add'
+    | 'forget'
+    | 'reflect'
+    | 'context'
+    | 'predict'
+    | 'rollout';
 
 interface AddMemoryResponse {
     success: boolean;
@@ -403,6 +415,29 @@ export class HipCortexAPI {
         const response = await axios.get(`${this.baseUrl}/memory/search/related`, { params: { seed_id: seedId, limit }, headers });
         return response.data;
     }
+
+    async searchMemory(query: string, limit = 10): Promise<{ results: Array<{ score: number; record: any }>; total: number }> {
+        const headers: any = { 'Content-Type': 'application/json' };
+        if (this.apiKey) { headers['Authorization'] = `Bearer ${this.apiKey}`; }
+        const response = await axios.post(`${this.baseUrl}/memory/search`, { query, limit }, { headers });
+        return response.data;
+    }
+
+    async canExecute(operation: SelfModelOperation): Promise<boolean> {
+        const headers: any = {};
+        if (this.apiKey) {
+            headers['Authorization'] = `Bearer ${this.apiKey}`;
+        }
+        try {
+            const response = await axios.get(`${this.baseUrl}/self/can-execute`, {
+                params: { operation },
+                headers
+            });
+            return response.data?.should_execute ?? true;
+        } catch {
+            return true; // Fallback to true if server doesn't support the route or is offline
+        }
+    }
 }
 
 class HipCortexChatParticipant {
@@ -431,8 +466,10 @@ class HipCortexChatParticipant {
                 await this.handleLinkMemory(request, stream);
             } else if (command.startsWith('add') || command.startsWith('record')) {
                 await this.handleAddMemory(request, stream);
-            } else if (command.startsWith('query') || command.startsWith('search') || command.startsWith('find')) {
+            } else if (command.startsWith('query') || command.startsWith('find')) {
                 await this.handleQueryMemory(request, stream);
+            } else if (command.startsWith('search')) {
+                await this.handleSearchMemory(request, stream);
             } else if (command.startsWith('health') || command.startsWith('status')) {
                 await this.handleHealthCheck(stream);
             } else {
@@ -643,6 +680,33 @@ class HipCortexChatParticipant {
         }
     }
 
+    private async handleSearchMemory(request: vscode.ChatRequest, stream: vscode.ChatResponseStream): Promise<void> {
+        stream.markdown('🔍 **Semantic search...**\n\n');
+        const query = request.prompt.replace(/^search\s+/i, '').trim();
+        const limitMatch = query.match(/limit[:\s]+(\d+)/i);
+        const limit = limitMatch ? parseInt(limitMatch[1]) : 10;
+        const cleanQuery = query.replace(/limit[:\s]+\d+/i, '').trim();
+        try {
+            const response = await this.api.searchMemory(cleanQuery, limit);
+            stream.markdown(`📊 **${response.total} result(s)** (scored)\n\n`);
+            if (response.results.length === 0) {
+                stream.markdown('No semantically similar memories found.\n');
+                return;
+            }
+            for (const { score, record } of response.results) {
+                stream.markdown(`**[${(score * 100).toFixed(1)}%]** [${record.action}] ${record.target} *(${record.actor})*\n\n`);
+            }
+            const contextBundle = response.results
+                .map(r => `[${r.record?.action ?? ''}] ${r.record?.target ?? ''}`)
+                .join('\n');
+            const ESTIMATED_FULL_HISTORY = 2000;
+            this.tokenTracker.record(contextBundle, ESTIMATED_FULL_HISTORY);
+            stream.markdown('\n\n' + this.tokenTracker.formatSavingsFooter(contextBundle, ESTIMATED_FULL_HISTORY));
+        } catch (error) {
+            stream.markdown(`❌ **Search Error**: ${error instanceof Error ? error.message : String(error)}\n`);
+        }
+    }
+
     private async handleHealthCheck(stream: vscode.ChatResponseStream): Promise<void> {
         stream.markdown('🏥 **System Health Check**\n\n');
         
@@ -828,37 +892,73 @@ export function activate(context: vscode.ExtensionContext) {
         });
         const healthTool = (vscode.lm as any).registerTool('hipcortex_health', {
             modelDescription: HARNESS_TOOL_DESCRIPTIONS.health,
-        invoke: async () => {
-            const summary = await new HipCortexAPI().healthSummary();
-            await new HipCortexAPI().addMemory({ actor: 'copilot', action: 'used-substrate', target: 'health', metadata: { via: 'lm-tool' } });
-            const r = await new HipCortexAPI().reflect('health').catch(() => ({} as any));
-            const loops = r && r.loops_run ? r.loops_run : 0;
-            const saved = tokenTracker.getSnapshot().savedTokens.toLocaleString();
-            statusBarItem.text = `$(database) HipCortex: WM 0 | loops ${loops} | ${saved} tok`;
-            serverChannel.appendLine(`Live: ${summary}`);
-            updateStatusBar(0, loops);
-            return { content: [{ type: 'text', value: summary }] };
-        }
+            invoke: async () => {
+                try {
+                    const summary = await new HipCortexAPI().healthSummary();
+                    await new HipCortexAPI().addMemory({ actor: 'copilot', action: 'used-substrate', target: 'health', metadata: { via: 'lm-tool' } });
+                    const r = await new HipCortexAPI().reflect('health').catch(() => ({} as any));
+                    const loops = r && r.loops_run ? r.loops_run : 0;
+                    const saved = tokenTracker.getSnapshot().savedTokens.toLocaleString();
+                    statusBarItem.text = `$(database) HipCortex: WM 0 | loops ${loops} | ${saved} tok`;
+                    serverChannel.appendLine(`Live: ${summary}`);
+                    updateStatusBar(0, loops);
+                    return { content: [{ type: 'text', value: summary }] };
+                } catch (err) {
+                    return { content: [{ type: 'text', value: `HipCortex health check failed: ${err instanceof Error ? err.message : String(err)}` }] };
+                }
+            }
         });
         const predictTool = (vscode.lm as any).registerTool('hipcortex_predict', {
             modelDescription: HARNESS_TOOL_DESCRIPTIONS.predict,
-        invoke: async (options: any, _token: vscode.CancellationToken) => {
-            const state: string = options?.input?.state || '';
-            const action: string = options?.input?.action || '';
-            const res = await new HipCortexAPI().predictState(state, action);
-            await new HipCortexAPI().addMemory({ actor: 'copilot', action: 'used-substrate', target: state + ':' + action, metadata: { via: 'lm-tool' } });
-            const surpriseQuery = state + action;
-            if (surpriseQuery.length > 5) {
-                const r = await new HipCortexAPI().reflect(surpriseQuery).catch(() => ({} as any));
-                const loops = r && r.loops_run ? r.loops_run : 0;
-                const saved = tokenTracker.getSnapshot().savedTokens.toLocaleString();
-                statusBarItem.text = `$(database) HipCortex: WM 0 | loops ${loops} | ${saved} tok`;
-                serverChannel.appendLine(`Live: predict ${state}:${action}`);
-                updateStatusBar(0, loops);
+            invoke: async (options: any, _token: vscode.CancellationToken) => {
+                const state: string = options?.input?.state || '';
+                const action: string = options?.input?.action || '';
+                try {
+                    const api = new HipCortexAPI();
+                    const gate = await api.canExecute('predict');
+                    if (!gate) {
+                        return { content: [{ type: 'text', value: 'Substrate uncertain: confidence too low. Self-Model health gating check failed.' }] };
+                    }
+                    const res = await api.predictState(state, action);
+                    await api.addMemory({ actor: 'copilot', action: 'used-substrate', target: state + ':' + action, metadata: { via: 'lm-tool' } });
+                    const surpriseQuery = state + action;
+                    if (surpriseQuery.length > 5) {
+                        const r = await api.reflect(surpriseQuery).catch(() => ({} as any));
+                        const loops = r && r.loops_run ? r.loops_run : 0;
+                        const saved = tokenTracker.getSnapshot().savedTokens.toLocaleString();
+                        statusBarItem.text = `$(database) HipCortex: WM 0 | loops ${loops} | ${saved} tok`;
+                        serverChannel.appendLine(`Live: predict ${state}:${action}`);
+                        updateStatusBar(0, loops);
+                    }
+                    return { content: [{ type: 'text', value: JSON.stringify(res) }] };
+                } catch (err) {
+                    return { content: [{ type: 'text', value: `HipCortex predict failed: ${err instanceof Error ? err.message : String(err)}` }] };
+                }
             }
-            return { content: [{ type: 'text', value: JSON.stringify(res) }] };
-        }
         });
+
+        const rolloutTool = (vscode.lm as any).registerTool('hipcortex_rollout', {
+            modelDescription: 'Predict state after a sequence of N actions using WorldModelEnhanced multi-step rollout. Provide initial_state and actions (array of strings).',
+            invoke: async (options: any, _token: vscode.CancellationToken) => {
+                const api = new HipCortexAPI();
+                const initial_state: string = options?.input?.initial_state || '';
+                const actions: string[] = options?.input?.actions || [];
+                const baseUrl = (api as any).baseUrl;
+                const headers: any = { 'Content-Type': 'application/json' };
+                if ((api as any).apiKey) { headers['Authorization'] = `Bearer ${(api as any).apiKey}`; }
+                try {
+                    const gate = await api.canExecute('rollout');
+                    if (!gate) {
+                        return { content: [{ type: 'text', value: 'Substrate uncertain: confidence too low. Self-Model health gating check failed.' }] };
+                    }
+                    const response = await axios.post(`${baseUrl}/worldmodel/rollout`, { initial_state, actions }, { headers });
+                    return { content: [{ type: 'text', value: JSON.stringify(response.data) }] };
+                } catch (err) {
+                    return { content: [{ type: 'text', value: `hipcortex_rollout failed: ${err instanceof Error ? err.message : String(err)}` }] };
+                }
+            }
+        });
+
         const graphSearchTool = (vscode.lm as any).registerTool('hipcortex_graph_search', {
             modelDescription: 'Use this AFTER hipcortex_search to expand context graph-first. Call with a seed_id (record UUID) to find memories linked via the CausalTopoGraph using PPR (alpha=0.85, 20 rounds).',
             invoke: async (options: any, _token: vscode.CancellationToken) => {
@@ -882,8 +982,35 @@ export function activate(context: vscode.ExtensionContext) {
                 }
             }
         });
-        context.subscriptions.push(tool, healthTool, predictTool, graphSearchTool);
-        console.log('✅ HipCortex LM Tools registered: hipcortex_search, hipcortex_health, hipcortex_predict, hipcortex_graph_search');
+
+        const causalTool = (vscode.lm as any).registerTool('hipcortex_causal', {
+            modelDescription: 'Run a causal or counterfactual query against the HipCortex WorldModel causal graph. Support modes: counterfactual, intervention, graph.',
+            invoke: async (options: any, _token: vscode.CancellationToken) => {
+                const api = new HipCortexAPI();
+                const mode: string = options?.input?.mode || 'graph';
+                const baseUrl = (api as any).baseUrl;
+                const headers: any = {};
+                if ((api as any).apiKey) { headers['Authorization'] = `Bearer ${(api as any).apiKey}`; }
+                try {
+                    let result: any;
+                    if (mode === 'counterfactual') {
+                        const body = { intervention: options?.input?.intervention || '', query: options?.input?.query || '' };
+                        result = await axios.post(`${baseUrl}/worldmodel/causal/counterfactual`, body, { headers });
+                    } else if (mode === 'intervention') {
+                        const body = { variable: options?.input?.variable || '', value: options?.input?.value };
+                        result = await axios.post(`${baseUrl}/worldmodel/causal/intervention`, body, { headers });
+                    } else {
+                        result = await axios.get(`${baseUrl}/worldmodel/causal`, { headers });
+                    }
+                    return { content: [{ type: 'text', value: JSON.stringify(result.data, null, 2) }] };
+                } catch (err) {
+                    return { content: [{ type: 'text', value: `hipcortex_causal failed: ${err instanceof Error ? err.message : String(err)}` }] };
+                }
+            }
+        });
+
+        context.subscriptions.push(tool, healthTool, predictTool, rolloutTool, graphSearchTool, causalTool);
+        console.log('✅ HipCortex LM Tools registered: hipcortex_search, hipcortex_health, hipcortex_predict, hipcortex_rollout, hipcortex_graph_search, hipcortex_causal');
     } else {
         console.log('ℹ️ VS Code < 1.90 — LM Tools not available');
     }

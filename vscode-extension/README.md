@@ -8,27 +8,40 @@ This extension surfaces the full power of the new substrate directly in Copilot 
 
 ## 🚀 Installation
 
-### 1. Install the Extension
+**Install from VS Code Marketplace (or .vsix) – zero-config for end users.**
+
+The extension auto-bootstraps:
+- On first use (e.g. `@hipcortex health` or any command), it automatically downloads the platform-specific HipCortex server binary (~4-10 MB) from GitHub releases (if not already present in your user cache or bundled via server/ in packaged .vsix).
+- Starts the server in the background (data stored in `~/.hipcortex-vscode`).
+- Connects and is ready. No Rust, Cargo, source code, or separate server start required for end users.
+Exact install flow per Task 9: use produced .vsix via `code --install-extension hipcortex-memory-*.vsix` in clean VSCode.
+
+### For Local Development / Testing
 ```bash
 cd vscode-extension
 npm install
 npm run compile
+# F5 in VS Code to launch Extension Development Host
+# Server will auto-start or connect to local dev server
 ```
 
-### 2. Install Extension in VS Code
-1. Press `F5` to launch Extension Development Host
-2. OR package and install:
+To manually package (Task 9 verified flow):
 ```bash
-npm install -g vsce
-vsce package
-code --install-extension hipcortex-memory-0.3.0.vsix
+cd vscode-extension && npm run fetch-bins && npm run compile && npm test && npx @vscode/vsce package --allow-missing-repository
+code --install-extension hipcortex-memory-*.vsix
 ```
+Exact run command per plan: `cd vscode-extension && npm run fetch-bins && npm run compile && npm test && npx @vscode/vsce package --allow-missing-repository` (Expected: .vsix created, no errors). Package.json includes "files": ["dist", "server"] for self-contained packaging.
 
-### 3. Start HipCortex API Server
-```bash
-cd ../
-cargo run --bin webserver --features "web-server,petgraph_backend"
-```
+### What you see (exact, no over-claims)
+After manual `code --install-extension hipcortex-memory-*.vsix` in clean VSCode (no prior HipCortex) shows working auto start + tools + savings on first save/Copilot use.
+- Install produced .vsix in fresh VSCode (no prior HipCortex).
+- Open folder, edit + save file → status shows active, record in query.
+- Copilot chat asks about previous decision → calls tool, gets live_beliefs, savings in footer.
+- @hipcortex health works, server channel has logs.
+- No cargo, no manual start.
+- On first use (e.g. `@hipcortex health` or any command), it automatically downloads the platform-specific HipCortex server binary (if not bundled).
+- Starts the server in the background (data stored in `~/.hipcortex-vscode`).
+- Connects and is ready. No Rust, Cargo, source code, or separate server start required for end users.
 
 ## 🎯 Usage
 
@@ -71,7 +84,7 @@ Open VS Code Settings and search for "HipCortex":
 
 ### ✅ Core Integration
 - ✅ VS Code chat participant (@hipcortex)
-- ✅ Language Model Tools (hipcortex_search, hipcortex_health, hipcortex_predict, hipcortex_coherence)
+- ✅ Language Model Tools (hipcortex_search [uses live_beliefs], hipcortex_health, hipcortex_predict)
 - ✅ Command palette integration
 - ✅ Auto-start server functionality
 - ✅ Comprehensive error handling

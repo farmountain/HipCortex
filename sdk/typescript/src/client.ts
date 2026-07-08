@@ -5,6 +5,9 @@ import type {
   HipCortexClientOptions, QueryMemoryResponse,
   QueryParams, SearchRequest, SearchResponse,
   StatsResponse,
+  LinkMemoriesRequest, LinkMemoriesResponse,
+  NeighborsResponse, RelatedSearchResponse,
+  DeleteMemoryResponse,
 } from "./types";
 
 export class HipCortexClient {
@@ -23,7 +26,7 @@ export class HipCortexClient {
     method: string,
     path: string,
     body?: unknown,
-    params?: Record<string, string | number | undefined>,
+    params?: Record<string, string | number | boolean | undefined>,
   ): Promise<T> {
     let url = `${this.baseUrl}${path}`;
     if (params) {
@@ -63,6 +66,7 @@ export class HipCortexClient {
       action: params.action,
       record_type: params.record_type,
       limit: params.limit ?? 100,
+      ...(params.include_expired ? { include_expired: "true" } : {}),
     });
   }
 
@@ -105,5 +109,41 @@ export class HipCortexClient {
 
   async getConversationHistory(sessionId: string, limit = 50): Promise<QueryMemoryResponse> {
     return this.queryMemory({ actor: sessionId, limit });
+  }
+
+  // ---------------------------------------------------------------------------
+  // TMF — Tiered Memory Foundation graph methods (v0.4.0)
+  // ---------------------------------------------------------------------------
+
+  /** Create a directed graph edge between two memory records via CausalTopoGraph. */
+  async linkMemories(req: LinkMemoriesRequest): Promise<LinkMemoriesResponse> {
+    return this.request<LinkMemoriesResponse>("POST", "/memory/link", {
+      source_id: req.source_id,
+      target_id: req.target_id,
+      relation: req.relation ?? "related",
+    });
+  }
+
+  /** Return neighboring memory records linked via the CausalTopoGraph. */
+  async getNeighbors(recordId: string, limit = 10): Promise<NeighborsResponse> {
+    return this.request<NeighborsResponse>("GET", `/memory/neighbors/${recordId}`, undefined, {
+      limit,
+    });
+  }
+
+  /**
+   * PPR-ranked related memory search seeded from a given record ID.
+   * Uses Personalized PageRank (α=0.85, 20 rounds) over the CausalTopoGraph.
+   */
+  async searchRelated(seedId: string, limit = 10): Promise<RelatedSearchResponse> {
+    return this.request<RelatedSearchResponse>("GET", "/memory/search/related", undefined, {
+      seed_id: seedId,
+      limit,
+    });
+  }
+
+  /** Delete a single memory record by UUID. */
+  async deleteMemory(recordId: string): Promise<DeleteMemoryResponse> {
+    return this.request<DeleteMemoryResponse>("DELETE", `/memory/${recordId}`);
   }
 }

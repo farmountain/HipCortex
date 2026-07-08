@@ -745,8 +745,12 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     };
     let wm_predict_route = {
         let wm = world_model.clone();
+        let wm2 = world_model.clone();
         get(move |Query(p): Query<WmPredictParams>| async move {
             handle_wm_predict(wm, Query(p)).await
+        })
+        .post(move |Json(p): Json<WmPredictParams>| async move {
+            handle_wm_predict_post(wm2, Json(p)).await
         })
     };
     let wm_entities_route = {
@@ -853,6 +857,12 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         .route("/worldmodel/uncertainty",  wm_uncertainty_route)
         .route("/worldmodel/observe",   wm_observe_route)
         .route("/worldmodel/predict",   wm_predict_route)
+        .route("/worldmodel/rollout", post({
+            let wm = world_model.clone();
+            move |Json(req): Json<WmRolloutRequest>| async move {
+                handle_wm_rollout(wm, Json(req)).await
+            }
+        }))
         .route("/worldmodel/entities",  wm_entities_route)
         .route("/worldmodel/entity",    wm_entity_route)
         // ── 12.6: GET /predict/entity/:id — predict entity state N steps ahead ──
@@ -1180,6 +1190,7 @@ async fn api_key_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Respons
         || path == "/self/can-execute"
         || path == "/memory/hypotheses"
         || path == "/worldmodel/predict"
+        || path == "/worldmodel/rollout"
         || path == "/worldmodel/entities"
         || path == "/worldmodel/causal"
         || path == "/worldmodel/states"
@@ -1608,13 +1619,7 @@ async fn handle_bulk_add<B: MemoryBackend + Send + Sync + 'static>(
         Ok(mut ms) => {
             for (idx, r) in req.records.into_iter().enumerate() {
                 let actor_name = r.actor.clone();
-                let record_type = match r.record_type.as_deref() {
-                    Some("Symbolic")   => MemoryType::Symbolic,
-                    Some("Procedural") => MemoryType::Procedural,
-                    Some("Reflexion")  => MemoryType::Reflexion,
-                    Some("Perception") => MemoryType::Perception,
-                    _ => MemoryType::Temporal,
-                };
+                let record_type = parse_record_type_alias(r.record_type.as_deref());
                 let record = MemoryRecord::new(
                     record_type,
                     r.actor,
@@ -2919,19 +2924,25 @@ async fn handle_ingest<B: MemoryBackend + Send + Sync + 'static>(
 }
 
 #[cfg(feature = "web-server")]
+fn parse_record_type_alias(s: Option<&str>) -> crate::memory_record::MemoryType {
+    use crate::memory_record::MemoryType;
+    match s {
+        Some("Temporal") | Some("Episodic") | Some("ShortTerm") | Some("Working") => MemoryType::Temporal,
+        Some("Symbolic") | Some("Semantic") | Some("LongTerm") => MemoryType::Symbolic,
+        Some("Procedural") => MemoryType::Procedural,
+        Some("Reflexion") | Some("Reflexive") => MemoryType::Reflexion,
+        Some("Perception") | Some("Perceptual") => MemoryType::Perception,
+        _ => MemoryType::Temporal, // Default
+    }
+}
+
+#[cfg(feature = "web-server")]
 async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
     store: Arc<Mutex<MemoryStore<B>>>,
     world_model: Arc<RwLock<WorldModelEnhanced>>,
     req: AddMemoryRequest,
 ) -> Result<Json<AddMemoryResponse>, (StatusCode, Json<AddMemoryResponse>)> {
-    let record_type = match req.record_type.as_deref() {
-        Some("Temporal") => MemoryType::Temporal,
-        Some("Symbolic") => MemoryType::Symbolic,
-        Some("Procedural") => MemoryType::Procedural,
-        Some("Reflexion") => MemoryType::Reflexion,
-        Some("Perception") => MemoryType::Perception,
-        _ => MemoryType::Temporal, // Default
-    };
+    let record_type = parse_record_type_alias(req.record_type.as_deref());
 
     let actor_name = req.actor.clone();
     let mut record = MemoryRecord::new(
@@ -3722,9 +3733,9 @@ struct WmPredictParams {
 }
 
 #[cfg(feature = "web-server")]
-async fn handle_wm_predict(
+async fn handle_wm_predict_inner(
     world_model: Arc<RwLock<WorldModelEnhanced>>,
-    Query(params): Query<WmPredictParams>,
+    params: WmPredictParams,
 ) -> Json<serde_json::Value> {
     match world_model.read() {
         Ok(wm) => match wm.predict_next_state(&params.state, &params.action) {
@@ -3734,6 +3745,53 @@ async fn handle_wm_predict(
                 "probabilities": pred.probabilities,
                 "entropy": pred.entropy,
                 "observation_count": pred.observation_count,
+            })),
+            Err(e) => Json(serde_json::json!({"error": e})),
+        },
+        Err(e) => Json(serde_json::json!({"error": format!("lock: {}", e)})),
+    }
+}
+
+#[cfg(feature = "web-server")]
+async fn handle_wm_predict(
+    world_model: Arc<RwLock<WorldModelEnhanced>>,
+    Query(params): Query<WmPredictParams>,
+) -> Json<serde_json::Value> {
+    handle_wm_predict_inner(world_model, params).await
+}
+
+#[cfg(feature = "web-server")]
+async fn handle_wm_predict_post(
+    world_model: Arc<RwLock<WorldModelEnhanced>>,
+    Json(params): Json<WmPredictParams>,
+) -> Json<serde_json::Value> {
+    handle_wm_predict_inner(world_model, params).await
+}
+
+#[cfg(feature = "web-server")]
+#[derive(Deserialize)]
+struct WmRolloutRequest {
+    initial_state: String,
+    actions: Vec<String>,
+}
+
+#[cfg(feature = "web-server")]
+async fn handle_wm_rollout(
+    world_model: Arc<RwLock<WorldModelEnhanced>>,
+    Json(req): Json<WmRolloutRequest>,
+) -> Json<serde_json::Value> {
+    if req.actions.is_empty() {
+        return Json(serde_json::json!({"error": "actions must be non-empty"}));
+    }
+    match world_model.read() {
+        Ok(wm) => match wm.predict_multi_step(req.initial_state.clone(), req.actions.clone()) {
+            Ok(pred) => Json(serde_json::json!({
+                "initial_state":   req.initial_state,
+                "actions":         req.actions,
+                "predicted_state": pred.predicted_state,
+                "distribution":    pred.distribution,
+                "confidence":      pred.confidence,
+                "steps":           pred.steps,
             })),
             Err(e) => Json(serde_json::json!({"error": e})),
         },

@@ -229,7 +229,12 @@ impl SelfModel {
     pub fn report_health(&self, module_name: String, health: ModuleHealth) -> Result<(), String> {
         let mut health_agg = self.health.write()
             .map_err(|e| format!("Failed to acquire health lock: {}", e))?;
-        health_agg.report(module_name, health)
+        let res = health_agg.report(module_name, health);
+        let _ = crate::safety_guardrail::SAFETY_GUARDRAIL
+            .lock()
+            .unwrap()
+            .check_precondition("System:Self:health_epoch_diff");
+        res
     }
 
     /// Get overall system health score

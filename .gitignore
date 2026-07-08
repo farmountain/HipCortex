@@ -55,3 +55,9 @@ run_tests.ps1
 # Data directories
 data/
 logs/
+
+# WhatsApp JPEGs
+WhatsApp Image *.jpeg
+WhatsApp Image*.jpeg
+*.jpeg
+*.jpg

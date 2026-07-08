@@ -33,8 +33,8 @@ server.serve("127.0.0.1:8080".parse()?, "127.0.0.1:50051".parse()?).await?;
 
 ### Agent Protocols (Planned)
 - **OpenManus** and **MCP** adapters will translate their native message formats into the internal `PerceptInput` structure. A small protocol bridge will live in `IntegrationLayer` so agents can talk to HipCortex directly over these protocols.
-- Agent messages flow **into** the engine through `PerceptionAdapter` which normalizes text, embeddings or structured agent events.
-- `IntegrationLayer` then exposes the results back over the same channel (or via REST/gRPC) so the calling agent receives the action or trace response.
+- Agent messages flow **into** the engine through `PerceptionAdapter` (wrapped by `PerceptionSession`) which normalizes text, embeddings or structured agent events. For `AgentMessage` the default path also performs automatic world-model entity updates and (via `record_perceived_action`) feeds perceived actions as transitions — keeping the substrate's predictive state current without the agent having to explicitly trigger "remember decision" or "update world model" for basic maintenance.
+- `IntegrationLayer` then exposes the results back over the same channel (or via REST/gRPC) so the calling agent receives the action or trace response. The auto low-pri Temporal construction + perception hooks live in `handle_mcp` for this modality (gated by safety + self health).
 
 ### Chain-of-Thought & Reflexion
 - AureusBridge connects to agentic/LLM reasoning modules.

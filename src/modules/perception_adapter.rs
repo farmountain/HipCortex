@@ -160,6 +160,10 @@ impl PerceptionAdapter {
                 let out = l2_normalize(comp);
                 let ent = shannon_entropy(&out);
                 println!("[PerceptionAdapter] entropy {:.3}", ent);
+                let _ = crate::safety_guardrail::SAFETY_GUARDRAIL
+                    .lock()
+                    .unwrap()
+                    .check_precondition("System:Self:perception_adapt_epoch");
                 Ok(out)
             }
             Modality::ImageEmbedding => {

@@ -29,6 +29,7 @@ export class TokenTracker {
 
     /**
      * Record a HipCortex memory retrieval event.
+     * Supports live_beliefs bundles (summary + world_state) for richer status.
      * @param contextBundle  Text of memory records returned (treatment)
      * @param baselineTokens Estimated tokens if full history had been injected
      */
@@ -68,13 +69,14 @@ export class TokenTracker {
         ].join('\n');
     }
 
-    /** Short label for status bar */
-    formatStatusBarLabel(): string {
+    /** Short label for status bar. Updated for richer WM + loops + savings visibility after live_beliefs/reflect. */
+    formatStatusBarLabel(wm: number = 0, loops: number = 0): string {
         const snap = this.getSnapshot();
-        if (snap.sessionCallCount === 0) {
+        const saved = snap.savedTokens.toLocaleString();
+        if (snap.sessionCallCount === 0 && wm === 0) {
             return '$(database) HipCortex';
         }
-        return `$(database) HipCortex: ~${snap.savedTokens.toLocaleString()} tok saved`;
+        return `$(database) HipCortex: WM ${wm} | loops ${loops} | ${saved} tok`;
     }
 
     reset(): void {
