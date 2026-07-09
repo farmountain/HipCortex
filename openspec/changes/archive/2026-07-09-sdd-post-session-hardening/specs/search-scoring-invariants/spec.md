@@ -13,7 +13,7 @@ regardless of query relevance or time elapsed.
 
 #### Scenario: Non-zero elapsed time with default parameters
 - **WHEN** 30 days have elapsed, `decay_factor=1.0`, `decay_half_life_secs=2592000`
-- **THEN** `compute_decay` returns approximately `0.5 ¡Á rec.confidence` (one half-life)
+- **THEN** `compute_decay` returns approximately `0.5 * rec.confidence` (one half-life)
 
 #### Scenario: Zero decay factor
 - **WHEN** `decay_factor=0.0` in record metadata
@@ -21,7 +21,7 @@ regardless of query relevance or time elapsed.
 
 #### Scenario: Low confidence ceiling
 - **WHEN** a record has `confidence=0.1` and full semantic relevance (`base_score=1.0`)
-- **THEN** the final weighted score SHALL be at most `0.1 ¡Á trust_factor ¡Á priority_mult`
+- **THEN** the final weighted score SHALL be at most `0.1 * trust_factor * priority_mult`
   regardless of query match quality
 
 ### Requirement: PPR search and semantic search use independent scoring models
