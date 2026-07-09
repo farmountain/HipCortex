@@ -1031,9 +1031,8 @@ export function activate(context: vscode.ExtensionContext) {
                 actor: 'vscode-user',
                 action: 'edited',
                 target: `${fileName} (${doc.languageId}, ${doc.lineCount} lines)`,
-                record_type: 'Temporal',
-                ttl_seconds: 86400,    // file edits are ephemeral → expire after 24h
-                priority: 'low',       // low priority: don't surface above explicit decisions
+                record_type: 'Symbolic',    // Changed from Temporal to Symbolic so file edits persist permanently without 24h expiration
+                priority: 'normal',         // Normal priority so file edits surface clearly in queries and the Quick Pick UI
                 source: 'vscode-auto-capture',
                 metadata: { 
                     source: 'vscode-auto-capture', 
@@ -1134,7 +1133,7 @@ export function activate(context: vscode.ExtensionContext) {
     const queryMemoryCommand = vscode.commands.registerCommand('hipcortex.queryMemory', async () => {
         try {
             const api = new HipCortexAPI();
-            const response = await api.queryMemory({ limit: 10 });
+            const response = await api.queryMemory({ limit: 50 });
             
             const items = response.records.map(record => ({
                 label: `${record.actor} → ${record.action}`,

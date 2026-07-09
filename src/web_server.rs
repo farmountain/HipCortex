@@ -3153,6 +3153,9 @@ async fn handle_query_memory<B: MemoryBackend + Send + Sync + 'static>(
                 }
             }
 
+            // Sort by timestamp descending (newest first) before applying limit
+            filtered_records.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+
             // Apply limit
             let limit = params.limit.unwrap_or(100);
             filtered_records.truncate(limit);
