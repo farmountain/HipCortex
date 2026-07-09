@@ -403,7 +403,19 @@ impl WorldModelEnhanced {
         let uncertainty = self.uncertainty.read()
             .map_err(|e| format!("Failed to acquire uncertainty lock: {}", e))?;
         
-        uncertainty.decompose(state, action)
+        let transitions = self.transitions.read()
+            .map_err(|e| format!("Failed to acquire transitions lock: {}", e))?;
+
+        let sa_key = (state.to_string(), action.to_string());
+        let count = transitions.totals.get(&sa_key).cloned().unwrap_or(0);
+        
+        let entropy = if count > 0 {
+            transitions.compute_entropy(state, action).unwrap_or(0.0)
+        } else {
+            0.0
+        };
+
+        uncertainty.decompose(state, action, count, entropy)
     }
 
     /// Test helper (Task 7 TDD): expose topo node count so tests can verify record_perceived populates hybrid states/embeddings.

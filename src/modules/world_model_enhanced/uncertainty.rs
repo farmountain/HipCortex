@@ -108,27 +108,27 @@ impl UncertaintyEstimator {
         })
     }
 
-    /// Decompose uncertainty into epistemic (model) and aleatoric (data)
-    ///
-    /// Epistemic: reducible uncertainty from limited model knowledge
-    /// Aleatoric: irreducible uncertainty from inherent randomness
-    pub fn decompose(&self, _state: &str, _action: &str) -> Result<(f64, f64), String> {
-        // Simplified decomposition:
-        // Epistemic ← proportional to sample size (more data → less epistemic)
-        // Aleatoric ← inherent entropy in data
-        
-        let total_samples = self.prediction_history.len() as f64;
-        
-        // Epistemic decreases with sqrt(n)
-        let epistemic = if total_samples > 0.0 {
-            1.0 / total_samples.sqrt()
+    pub fn decompose(
+        &self,
+        _state: &str,
+        _action: &str,
+        sample_count: usize,
+        entropy: f64,
+    ) -> Result<(f64, f64), String> {
+        // Epistemic uncertainty decreases with local sample count
+        let epistemic = if sample_count > 0 {
+            1.0 / (sample_count as f64).sqrt()
         } else {
             1.0  // Maximum uncertainty with no data
         };
-        
-        // Aleatoric is a fixed fraction (simplified)
-        let aleatoric = 0.2;
-        
+
+        // Aleatoric uncertainty is derived from the statistical entropy of the transition distribution
+        let aleatoric = if sample_count > 0 {
+            (entropy / 2.0).min(1.0)
+        } else {
+            0.0 // No observations, so uncertainty is entirely model-based (epistemic)
+        };
+
         Ok((epistemic, aleatoric))
     }
 
@@ -301,20 +301,16 @@ mod tests {
 
     #[test]
     fn test_uncertainty_decomposition() {
-        let mut estimator = UncertaintyEstimator::new();
+        let estimator = UncertaintyEstimator::new();
         
         // With no data, epistemic should be high
-        let (epistemic_before, aleatoric) = estimator.decompose("S1", "A1").unwrap();
+        let (epistemic_before, _aleatoric_before) = estimator.decompose("S1", "A1", 0, 0.0).unwrap();
         assert_eq!(epistemic_before, 1.0);
         
-        // Add many samples
-        for _ in 0..100 {
-            estimator.record_outcome(0.8, true);
-        }
-        
-        // With more data, epistemic should decrease
-        let (epistemic_after, _) = estimator.decompose("S1", "A1").unwrap();
+        // With more data (e.g. 100 samples, low entropy), epistemic should decrease
+        let (epistemic_after, _aleatoric_after) = estimator.decompose("S1", "A1", 100, 0.2).unwrap();
         assert!(epistemic_after < epistemic_before);
+        assert!((epistemic_after - 0.1).abs() < 0.001); // 1.0 / sqrt(100) = 0.1
     }
 
     #[test]

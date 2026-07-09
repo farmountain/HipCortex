@@ -29,7 +29,7 @@ pub struct TransitionPrediction {
 /// - Prior: Dir(α) with α_k = 1 (Laplace smoothing)
 /// - Posterior: Dir(α + counts)
 /// - Prediction: P(s'|s,a) = (α_{sas'} + count_{sas'}) / Σ_k (α_{sak} + count_{sak})
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TransitionModel {
     /// Transition counts: (state, action, next_state) → count
     pub(crate) counts: HashMap<(String, String, String), usize>,
@@ -94,16 +94,17 @@ impl TransitionModel {
         }
 
         let total = self.totals.get(&sa_key).unwrap_or(&0);
-        let vocab_size = next_states.len();
+        let global_states = self.get_states();
+        let vocab_size = global_states.len();
 
         // Compute posterior probabilities with Laplace smoothing
         let mut probabilities = HashMap::new();
         let denominator = (*total as f64) + (self.smoothing * vocab_size as f64);
 
-        for next_state in &next_states {
+        for next_state in &global_states {
             let key = (state.to_string(), action.to_string(), next_state.clone());
-            let count = self.counts.get(&key).unwrap_or(&0);
-            let prob = (*count as f64 + self.smoothing) / denominator;
+            let count = self.counts.get(&key).cloned().unwrap_or(0);
+            let prob = (count as f64 + self.smoothing) / denominator;
             probabilities.insert(next_state.clone(), prob);
         }
 
@@ -218,12 +219,14 @@ mod tests {
 
         let pred = model.predict("S1", "A1").unwrap();
         
-        // With smoothing α=1, vocab_size=2:
-        // P(S2|S1,A1) = (2+1)/(3+2) = 3/5 = 0.6
-        // P(S3|S1,A1) = (1+1)/(3+2) = 2/5 = 0.4
+        // With smoothing α=1, global vocab_size=3 (S1, S2, S3):
+        // P(S2|S1,A1) = (2+1)/(3+3) = 3/6 = 0.5
+        // P(S3|S1,A1) = (1+1)/(3+3) = 2/6 = 0.333
+        // P(S1|S1,A1) = (0+1)/(3+3) = 1/6 = 0.167
         
-        assert!((pred.probabilities["S2"] - 0.6).abs() < 0.001);
-        assert!((pred.probabilities["S3"] - 0.4).abs() < 0.001);
+        assert!((pred.probabilities["S2"] - 0.5).abs() < 0.001);
+        assert!((pred.probabilities["S3"] - 0.333).abs() < 0.001);
+        assert!((pred.probabilities["S1"] - 0.167).abs() < 0.001);
     }
 
     #[test]
@@ -406,9 +409,9 @@ mod tests {
 
         let pred = model.predict("S1", "A1").unwrap();
         
-        // With α=0.5: P(S2|S1,A1) = (2+0.5)/(2+0.5) = 1.0
-        // (only one outcome, so denominator = numerator)
-        assert!((pred.probabilities["S2"] - 1.0).abs() < 0.001);
+        // With α=0.5 and global states (S1, S2): P(S2|S1,A1) = (2+0.5)/(2+0.5*2) = 2.5/3.0 = 0.833
+        assert!((pred.probabilities["S2"] - 0.833).abs() < 0.001);
+        assert!((pred.probabilities["S1"] - 0.167).abs() < 0.001);
     }
 
     #[test]
@@ -444,8 +447,10 @@ mod tests {
         let pred2 = model.predict("S1", "A2").unwrap();
         
         // Different actions should yield different distributions
+        // P(S2|S1,A1) = (8+1)/(10+4) = 9/14 = 0.643 (> 0.6)
+        // P(S4|S1,A2) = (9+1)/(9+4) = 10/13 = 0.769 (> 0.75)
         assert!(pred1.probabilities["S2"] > 0.6);
-        assert!(pred2.probabilities["S4"] > 0.8);
+        assert!(pred2.probabilities["S4"] > 0.75);
     }
 
     #[test]

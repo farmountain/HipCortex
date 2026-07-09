@@ -117,7 +117,7 @@ impl LearnedTransitionPredictor {
         let accuracy = Self::compute_accuracy(model);
 
         Ok(Self {
-            model: TransitionModel::new(),  // Clone semantics would be better
+            model: model.clone(),
             accuracy,
             training_samples: model.observation_count(),
         })
