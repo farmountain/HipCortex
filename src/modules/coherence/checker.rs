@@ -10,6 +10,7 @@
 use std::collections::{HashMap, HashSet};
 use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Serialize, Deserialize};
+use std::sync::{Arc, Mutex};
 
 use crate::topological_memory::{CausalTopoGraph, EdgeType};
 
@@ -109,6 +110,11 @@ pub struct ConsistencyChecker {
     /// via detect_contradiction + find_multi_hop_paths for path-based causal issues.
     /// Task 6 TDD: replaces placeholders with real topo-driven detection.
     topo: Option<CausalTopoGraph>,
+
+    pub temporal_indexer: Option<Arc<Mutex<crate::temporal_indexer::TemporalIndexer<uuid::Uuid>>>>,
+    pub symbolic_store: Option<Arc<Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>>,
+    pub procedural_cache: Option<Arc<Mutex<crate::procedural_cache::ProceduralCache>>>,
+    pub world_model: Option<Arc<crate::world_model_enhanced::WorldModelEnhanced>>,
 }
 
 /// Entity counts across different modules
@@ -128,6 +134,10 @@ impl ConsistencyChecker {
             probability_threshold: 0.01,
             entity_cache: HashMap::new(),
             topo: None,
+            temporal_indexer: None,
+            symbolic_store: None,
+            procedural_cache: None,
+            world_model: None,
         }
     }
 
@@ -138,14 +148,31 @@ impl ConsistencyChecker {
             probability_threshold: prob_threshold,
             entity_cache: HashMap::new(),
             topo: None,
+            temporal_indexer: None,
+            symbolic_store: None,
+            procedural_cache: None,
+            world_model: None,
         }
     }
 
-    /// Inject a CausalTopoGraph to enable real topo-backed inconsistency detection
-    /// (causal contradictions via detect_contradiction/paths, entity permanence via nodes).
-    /// Used in TDD tests and will be wired by loop/coherence consumers post Task 6.
     pub fn set_causal_topo(&mut self, topo: CausalTopoGraph) {
         self.topo = Some(topo);
+    }
+
+    pub fn set_temporal_indexer(&mut self, indexer: Arc<Mutex<crate::temporal_indexer::TemporalIndexer<uuid::Uuid>>>) {
+        self.temporal_indexer = Some(indexer);
+    }
+
+    pub fn set_symbolic_store(&mut self, store: Arc<Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>) {
+        self.symbolic_store = Some(store);
+    }
+
+    pub fn set_procedural_cache(&mut self, cache: Arc<Mutex<crate::procedural_cache::ProceduralCache>>) {
+        self.procedural_cache = Some(cache);
+    }
+
+    pub fn set_world_model(&mut self, wm: Arc<crate::world_model_enhanced::WorldModelEnhanced>) {
+        self.world_model = Some(wm);
     }
 
     // ========================================================================
@@ -212,71 +239,78 @@ impl ConsistencyChecker {
     // Inconsistency Detection Methods
     // ========================================================================
 
-    /// Check for temporal-symbolic mismatches
-    ///
-    /// Detects: Event in temporal indexer references entity missing from symbolic store
     fn check_temporal_symbolic(&mut self) -> Result<Vec<InconsistencyReport>, String> {
         let mut inconsistencies = Vec::new();
         
-        // In a real implementation, this would query temporal indexer and symbolic store
-        // For now, we provide the structure
-        
-        // Pseudo-code:
-        // 1. Get all events from temporal indexer
-        // 2. For each event, extract referenced entity IDs
-        // 3. Check if each entity exists in symbolic store
-        // 4. If entity missing, create TemporalSymbolicMismatch report
-        
-        // Example detection (placeholder):
-        // let events = temporal_indexer.get_recent_events()?;
-        // for event in events {
-        //     for entity_id in event.referenced_entities {
-        //         if !symbolic_store.contains(&entity_id) {
-        //             inconsistencies.push(InconsistencyReport::new(
-        //                 InconsistencyType::TemporalSymbolicMismatch,
-        //                 vec![entity_id.clone()],
-        //                 format!("Event {} references missing entity {}", event.id, entity_id),
-        //                 6,
-        //             ));
-        //         }
-        //     }
-        // }
+        if let (Some(ref indexer_arc), Some(ref store_arc)) = (&self.temporal_indexer, &self.symbolic_store) {
+            let indexer = indexer_arc.lock()
+                .map_err(|e| format!("Failed to lock indexer: {}", e))?;
+            let store = store_arc.lock()
+                .map_err(|e| format!("Failed to lock store: {}", e))?;
+                
+            let recent_traces = indexer.get_recent(100);
+            for trace in recent_traces {
+                let entity_id = trace.data;
+                if store.get_node(entity_id).is_none() {
+                    inconsistencies.push(InconsistencyReport::new(
+                        InconsistencyType::TemporalSymbolicMismatch,
+                        vec![entity_id.to_string()],
+                        format!(
+                            "Temporal trace {} references entity ID {} which is missing from symbolic store",
+                            trace.id, entity_id
+                        ),
+                        7,
+                    ));
+                }
+            }
+        }
         
         Ok(inconsistencies)
     }
 
-    /// Check for procedural-world conflicts
-    ///
-    /// Detects: Procedural FSM allows transition but world-model predicts P=0
     fn check_procedural_world(&mut self) -> Result<Vec<InconsistencyReport>, String> {
         let mut inconsistencies = Vec::new();
         
-        // Pseudo-code:
-        // 1. Get all state transitions from procedural cache (FSM)
-        // 2. For each transition (s, a) -> s', check world-model prediction
-        // 3. If P(s'|s,a) < threshold but FSM allows it, report conflict
-        
-        // Example detection (placeholder):
-        // let fsm_transitions = procedural_cache.get_allowed_transitions()?;
-        // for (state, action, next_state) in fsm_transitions {
-        //     let prediction = world_model.predict_next_state(&state, &action)?;
-        //     let prob = prediction.probabilities.get(&next_state).unwrap_or(&0.0);
-        //     
-        //     if *prob < self.probability_threshold {
-        //         inconsistencies.push(InconsistencyReport::new(
-        //             InconsistencyType::ProceduralWorldConflict,
-        //             vec![],
-        //             format!(
-        //                 "FSM allows {}--{}-->{} but world-model predicts P={:.4}",
-        //                 state, action, next_state, prob
-        //             ),
-        //             7,
-        //         ).with_metadata("state".to_string(), state.into())
-        //          .with_metadata("action".to_string(), action.into())
-        //          .with_metadata("next_state".to_string(), next_state.into())
-        //          .with_metadata("probability".to_string(), prob.into()));
-        //     }
-        // }
+        if let (Some(ref cache_arc), Some(ref wm_arc)) = (&self.procedural_cache, &self.world_model) {
+            let cache = cache_arc.lock()
+                .map_err(|e| format!("Failed to lock procedural cache: {}", e))?;
+                
+            let transitions = cache.get_transitions();
+            for t in transitions {
+                let format_state = |state: &crate::procedural_cache::FSMState| -> String {
+                    match state {
+                        crate::procedural_cache::FSMState::Custom(s) => s.clone(),
+                        other => format!("{:?}", other),
+                    }
+                };
+                
+                let state_str = format_state(&t.from);
+                let next_state_str = format_state(&t.to);
+                let action_str = t.condition.clone().unwrap_or_else(|| "None".to_string());
+                
+                // Query world model transition probability
+                if let Ok(pred) = wm_arc.predict_next_state(&state_str, &action_str) {
+                    let prob = pred.probabilities.get(&next_state_str).cloned().unwrap_or(0.0);
+                    if prob < self.probability_threshold {
+                        inconsistencies.push(
+                            InconsistencyReport::new(
+                                InconsistencyType::ProceduralWorldConflict,
+                                vec![],
+                                format!(
+                                    "FSM allows transition from state '{}' to '{}' on condition '{}', but world-model predicts P={:.4}",
+                                    state_str, next_state_str, action_str, prob
+                                ),
+                                7,
+                            )
+                            .with_metadata("from_state".to_string(), state_str.into())
+                            .with_metadata("to_state".to_string(), next_state_str.into())
+                            .with_metadata("condition".to_string(), action_str.into())
+                            .with_metadata("probability".to_string(), prob.into())
+                        );
+                    }
+                }
+            }
+        }
         
         Ok(inconsistencies)
     }
@@ -714,5 +748,88 @@ mod tests {
         // also exercise check_and_resolve path (uses check_consistency)
         let resolve_res = coherence.check_and_resolve(crate::coherence::ResolutionStrategy::Recency);
         assert!(resolve_res.is_ok() || resolve_res.is_err()); // either way, no panic
+    }
+
+    #[test]
+    fn test_temporal_symbolic_coherence_checking() {
+        let indexer = Arc::new(Mutex::new(crate::temporal_indexer::TemporalIndexer::new(100, 3600)));
+        let store = Arc::new(Mutex::new(crate::symbolic_store::SymbolicStore::new()));
+        
+        let missing_id = uuid::Uuid::new_v4();
+        let present_id = {
+            let mut st = store.lock().unwrap();
+            st.add_node("present_entity", std::collections::HashMap::new())
+        };
+
+        // Add a trace in indexer for entity "missing_entity"
+        {
+            let mut idx = indexer.lock().unwrap();
+            idx.insert(crate::temporal_indexer::TemporalTrace {
+                id: uuid::Uuid::new_v4(),
+                timestamp: std::time::SystemTime::now(),
+                data: missing_id,
+                relevance: 1.0,
+                decay_factor: 1.0,
+                last_access: std::time::SystemTime::now(),
+                decay_type: crate::decay::DecayType::Linear { duration: std::time::Duration::from_secs(3600) },
+            });
+            
+            // Add a trace for a present entity
+            idx.insert(crate::temporal_indexer::TemporalTrace {
+                id: uuid::Uuid::new_v4(),
+                timestamp: std::time::SystemTime::now(),
+                data: present_id,
+                relevance: 1.0,
+                decay_factor: 1.0,
+                last_access: std::time::SystemTime::now(),
+                decay_type: crate::decay::DecayType::Linear { duration: std::time::Duration::from_secs(3600) },
+            });
+        }
+        
+        let mut checker = ConsistencyChecker::new();
+        checker.set_temporal_indexer(indexer);
+        checker.set_symbolic_store(store);
+        
+        let reports = checker.check_temporal_symbolic().unwrap();
+        assert!(!reports.is_empty(), "expected a mismatch report");
+        assert!(reports.iter().any(|r| {
+            matches!(r.inconsistency_type, InconsistencyType::TemporalSymbolicMismatch)
+                && r.affected_entities.contains(&missing_id.to_string())
+        }));
+    }
+
+    #[test]
+    fn test_procedural_world_coherence_checking() {
+        let cache = Arc::new(Mutex::new(crate::procedural_cache::ProceduralCache::new()));
+        let wm = Arc::new(crate::world_model_enhanced::WorldModelEnhanced::new());
+        
+        // Add FSM transitions
+        {
+            let mut c = cache.lock().unwrap();
+            c.add_transition(crate::procedural_cache::FSMTransition {
+                from: crate::procedural_cache::FSMState::Start,
+                to: crate::procedural_cache::FSMState::Custom("Step2".to_string()),
+                condition: Some("go".to_string()),
+            });
+            c.add_transition(crate::procedural_cache::FSMTransition {
+                from: crate::procedural_cache::FSMState::Start,
+                to: crate::procedural_cache::FSMState::Custom("Step3".to_string()),
+                condition: Some("go".to_string()),
+            });
+        }
+        
+        // Let world model predict Step2 with P=0.8, Step3 is unobserved (P=0.0)
+        let _ = wm.observe_transition("Start".to_string(), "go".to_string(), "Step2".to_string());
+        
+        let mut checker = ConsistencyChecker::new();
+        checker.set_procedural_cache(cache);
+        checker.set_world_model(wm);
+        
+        let reports = checker.check_procedural_world().unwrap();
+        assert!(!reports.is_empty(), "expected a procedural-world conflict report");
+        assert!(reports.iter().any(|r| {
+            matches!(r.inconsistency_type, InconsistencyType::ProceduralWorldConflict)
+                && r.description.contains("Step3")
+        }));
     }
 }

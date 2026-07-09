@@ -91,4 +91,15 @@ impl FSMBackend for TemporalFSMBackend {
     fn traces_mut(&mut self) -> &mut HashMap<Uuid, ProceduralTrace> {
         &mut self.traces
     }
+
+    fn get_transitions(&self) -> Vec<FSMTransition> {
+        self.transitions
+            .iter()
+            .map(|((from, condition), to)| FSMTransition {
+                from: from.clone(),
+                to: to.clone(),
+                condition: condition.clone(),
+            })
+            .collect()
+    }
 }

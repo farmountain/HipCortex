@@ -1,16 +1,46 @@
 use petgraph::graph::{DiGraph, NodeIndex};
 use std::collections::{HashMap, HashSet, VecDeque};
+use serde::{Serialize, Deserialize};
 
 use nalgebra::DVector;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TopoNode {
     pub symbolic_id: String,
+    #[serde(serialize_with = "serialize_embedding", deserialize_with = "deserialize_embedding")]
     pub micro_embedding: [f32; 128],
     pub properties: HashMap<String, String>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+fn serialize_embedding<S>(embedding: &[f32; 128], serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    use serde::ser::SerializeSeq;
+    let mut seq = serializer.serialize_seq(Some(128))?;
+    for &val in embedding.iter() {
+        seq.serialize_element(&val)?;
+    }
+    seq.end()
+}
+
+fn deserialize_embedding<'de, D>(deserializer: D) -> Result<[f32; 128], D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let v: Vec<f32> = serde::Deserialize::deserialize(deserializer)?;
+    if v.len() != 128 {
+        return Err(serde::de::Error::custom(format!(
+            "Expected array of 128 elements, got {}",
+            v.len()
+        )));
+    }
+    let mut arr = [0.0; 128];
+    arr.copy_from_slice(&v[..128]);
+    Ok(arr)
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum EdgeType {
     Causal,
     Temporal,
@@ -18,7 +48,7 @@ pub enum EdgeType {
     Supports,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TopoEdge {
     pub edge_type: EdgeType,
     pub strength: f32,
@@ -441,4 +471,55 @@ impl CausalTopoGraph {
         // same pair different type could be added but YAGNI for MVP
         false
     }
+
+    pub fn to_serializable(&self) -> SerializableTopoGraph {
+        let nodes = self.graph.node_weights().cloned().collect();
+        let mut edges = Vec::new();
+        for &src_idx in self.id_map.values() {
+            for nb_idx in self.graph.neighbors(src_idx) {
+                if let Some(edge_idx) = self.graph.find_edge(src_idx, nb_idx) {
+                    if let Some(ew) = self.graph.edge_weight(edge_idx) {
+                        let from_node = &self.graph[src_idx];
+                        let to_node = &self.graph[nb_idx];
+                        edges.push(SerializableGraphEdge {
+                            from: from_node.symbolic_id.clone(),
+                            to: to_node.symbolic_id.clone(),
+                            edge_type: ew.edge_type.clone(),
+                            strength: ew.strength,
+                            confidence: ew.confidence,
+                            last_updated: ew.last_updated,
+                        });
+                    }
+                }
+            }
+        }
+        SerializableTopoGraph { nodes, edges }
+    }
+
+    pub fn from_serializable(sg: SerializableTopoGraph) -> Result<Self, String> {
+        let mut g = Self::new();
+        for n in sg.nodes {
+            g.add_node(n.symbolic_id, n.micro_embedding, n.properties)?;
+        }
+        for e in sg.edges {
+            g.add_edge(e.from, e.to, e.edge_type, e.strength, e.confidence)?;
+        }
+        Ok(g)
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SerializableGraphEdge {
+    pub from: String,
+    pub to: String,
+    pub edge_type: EdgeType,
+    pub strength: f32,
+    pub confidence: f32,
+    pub last_updated: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SerializableTopoGraph {
+    pub nodes: Vec<TopoNode>,
+    pub edges: Vec<SerializableGraphEdge>,
 }

@@ -108,14 +108,31 @@ impl LoopEngine {
 
         self.metrics.snapshots_taken += 1;
 
-        // SnapshotManager pattern: in full impl would serialize topo state to a temp path and call
-        // SnapshotManager::save(temp_path, &format!("omega-{}", self.metrics.iterations)).
-        // For skeleton we capture essential state in-memory (topo stats + belief) to satisfy
-        // the transactional cycle contract and test. Future tasks will persist when serialization added.
+        // Serialize topo to a temp JSON file
+        let serializable = self.topo.to_serializable();
+        let temp_dir = std::env::temp_dir();
+        let unique_id = uuid::Uuid::new_v4();
+        let filename = format!("omega-topo-{}-{}.json", self.metrics.snapshots_taken, unique_id);
+        let temp_path = temp_dir.join(&filename);
+        
+        let json_data = serde_json::to_string(&serializable)
+            .map_err(|e| format!("Failed to serialize topo graph: {}", e))?;
+        std::fs::write(&temp_path, json_data)
+            .map_err(|e| format!("Failed to write topo json file: {}", e))?;
+
+        // Call SnapshotManager::save to package it into a tar.gz
+        let tag = format!("omega-{}-{}", self.metrics.snapshots_taken, unique_id);
+        let archive_path = SnapshotManager::save(&temp_path, &tag)
+            .map_err(|e| format!("SnapshotManager save failed: {}", e))?;
+
+        // Clean up temp json file and archive file
+        let _ = std::fs::remove_file(&temp_path);
+        let _ = std::fs::remove_file(&archive_path);
+
         let snap = IterationSnapshot {
             topo_node_count: self.topo.node_count(),
-            topo_edge_count: 0, // petgraph .edge_count() private; exposed via future method on CausalTopoGraph if needed
-            timestamp: 0,
+            topo_edge_count: serializable.edges.len(),
+            timestamp: chrono::Utc::now().timestamp() as u64,
             belief_snapshot: self.state.clone(),
         };
         Ok(snap)
@@ -164,6 +181,7 @@ impl LoopEngine {
         } else {
             //  update MetaBelief κs , distill trace + straTa stub
             self.update_meta_beliefs(&attr);
+            let _ = self.distill_traces(&attr);
         }
 
         Ok(())
@@ -323,7 +341,25 @@ impl LoopEngine {
         *self.state.beliefs.entry(key).or_insert(0.0) = attr.topology_fault_weight;
     }
 
-    // Future: distill etc.
+    /// Distills the current cycle: prunes topological edges whose strength or confidence
+    /// falls below a threshold (e.g., 0.1) due to surprise decay, or merges near-duplicates.
+    pub fn distill_traces(&mut self, _attr: &AttributionMap) -> Result<usize, String> {
+        let mut serializable = self.topo.to_serializable();
+        let initial_edge_count = serializable.edges.len();
+        
+        // Filter edges: remove those with strength * confidence < 0.1
+        serializable.edges.retain(|e| {
+            e.strength * e.confidence >= 0.1
+        });
+        
+        let removed = initial_edge_count - serializable.edges.len();
+        if removed > 0 {
+            let new_topo = CausalTopoGraph::from_serializable(serializable)?;
+            self.topo = new_topo;
+        }
+
+        Ok(removed)
+    }
 }
 
 #[cfg(test)]
@@ -335,7 +371,7 @@ mod tests {
         let topo = CausalTopoGraph::new();
         let mut engine = LoopEngine::new(topo);
         let snap = engine.create_iteration_snapshot();
-        assert!(snap.is_ok(), "snapshot should succeed after minimal impl");
+        assert!(snap.is_ok(), "snapshot failed with: {:?}", snap.err());
     }
 
     #[test]

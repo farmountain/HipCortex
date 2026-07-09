@@ -42,6 +42,7 @@ pub trait FSMBackend {
     fn assert_fsm_invariants(&self);
     fn traces(&self) -> &HashMap<Uuid, ProceduralTrace>;
     fn traces_mut(&mut self) -> &mut HashMap<Uuid, ProceduralTrace>;
+    fn get_transitions(&self) -> Vec<FSMTransition>;
 }
 
 use crate::latent_map::LatentMapVersion;
@@ -264,6 +265,10 @@ impl<B: FSMBackend> ProceduralCache<B> {
 
     pub fn assert_fsm_invariants(&self) {
         self.backend.assert_fsm_invariants();
+    }
+
+    pub fn get_transitions(&self) -> Vec<FSMTransition> {
+        self.backend.get_transitions()
     }
 
     /// Add a new latent map version for a trace with guardrail checks.

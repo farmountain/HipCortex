@@ -100,4 +100,17 @@ impl FSMBackend for RustFSMBackend {
     fn traces_mut(&mut self) -> &mut HashMap<Uuid, ProceduralTrace> {
         &mut self.traces
     }
+
+    fn get_transitions(&self) -> Vec<FSMTransition> {
+        let mut transitions = Vec::new();
+        for idx in self.graph.node_indices() {
+            for edge in self.graph.edges(idx) {
+                let from = self.graph[edge.source()].clone();
+                let to = self.graph[edge.target()].clone();
+                let condition = edge.weight().clone();
+                transitions.push(FSMTransition { from, to, condition });
+            }
+        }
+        transitions
+    }
 }

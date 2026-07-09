@@ -479,6 +479,8 @@ impl WorldModelEnhanced {
             .map_err(|e| anyhow::anyhow!("transitions lock error: {}", e))?;
         let causal = self.causal_graph.read()
             .map_err(|e| anyhow::anyhow!("causal lock error: {}", e))?;
+        let entities = self.entities.read()
+            .map_err(|e| anyhow::anyhow!("entities lock error: {}", e))?;
 
         // Encode HashMap<(String,String,String), usize> → HashMap<String, usize>
         // using \x1F (ASCII Unit Separator) as separator — safe in any UTF-8 string
@@ -495,12 +497,24 @@ impl WorldModelEnhanced {
             serde_json::json!({"from": e.from, "to": e.to, "strength": e.strength})
         }).collect();
 
+        let entities_encoded: std::collections::HashMap<String, serde_json::Value> = entities
+            .iter()
+            .map(|(id, tracker)| {
+                let state = tracker.get_state();
+                (id.clone(), serde_json::json!({
+                    "properties": state.properties,
+                    "covariance": state.covariance,
+                }))
+            })
+            .collect();
+
         let data = serde_json::json!({
             "version": 1,
             "transition_counts": counts_encoded,
             "transition_totals": totals_encoded,
             "smoothing": transitions.smoothing(),
             "causal_edges": causal_edges,
+            "entities": entities_encoded,
         });
 
         // Atomic write: write to .tmp then rename
@@ -563,6 +577,28 @@ impl WorldModelEnhanced {
                     let to   = e["to"].as_str().unwrap_or("").to_string();
                     if !from.is_empty() && !to.is_empty() {
                         let _ = causal.add_edge(from, to); // ignore cycle prevention errors on load
+                    }
+                }
+            }
+        }
+
+        // Restore entities
+        {
+            let mut entities = wm.entities.write()
+                .map_err(|e| anyhow::anyhow!("lock: {}", e))?;
+            if let Some(obj) = data["entities"].as_object() {
+                for (id, val) in obj {
+                    if let (Some(props_val), Some(cov_val)) = (val["properties"].as_array(), val["covariance"].as_array()) {
+                        let properties: Vec<f64> = props_val.iter().filter_map(|v| v.as_f64()).collect();
+                        let covariance: Vec<Vec<f64>> = cov_val.iter().filter_map(|row_val| {
+                            row_val.as_array().map(|row| {
+                                row.iter().filter_map(|v| v.as_f64()).collect::<Vec<f64>>()
+                            })
+                        }).collect();
+                        
+                        let initial_state = EntityState { properties, covariance };
+                        let tracker = EntityTracker::new(initial_state);
+                        entities.insert(id.clone(), tracker);
                     }
                 }
             }
@@ -694,5 +730,37 @@ mod tests {
         // causal still functional (hybrid)
         assert!(wm.add_causal_edge("perceived".to_string(), "post_action_state".to_string()).is_ok());
         assert!(wm.has_causal_path("perceived", "post_action_state").unwrap());
+    }
+
+    #[test]
+    fn test_entity_tracker_persistence() {
+        let temp_dir = std::env::temp_dir();
+        let file_path = temp_dir.join("wm_entity_test.json");
+        
+        let wm = WorldModelEnhanced::new();
+        let initial_state = EntityState {
+            properties: vec![1.5, 2.5, 3.5],
+            covariance: vec![vec![0.5, 0.0, 0.0], vec![0.0, 0.5, 0.0], vec![0.0, 0.0, 0.5]],
+        };
+        wm.register_entity("persistence_entity".to_string(), initial_state).unwrap();
+        
+        // Save
+        wm.save(&file_path).unwrap();
+        
+        // Load
+        let loaded_wm = WorldModelEnhanced::load(&file_path).unwrap();
+        
+        // Clean up
+        let _ = std::fs::remove_file(&file_path);
+        
+        // Verify entity is restored
+        let entities = loaded_wm.list_entities().unwrap();
+        assert!(entities.contains(&"persistence_entity".to_string()));
+        
+        let entities_guard = loaded_wm.entities.read().unwrap();
+        let tracker = entities_guard.get("persistence_entity").unwrap();
+        let state = tracker.get_state();
+        assert_eq!(state.properties, vec![1.5, 2.5, 3.5]);
+        assert_eq!(state.covariance[0][0], 0.5);
     }
 }

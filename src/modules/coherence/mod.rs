@@ -87,7 +87,7 @@ pub use checker::{ConsistencyChecker, InconsistencyType, InconsistencyReport};
 pub use resolver::{ConflictResolver, ResolutionStrategy, ResolutionResult, ResolutionHistory, CandidateValue};
 pub use invariants::{SystemInvariants, InvariantType, InvariantViolation};
 
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, Mutex};
 use std::time::{Duration, Instant};
 use std::collections::HashMap;
 
@@ -180,6 +180,30 @@ impl CoherenceChecker {
             active_inconsistencies: Arc::new(RwLock::new(HashMap::new())),
             metrics: Arc::new(RwLock::new(CoherenceMetrics::new())),
             last_check: Arc::new(RwLock::new(Instant::now())),
+        }
+    }
+
+    pub fn set_temporal_indexer(&self, indexer: Arc<Mutex<crate::temporal_indexer::TemporalIndexer<uuid::Uuid>>>) {
+        if let Ok(mut checker) = self.checker.write() {
+            checker.set_temporal_indexer(indexer);
+        }
+    }
+
+    pub fn set_symbolic_store(&self, store: Arc<Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>) {
+        if let Ok(mut checker) = self.checker.write() {
+            checker.set_symbolic_store(store);
+        }
+    }
+
+    pub fn set_procedural_cache(&self, cache: Arc<Mutex<crate::procedural_cache::ProceduralCache>>) {
+        if let Ok(mut checker) = self.checker.write() {
+            checker.set_procedural_cache(cache);
+        }
+    }
+
+    pub fn set_world_model(&self, wm: Arc<crate::world_model_enhanced::WorldModelEnhanced>) {
+        if let Ok(mut checker) = self.checker.write() {
+            checker.set_world_model(wm);
         }
     }
 
