@@ -30,4 +30,15 @@ impl SnapshotManager {
         archive.unpack(dest)?;
         Ok(())
     }
+
+    pub fn rollback_to_latest<P: AsRef<Path>>(source: P) -> Result<()> {
+        let path = source.as_ref();
+        let archive_path = path.with_extension("latest.tar.gz");
+        if archive_path.exists() {
+            if let Some(parent) = path.parent() {
+                Self::load(&archive_path, parent)?;
+            }
+        }
+        Ok(())
+    }
 }

@@ -49,6 +49,7 @@ pub mod plugin_host;
 pub mod poisson;
 #[path = "modules/procedural_cache.rs"]
 pub mod procedural_cache;
+pub use procedural_cache::skill_compiler;
 #[path = "modules/puzzle.rs"]
 pub mod puzzle;
 pub mod rag_adapter;
@@ -102,6 +103,15 @@ pub mod coherence;
 #[path = "modules/health_reporter.rs"]
 pub mod health_reporter;
 pub use persistence::InMemoryBackend;
+#[path = "modules/executive/task_graph.rs"]
+pub mod task_graph;
+#[path = "modules/executive/scheduler.rs"]
+pub mod executive_scheduler;
+#[path = "modules/world_model_enhanced/simulator.rs"]
+pub mod mcts_simulator;
+#[cfg(feature = "tokio")]
+#[path = "actors/world_model_actor.rs"]
+pub mod world_model_actor;
 #[path = "modules/continuation_checkpoint.rs"]
 pub mod continuation_checkpoint;
 #[path = "modules/session_context.rs"]

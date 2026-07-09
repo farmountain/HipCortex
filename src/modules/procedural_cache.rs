@@ -5,6 +5,10 @@ use uuid::Uuid;
 
 use crate::backends::rustfsm_backend::RustFSMBackend;
 
+#[path = "procedural_cache/skill_compiler.rs"]
+pub mod skill_compiler;
+pub use skill_compiler::{SkillTemplate, SkillTemplateStep, SkillCompiler};
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum FSMState {
     Start,

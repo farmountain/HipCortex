@@ -335,6 +335,178 @@ impl CausalGraph {
         Ok(descendants)
     }
 
+    /// Record empirical distribution probabilities into `self.distributions` for Backdoor Adjustment.
+    pub fn record_empirical_distribution(&mut self, condition_key: String, outcome_key: String, prob: f64) {
+        self.distributions.entry(condition_key).or_default().insert(outcome_key, prob);
+    }
+
+    /// Exact Backdoor Adjustment: P(Y | do(X = x)) = sum_z P(Y | X = x, Z = z) * P(Z = z)
+    /// where Z is the set of parents (sufficient adjustment set) of X.
+    pub fn compute_empirical_intervention(
+        &mut self,
+        intervention_var: &str,
+        intervention_value: &str,
+        outcome_var: &str,
+        outcome_value: &str,
+    ) -> Result<f64, String> {
+        if !self.nodes.contains_key(intervention_var) {
+            return Err(format!("Intervention variable '{}' not found", intervention_var));
+        }
+        if !self.nodes.contains_key(outcome_var) {
+            return Err(format!("Outcome variable '{}' not found", outcome_var));
+        }
+
+        let adjustment_set = self.get_parents(intervention_var);
+
+        if adjustment_set.is_empty() {
+            let key_x = format!("{}={}", intervention_var, intervention_value);
+            let key_y = format!("{}={}", outcome_var, outcome_value);
+            let prob = if let Some(dist) = self.distributions.get(&key_x) {
+                *dist.get(&key_y).unwrap_or(&0.5)
+            } else {
+                0.5
+            };
+            return Ok(prob);
+        }
+
+        let mut total_prob = 0.0;
+        let mut z_configs = Vec::new();
+
+        for z_var in &adjustment_set {
+            let mut states = Vec::new();
+            for dist_key in self.distributions.keys() {
+                if let Some(val) = dist_key.strip_prefix(&format!("{}=", z_var)) {
+                    if !states.contains(&val.to_string()) {
+                        states.push(val.to_string());
+                    }
+                }
+            }
+            if states.is_empty() {
+                states.push("default".to_string());
+            }
+            z_configs.push((z_var.clone(), states));
+        }
+
+        let mut cartesian = vec![Vec::new()];
+        for (z_var, states) in &z_configs {
+            let mut new_cart = Vec::new();
+            for c in &cartesian {
+                for s in states {
+                    let mut next = c.clone();
+                    next.push((z_var.clone(), s.clone()));
+                    new_cart.push(next);
+                }
+            }
+            cartesian = new_cart;
+        }
+
+        let num_z = cartesian.len().max(1) as f64;
+        for z_config in &cartesian {
+            let mut p_z = 1.0 / num_z;
+            for (z_var, z_val) in z_config {
+                let z_key = format!("{}={}", z_var, z_val);
+                if let Some(dist) = self.distributions.get("prior_Z") {
+                    if let Some(&p) = dist.get(&z_key) {
+                        p_z *= p;
+                    }
+                }
+            }
+
+            let mut x_z_key = format!("{}={}", intervention_var, intervention_value);
+            for (z_var, z_val) in z_config {
+                x_z_key.push_str(&format!(",{}={}", z_var, z_val));
+            }
+
+            let p_y_given_xz = if let Some(dist) = self.distributions.get(&x_z_key) {
+                *dist.get(&format!("{}={}", outcome_var, outcome_value)).unwrap_or(&0.5)
+            } else if let Some(dist) = self.distributions.get(&format!("{}={}", intervention_var, intervention_value)) {
+                *dist.get(&format!("{}={}", outcome_var, outcome_value)).unwrap_or(&0.5)
+            } else {
+                0.5
+            };
+
+            total_prob += p_y_given_xz * p_z;
+        }
+
+        Ok(total_prob.clamp(0.0, 1.0))
+    }
+
+    /// Pearl's three-step Abduction-Action-Prediction pipeline for SCM counterfactuals via linear structural equation weights.
+    pub fn compute_scm_counterfactual(
+        &self,
+        observed_state: &HashMap<String, f64>,
+        intervention_var: &str,
+        intervention_value: f64,
+    ) -> Result<HashMap<String, f64>, String> {
+        if !self.nodes.contains_key(intervention_var) {
+            return Err(format!("Intervention variable '{}' not found in causal graph", intervention_var));
+        }
+
+        let mut u_terms: HashMap<String, f64> = HashMap::new();
+        for node_id in self.nodes.keys() {
+            let v_obs = *observed_state.get(node_id).unwrap_or(&0.0);
+            let parents = self.get_parents(node_id);
+            let mut parent_contrib = 0.0;
+            for parent_id in &parents {
+                let p_obs = *observed_state.get(parent_id).unwrap_or(&0.0);
+                let w = *self.edge_data.get(&(parent_id.clone(), node_id.clone())).unwrap_or(&1.0);
+                parent_contrib += w * p_obs;
+            }
+            let u_v = v_obs - parent_contrib;
+            u_terms.insert(node_id.clone(), u_v);
+        }
+
+        let mut in_degree: HashMap<String, usize> = HashMap::new();
+        for node_id in self.nodes.keys() {
+            in_degree.insert(node_id.clone(), self.get_parents(node_id).len());
+        }
+
+        let mut queue: VecDeque<String> = VecDeque::new();
+        for (node_id, &deg) in &in_degree {
+            if deg == 0 {
+                queue.push_back(node_id.clone());
+            }
+        }
+
+        let mut topo_order = Vec::new();
+        while let Some(curr) = queue.pop_front() {
+            topo_order.push(curr.clone());
+            for child in self.get_children(&curr) {
+                if let Some(deg) = in_degree.get_mut(&child) {
+                    *deg = deg.saturating_sub(1);
+                    if *deg == 0 {
+                        queue.push_back(child);
+                    }
+                }
+            }
+        }
+
+        for node_id in self.nodes.keys() {
+            if !topo_order.contains(node_id) {
+                topo_order.push(node_id.clone());
+            }
+        }
+
+        let mut counterfactual_state: HashMap<String, f64> = HashMap::new();
+        for node_id in topo_order {
+            if node_id == intervention_var {
+                counterfactual_state.insert(node_id, intervention_value);
+            } else {
+                let parents = self.get_parents(&node_id);
+                let mut parent_contrib = 0.0;
+                for parent_id in &parents {
+                    let p_cf = *counterfactual_state.get(parent_id).unwrap_or(&0.0);
+                    let w = *self.edge_data.get(&(parent_id.clone(), node_id.clone())).unwrap_or(&1.0);
+                    parent_contrib += w * p_cf;
+                }
+                let u_v = *u_terms.get(&node_id).unwrap_or(&0.0);
+                counterfactual_state.insert(node_id, parent_contrib + u_v);
+            }
+        }
+
+        Ok(counterfactual_state)
+    }
+
     /// Check if graph is acyclic (DAG property)
     pub fn is_acyclic(&self) -> bool {
         // Use DFS to detect back edges

@@ -1,15 +1,13 @@
-# worldmodel-rollout Specification
+## MODIFIED Requirements
 
-## Purpose
-Multi-step WorldModel trajectory rollouts via Monte Carlo Tree Search (MCTS), empirical Backdoor Adjustment causal inference, and structural equation counterfactual solvers.
-
-## Requirements
 ### Requirement: Multi-step WorldModel Rollout
 The backend server SHALL expose a POST `/worldmodel/rollout` endpoint and internal simulation engine that performs multi-step recursive state prediction using Monte Carlo Tree Search (`MctsSimulator`) tree exploration over empirical Dirichlet transition counts (`TransitionModel`) and exact causal graph adjustments (`CausalGraph`).
 
 #### Scenario: Successful multi-step rollout
 - **WHEN** a POST request or simulation call is sent to `/worldmodel/rollout` with a valid initial state and list of actions or search depth
 - **THEN** it executes UCB1 rollout iterations over Dirichlet transition probabilities and exact backdoor adjustments, returning the predicted best trajectory, final state, and ensemble confidence score
+
+## ADDED Requirements
 
 ### Requirement: Empirical Backdoor Adjustment Causal Inference
 The `CausalGraph` struct SHALL provide `compute_empirical_intervention(x, x_val, y, y_val, transitions)` to calculate interventional probabilities $P(Y=y \mid do(X=x))$ without relying on heuristic linear formulas. The engine SHALL identify parent variables $Z \in \text{Parents}(X)$ and marginalize exact Dirichlet transition counts using Backdoor Adjustment: $P(Y \mid do(X)) = \sum_z P(Y \mid X=x, Z=z) P(Z=z)$.

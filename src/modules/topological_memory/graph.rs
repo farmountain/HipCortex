@@ -56,6 +56,7 @@ pub struct TopoEdge {
     pub last_updated: u64,
 }
 
+#[derive(Clone)]
 pub struct CausalTopoGraph {
     graph: DiGraph<TopoNode, TopoEdge>,
     id_map: HashMap<String, NodeIndex>,

@@ -139,6 +139,53 @@ impl ContinuationCheckpoint {
             self.next_intended_step,
         )
     }
+
+    /// Persist this checkpoint and active stack frames as a Reflexion memory record into MemoryStore.
+    pub fn persist_to_store<B: crate::persistence::MemoryBackend>(
+        &self,
+        store: &mut crate::memory_store::MemoryStore<B>,
+        stack: &[crate::executive_scheduler::StackFrame],
+    ) -> Result<String, String> {
+        let goal_stack_serialized: Vec<serde_json::Value> = stack
+            .iter()
+            .map(|frame| serde_json::to_value(frame).unwrap_or(serde_json::Value::Null))
+            .collect();
+
+        let data = ContinuationCheckpointData {
+            task_id: self.task_id,
+            session_id: self.session_id,
+            goal_stack_serialized,
+            next_intended_step: self.next_intended_step.clone(),
+            sequence_number: self.sequence_number,
+        };
+
+        let metadata = serde_json::to_value(data)
+            .map_err(|e| format!("Failed to serialize ContinuationCheckpointData: {}", e))?;
+
+        let record = crate::memory_record::MemoryRecord::new(
+            crate::memory_record::MemoryType::Reflexion,
+            format!("session:{}", self.session_id),
+            "checkpoint_continuation".to_string(),
+            format!("task:{}", self.task_id),
+            metadata,
+        );
+
+        let record_id = record.id.to_string();
+        store
+            .add(record)
+            .map_err(|e| format!("Failed to add record to MemoryStore: {}", e))?;
+
+        Ok(record_id)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContinuationCheckpointData {
+    pub task_id: Uuid,
+    pub session_id: Uuid,
+    pub goal_stack_serialized: Vec<serde_json::Value>,
+    pub next_intended_step: String,
+    pub sequence_number: u64,
 }
 
 #[cfg(test)]

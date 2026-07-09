@@ -82,10 +82,14 @@
 mod checker;
 mod resolver;
 mod invariants;
+#[cfg(feature = "tokio")]
+mod write_actor;
 
 pub use checker::{ConsistencyChecker, InconsistencyType, InconsistencyReport};
 pub use resolver::{ConflictResolver, ResolutionStrategy, ResolutionResult, ResolutionHistory, CandidateValue};
 pub use invariants::{SystemInvariants, InvariantType, InvariantViolation};
+#[cfg(feature = "tokio")]
+pub use write_actor::{CoherenceWriteActor, CoherenceWriteMutation};
 
 use std::sync::{Arc, RwLock, Mutex};
 use std::time::{Duration, Instant};
@@ -244,6 +248,13 @@ impl CoherenceChecker {
         }
         
         Ok(inconsistencies)
+    }
+
+    /// Run COW background check on an isolated thread with cloned Arc snapshots
+    pub fn check_consistency_cow(&self) -> Result<std::thread::JoinHandle<Result<Vec<InconsistencyReport>, String>>, String> {
+        let checker = self.checker.read()
+            .map_err(|e| format!("Failed to acquire checker lock: {}", e))?;
+        Ok(checker.check_consistency_cow())
     }
 
     /// Check consistency for specific entity (targeted check)

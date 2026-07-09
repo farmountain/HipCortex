@@ -38,18 +38,33 @@ jobs:
       - name: Build
         run: cargo build --no-default-features --features "petgraph_backend"
 
+      - name: Build (with tokio actors)
+        run: cargo build --no-default-features --features "petgraph_backend,tokio"
+
       - name: Unit tests
         run: cargo test --no-default-features --features "petgraph_backend" --lib
+
+      - name: Unit tests (with tokio actors)
+        run: cargo test --no-default-features --features "petgraph_backend,tokio" --lib
 
       - name: Integration tests
         run: cargo test --no-default-features --features "petgraph_backend" --test integration_suite
 
+      - name: Integration tests (with tokio actors)
+        run: cargo test --no-default-features --features "petgraph_backend,tokio" --test integration_suite
+
       - name: Property tests
         run: cargo test --no-default-features --features "petgraph_backend" --test property_suite
+
+      - name: Property tests (with tokio actors)
+        run: cargo test --no-default-features --features "petgraph_backend,tokio" --test property_suite
 
       - name: Clippy
         # -D warnings removed: pre-existing unused-import/dead-code warnings are tracked separately
         run: cargo clippy --no-default-features --features "petgraph_backend" -- -D clippy::correctness
+
+      - name: Clippy (with tokio actors)
+        run: cargo clippy --no-default-features --features "petgraph_backend,tokio" -- -D clippy::correctness
 
       - name: Rustfmt
         continue-on-error: true  # pre-existing formatting issues in benches/ tracked separately

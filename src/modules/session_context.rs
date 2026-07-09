@@ -177,6 +177,44 @@ impl SessionContext {
         evict_count
     }
 
+    /// Evict items using combined topological PageRank over `CausalTopoGraph` and exponential recency decay.
+    /// Score = 0.7 * PR + 0.3 * exp(-0.001 * age_seconds)
+    pub fn evict_with_topological_decay(
+        &mut self,
+        topo_graph: &crate::topological_memory::CausalTopoGraph,
+        tokens_needed: usize,
+        token_cost_per_item: usize,
+    ) -> usize {
+        let items_to_evict = (tokens_needed + token_cost_per_item - 1) / token_cost_per_item;
+
+        if items_to_evict == 0 || self.paged_items.is_empty() {
+            return 0;
+        }
+
+        let seeds: Vec<String> = self.paged_items.iter().map(|item| item.entity_id.to_string()).collect();
+        let pr_scores = topo_graph.personalized_pagerank(&seeds, 0.85, 20);
+        let now = SystemTime::now();
+
+        self.paged_items.sort_by(|a, b| {
+            let pr_a = *pr_scores.get(&a.entity_id.to_string()).unwrap_or(&0.0) as f64;
+            let pr_b = *pr_scores.get(&b.entity_id.to_string()).unwrap_or(&0.0) as f64;
+            let age_a = now.duration_since(a.last_accessed).unwrap_or(Duration::ZERO).as_secs_f64();
+            let age_b = now.duration_since(b.last_accessed).unwrap_or(Duration::ZERO).as_secs_f64();
+            let score_a = 0.7 * pr_a + 0.3 * (-0.001 * age_a).exp();
+            let score_b = 0.7 * pr_b + 0.3 * (-0.001 * age_b).exp();
+            score_a.partial_cmp(&score_b).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        let evict_count = items_to_evict.min(self.paged_items.len());
+        self.paged_items.drain(0..evict_count);
+        self.estimated_tokens = self
+            .estimated_tokens
+            .saturating_sub(evict_count * token_cost_per_item);
+        self.last_activity = SystemTime::now();
+
+        evict_count
+    }
+
     /// Get the remaining token budget.
     pub fn remaining_budget(&self) -> usize {
         self.token_budget.saturating_sub(self.estimated_tokens)

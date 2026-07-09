@@ -201,6 +201,33 @@ impl ConsistencyChecker {
         Ok(inconsistencies)
     }
 
+    /// Clone Arc smart pointer snapshots (temporal_indexer, symbolic_store, procedural_cache, CausalTopoGraph)
+    /// and run long background verifications on an isolated thread.
+    pub fn check_consistency_cow(&self) -> std::thread::JoinHandle<Result<Vec<InconsistencyReport>, String>> {
+        let temporal_clone = self.temporal_indexer.clone();
+        let symbolic_clone = self.symbolic_store.clone();
+        let procedural_clone = self.procedural_cache.clone();
+        let world_clone = self.world_model.clone();
+        let topo_clone = self.topo.clone();
+        let threshold_clone = self.graph_edit_distance_threshold;
+        let prob_clone = self.probability_threshold;
+
+        std::thread::spawn(move || {
+            let mut checker_snapshot = ConsistencyChecker {
+                graph_edit_distance_threshold: threshold_clone,
+                probability_threshold: prob_clone,
+                entity_cache: HashMap::new(),
+                topo: topo_clone,
+                temporal_indexer: temporal_clone,
+                symbolic_store: symbolic_clone,
+                procedural_cache: procedural_clone,
+                world_model: world_clone,
+            };
+
+            checker_snapshot.check_all()
+        })
+    }
+
     /// Check consistency for specific entity (targeted check)
     pub fn check_entity(&mut self, entity_id: &str) -> Result<Vec<InconsistencyReport>, String> {
         let mut inconsistencies = Vec::new();
