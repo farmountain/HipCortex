@@ -3582,15 +3582,17 @@ async fn handle_memory_live_beliefs<B: MemoryBackend + Send + Sync + 'static>(
     let pinned = match memory_store.lock() {
         Ok(ms) => {
             let all = ms.all();
-            let filtered: Vec<_> = all.into_iter().filter(|r| {
+            let mut filtered: Vec<_> = all.into_iter().filter(|r| {
                 r.priority == "pinned" && actor.as_ref().map_or(true, |a| &r.actor == a)
-            }).take(limit).map(|r| serde_json::json!({
+            }).collect();
+            filtered.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+            filtered.truncate(limit);
+            filtered.into_iter().map(|r| serde_json::json!({
                 "id": r.id.to_string(),
                 "action": r.action,
                 "target": r.target,
                 "confidence": r.confidence,
-            })).collect();
-            filtered
+            })).collect()
         }
         Err(_) => vec![],
     };

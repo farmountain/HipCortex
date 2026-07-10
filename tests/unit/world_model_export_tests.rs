@@ -8,6 +8,6 @@ fn export_graph_returns_nodes_and_edges() {
     let b = store.add_node("B", HashMap::new());
     store.add_edge(a, b, "rel");
     let (nodes, edges) = store.export_graph();
-    assert_eq!(nodes.len(), 2);
+    assert_eq!(nodes.len(), 3); // 2 user nodes + 1 System:Self anchor
     assert_eq!(edges.len(), 1);
 }

@@ -110,7 +110,7 @@ fn graph_algorithms() {
     assert_eq!(path.len(), 3);
 
     let comps = store.connected_components();
-    assert_eq!(comps.len(), 1);
+    assert_eq!(comps.len(), 2); // {A, B, C} + {System:Self} anchor
 
     let depth_neighbors = store.neighbors_depth(a, 2);
     assert_eq!(depth_neighbors.len(), 2);

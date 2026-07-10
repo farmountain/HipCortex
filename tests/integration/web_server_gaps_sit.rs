@@ -408,3 +408,56 @@ fn test_causal_edge_condition_old_and_semantics_would_fail() {
         "OLD AND condition must NOT fire for Symbolic+normal (this was the bug)"
     );
 }
+
+// ── Longitudinal Slice-Time Sorting Tests (`N > limit`) ──────────────────────
+
+#[test]
+fn test_search_semantic_pinned_longitudinal_truncation() {
+    let mut store = make_store();
+    let base_time = Utc::now() - Duration::days(200);
+
+    // Pre-seed 30 pinned records with sequential timestamps (Day 1 to Day 30)
+    for day in 1..=30 {
+        let mut r = make_record("alice", "pinned_fact", &format!("fact day {}", day));
+        r.timestamp = base_time + Duration::days(day);
+        r.priority = "pinned".to_string();
+        store.add(r).unwrap();
+    }
+
+    // Query search_semantic with limit = 5
+    // Because there are 30 pinned records matching, they must be sorted newest-first (`Day 30` to `Day 26`)
+    let results = store.search_semantic(None, "pinned_fact", 5, false);
+    assert_eq!(results.len(), 5, "Must truncate exactly to limit=5");
+
+    for (i, expected_day) in (26..=30).rev().enumerate() {
+        assert_eq!(
+            results[i].0.target,
+            format!("fact day {}", expected_day),
+            "Index {} should be Day {} (newest first)", i, expected_day
+        );
+    }
+}
+
+#[test]
+fn test_longitudinal_pinned_sorting_and_truncation_contract() {
+    let mut store = make_store();
+    let base_time = Utc::now() - Duration::days(100);
+
+    // Seed 50 pinned records
+    for day in 1..=50 {
+        let mut r = make_record("bot", "learned", &format!("rule {}", day));
+        r.timestamp = base_time + Duration::days(day);
+        r.priority = "pinned".to_string();
+        store.add(r).unwrap();
+    }
+
+    // Simulate handle_memory_live_beliefs filtering and truncation logic
+    let all = store.all();
+    let mut filtered: Vec<_> = all.into_iter().filter(|r| r.priority == "pinned").collect();
+    filtered.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+    filtered.truncate(10);
+
+    assert_eq!(filtered.len(), 10);
+    assert_eq!(filtered[0].target, "rule 50", "First item must be the newest (rule 50)");
+    assert_eq!(filtered[9].target, "rule 41", "Last item must be rule 41");
+}

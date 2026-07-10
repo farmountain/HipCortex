@@ -494,6 +494,7 @@ impl<B: MemoryBackend> MemoryStore<B> {
             })
             .map(|r| (r, 2.0f64))
             .collect();
+        pinned.sort_by(|a, b| b.0.timestamp.cmp(&a.0.timestamp));
         let scored_ids: std::collections::HashSet<uuid::Uuid> = scored.iter().map(|(r, _)| r.id).collect();
         pinned.retain(|(r, _)| !scored_ids.contains(&r.id));
         pinned.extend(scored);

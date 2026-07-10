@@ -2,7 +2,7 @@
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Integration",
     "description": "HipCortex — Executable causal topological memory substrate + Ω Loop Engine. Topological search (PPR/Markov), simulation/attribution, proactive harness for memory-centric Copilot. 80-99%+ LLM reduction.",
-    "version": "0.4.8",
+    "version": "0.4.9",
     "publisher": "farmountain",
   "repository": {
     "type": "git",
