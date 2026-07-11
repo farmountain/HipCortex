@@ -1,6 +1,8 @@
 import hashlib
+import json
 from pathlib import Path
 from typing import Any
+
 from .data_generators import estimate_tokens
 
 def assert_token_savings_bounds(baseline_text: str, retrieved_records: list[dict[str, Any]], mode: str):
@@ -22,8 +24,12 @@ def assert_token_savings_bounds(baseline_text: str, retrieved_records: list[dict
     else:
         raise ValueError(f"Unknown mode: {mode}")
 
-def assert_merkle_chain_integrity(records: list[dict[str, Any]]):
+def assert_merkle_chain_integrity(records: list[dict[str, Any]] | Path | str):
+    if isinstance(records, (Path, str)):
+        path = Path(records)
+        records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
     assert len(records) > 0, "Cannot verify empty Merkle chain"
+
     prev_hash = ""
     for idx, rec in enumerate(records):
         rec_id = rec.get("id", str(idx))

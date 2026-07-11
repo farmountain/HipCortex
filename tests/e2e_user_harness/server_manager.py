@@ -71,14 +71,37 @@ class HipCortexServerManager:
         if self.process and self.process.poll() is None:
             try:
                 parent = psutil.Process(self.process.pid)
-                for child in parent.children(recursive=True):
-                    child.terminate()
-                parent.terminate()
-                parent.wait(timeout=3)
-            except (psutil.NoSuchProcess, psutil.TimeoutExpired):
+                children = parent.children(recursive=True)
+                for child in children:
+                    try:
+                        child.terminate()
+                    except psutil.NoSuchProcess:
+                        pass
+                try:
+                    parent.terminate()
+                    parent.wait(timeout=2)
+                except (psutil.NoSuchProcess, psutil.TimeoutExpired):
+                    pass
+                for child in children:
+                    try:
+                        if child.is_running():
+                            child.kill()
+                    except psutil.NoSuchProcess:
+                        pass
+                try:
+                    if parent.is_running():
+                        parent.kill()
+                except psutil.NoSuchProcess:
+                    pass
+            except psutil.NoSuchProcess:
+                pass
+            try:
                 if self.process.poll() is None:
                     self.process.kill()
+            except Exception:
+                pass
             self.process = None
+
         if remove_storage and self.storage_dir.exists():
             shutil.rmtree(self.storage_dir, ignore_errors=True)
 
