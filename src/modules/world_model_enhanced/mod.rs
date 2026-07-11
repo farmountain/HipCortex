@@ -62,6 +62,7 @@
 pub mod transition;
 pub mod entity;
 pub mod policy;
+pub mod constraint;
 mod causal;
 mod predictor;
 mod uncertainty;
@@ -70,6 +71,7 @@ pub mod simulator;
 pub use transition::{TransitionModel, StateTransition, TransitionPrediction};
 pub use entity::{EntityTracker, EntityState, EntityObservation, Anomaly};
 pub use policy::Policy;
+pub use constraint::{Constraint, ConstraintEngine, ConstraintSeverity};
 pub use causal::{CausalGraph, CausalNode, CausalEdge, InterventionQuery};
 pub use predictor::{PredictiveModel, LearnedTransitionPredictor, PredictionResult};
 pub use uncertainty::{UncertaintyEstimator, ConfidenceInterval, CalibrationMetrics};
