@@ -53,6 +53,8 @@ class HipCortexServerManager:
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         env = os.environ.copy()
         env["HIPCORTEX_STORAGE"] = str(self.storage_dir)
+        env["DATA_DIR"] = str(self.storage_dir)
+        env["PORT"] = str(self.port)
         env["RUST_LOG"] = "info"
         
         cmd = [str(self.binary_path), "--port", str(self.port)]

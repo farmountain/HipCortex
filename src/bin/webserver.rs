@@ -10,12 +10,25 @@ use std::sync::{Arc, Mutex, RwLock};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let port: u16 = std::env::var("PORT")
+    let mut port: u16 = std::env::var("PORT")
         .ok()
         .and_then(|p| p.parse().ok())
         .unwrap_or(3030);
+    let args: Vec<String> = std::env::args().collect();
+    for (i, arg) in args.iter().enumerate() {
+        if arg == "--port" || arg == "-p" {
+            if let Some(val) = args.get(i + 1) {
+                if let Ok(p) = val.parse() {
+                    port = p;
+                }
+            }
+        }
+    }
     let addr: SocketAddr = format!("0.0.0.0:{}", port).parse()?;
-    let data_dir = std::env::var("DATA_DIR").unwrap_or_else(|_| ".".to_string());
+    let data_dir = std::env::var("DATA_DIR")
+        .or_else(|_| std::env::var("HIPCORTEX_STORAGE"))
+        .unwrap_or_else(|_| ".".to_string());
+
 
     // ── Memory store ─────────────────────────────────────────────────────────
     let store_path = format!("{}/memory.jsonl", data_dir);
