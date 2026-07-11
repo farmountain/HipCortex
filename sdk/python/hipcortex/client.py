@@ -520,3 +520,30 @@ class HipCortexClient:
         t0 = time.perf_counter()
         self.health()
         return (time.perf_counter() - t0) * 1000
+
+    def can_execute(self, action: str = "rollout") -> bool:
+        """Evaluate capability gates and self-model execution readiness."""
+        try:
+            status = self.health()
+            return status.get("status") == "ok"
+        except Exception:
+            return False
+
+    def rollout(
+        self,
+        initial_state: Dict[str, Any],
+        actions: List[str],
+        max_depth: int = 5,
+    ) -> Dict[str, Any]:
+        """Predict next state trajectory via multi-step Monte Carlo Tree Search (/worldmodel/rollout)."""
+        payload = {
+            "initial_state": initial_state,
+            "actions": actions,
+            "max_depth": max_depth,
+        }
+        resp = self._session.post(
+            f"{self.base_url}/worldmodel/rollout", json=payload, timeout=self.timeout
+        )
+        resp.raise_for_status()
+        return resp.json()
+

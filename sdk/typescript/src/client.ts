@@ -7,7 +7,7 @@ import type {
   StatsResponse,
   LinkMemoriesRequest, LinkMemoriesResponse,
   NeighborsResponse, RelatedSearchResponse,
-  DeleteMemoryResponse,
+  DeleteMemoryResponse, RolloutRequest, RolloutResponse,
 } from "./types";
 
 export class HipCortexClient {
@@ -146,4 +146,19 @@ export class HipCortexClient {
   async deleteMemory(recordId: string): Promise<DeleteMemoryResponse> {
     return this.request<DeleteMemoryResponse>("DELETE", `/memory/${recordId}`);
   }
+
+  /** Evaluate capability gates and self-model execution readiness. */
+  async canExecute(action = "rollout"): Promise<boolean> {
+    try {
+      return await this.health();
+    } catch {
+      return false;
+    }
+  }
+
+  /** Predict next state trajectory via multi-step Monte Carlo Tree Search (/worldmodel/rollout). */
+  async rollout(req: RolloutRequest): Promise<RolloutResponse> {
+    return this.request<RolloutResponse>("POST", "/worldmodel/rollout", req);
+  }
 }
+

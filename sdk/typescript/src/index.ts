@@ -6,5 +6,6 @@ export type {
   HipCortexClientOptions, MemoryRecord,
   QueryMemoryResponse, QueryParams,
   SearchRequest, SearchResponse, SearchResult,
-  StatsResponse,
+  StatsResponse, RolloutRequest, RolloutResponse,
 } from "./types";
+

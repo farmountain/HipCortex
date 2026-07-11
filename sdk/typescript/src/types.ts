@@ -144,3 +144,20 @@ export interface DeleteMemoryResponse {
   success: boolean;
   record_id: string;
 }
+
+export interface RolloutRequest {
+  initial_state: Record<string, unknown>;
+  actions: string[];
+  max_depth?: number;
+}
+
+export interface RolloutResponse {
+  rollout_id?: string;
+  trajectories?: Array<{
+    actions: string[];
+    predicted_state: Record<string, unknown>;
+    confidence: number;
+  }>;
+  [key: string]: unknown;
+}
+
