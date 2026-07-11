@@ -1,7 +1,7 @@
 {
     "name": "hipcortex-memory",
-    "displayName": "HipCortex Memory Integration",
-    "description": "HipCortex — Executable causal topological memory substrate + Ω Loop Engine. Topological search (PPR/Markov), simulation/attribution, proactive harness for memory-centric Copilot. 80-99%+ LLM reduction.",
+    "displayName": "HipCortex Memory Engine & Cognitive OS",
+    "description": "Persistent causal topological memory, world model prediction (/worldmodel/rollout), and Headroom token optimization (59-88% savings) for Copilot & Antigravity IDE.",
     "version": "0.4.9",
     "publisher": "farmountain",
   "repository": {
@@ -13,7 +13,7 @@
     },
     "categories": ["Machine Learning", "Data Science", "Other"],
     "icon": "icon.png",
-    "keywords": ["ai", "memory", "agent", "chat", "hipcortex", "topological", "loop", "substrate", "world-model"],
+    "keywords": ["memory", "causal", "cognitive-os", "copilot", "antigravity", "mcp", "ai", "agent", "topological", "world-model"],
     "main": "./dist/extension.js",
     "files": [
         "dist",

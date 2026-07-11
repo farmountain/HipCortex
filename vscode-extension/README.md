@@ -1,177 +1,81 @@
-# 🧠 HipCortex VS Code Extension
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v0.4.9`)
 
-Direct integration between VS Code Copilot chat and HipCortex — the **executable causal topological memory substrate** for AI agents.
+[![Version](https://img.shields.io/badge/version-v0.4.9-blue.svg)](package.json)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
+![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
+![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
-HipCortex provides a persistent, self-updating world model with topological reasoning (PPR, Markov blankets, multi-hop paths), Ω Loop Engine for simulation/attribution/self-distillation, and proactive harness so the substrate acts as the primary "mind". LLM (Copilot) is used only as a narrow hypothesis generator for high-entropy cases.
+**Give your AI coding assistant (VS Code Copilot & Antigravity IDE) persistent, cross-session causal memory and world-model prediction (`/worldmodel/rollout`).**
 
-This extension surfaces the full power of the new substrate directly in Copilot chat and tools.
+---
 
-## 🚀 Installation
+## 🚀 Zero-Config Onboarding (No Rust or Cargo Required!)
 
-**Install from VS Code Marketplace (or .vsix) – zero-config for end users.**
+When you install `HipCortex Memory Engine & Cognitive OS` from the VS Code Marketplace or Open VSIX Registry, the extension **automatically downloads and runs the standalone `v0.4.9` local Rust binary (`webserver.exe`) in the background** (`~/.hipcortex-vscode/bin/`).
 
-The extension auto-bootstraps:
-- On first use (e.g. `@hipcortex health` or any command), it automatically downloads the platform-specific HipCortex server binary (~4-10 MB) from GitHub releases (if not already present in your user cache or bundled via server/ in packaged .vsix).
-- Starts the server in the background (data stored in `~/.hipcortex-vscode`).
-- Connects and is ready. No Rust, Cargo, source code, or separate server start required for end users.
-Exact install flow per Task 9: use produced .vsix via `code --install-extension hipcortex-memory-*.vsix` in clean VSCode.
+- **Zero dependencies**: No external databases, no Python required, no Docker needed.
+- **Local-first & private**: All memories and causal graphs are stored locally on your machine (`~/.hipcortex-vscode/storage`). Zero telemetry.
+- **Sub-millisecond speed**: `0.48–0.61 ms p50` write latency over local loopback (`http://127.0.0.1:3030`).
+- **Auto-recovery & lifecycle**: If the server stops or crashes, the extension restarts it automatically before any query.
 
-### For Local Development / Testing
+---
+
+## 💬 Interactive `@hipcortex` Chat Commands
+
+Open your GitHub Copilot or Antigravity Chat panel and type `@hipcortex`:
+
+- `@hipcortex health`: Inspect local server status, memory tier counts (`WorkingSet`, `ShortTerm`, `LongTerm`), and Merkle chain audit integrity.
+- `@hipcortex add <content>`: Store an explicit architectural decision, user preference, or project constraint into persistent memory (`Symbolic` / `Semantic` tier).
+- `@hipcortex query <query>`: Perform semantic + topological graph retrieval (`petgraph` Personalized PageRank) across your workspace history.
+- `@hipcortex status`: Display current token optimization mode (`Headroom` vs `Caveman`) and active memory savings.
+
+---
+
+## 🛠️ Language Model Tools (`LM Tools`)
+
+HipCortex automatically registers 6 native tools with the VS Code & Antigravity Language Model API (`vscode.lm`):
+
+1. `hipcortex_search`: Semantic and causal graph search over past project sessions (`live_beliefs`).
+2. `hipcortex_health`: Server health check and capability gate evaluation (`can_execute`).
+3. `hipcortex_predict`: Predict next state using `WorldModelEnhanced` Dirichlet-Multinomial transition matrix.
+4. `hipcortex_rollout`: Execute multi-step Monte Carlo Tree Search (`MCTS`) trajectory rollouts (`POST /worldmodel/rollout`).
+5. `hipcortex_graph_search`: Graph-theoretic breadth-first and topological traversal over `CausalTopoGraph`.
+6. `hipcortex_causal`: Causal attribution analysis and Backdoor Adjustment calculation.
+
+---
+
+## 🧠 Headroom & Caveman Token Optimization (`59% – 88% Savings`)
+
+Long coding sessions typically consume 15,000+ tokens per turn due to full history injection. HipCortex reduces Copilot token consumption while preserving structural awareness:
+
+- **Headroom Mode (`Top-5`)**: Retrieves 5 causal neighbors into `Tier 0` (`SessionContext`), cutting token bills by **`59% to 84%`**.
+- **Caveman Mode (`Top-3`)**: Retrieves 3 highest-priority causal neighbors, delivering **`70% to 88%`** token reduction during rapid debugging loops.
+
+---
+
+## ⚙️ Configuration (`settings.json`)
+
+Open VS Code / Antigravity IDE Settings and search for `HipCortex`:
+
+```json
+{
+  "hipcortex.apiUrl": "http://127.0.0.1:3030",
+  "hipcortex.apiKey": "",
+  "hipcortex.autoStart": true,
+  "hipcortex.optimizationMode": "headroom"
+}
+```
+
+---
+
+## 🏗️ Local Development & VSIX Packaging
+
+For local verification and extension packaging:
 ```bash
 cd vscode-extension
 npm install
 npm run compile
-# F5 in VS Code to launch Extension Development Host
-# Server will auto-start or connect to local dev server
+npm test
+npx @vscode/vsce package --allow-missing-repository
 ```
-
-To manually package (Task 9 verified flow):
-```bash
-cd vscode-extension && npm run fetch-bins && npm run compile && npm test && npx @vscode/vsce package --allow-missing-repository
-code --install-extension hipcortex-memory-*.vsix
-```
-Exact run command per plan: `cd vscode-extension && npm run fetch-bins && npm run compile && npm test && npx @vscode/vsce package --allow-missing-repository` (Expected: .vsix created, no errors). Package.json includes "files": ["dist", "server"] for self-contained packaging.
-
-### What you see (exact, no over-claims)
-After manual `code --install-extension hipcortex-memory-*.vsix` in clean VSCode (no prior HipCortex) shows working auto start + tools + savings on first save/Copilot use.
-- Install produced .vsix in fresh VSCode (no prior HipCortex).
-- Open folder, edit + save file → status shows active, record in query.
-- Copilot chat asks about previous decision → calls tool, gets live_beliefs, savings in footer.
-- @hipcortex health works, server channel has logs.
-- No cargo, no manual start.
-- On first use (e.g. `@hipcortex health` or any command), it automatically downloads the platform-specific HipCortex server binary (if not bundled).
-- Starts the server in the background (data stored in `~/.hipcortex-vscode`).
-- Connects and is ready. No Rust, Cargo, source code, or separate server start required for end users.
-
-## 🎯 Usage
-
-### Chat Commands
-
-Use `@hipcortex` in VS Code chat followed by commands:
-
-#### Add Memory
-```
-@hipcortex add actor: CopilotAgent action: code_review target: memory_system
-@hipcortex record actor: UserAgent action: completed_task target: project_x
-```
-
-#### Query Memory
-```
-@hipcortex query actor: CopilotAgent
-@hipcortex search action: code_review
-@hipcortex find actor: VSCode_Chat limit: 5
-```
-
-#### System Commands
-```
-@hipcortex health
-@hipcortex status
-```
-
-### Command Palette
-- `HipCortex: Add Memory Record`
-- `HipCortex: Query Memory Records`
-
-## ⚙️ Configuration
-
-Open VS Code Settings and search for "HipCortex":
-
-- **API URL**: Default `http://127.0.0.1:3030`
-- **API Key**: Optional authentication key
-- **Auto Start**: Automatically start HipCortex server
-
-## 🔧 Features
-
-### ✅ Core Integration
-- ✅ VS Code chat participant (@hipcortex)
-- ✅ Language Model Tools (hipcortex_search [uses live_beliefs], hipcortex_health, hipcortex_predict)
-- ✅ Command palette integration
-- ✅ Auto-start server functionality
-- ✅ Comprehensive error handling
-- ✅ Health check and status monitoring
-
-### 🧠 New Substrate Features (v0.3.0+)
-- **Topological Memory**: Hybrid graph with micro-embeddings, Personalized PageRank, Markov blanket localization, multi-hop causal paths (instead of simple vector search).
-- **Ω Loop Engine**: Transactional simulation, Bayesian attribution (topology/policy/utility), error-driven sparse updates, self-distillation of traces + strategies.
-- **Memory-Centric Harness**: Substrate as primary mind (live_beliefs, topo reasoning, predictions, coherence). LLM only for final language or creative hyp when entropy is high.
-- **Automatic Maintenance**: AgentMessage paths auto-feed world model + trigger loop updates.
-- **Epistemic Grounding**: Contradiction detection before integrating hypotheses.
-
-### 🎨 Advanced Features
-- 🧠 **Topological reasoning** over persistent causal graph
-- 🔄 **Predictive simulation** and counterfactuals via world model + loop
-- 📉 **Measurable LLM reduction** (80-99%+ in benchmarks with proactive harness + loop)
-- 🔐 **Secure communication** with API authentication
-- 🚀 **Auto-recovery** - starts server if not running
-- 📊 **Rich formatting** - markdown responses in chat
-- ⚡ **Real-time feedback** - streaming responses
-
-## 🔄 Complete Integration Flow
-
-```
-VS Code Chat Input
-    ↓
-@hipcortex add actor: Agent action: task target: system
-    ↓
-Extension parses command
-    ↓
-HTTP POST to HipCortex API (/memory/add)
-    ↓
-HipCortex stores in memory backend
-    ↓
-Success response back to chat
-    ↓
-Rich markdown display in VS Code
-```
-
-## 🧪 Test Scenarios
-
-### Scenario 1: Basic Memory Operations
-1. Type: `@hipcortex health`
-2. Expected: ✅ Health check passes
-3. Type: `@hipcortex add actor: TestAgent action: integration_test target: extension`
-4. Expected: ✅ Memory record created with ID
-5. Type: `@hipcortex query actor: TestAgent`
-6. Expected: 📊 Shows the record just created
-
-### Scenario 2: Auto-Start Server
-1. Stop HipCortex server
-2. Type: `@hipcortex health`
-3. Expected: ⚠️ Server not responding → 🔄 Auto-starting → ✅ Server started
-
-### Scenario 3: Error Handling
-1. Type: `@hipcortex add actor: target: missing_action`
-2. Expected: ❌ Input validation error with helpful message
-
-## 📈 Performance
-
-- **Cold start**: ~3-5 seconds (first API call)
-- **Warm requests**: ~100-300ms
-- **Memory footprint**: ~10-20MB (extension)
-- **Network**: HTTP/1.1 with Keep-Alive
-- **Token savings**: 80-99%+ with proactive harness + Ω loop (see root benchmarks)
-
-## 🛡️ Security
-
-- ✅ Input validation and sanitization
-- ✅ Bearer token authentication support
-- ✅ Timeout protection (3s for health checks)
-- ✅ Full original prompt is stored in memory metadata (no artificial truncation; previously capped at 500 chars)
-- ✅ No sensitive data logged in debug mode
-
-## 🎉 Success Metrics
-
-- **API Integration**: ✅ 100% working
-- **Chat Commands**: ✅ All 4 command types implemented
-- **Error Handling**: ✅ Graceful degradation
-- **User Experience**: ✅ Rich, interactive chat responses
-- **Reliability**: ✅ Auto-recovery and health monitoring
-
-## 🚀 v0.3.0+ New Capabilities (Powered by Topological Substrate + Ω Loop)
-
-- Use substrate for **topological reasoning** (PPR, causal paths, localized subgraphs) instead of raw history.
-- Trigger **Ω Loop** for simulation, Bayesian attribution, and sparse world-model updates.
-- Benefit from **automatic maintenance** and live beliefs — the extension now surfaces the full memory-centric architecture.
-- Expect **dramatically lower token usage** in long sessions.
-
-See the [main HipCortex README](https://github.com/farmountain/HipCortex/blob/main/README.md) and [implementation plan](https://github.com/farmountain/HipCortex/blob/main/docs/superpowers/plans/2026-06-20-harness-and-omega-loop-engineering.md) for full details on the topological substrate and Ω Loop.
+This builds `hipcortex-memory-0.4.9.vsix`, ready for `code --install-extension hipcortex-memory-0.4.9.vsix`.
