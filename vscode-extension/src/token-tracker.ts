@@ -69,14 +69,15 @@ export class TokenTracker {
         ].join('\n');
     }
 
-    /** Short label for status bar. Updated for richer WM + loops + savings visibility after live_beliefs/reflect. */
-    formatStatusBarLabel(wm: number = 0, loops: number = 0): string {
+    /** Short label for status bar. Updated for richer WM + loops + savings + mode visibility after live_beliefs/reflect. */
+    formatStatusBarLabel(wm: number = 0, loops: number = 0, mode: string = '', predSuffix: string = ''): string {
         const snap = this.getSnapshot();
         const saved = snap.savedTokens.toLocaleString();
-        if (snap.sessionCallCount === 0 && wm === 0) {
-            return '$(database) HipCortex';
+        const modeStr = mode ? ` [${mode}]` : '';
+        if (snap.sessionCallCount === 0 && wm === 0 && !predSuffix) {
+            return `$(database) HipCortex${modeStr}`;
         }
-        return `$(database) HipCortex: WM ${wm} | loops ${loops} | ${saved} tok`;
+        return `$(database) HipCortex${modeStr}: WM ${wm} | loops ${loops}${predSuffix} | ${saved} tok`;
     }
 
     reset(): void {

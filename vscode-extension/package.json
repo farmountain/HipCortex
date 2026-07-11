@@ -87,10 +87,25 @@
                     {
                         "name": "link",
                         "description": "Link two memory records: @hipcortex /link <source-id> <target-id> [relation]"
+                    },
+                    {
+                        "name": "mode",
+                        "description": "Switch token optimization mode: @hipcortex /mode <headroom|caveman>"
                     }
                 ]
             }
         ],
+        "configuration": {
+            "title": "HipCortex Memory",
+            "properties": {
+                "hipcortex.optimizationMode": {
+                    "type": "string",
+                    "enum": ["headroom", "caveman"],
+                    "default": "headroom",
+                    "description": "Token optimization retrieval depth mode: headroom (Top-5, 59-84% savings) or caveman (Top-3, 70-88% savings)."
+                }
+            }
+        },
         "languageModelTools": [
             {
                 "name": "hipcortex_search",

@@ -22,3 +22,9 @@
 - [x] 5.1 Verify markdown formatting across all rewritten README files (`README.md`, `vscode-extension/README.md`, `sdk/mcp/README.md`, `sdk/python/README.md`, `sdk/typescript/README.md`).
 - [x] 5.2 Commit all documentation updates cleanly to git (`git add -A && git commit -m "docs: rewrite v0.4.9 cognitive os documentation across repo, vscode marketplace, mcp servers, and sdks"` and `git push origin main`).
 - [x] 5.3 Output the exact multi-channel dissemination and publishing checklist (`npm publish`, `vsce publish`, `pypi`) for the user.
+
+## 6. Headroom & Caveman Token Optimization Mode Verification Suggestions (`/opsx-apply`)
+
+- [x] 6.1 Create automated CI/CD token optimization verification (`.github/workflows/cognitive_os_token_verification.yml` & `tests/verify_token_optimization.py`) to execute end-to-end checks for Headroom (`Top-5`, `-59% to -84%`) vs Caveman (`Top-3`, `-70% to -88%`) compression metrics and Caveman latency bounds (`< 1ms` Rust vs `< 35ms` Python vs `142ms` cloud API) on every PR and commit.
+- [x] 6.2 Implement interactive `@hipcortex mode <headroom|caveman>` command inside `vscode-extension/src/extension.ts` (`HipCortexChatParticipant` & command handler) and `vscode-extension/package.json`, enabling dynamic mode switching (`Top-5` vs `Top-3`), status bar mode indicator (`$(database) HipCortex [Headroom]` vs `[Caveman]`), and add verification unit tests inside `vscode-extension/src/test/extension.test.ts`.
+

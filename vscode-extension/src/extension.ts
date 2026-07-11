@@ -464,6 +464,8 @@ class HipCortexChatParticipant {
 
             if (command.startsWith('link')) {
                 await this.handleLinkMemory(request, stream);
+            } else if (command.startsWith('mode')) {
+                await this.handleModeSwitch(request, stream);
             } else if (command.startsWith('add') || command.startsWith('record')) {
                 await this.handleAddMemory(request, stream);
             } else if (command.startsWith('query') || command.startsWith('find')) {
@@ -521,6 +523,23 @@ class HipCortexChatParticipant {
         } catch (error) {
             stream.markdown(`❌ **Link error**: ${error instanceof Error ? error.message : String(error)}`);
         }
+    }
+
+    private async handleModeSwitch(request: vscode.ChatRequest, stream: vscode.ChatResponseStream): Promise<void> {
+        const parts = request.prompt.trim().split(/\s+/);
+        const newMode = parts[1]?.toLowerCase();
+        if (newMode !== 'headroom' && newMode !== 'caveman') {
+            stream.markdown('❌ **Usage**: `@hipcortex /mode <headroom|caveman>`\n\n- **headroom**: Top-5 retrieval, 59-84% token savings.\n- **caveman**: Top-3 retrieval, 70-88% token savings.');
+            return;
+        }
+        await vscode.workspace.getConfiguration('hipcortex').update('optimizationMode', newMode, vscode.ConfigurationTarget.Global);
+        const modeCap = newMode === 'caveman' ? 'Caveman' : 'Headroom';
+        stream.markdown(`🎯 **Token Optimization Mode Updated!**\n\n`);
+        stream.markdown(`| Setting | New Value |\n|---|---|\n`);
+        stream.markdown(`| **Mode** | \`${modeCap}\` |\n`);
+        stream.markdown(`| **Retrieval Depth** | \`${newMode === 'caveman' ? 'Top-3 records (limit: 3)' : 'Top-5 records (limit: 5)'}\` |\n`);
+        stream.markdown(`| **Expected Savings** | \`${newMode === 'caveman' ? '70% to 88%' : '59% to 84%'}\` |\n\n`);
+        stream.markdown(`💡 Status bar and LM tools will now use **[${modeCap}]** mode.`);
     }
 
     private async handleAddMemory(request: vscode.ChatRequest, stream: vscode.ChatResponseStream): Promise<void> {
@@ -605,10 +624,14 @@ class HipCortexChatParticipant {
         const actionMatch = prompt.match(/action[:\\s]+([\\w\\s]+?)(?=\\s+actor|\\s+limit|$)/i);
         const limitMatch = prompt.match(/limit[:\\s]+(\\d+)/i);
 
+        const mode = vscode.workspace.getConfiguration('hipcortex').get<string>('optimizationMode', 'headroom');
+        const defaultLimit = mode === 'caveman' ? 3 : 5;
+
         const queryParams: any = {};
         if (actorMatch) queryParams.actor = actorMatch[1].trim();
         if (actionMatch) queryParams.action = actionMatch[1].trim();
         if (limitMatch) queryParams.limit = parseInt(limitMatch[1]);
+        else queryParams.limit = defaultLimit;
 
         try {
             const response = await this.api.queryMemory(queryParams);
@@ -668,6 +691,7 @@ class HipCortexChatParticipant {
                     stream.markdown('\n---\n\n');
                 });
             });
+
             // Token savings footer
             const contextBundle = response.records
                 .map(r => `[${r.action}] ${r.target}`)
@@ -683,8 +707,10 @@ class HipCortexChatParticipant {
     private async handleSearchMemory(request: vscode.ChatRequest, stream: vscode.ChatResponseStream): Promise<void> {
         stream.markdown('🔍 **Semantic search...**\n\n');
         const query = request.prompt.replace(/^search\s+/i, '').trim();
+        const mode = vscode.workspace.getConfiguration('hipcortex').get<string>('optimizationMode', 'headroom');
+        const defaultLimit = mode === 'caveman' ? 3 : 5;
         const limitMatch = query.match(/limit[:\s]+(\d+)/i);
-        const limit = limitMatch ? parseInt(limitMatch[1]) : 10;
+        const limit = limitMatch ? parseInt(limitMatch[1]) : defaultLimit;
         const cleanQuery = query.replace(/limit[:\s]+\d+/i, '').trim();
         try {
             const response = await this.api.searchMemory(cleanQuery, limit);
@@ -843,12 +869,15 @@ export function activate(context: vscode.ExtensionContext) {
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     statusBarItem.tooltip = 'HipCortex Memory — click to query';
     statusBarItem.command = 'hipcortex.queryMemory';
-    statusBarItem.text = '$(database) HipCortex';
+    const initMode = vscode.workspace.getConfiguration('hipcortex').get<string>('optimizationMode', 'headroom');
+    const initModeCap = initMode === 'caveman' ? 'Caveman' : 'Headroom';
+    statusBarItem.text = tokenTracker.formatStatusBarLabel(0, 0, initModeCap);
     statusBarItem.show();
     context.subscriptions.push(statusBarItem);
-    const updateStatusBar = (trans: number = 0, loops: number = 0) => {
-        const saved = tokenTracker.getSnapshot().savedTokens.toLocaleString();
-        statusBarItem.text = `$(database) HipCortex: WM ${trans} | loops ${loops} | ${saved} tok`;
+    const updateStatusBar = (trans: number = 0, loops: number = 0, predSuffix: string = '') => {
+        const mode = vscode.workspace.getConfiguration('hipcortex').get<string>('optimizationMode', 'headroom');
+        const modeCap = mode === 'caveman' ? 'Caveman' : 'Headroom';
+        statusBarItem.text = tokenTracker.formatStatusBarLabel(trans, loops, modeCap, predSuffix);
     };
 
     // ── LM Tool: hipcortex_search — Copilot can call this automatically ───────
@@ -860,8 +889,9 @@ export function activate(context: vscode.ExtensionContext) {
                 const query: string = (options?.input?.query as string | undefined)?.trim() || 'recent decisions';
                 try {
                     const api = new HipCortexAPI();
-                    // Upgrade the search invoke to:
-                    const response = await api.liveBeliefs({ limit: 5 });
+                    const mode = vscode.workspace.getConfiguration('hipcortex').get<string>('optimizationMode', 'headroom');
+                    const modeLimit = mode === 'caveman' ? 3 : 5;
+                    const response = await api.liveBeliefs({ limit: modeLimit });
                     // build bundle from rich fields (world_state + hypotheses + summary) instead of raw records
                     const contextBundle = `${response.summary || ''}\n${JSON.stringify(response.world_state || {})} /* rich summary + top facts */`;
                     const BASELINE = 2000; // estimated full-history tokens
@@ -869,18 +899,14 @@ export function activate(context: vscode.ExtensionContext) {
                     // after liveBeliefs or reflect
                     const trans = response && response.world_state ? Object.keys(response.world_state).length : 0;
                     const loops = (response as any) && (response as any).loops_run ? (response as any).loops_run : 0;
-                    const saved = tokenTracker.getSnapshot().savedTokens.toLocaleString();
                     const summary = response && response.summary ? response.summary : '';
-                    statusBarItem.text = `$(database) HipCortex: WM ${trans} | loops ${loops} | ${saved} tok`;
                     serverChannel.appendLine(`Live: ${summary}`);
                     updateStatusBar(trans, loops);
                     await new HipCortexAPI().addMemory({ actor: 'copilot', action: 'used-substrate', target: query, metadata: { via: 'lm-tool' } });
                     if (query.length > 5) {
                         const r = await new HipCortexAPI().reflect(query).catch(() => ({} as any));
                         const loops2 = r && r.loops_run ? r.loops_run : 0;
-                        const saved2 = tokenTracker.getSnapshot().savedTokens.toLocaleString();
                         const summary2 = r && r.hypothesis ? r.hypothesis : `reflect: ${query}`;
-                        statusBarItem.text = `$(database) HipCortex: WM ${trans} | loops ${loops2} | ${saved2} tok`;
                         serverChannel.appendLine(`Live: ${summary2}`);
                         updateStatusBar(trans, loops2);
                     }
@@ -1044,7 +1070,6 @@ export function activate(context: vscode.ExtensionContext) {
             const r = await api.reflect(`edited ${fileName}`).catch(() => ({} as any));
             const trans = 0;
             const loops = r && r.loops_run ? r.loops_run : 0;
-            const saved = tokenTracker.getSnapshot().savedTokens.toLocaleString();
 
             // WM predict: what file will likely be edited next?
             const pred = await api.predictState('vscode-user', 'edited').catch(() => null);
@@ -1067,9 +1092,8 @@ export function activate(context: vscode.ExtensionContext) {
                 }
             }
 
-            statusBarItem.text = `$(database) HipCortex: WM ${trans} | loops ${loops}${predSuffix} | ${saved} tok`;
             serverChannel.appendLine(`Live: edited ${fileName}${predSuffix}`);
-            updateStatusBar(trans, loops);
+            updateStatusBar(trans, loops, predSuffix);
         } catch (err) {
             serverChannel.appendLine(`Auto-capture error: ${err instanceof Error ? err.message : String(err)}`);
         }

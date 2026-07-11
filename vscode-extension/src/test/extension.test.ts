@@ -268,6 +268,16 @@ describe('HipCortex Extension Unit Tests', () => {
             expect(label).toContain('tok');
         });
 
+        test('status bar reflects dynamic headroom and caveman modes', () => {
+            const tracker = new TokenTracker();
+            tracker.record('summary\nbeliefs', 1500);
+            const headroomLabel = tracker.formatStatusBarLabel(5, 1, 'Headroom');
+            expect(headroomLabel).toContain('[Headroom]');
+            const cavemanLabel = tracker.formatStatusBarLabel(8, 3, 'Caveman', ' | →app.ts');
+            expect(cavemanLabel).toContain('[Caveman]');
+            expect(cavemanLabel).toContain('→app.ts');
+        });
+
         // Task 9 Step 1: Add end-to-end verification steps as tests/comments (exact checklist from plan)
         // Verification baseline from plan header:
         // cd vscode-extension
@@ -365,6 +375,19 @@ describe('HipCortex Extension Unit Tests', () => {
             
             expect(actorMatch![1].trim()).toBe('TestActor');
             expect(parseInt(limitMatch![1])).toBe(5);
+        });
+
+        test('should parse mode switch command correctly', () => {
+            const prompt1 = 'mode headroom';
+            const parts1 = prompt1.trim().split(/\s+/);
+            expect(parts1[0]).toBe('mode');
+            expect(parts1[1]?.toLowerCase()).toBe('headroom');
+
+            const prompt2 = '/mode caveman';
+            const clean2 = prompt2.replace(/^\//, '').trim();
+            const parts2 = clean2.split(/\s+/);
+            expect(parts2[0]).toBe('mode');
+            expect(parts2[1]?.toLowerCase()).toBe('caveman');
         });
     });
 
