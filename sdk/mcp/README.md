@@ -1,114 +1,176 @@
-# HipCortex MCP Server
+# HipCortex Universal MCP Server & Multi-Agent Setup Guide (`v0.4.9`)
 
-Persistent memory for AI coding assistants — Cursor, Claude Code, Windsurf, Zed AI.
+HipCortex exposes a native **Model Context Protocol (MCP)** server (`hipcortex.mcp.server`) and REST API (`http://127.0.0.1:3030`) that gives autonomous AI agents multi-tier causal memory, world-model rollout prediction (`POST /worldmodel/rollout`), and `Headroom Mode` token reduction (`59–88% savings`).
 
-**Protocol:** MCP 2024-11-05 (JSON-RPC 2.0 over stdio)  
-**Dependencies:** Python 3.9+ · `pip install requests`
+---
 
-## Quick install
+## 🚀 Instant CLI Setup (`hipcortex setup`)
+
+If you have Python installed, our CLI automatically detects your installed agents and writes the exact MCP configurations:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/farmountain/HipCortex/main/sdk/mcp/install.sh | bash
+pip install hipcortex
+hipcortex setup --mode headroom --url http://127.0.0.1:3030
 ```
 
-## Connect to Cursor
+---
 
-Add to `.cursor/mcp.json` in your project root:
+## 📋 Exact Copy-Paste Configurations (12 Autonomous Agents)
+
+### 1. Claude Code (`claude mcp add`)
+Run in your terminal:
+```bash
+claude mcp add hipcortex python -m hipcortex.mcp.server --mode headroom
+```
+Or edit `~/.claude/mcp.json` / `~/.claude/settings.json`:
 ```json
 {
   "mcpServers": {
     "hipcortex": {
       "command": "python",
-      "args": ["~/.hipcortex-mcp/server.py"],
-      "env": { "HIPCORTEX_URL": "http://localhost:3030" }
+      "args": ["-m", "hipcortex.mcp.server", "--mode", "headroom"],
+      "env": { "HIPCORTEX_URL": "http://127.0.0.1:3030" }
     }
   }
 }
 ```
 
-## Connect to Claude Code
-
-Add to `~/.claude/settings.json`:
+### 2. Cursor IDE (`.cursor/mcp.json`)
+Create or edit `.cursor/mcp.json` in your workspace root (or globally in `~/.cursor/mcp.json`):
 ```json
 {
   "mcpServers": {
     "hipcortex": {
       "command": "python",
-      "args": ["~/.hipcortex-mcp/server.py"],
-      "env": {
-        "HIPCORTEX_URL": "http://localhost:3030",
-        "HIPCORTEX_API_KEY": "sk-your-key"
-      }
+      "args": ["-m", "hipcortex.mcp.server", "--mode", "headroom"],
+      "env": { "HIPCORTEX_URL": "http://127.0.0.1:3030" }
     }
   }
 }
 ```
 
-## Tools
-
-| Tool | Description |
-|------|-------------|
-| `add_memory` | Store a decision, finding, or code note |
-| `search_memory` | Recall relevant past context by keyword |
-| `forget_actor` | Delete all memories for a project scope |
-| `get_stats` | Show memory store statistics |
-| `search_code` | Search the code graph for relevant symbols, functions, or classes |
-
-## Start HipCortex server
-
-```bash
-# Pre-built binary (no Rust needed)
-curl -L https://github.com/farmountain/HipCortex/releases/latest/download/hipcortex-linux-arm64 \
-  -o hipcortex && chmod +x hipcortex && ./hipcortex
-
-# Managed instance (free tier, always on)
-# Set HIPCORTEX_URL=https://hipcortex.fly.dev in mcp.json
-```
-
-## Example workflow
-
-In Cursor/Claude Code:
-```
-Remember that we chose PostgreSQL over SQLite for multi-user support.
-→ [add_memory] actor=my-app action=decided target="PostgreSQL over SQLite — multi-user"
-
-What database decisions have we made?
-→ [search_memory] query="database"
-• [decided] PostgreSQL over SQLite — multi-user (score: 0.94)
-```
-
-## Shell integration (`hc` commands)
-
-Add to your `~/.bashrc` or `~/.zshrc` to use HipCortex from any terminal:
-
-```bash
-# HipCortex shell wrapper — cross-agent memory for Claude Code, Codex, Aider
-export HIPCORTEX_URL="${HIPCORTEX_URL:-http://localhost:3030}"
-
-hc-remember() {
-    curl -s -X POST "$HIPCORTEX_URL/memory/add" \
-      -H "Content-Type: application/json" \
-      -d "{\"actor\":\"${HC_ACTOR:-shell}\",\"action\":\"noted\",\"target\":\"$*\"}" \
-      | python3 -c "import sys,json; d=json.load(sys.stdin); print('✓' if d.get('success') else '✗', d.get('record_id',''))"
-}
-
-hc-recall() {
-    curl -s "$HIPCORTEX_URL/memory/search-flat?query=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$*")&limit=10" \
-      | python3 -c "import sys,json; d=json.load(sys.stdin); [print(m) for m in d.get('memories',[])]"
-}
-
-hc-forget() {
-    curl -s -X DELETE "$HIPCORTEX_URL/memory/forget/$1" \
-      | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Deleted {d.get(\"records_deleted\",0)} records')"
+### 3. Windsurf IDE (`~/.codeium/windsurf/mcp_config.json`)
+Add to `~/.codeium/windsurf/mcp_config.json`:
+```json
+{
+  "mcpServers": {
+    "hipcortex": {
+      "command": "python",
+      "args": ["-m", "hipcortex.mcp.server", "--mode", "headroom"],
+      "env": { "HIPCORTEX_URL": "http://127.0.0.1:3030" }
+    }
+  }
 }
 ```
 
-Usage:
-```bash
-hc-remember "We chose JWT over session cookies for stateless auth"
-hc-recall "authentication"
-hc-forget my-project
+### 4. Grok Code (`~/.grok/mcp.json`)
+Add to your Grok Code configuration directory `~/.grok/mcp.json`:
+```json
+{
+  "mcpServers": {
+    "hipcortex": {
+      "command": "python",
+      "args": ["-m", "hipcortex.mcp.server", "--mode", "headroom"],
+      "env": { "HIPCORTEX_URL": "http://127.0.0.1:3030", "OPTIMIZATION_MODE": "headroom" }
+    }
+  }
+}
 ```
 
-Works with: Claude Code · OpenAI Codex CLI · Aider · any terminal coding agent.
-Same memory server, same data — language-agnostic persistent AI memory.
+### 5. Hermes Agent (`~/.hermes/mcp_config.json`)
+Add to `~/.hermes/mcp_config.json`:
+```json
+{
+  "mcpServers": {
+    "hipcortex": {
+      "command": "python",
+      "args": ["-m", "hipcortex.mcp.server", "--mode", "headroom"],
+      "env": { "HIPCORTEX_URL": "http://127.0.0.1:3030" }
+    }
+  }
+}
+```
+
+### 6. OpenClaw Orchestrator (`~/.openclaw/mcp.json`)
+Add to `~/.openclaw/mcp.json`:
+```json
+{
+  "mcpServers": {
+    "hipcortex": {
+      "command": "python",
+      "args": ["-m", "hipcortex.mcp.server", "--mode", "headroom"],
+      "env": { "HIPCORTEX_URL": "http://127.0.0.1:3030" }
+    }
+  }
+}
+```
+
+### 7. Cline / RooCode (VS Code Extension MCP Settings)
+Open VS Code $\rightarrow$ `Cline Settings` (or `RooCode Settings`) $\rightarrow$ `MCP Servers` $\rightarrow$ Add New:
+- **Server Name**: `hipcortex`
+- **Command**: `python`
+- **Arguments**: `["-m", "hipcortex.mcp.server", "--mode", "headroom"]`
+- **Environment**: `{"HIPCORTEX_URL": "http://127.0.0.1:3030"}`
+
+### 8. OpenAI Codex CLI (`codex --mcp-server`)
+Pass via command line or `~/.codex/config.json`:
+```json
+{
+  "mcpServers": {
+    "hipcortex": {
+      "command": "python",
+      "args": ["-m", "hipcortex.mcp.server", "--mode", "headroom"]
+    }
+  }
+}
+```
+
+### 9. Aider AI Pair Programmer (`--mcp-server`)
+Launch Aider with HipCortex MCP:
+```bash
+aider --mcp-server "python -m hipcortex.mcp.server --mode headroom"
+```
+
+### 10. Gemini CLI & Antigravity IDE (`~/.gemini/antigravity-ide/mcp/`)
+Place `hipcortex.json` into your Antigravity IDE `mcp` server directory:
+```json
+{
+  "command": "python",
+  "args": ["-m", "hipcortex.mcp.server", "--mode", "headroom"],
+  "env": { "HIPCORTEX_URL": "http://127.0.0.1:3030" }
+}
+```
+
+### 11. Amazon Q Developer (`~/.amazonq/mcp.json`)
+Add to `~/.amazonq/mcp.json`:
+```json
+{
+  "mcpServers": {
+    "hipcortex": {
+      "command": "python",
+      "args": ["-m", "hipcortex.mcp.server", "--mode", "headroom"],
+      "env": { "HIPCORTEX_URL": "http://127.0.0.1:3030" }
+    }
+  }
+}
+```
+
+### 12. Direct HTTP JSON-RPC / REST Mode
+For lightweight custom harnesses or shell wrappers (`hc` commands), call the local server directly over loopback (`127.0.0.1:3030`):
+```bash
+curl -X POST http://127.0.0.1:3030/memory/add \
+  -H "Content-Type: application/json" \
+  -d '{"actor": "agent", "action": "decided", "target": "use sqlite over postgres", "record_type": "Symbolic"}'
+```
+
+---
+
+## 🛠️ Available MCP Tools
+
+| Tool Name | Arguments | Description |
+| :--- | :--- | :--- |
+| `add_memory` | `actor`, `action`, `target`, `record_type` (`Working`/`ShortTerm`/`LongTerm`/`Causal`/`Procedural`), `confidence` | Ingests causal memory node into topological graph and Merkle chain. |
+| `search_memory` | `query`, `actor`, `limit` | Retrieves Top-K memory context using Personalized PageRank topological scoring. |
+| `forget_actor` | `actor` | Deletes all memory records and causal edges for a specific actor (`GDPR Right to Forget`). |
+| `get_stats` | *none* | Displays server health, Merkle chain integrity, Top-5 Headroom mode status, and tier breakdowns. |
+| `search_code` | `query`, `symbol_type` | Queries code intelligence graph (`GitNexus` integration). |
