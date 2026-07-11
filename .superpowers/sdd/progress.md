@@ -22,3 +22,16 @@ Merge base: 8b06c77
 - Plan C T1: complete (commit 1851a53, WM predict + entropy in status bar, 0 compile errors, review clean)
 - Final review: PASS (I-1 fixed commit 88a8831  pinned exclusion from scored pipeline; I-2 acknowledged as intentional; Minor M1-M4 logged; VSIX repackaged 8f2bc05)
 - Gap closures: complete (0.4.1 binary audit gaps: search/query split, rollout route, record type aliases, python MCP parity, 6 integration tests pass, extension compiles)
+
+## rewrite-docs-v049 Documentation Rewrite Plan
+Started: 2026-07-11
+Plan: docs/superpowers/plans/2026-07-11-rewrite-docs-v049-plan.md
+
+- Task 1: complete (commit e8406c3, README.md and BENCHMARK.md rewritten with Caveman Comparison Matrix and v0.4.9 architecture, review clean)
+
+- Task 2: complete (commit a0df873, vscode-extension package.json and README.md rewritten for v0.4.9 zero-config onboarding and LM tools, review clean)
+
+- Task 3: complete (commit c076e81, sdk/mcp/README.md rewritten for 12 autonomous coding agents, review clean)
+
+- Task 4: complete (commit 6a7edd9, sdk/python and sdk/typescript READMEs rewritten with v0.4.9 parity, review clean)
+
