@@ -35,3 +35,26 @@ Plan: docs/superpowers/plans/2026-07-11-rewrite-docs-v049-plan.md
 
 - Task 4: complete (commit 6a7edd9, sdk/python and sdk/typescript READMEs rewritten with v0.4.9 parity, review clean)
 
+## 2026-07-11 E2E User Testing Harness Plan
+Started: 2026-07-11
+Plan: docs/superpowers/plans/2026-07-11-e2e-user-testing-harness-plan.md
+
+- Task 1: complete (commit fa6572f, Core Lifecycle & Isolation Infrastructure: server_manager.py, client_factory.py, conftest.py, review clean)
+
+- Task 2: complete (commit bbf84c0, Data Generators & Domain Assertions: data_generators.py, assertions.py, review clean)
+
+- Task 3: complete (commit eee03b6, Phase 0 & Phase 1 Core Test Suites + CLI --port support, 2 tests passed, review clean)
+
+- Task 4: complete (commit cfe3d96, Phase 2 Cognitive & Token Optimization Suite, exact Headroom vs Caveman bounds verified, review clean)
+
+- Task 5: complete (commit 758112a, Phase 3 Framework Integrations Suite, CrewAI & AutoGen adapters + bridge syntax verified, review clean)
+
+- Task 6: complete (commit d4b1a9a, Phase 4 VS Code Extension Suite & Phase 5 Persistence & Merkle Audit Suite, full 10-test harness passing cleanly across all phases)
+
+
+
+
+
+
+
+
