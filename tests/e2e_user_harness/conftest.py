@@ -1,8 +1,14 @@
 import pytest
 import shutil
+import sys
 from pathlib import Path
+
+# Add local SDK to sys.path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "sdk" / "python"))
+
 from .server_manager import HipCortexServerManager
 from .client_factory import HarnessHttpxClient, get_clients
+
 
 @pytest.fixture(scope="session")
 def hipcortex_binary():
