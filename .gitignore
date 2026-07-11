@@ -61,3 +61,10 @@ WhatsApp Image *.jpeg
 WhatsApp Image*.jpeg
 *.jpeg
 *.jpg
+
+# Python and pytest
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
