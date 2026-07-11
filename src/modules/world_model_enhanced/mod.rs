@@ -77,7 +77,7 @@ pub use metalaw::{InvariantType, MetaLaw, MetaLawEngine};
 pub use causal::{CausalGraph, CausalNode, CausalEdge, InterventionQuery};
 pub use predictor::{PredictiveModel, LearnedTransitionPredictor, PredictionResult};
 pub use uncertainty::{UncertaintyEstimator, ConfidenceInterval, CalibrationMetrics};
-pub use simulator::{SimulatorNode, MctsSimulator};
+pub use simulator::{SimulatorNode, MctsSimulator, SimulationHarness, SimulationStep, SimulationTrajectory};
 
 use crate::topological_memory::{CausalTopoGraph, EdgeType};
 use std::collections::HashMap;
