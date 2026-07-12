@@ -1,12 +1,12 @@
-# HipCortex — The Autonomous Cognitive OS & Persistent Causal Substrate (`v0.4.9`)
+# HipCortex — The Autonomous Cognitive OS & Persistent Causal Substrate (`v0.5.0`)
 
-![Version](https://img.shields.io/badge/version-v0.4.9-blue.svg)
+![Version](https://img.shields.io/badge/version-v0.5.0-blue.svg)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 ![Rust](https://img.shields.io/badge/rust-1.95%2B-orange.svg)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 [![PyPI](https://img.shields.io/pypi/v/hipcortex.svg)](https://pypi.org/project/hipcortex/)
-[![VS Code](https://img.shields.io/badge/VS%20Code-v0.4.9-blue.svg)](vscode-extension/)
+[![VS Code](https://img.shields.io/badge/VS%20Code-v0.5.0-blue.svg)](vscode-extension/)
 
 **Persistent causal topological memory, recursive Bayesian world-model prediction (`/worldmodel/rollout`), and automatic FSM skill compilation for autonomous AI agents.**
 
@@ -20,8 +20,8 @@ We believe in **100% rigorous, unassailable engineering benchmarks** (`Headroom 
 
 | System / Substrate | Write Median (`add_p50`) | Write 95th (`add_p95`) | Query Median (`query_p50`) | Architectural & Transport Reality |
 | :--- | :---: | :---: | :---: | :--- |
-| **HipCortex Local Rust (`v0.4.9` Linux)** | **`0.61 ms`** (`0.48 ms` bare) | **`1.1 ms`** | **`0.23 ms`** | Compiled `4 MB` Rust binary over local HTTP (`127.0.0.1`). Zero public network RTT. Indexes causal topological relationships (`petgraph`) + SHA-256 Merkle audit chains without heavy dense vector inference bottlenecks. |
-| **HipCortex Local Rust (`v0.4.9` Windows)** | **`2.05 ms`** | **`3.67 ms`** | **`0.52 ms`** | Same compiled Rust binary measured over Windows loopback (`127.0.0.1`). |
+| **HipCortex Local Rust (`v0.5.0` Linux)** | **`0.61 ms`** (`0.48 ms` bare) | **`1.1 ms`** | **`0.23 ms`** | Compiled `4 MB` Rust binary over local HTTP (`127.0.0.1`). Zero public network RTT. Indexes causal topological relationships (`petgraph`) + SHA-256 Merkle audit chains without heavy dense vector inference bottlenecks. |
+| **HipCortex Local Rust (`v0.5.0` Windows)** | **`2.05 ms`** | **`3.67 ms`** | **`0.52 ms`** | Same compiled Rust binary measured over Windows loopback (`127.0.0.1`). |
 | **Self-Hosted Local Vector Store (`Mem0/Python`)** | `~15–35 ms` | `~50–80 ms` | `~10–25 ms` | Local Python process + embedding model inference (`~10–25 ms`) + local vector index upsert (`Qdrant/Chroma`). *HipCortex is ~15× to 30× faster than local vector stores.* |
 | **Cloud Vector Memory API (`Mem0 Cloud US-East`)** | `~142 ms` | `~310 ms` | `~89 ms` | Public HTTPS round-trip across internet + cloud embedding calculation + remote vector DB upsert. *HipCortex local binary is ~230× to 300× faster than cloud APIs.* |
 

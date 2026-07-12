@@ -10,7 +10,7 @@ def test_extension_package_json_manifest():
     
     manifest = json.loads(pkg_path.read_text(encoding="utf-8"))
     assert manifest.get("name") == "hipcortex-memory"
-    assert manifest.get("version") == "0.4.9"
+    assert manifest.get("version") == "0.5.0"
     
     commands = {cmd["command"] for cmd in manifest.get("contributes", {}).get("commands", [])}
     assert "hipcortex.addMemory" in commands

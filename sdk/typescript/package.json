@@ -1,7 +1,7 @@
 {
   "name": "hipcortex",
-  "version": "0.4.9",
-  "description": "Persistent causal memory for AI agents — LangChain, LlamaIndex, AutoGen, Vercel AI SDK",
+  "version": "0.5.0",
+  "description": "TypeScript & Node.js SDK for HipCortex — the persistent causal memory & token optimization substrate for autonomous AI agents.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": ["dist", "README.md"],

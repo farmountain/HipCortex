@@ -86,7 +86,7 @@ use std::sync::{Arc, RwLock};
 /// Central World-Model coordinator integrating all predictive capabilities
 pub struct WorldModelEnhanced {
     /// State transition model (Dirichlet-Multinomial)
-    transitions: Arc<RwLock<TransitionModel>>,
+    pub transitions: Arc<RwLock<TransitionModel>>,
     
     /// Entity trackers (Kalman filters)
     entities: Arc<RwLock<HashMap<String, EntityTracker>>>,

@@ -1,4 +1,4 @@
-# HipCortex Universal MCP Server & Multi-Agent Setup Guide (`v0.4.9`)
+# HipCortex Universal MCP Server & Multi-Agent Setup Guide (`v0.5.0`)
 
 HipCortex exposes a native **Model Context Protocol (MCP)** server (`hipcortex.mcp.server`) and REST API (`http://127.0.0.1:3030`) that gives autonomous AI agents multi-tier causal memory, world-model rollout prediction (`POST /worldmodel/rollout`), and `Headroom Mode` token reduction (`59–88% savings`).
 

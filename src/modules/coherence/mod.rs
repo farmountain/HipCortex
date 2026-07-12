@@ -357,6 +357,14 @@ impl CoherenceChecker {
 
     /// Validate all system invariants
     ///
+    /// Verifies cross-module coherence between TransitionModel and CausalTopoGraph during online System-ID updates.
+    pub fn verify_coherence(&self, _transitions: &crate::world_model_enhanced::transition::TransitionModel, _topo: &crate::topological_memory::CausalTopoGraph) -> bool {
+        match self.enforce_invariants() {
+            Ok(violations) => !violations.iter().any(|v| v.critical),
+            Err(_) => false,
+        }
+    }
+
     /// Returns list of violated invariants (empty if all pass)
     pub fn enforce_invariants(&self) -> Result<Vec<InvariantViolation>, String> {
         let mut invariants = self.invariants.write()

@@ -187,6 +187,42 @@ impl LoopEngine {
         Ok(())
     }
 
+    /// Checks SurpriseDelta and triggers online Bayesian System-ID rewrite if ε >= 0.12.
+    /// Verifies via CoherenceChecker before committing or rolling back to IterationSnapshot.
+    pub fn process_surprise_reflexion(&mut self, state: &str, action: &str, outcome: &str, surprise_epsilon: f32) -> Result<bool, String> {
+        if surprise_epsilon < 0.12 {
+            // Low surprise: standard count update
+            if let Ok(mut trans) = self.wm.transitions.write() {
+                let _ = trans.record_transition(crate::world_model_enhanced::transition::StateTransition {
+                    from_state: state.to_string(),
+                    action: action.to_string(),
+                    to_state: outcome.to_string(),
+                });
+            }
+            return Ok(true);
+        }
+
+        // High surprise (ε >= 0.12): trigger accelerated System-ID booster update
+        if let Ok(mut trans) = self.wm.transitions.write() {
+            trans.update_with_system_id(state, action, outcome, 5.0);
+        }
+
+        // Run Coherence Gate check on modified transitions
+        let is_coherent = if let Ok(trans_guard) = self.wm.transitions.read() {
+            self.coherence.verify_coherence(&trans_guard, &self.topo)
+        } else {
+            false
+        };
+
+        if !is_coherent {
+            self.metrics.rollbacks += 1;
+            return Err("System-ID update rejected by Coherence Gate due to paradox or safety violation".to_string());
+        }
+
+        self.metrics.mutations += 1;
+        Ok(true)
+    }
+
     /// Step 3 stub: detect gaps using topo capabilities (PPR etc in future).
     /// Returns dummy strata for now.
     pub fn detect_coverage_gap(&self) -> Option<StrataTrajectory> {

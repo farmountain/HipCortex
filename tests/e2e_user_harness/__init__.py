@@ -1,1 +1,1 @@
-"""HipCortex v0.4.9 E2E User Testing Harness package."""
+"""HipCortex v0.5.0 E2E User Testing Harness package."""

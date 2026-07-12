@@ -76,6 +76,15 @@ impl TransitionModel {
         Ok(())
     }
 
+    /// Performs accelerated Bayesian Dirichlet update when high surprise (ε >= 0.12) is attributed to transition fault.
+    pub fn update_with_system_id(&mut self, state: &str, action: &str, actual_outcome: &str, booster_gamma: f64) {
+        let key = (state.to_string(), action.to_string(), actual_outcome.to_string());
+        let sa_key = (state.to_string(), action.to_string());
+        let boost = if booster_gamma < 1.0 { 1 } else { booster_gamma as usize };
+        *self.counts.entry(key).or_insert(0) += boost;
+        *self.totals.entry(sa_key).or_insert(0) += boost;
+    }
+
     /// Predict next state distribution given current state and action
     pub fn predict(&self, state: &str, action: &str) -> Result<TransitionPrediction, String> {
         let sa_key = (state.to_string(), action.to_string());

@@ -1,4 +1,4 @@
-# HipCortex Python SDK (`v0.4.9`)
+# HipCortex Python SDK (`v0.5.0`)
 
 **Persistent causal topological memory, recursive Bayesian world-model prediction (`/worldmodel/rollout`), and automatic FSM skill compilation for autonomous AI agents.**
 

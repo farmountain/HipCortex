@@ -1,6 +1,6 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v0.4.9`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v0.5.0`)
 
-[![Version](https://img.shields.io/badge/version-v0.4.9-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v0.5.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
@@ -11,7 +11,7 @@
 
 ## 🚀 Zero-Config Onboarding (No Rust or Cargo Required!)
 
-When you install `HipCortex Memory Engine & Cognitive OS` from the VS Code Marketplace or Open VSIX Registry, the extension **automatically downloads and runs the standalone `v0.4.9` local Rust binary (`webserver.exe`) in the background** (`~/.hipcortex-vscode/bin/`).
+When you install `HipCortex Memory Engine & Cognitive OS` from the VS Code Marketplace or Open VSIX Registry, the extension **automatically downloads and runs the standalone `v0.5.0` local Rust binary (`webserver.exe`) in the background** (`~/.hipcortex-vscode/bin/`).
 
 - **Zero dependencies**: No external databases, no Python required, no Docker needed.
 - **Local-first & private**: All memories and causal graphs are stored locally on your machine (`~/.hipcortex-vscode/storage`). Zero telemetry.
@@ -78,4 +78,4 @@ npm run compile
 npm test
 npx @vscode/vsce package --allow-missing-repository
 ```
-This builds `hipcortex-memory-0.4.9.vsix`, ready for `code --install-extension hipcortex-memory-0.4.9.vsix`.
+This builds `hipcortex-memory-0.5.0.vsix`, ready for `code --install-extension hipcortex-memory-0.5.0.vsix`.
