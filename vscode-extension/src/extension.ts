@@ -1284,11 +1284,22 @@ export function activate(context: vscode.ExtensionContext) {
         const actor = await vscode.window.showInputBox({ prompt: 'Enter actor name' });
         const action = await vscode.window.showInputBox({ prompt: 'Enter action' });
         const target = await vscode.window.showInputBox({ prompt: 'Enter target' });
+        const tagsRaw = await vscode.window.showInputBox({
+            prompt: 'Enter tags (comma-separated, optional)',
+            placeHolder: 'e.g. auth, refactor, typescript'
+        });
         
         if (actor && action && target) {
             try {
                 const api = new HipCortexAPI();
-                const response = await api.addMemory({ actor, action, target });
+                const activeDoc = vscode.window.activeTextEditor?.document;
+                const autoTags = activeDoc ? await extractSemanticTags(activeDoc, 200) : [];
+                const userTags = tagsRaw
+                    ? tagsRaw.split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0)
+                    : [];
+                const mergedTags = [...new Set([...autoTags, ...userTags])].slice(0, 8);
+
+                const response = await api.addMemory({ actor, action, target, tags: mergedTags });
                 if (response.success) {
                     vscode.window.showInformationMessage(`Memory added! ID: ${response.record_id}`);
                 } else {
