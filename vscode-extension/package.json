@@ -186,6 +186,11 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Automatically start HipCortex server if not running"
+                },
+                "hipcortex.strictServerVersion": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "When true, only reuse a local server if /health.version exactly matches the expected crate/server binary version. When false (default), reuse any healthy server with same major.minor (or missing version field)."
                 }
             }
         }

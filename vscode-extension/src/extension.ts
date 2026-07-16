@@ -53,6 +53,67 @@ export function isValidServerBinary(filePath: string): boolean {
     }
 }
 
+async function killProcessOnPort(port: number): Promise<void> {
+    const platform = os.platform();
+    if (platform === 'win32') {
+        return new Promise<void>((resolve) => {
+            cp.exec(`netstat -ano | findstr :${port}`, (err, stdout) => {
+                if (err || !stdout) {
+                    resolve();
+                    return;
+                }
+                const pids = new Set<string>();
+                for (const line of stdout.split('\n')) {
+                    const parts = line.trim().split(/\s+/);
+                    if (parts.length >= 5 && parts[1].endsWith(`:${port}`) && parts[3] === 'LISTENING') {
+                        const pid = parts[4];
+                        if (pid && /^\d+$/.test(pid) && pid !== '0') {
+                            pids.add(pid);
+                        }
+                    }
+                }
+                if (pids.size === 0) {
+                    resolve();
+                    return;
+                }
+                Promise.all(
+                    Array.from(pids).map(
+                        pid =>
+                            new Promise<void>(res => {
+                                cp.exec(`taskkill /F /PID ${pid}`, () => res());
+                            })
+                    )
+                ).then(() => resolve());
+            });
+        });
+    }
+    return new Promise<void>((resolve) => {
+        cp.exec(`lsof -t -i:${port}`, (err, stdout) => {
+            if (err || !stdout) {
+                cp.exec(`fuser -k ${port}/tcp`, () => resolve());
+                return;
+            }
+            const pids = stdout
+                .trim()
+                .split('\n')
+                .map(p => p.trim())
+                .filter(p => /^\d+$/.test(p));
+            if (pids.length === 0) {
+                resolve();
+                return;
+            }
+            Promise.all(
+                pids.map(
+                    pid =>
+                        new Promise<void>(res => {
+                            cp.exec(`kill -9 ${pid}`, () => res());
+                        })
+                )
+            ).then(() => resolve());
+        });
+    });
+}
+
 /** Proactive harness descriptions — substrate-first policy for LM tools. */
 export const HARNESS_TOOL_DESCRIPTIONS = {
     search: 'Use this FIRST for any recall... returns unified live_beliefs (memory + world model + hypotheses + coherence). Call before asking user.',
@@ -72,6 +133,7 @@ interface MemoryRecord {
     tags?: string[];
     priority?: string;
     source?: string;
+    confidence?: number;
 }
 
 export interface AddMemoryRequest {
@@ -212,13 +274,8 @@ export class HipCortexAPI {
     private async doAutoStartServer(outputChannel?: vscode.OutputChannel): Promise<boolean> {
         const config = vscode.workspace.getConfiguration('hipcortex');
         const autoStart = config.get('autoStart', true);
-
         if (!autoStart) {
             return false;
-        }
-
-        if (await this.healthCheck()) {
-            return true;
         }
 
         const log = (msg: string) => {
@@ -229,7 +286,50 @@ export class HipCortexAPI {
             }
         };
 
+        const { port, portStr } = extractPortFromBaseUrl(this.baseUrl);
+        const strict = config.get<boolean>('strictServerVersion', false);
+
+        let healthy = false;
+        let serverVersion: string | undefined;
         try {
+            const healthRes = await axios.get(`${this.baseUrl}/health`, { timeout: 2000 });
+            if (healthRes.status === 200 && healthRes.data && healthRes.data.status === 'ok') {
+                healthy = true;
+                if (typeof healthRes.data.version === 'string') {
+                    serverVersion = healthRes.data.version;
+                }
+            }
+        } catch {
+            healthy = false;
+        }
+
+        if (
+            shouldReuseRunningServer({
+                healthy,
+                serverVersion,
+                expectedVersion: EXPECTED_SERVER_VERSION,
+                strict,
+            })
+        ) {
+            log(
+                `Reusing active HipCortex server on port ${portStr}` +
+                    (serverVersion ? ` (version ${serverVersion})` : ' (version unknown)')
+            );
+            return true;
+        }
+
+        if (healthy) {
+            log(
+                `Server on port ${portStr} not acceptable for policy ` +
+                    `(version=${serverVersion ?? 'n/a'}, expected crate ${EXPECTED_SERVER_VERSION}, strict=${strict}). Restarting...`
+            );
+        } else {
+            log(`No healthy server on ${this.baseUrl}. Clearing port ${portStr} if occupied, then starting...`);
+        }
+
+        try {
+            await killProcessOnPort(port);
+
             log('Starting HipCortex server...');
             const binaryPath = await this.ensureServerBinary(outputChannel);
 
@@ -247,7 +347,7 @@ export class HipCortexAPI {
                 cwd: serverDir,
                 env: {
                     ...process.env,
-                    PORT: '3030',
+                    PORT: portStr,
                     DATA_DIR: serverDir,
                     RUST_LOG: 'info',
                 },
@@ -265,7 +365,6 @@ export class HipCortexAPI {
                 }
                 globalServerProcess = null;
             });
-
             globalServerProcess.stdout?.on('data', (data) => {
                 log(`[stdout] ${data.toString().trim()}`);
             });
@@ -283,14 +382,16 @@ export class HipCortexAPI {
 
             const timeoutMsg = `Server did not respond on ${this.baseUrl} within ${SERVER_START_TIMEOUT_SEC}s. Check Output → HipCortex Server.`;
             log(timeoutMsg);
-            vscode.window.showWarningMessage(
-                'HipCortex server failed to start. Open Output → HipCortex Server for details.',
-                'Open Output'
-            ).then(choice => {
-                if (choice === 'Open Output' && outputChannel) {
-                    outputChannel.show();
-                }
-            });
+            vscode.window
+                .showWarningMessage(
+                    'HipCortex server failed to start. Open Output → HipCortex Server for details.',
+                    'Open Output'
+                )
+                .then(choice => {
+                    if (choice === 'Open Output' && outputChannel) {
+                        outputChannel.show();
+                    }
+                });
             return false;
         } catch (err) {
             const errMsg = `Failed to auto-start HipCortex server: ${err instanceof Error ? err.message : String(err)}`;
@@ -1492,4 +1593,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
     console.log('🧠 HipCortex Memory Extension deactivated');
+    if (globalServerProcess) {
+        globalServerProcess.kill();
+        globalServerProcess = null;
+    }
 }
