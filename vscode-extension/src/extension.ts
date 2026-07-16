@@ -846,6 +846,126 @@ Try any of the examples above, or just tell me about something you did today!
     }
 }
 
+/** Races a promise against a timeout. Returns null if timed out or errored. */
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+    if (ms <= 0) { return null; }
+    return Promise.race([
+        promise.catch(() => null as T | null),
+        new Promise<null>(resolve => setTimeout(() => resolve(null), ms))
+    ]);
+}
+
+/** Attempts to read the current git branch for the document's repo. Returns null on failure. */
+async function getGitBranch(doc: vscode.TextDocument): Promise<string | null> {
+    try {
+        const gitExt = vscode.extensions.getExtension('vscode.git');
+        if (!gitExt) { return null; }
+        const git = gitExt.isActive ? gitExt.exports : await gitExt.activate();
+        const api = git.getAPI(1);
+        if (!api?.repositories?.length) { return null; }
+        const repo = api.repositories.find((r: any) =>
+            doc.uri.fsPath.startsWith(r.rootUri.fsPath)
+        ) ?? api.repositories[0];
+        const branch: string | undefined = repo?.state?.HEAD?.name;
+        if (!branch) { return null; }
+        const stripped = branch.replace(/^(feature|fix|chore|bugfix|hotfix)\//, '');
+        return stripped.replace(/[^a-z0-9-]/gi, '-').toLowerCase().slice(0, 30) || null;
+    } catch {
+        return null;
+    }
+}
+
+/** Runs the document symbol provider and returns semantic category tags (max 2). */
+async function getDocumentSymbolTags(doc: vscode.TextDocument): Promise<string[]> {
+    try {
+        const symbols: vscode.DocumentSymbol[] | undefined =
+            await vscode.commands.executeCommand('vscode.executeDocumentSymbolProvider', doc.uri);
+        if (!symbols?.length) { return []; }
+        const names = symbols.map((s: vscode.DocumentSymbol) => s.name.toLowerCase());
+        const result: string[] = [];
+        if (names.some((n: string) => n.startsWith('test_') || n.startsWith('it_') || n === 'test')) {
+            result.push('testing');
+        }
+        if (names.some((n: string) => n.includes('handle_') || n.includes('handler') || n.includes('route'))) {
+            result.push('api');
+        }
+        return [...new Set(result)].slice(0, 2);
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * Extracts semantic tags from a VS Code TextDocument for memory auto-capture.
+ *
+ * Layer 1 (sync): languageId, file extension, 'auto-capture'
+ * Layer 2 (sync): path-segment semantic hints (testing, api, sdk, docs, ...)
+ * Layer 3 (async, capped): git branch name slug
+ * Layer 4 (async, capped): document symbol categorization
+ * Layer 5 (sync): error diagnostics → 'has-errors'
+ *
+ * @param doc       The TextDocument being processed.
+ * @param timeoutMs Budget in ms for async layers (default 200). Pass 0 to skip async.
+ * @returns         Deduplicated lowercase string[], max 8 elements.
+ */
+export async function extractSemanticTags(
+    doc: vscode.TextDocument,
+    timeoutMs: number = 200
+): Promise<string[]> {
+    const tags: string[] = [];
+
+    // Layer 1: Structural (always present, sync)
+    const ext = path.extname(doc.fileName).replace(/^\./, '').toLowerCase();
+    tags.push(doc.languageId.toLowerCase());
+    if (ext && ext !== doc.languageId.toLowerCase()) {
+        tags.push(ext);
+    }
+    tags.push('auto-capture');
+
+    // Layer 2: Path-segment semantic hints (sync)
+    const lowerPath = doc.fileName.replace(/\\/g, '/').toLowerCase();
+    const segs = lowerPath.split('/');
+    const pathHints: [string[], string][] = [
+        [['test', 'tests', 'spec', '__test__', '__tests__', '.test.', '.spec.'], 'testing'],
+        [['api', 'routes', 'handlers', 'endpoints'],                            'api'],
+        [['sdk'],                                                                'sdk'],
+        [['docs', 'documentation'],                                             'documentation'],
+        [['migrations', 'migration'],                                           'database'],
+        [['components', 'views', 'pages', 'frontend'],                         'frontend'],
+        [['modules', 'module'],                                                 'module'],
+        [['src', 'lib', 'core'],                                                'core'],
+        [['scripts', 'tools'],                                                  'tooling'],
+    ];
+    for (const [patterns, tag] of pathHints) {
+        if (patterns.some(p => segs.some(s => s.includes(p)) || lowerPath.includes(p))) {
+            tags.push(tag);
+        }
+    }
+
+    // Layers 3+4: Async (git branch + document symbols) within budget
+    const [branchResult, symbolsResult] = await Promise.all([
+        withTimeout(getGitBranch(doc), timeoutMs),
+        withTimeout(getDocumentSymbolTags(doc), timeoutMs),
+    ]);
+    if (branchResult) { tags.push(branchResult); }
+    if (symbolsResult && symbolsResult.length > 0) { tags.push(...symbolsResult); }
+
+    // Layer 5: Error diagnostics (sync)
+    try {
+        const diags = vscode.languages.getDiagnostics(doc.uri);
+        if (diags.some(d => d.severity === vscode.DiagnosticSeverity.Error)) {
+            tags.push('has-errors');
+        }
+    } catch { /* skip in test environments */ }
+
+    // Deduplicate, lowercase, cap at 8
+    const seen = new Set<string>();
+    return tags
+        .map(t => t.toLowerCase().replace(/\s+/g, '-'))
+        .filter(t => t.length > 0 && !seen.has(t) && seen.add(t))
+        .slice(0, 8);
+}
+
 export function activate(context: vscode.ExtensionContext) {
     extensionInstallPath = context.extensionPath;
     console.log('🧠 HipCortex Memory Extension v0.3.3 active');

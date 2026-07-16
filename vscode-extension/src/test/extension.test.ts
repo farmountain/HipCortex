@@ -10,6 +10,7 @@ import {
     isValidServerBinary,
     activate,
     AddMemoryRequest,
+    extractSemanticTags,
 } from '../extension';
 import { TokenTracker } from '../token-tracker';
 
@@ -468,3 +469,87 @@ function validateInput(input: string, type: 'actor' | 'action' | 'target'): stri
     // Sanitize input - remove potentially harmful characters
     return trimmed.replace(/[<>"'&]/g, '');
 }
+
+describe('extractSemanticTags', () => {
+    function makeDoc(overrides: Partial<{
+        languageId: string;
+        fileName: string;
+        lineCount: number;
+    }> = {}): vscode.TextDocument {
+        const fileName = overrides.fileName ?? '/home/user/project/src/extension.ts';
+        return {
+            languageId: overrides.languageId ?? 'typescript',
+            fileName,
+            lineCount: overrides.lineCount ?? 100,
+            uri: { scheme: 'file', fsPath: fileName } as any,
+            getText: () => '',
+        } as any;
+    }
+
+    test('always includes languageId and auto-capture tag', async () => {
+        const doc = makeDoc({ languageId: 'typescript', fileName: '/project/src/foo.ts' });
+        const tags = await extractSemanticTags(doc, 0);
+        expect(tags).toContain('typescript');
+        expect(tags).toContain('auto-capture');
+    });
+
+    test('extracts file extension as tag', async () => {
+        const doc = makeDoc({ fileName: '/project/src/server.rs', languageId: 'rust' });
+        const tags = await extractSemanticTags(doc, 0);
+        expect(tags).toContain('rs');
+    });
+
+    test('detects test file from path', async () => {
+        const doc = makeDoc({ fileName: '/project/tests/unit/mod.rs', languageId: 'rust' });
+        const tags = await extractSemanticTags(doc, 0);
+        expect(tags).toContain('testing');
+    });
+
+    test('detects api path segment', async () => {
+        const doc = makeDoc({ fileName: '/project/src/api/routes.ts', languageId: 'typescript' });
+        const tags = await extractSemanticTags(doc, 0);
+        expect(tags).toContain('api');
+    });
+
+    test('detects sdk path segment', async () => {
+        const doc = makeDoc({ fileName: '/project/sdk/python/client.py', languageId: 'python' });
+        const tags = await extractSemanticTags(doc, 0);
+        expect(tags).toContain('sdk');
+    });
+
+    test('caps tags at 8', async () => {
+        const doc = makeDoc({
+            fileName: '/project/sdk/api/tests/spec/frontend/backend/database/auth.ts',
+            languageId: 'typescript'
+        });
+        const tags = await extractSemanticTags(doc, 0);
+        expect(tags.length).toBeLessThanOrEqual(8);
+    });
+
+    test('returns no duplicates', async () => {
+        const doc = makeDoc({ fileName: '/project/test/test_api.ts', languageId: 'typescript' });
+        const tags = await extractSemanticTags(doc, 0);
+        const unique = [...new Set(tags)];
+        expect(tags.length).toBe(unique.length);
+    });
+
+    test('all tags are lowercase', async () => {
+        const doc = makeDoc({ fileName: '/project/SDK/API/Handler.ts', languageId: 'typescript' });
+        const tags = await extractSemanticTags(doc, 0);
+        tags.forEach(t => expect(t).toBe(t.toLowerCase()));
+    });
+
+    test('docs path segment maps to documentation tag', async () => {
+        const doc = makeDoc({ fileName: '/project/docs/architecture.md', languageId: 'markdown' });
+        const tags = await extractSemanticTags(doc, 0);
+        expect(tags).toContain('documentation');
+    });
+
+    test('tags from command palette parse correctly', () => {
+        const rawInput = 'typescript, auth, refactor';
+        const tags = rawInput.split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0);
+        expect(tags).toEqual(['typescript', 'auth', 'refactor']);
+        const request: AddMemoryRequest = { actor: 'User', action: 'reviewed', target: 'auth.ts', tags };
+        expect(request.tags).toHaveLength(3);
+    });
+});
