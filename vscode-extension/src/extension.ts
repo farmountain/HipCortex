@@ -115,6 +115,69 @@ interface QueryMemoryResponse {
     total: number;
 }
 
+/**
+ * Crate / bundled server binary version (CARGO_PKG_VERSION), NOT vscode package.json.
+ * Keep in sync with Cargo.toml [package].version and published hipcortex-* assets.
+ */
+export const EXPECTED_SERVER_VERSION = '0.5.0'; // UPDATE if Cargo.toml differs at impl time
+
+/** Parse listen port from hipcortex.apiUrl / HipCortexAPI.baseUrl. */
+export function extractPortFromBaseUrl(baseUrl: string): { port: number; portStr: string } {
+    const raw = (baseUrl || '').split(':').pop()?.replace(/[^0-9]/g, '') || '';
+    const portStr = raw.length > 0 ? raw : '3030';
+    const port = parseInt(portStr, 10);
+    if (!Number.isFinite(port) || port <= 0 || port > 65535) {
+        return { port: 3030, portStr: '3030' };
+    }
+    return { port, portStr };
+}
+
+function parseSemverMajorMinor(v: string): { major: number; minor: number } | null {
+    const m = /^(\d+)\.(\d+)/.exec((v || '').trim());
+    if (!m) { return null; }
+    return { major: parseInt(m[1], 10), minor: parseInt(m[2], 10) };
+}
+
+/**
+ * Version accept policy for /health.version vs EXPECTED_SERVER_VERSION.
+ * - strict: exact string match required; missing → false
+ * - non-strict: missing → true; same major.minor → true; different major → false
+ */
+export function isServerVersionAcceptable(
+    serverVersion: string | undefined,
+    expected: string,
+    strict: boolean
+): boolean {
+    const sv = (serverVersion || '').trim();
+    if (!sv) {
+        return !strict;
+    }
+    if (strict) {
+        return sv === expected;
+    }
+    if (sv === expected) {
+        return true;
+    }
+    const a = parseSemverMajorMinor(sv);
+    const b = parseSemverMajorMinor(expected);
+    if (!a || !b) {
+        return false;
+    }
+    return a.major === b.major && a.minor === b.minor;
+}
+
+export function shouldReuseRunningServer(opts: {
+    healthy: boolean;
+    serverVersion?: string;
+    expectedVersion: string;
+    strict: boolean;
+}): boolean {
+    if (!opts.healthy) {
+        return false;
+    }
+    return isServerVersionAcceptable(opts.serverVersion, opts.expectedVersion, opts.strict);
+}
+
 export class HipCortexAPI {
     private baseUrl: string;
     private apiKey: string;

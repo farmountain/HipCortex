@@ -13,6 +13,10 @@ import {
     extractSemanticTags,
     formatMemoryQuickPickItem,
     formatMemoryDetailMessage,
+    EXPECTED_SERVER_VERSION,
+    extractPortFromBaseUrl,
+    isServerVersionAcceptable,
+    shouldReuseRunningServer,
 } from '../extension';
 import { TokenTracker } from '../token-tracker';
 
@@ -608,5 +612,70 @@ describe('memory display formatters', () => {
     test('detail message shows None when no tags', () => {
         const msg = formatMemoryDetailMessage({ ...baseRecord, tags: undefined });
         expect(msg).toContain('Keywords/Tags: None');
+    });
+});
+
+describe('server lifecycle helpers', () => {
+    test('extractPortFromBaseUrl default 3030', () => {
+        expect(extractPortFromBaseUrl('http://127.0.0.1:3030')).toEqual({ port: 3030, portStr: '3030' });
+    });
+
+    test('extractPortFromBaseUrl custom port', () => {
+        expect(extractPortFromBaseUrl('http://localhost:3040')).toEqual({ port: 3040, portStr: '3040' });
+    });
+
+    test('extractPortFromBaseUrl missing port falls back 3030', () => {
+        expect(extractPortFromBaseUrl('http://localhost')).toEqual({ port: 3030, portStr: '3030' });
+    });
+
+    test('isServerVersionAcceptable: missing version is ok when not strict', () => {
+        expect(isServerVersionAcceptable(undefined, EXPECTED_SERVER_VERSION, false)).toBe(true);
+        expect(isServerVersionAcceptable('', EXPECTED_SERVER_VERSION, false)).toBe(true);
+    });
+
+    test('isServerVersionAcceptable: missing version fails strict', () => {
+        expect(isServerVersionAcceptable(undefined, EXPECTED_SERVER_VERSION, true)).toBe(false);
+    });
+
+    test('isServerVersionAcceptable: exact match', () => {
+        expect(isServerVersionAcceptable(EXPECTED_SERVER_VERSION, EXPECTED_SERVER_VERSION, false)).toBe(true);
+        expect(isServerVersionAcceptable(EXPECTED_SERVER_VERSION, EXPECTED_SERVER_VERSION, true)).toBe(true);
+    });
+
+    test('isServerVersionAcceptable: major mismatch fails', () => {
+        expect(isServerVersionAcceptable('1.0.0', '0.5.0', false)).toBe(false);
+    });
+
+    test('isServerVersionAcceptable: same major.minor different patch ok when not strict', () => {
+        // e.g. server 0.5.0 vs expected 0.5.1 — acceptable in default mode
+        expect(isServerVersionAcceptable('0.5.0', '0.5.1', false)).toBe(true);
+        expect(isServerVersionAcceptable('0.5.0', '0.5.1', true)).toBe(false);
+    });
+
+    test('shouldReuseRunningServer: healthy + acceptable version', () => {
+        expect(shouldReuseRunningServer({
+            healthy: true,
+            serverVersion: EXPECTED_SERVER_VERSION,
+            expectedVersion: EXPECTED_SERVER_VERSION,
+            strict: false,
+        })).toBe(true);
+    });
+
+    test('shouldReuseRunningServer: unhealthy never reuses', () => {
+        expect(shouldReuseRunningServer({
+            healthy: false,
+            serverVersion: EXPECTED_SERVER_VERSION,
+            expectedVersion: EXPECTED_SERVER_VERSION,
+            strict: false,
+        })).toBe(false);
+    });
+
+    test('shouldReuseRunningServer: healthy missing version reuses non-strict', () => {
+        expect(shouldReuseRunningServer({
+            healthy: true,
+            serverVersion: undefined,
+            expectedVersion: EXPECTED_SERVER_VERSION,
+            strict: false,
+        })).toBe(true);
     });
 });
