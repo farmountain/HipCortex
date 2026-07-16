@@ -69,6 +69,9 @@ interface MemoryRecord {
     target: string;
     metadata: any;
     integrity?: string;
+    tags?: string[];
+    priority?: string;
+    source?: string;
 }
 
 export interface AddMemoryRequest {
@@ -988,6 +991,74 @@ export async function extractSemanticTags(
         return [...deduped.slice(0, 7), 'has-errors'];
     }
     return deduped.slice(0, 8);
+}
+
+/**
+ * Builds a QuickPick list item for hipcortex.queryMemory.
+ * Tags appear in the label so users can scan without opening the detail dialog.
+ */
+export function formatMemoryQuickPickItem(record: MemoryRecord): {
+    label: string;
+    description: string;
+    detail: string;
+    record: MemoryRecord;
+} {
+    const tagsStr =
+        record.tags && record.tags.length > 0
+            ? ` [${record.tags.join(', ')}]`
+            : '';
+
+    const detailParts: string[] = [];
+    if (record.source) {
+        detailParts.push(`source: ${record.source}`);
+    }
+    if (record.priority && record.priority !== 'normal') {
+        detailParts.push(`priority: ${record.priority}`);
+    }
+    if (record.metadata) {
+        if (typeof record.metadata.user_message === 'string') {
+            const um = record.metadata.user_message as string;
+            const snippet = um.length > 60 ? um.substring(0, 57) + '...' : um;
+            detailParts.push(`"${snippet}"`);
+        } else if (record.metadata.workspace) {
+            detailParts.push(`workspace: ${record.metadata.workspace}`);
+        } else if (record.metadata.tokens !== undefined) {
+            detailParts.push(`tokens: ${record.metadata.tokens}`);
+        }
+    }
+
+    const timeStr = new Date(record.timestamp).toLocaleString();
+    const detailLine =
+        detailParts.length > 0
+            ? `${timeStr} • ${detailParts.join(' • ')}`
+            : timeStr;
+
+    return {
+        label: `${record.actor} → ${record.action}${tagsStr}`,
+        description: record.target,
+        detail: detailLine,
+        record,
+    };
+}
+
+/** Human-readable multi-line detail body for the selected QuickPick record. */
+export function formatMemoryDetailMessage(record: MemoryRecord): string {
+    const tagsStr =
+        record.tags && record.tags.length > 0
+            ? record.tags.join(', ')
+            : 'None';
+    return (
+        `Memory Record Details:\n` +
+        `• ID: ${record.id}\n` +
+        `• Actor: ${record.actor}\n` +
+        `• Action: ${record.action}\n` +
+        `• Target: ${record.target}\n` +
+        `• Keywords/Tags: ${tagsStr}\n` +
+        `• Priority: ${record.priority || 'normal'}\n` +
+        `• Source: ${record.source || 'unknown'}\n` +
+        `• Timestamp: ${new Date(record.timestamp).toLocaleString()}\n` +
+        `• Metadata: ${JSON.stringify(record.metadata, null, 2)}`
+    );
 }
 
 export function activate(context: vscode.ExtensionContext) {

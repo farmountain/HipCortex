@@ -11,6 +11,8 @@ import {
     activate,
     AddMemoryRequest,
     extractSemanticTags,
+    formatMemoryQuickPickItem,
+    formatMemoryDetailMessage,
 } from '../extension';
 import { TokenTracker } from '../token-tracker';
 
@@ -551,5 +553,60 @@ describe('extractSemanticTags', () => {
         expect(tags).toEqual(['typescript', 'auth', 'refactor']);
         const request: AddMemoryRequest = { actor: 'User', action: 'reviewed', target: 'auth.ts', tags };
         expect(request.tags).toHaveLength(3);
+    });
+});
+
+describe('memory display formatters', () => {
+    const baseRecord = {
+        id: 'rec-1',
+        record_type: 'Symbolic',
+        timestamp: '2026-07-17T00:00:00.000Z',
+        actor: 'vscode-user',
+        action: 'edited',
+        target: 'extension.ts (typescript, 100 lines)',
+        metadata: { workspace: 'HipCortex', source: 'vscode-auto-capture' },
+        priority: 'normal',
+        source: 'vscode-auto-capture',
+        tags: ['typescript', 'ts', 'auto-capture', 'core'],
+    } as any;
+
+    test('QuickPick label includes bracketed tags', () => {
+        const item = formatMemoryQuickPickItem(baseRecord);
+        expect(item.label).toBe(
+            'vscode-user → edited [typescript, ts, auto-capture, core]'
+        );
+        expect(item.description).toBe(baseRecord.target);
+        expect(item.record).toBe(baseRecord);
+    });
+
+    test('QuickPick label omits brackets when tags empty', () => {
+        const item = formatMemoryQuickPickItem({ ...baseRecord, tags: [] });
+        expect(item.label).toBe('vscode-user → edited');
+        expect(item.label).not.toContain('[');
+    });
+
+    test('QuickPick label omits brackets when tags undefined', () => {
+        const { tags, ...rest } = baseRecord;
+        const item = formatMemoryQuickPickItem(rest as any);
+        expect(item.label).toBe('vscode-user → edited');
+    });
+
+    test('QuickPick detail includes timestamp and workspace snippet', () => {
+        const item = formatMemoryQuickPickItem(baseRecord);
+        expect(item.detail).toContain('workspace: HipCortex');
+        // timestamp locale-dependent — just require non-empty detail
+        expect(item.detail.length).toBeGreaterThan(0);
+    });
+
+    test('detail message lists Keywords/Tags', () => {
+        const msg = formatMemoryDetailMessage(baseRecord);
+        expect(msg).toContain('Keywords/Tags: typescript, ts, auto-capture, core');
+        expect(msg).toContain('ID: rec-1');
+        expect(msg).toContain('Actor: vscode-user');
+    });
+
+    test('detail message shows None when no tags', () => {
+        const msg = formatMemoryDetailMessage({ ...baseRecord, tags: undefined });
+        expect(msg).toContain('Keywords/Tags: None');
     });
 });
