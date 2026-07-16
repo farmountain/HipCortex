@@ -1173,13 +1173,15 @@ export function activate(context: vscode.ExtensionContext) {
                 return;
             }
             const fileName = doc.fileName.split(/[\\/]/).pop() || doc.fileName;
+            const autoTags = await extractSemanticTags(doc, 200);
             await api.addMemory({
                 actor: 'vscode-user',
                 action: 'edited',
                 target: `${fileName} (${doc.languageId}, ${doc.lineCount} lines)`,
-                record_type: 'Symbolic',    // Changed from Temporal to Symbolic so file edits persist permanently without 24h expiration
-                priority: 'normal',         // Normal priority so file edits surface clearly in queries and the Quick Pick UI
+                record_type: 'Symbolic',
+                priority: 'normal',
                 source: 'vscode-auto-capture',
+                tags: autoTags,
                 metadata: { 
                     source: 'vscode-auto-capture', 
                     language_id: doc.languageId, 
