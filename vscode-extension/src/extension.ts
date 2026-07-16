@@ -1594,7 +1594,11 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
     console.log('🧠 HipCortex Memory Extension deactivated');
     if (globalServerProcess) {
-        globalServerProcess.kill();
+        try {
+            globalServerProcess.kill();
+        } catch {
+            // ignore — process may already be dead
+        }
         globalServerProcess = null;
     }
 }
