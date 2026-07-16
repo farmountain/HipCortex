@@ -846,13 +846,22 @@ Try any of the examples above, or just tell me about something you did today!
     }
 }
 
-/** Races a promise against a timeout. Returns null if timed out or errored. */
+/** Races a promise against a timeout. Returns null if timed out or errored. Clears timer on settle. */
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
     if (ms <= 0) { return null; }
-    return Promise.race([
-        promise.catch(() => null as T | null),
-        new Promise<null>(resolve => setTimeout(() => resolve(null), ms))
-    ]);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+        return await Promise.race([
+            promise.catch(() => null as T | null),
+            new Promise<null>(resolve => {
+                timer = setTimeout(() => resolve(null), ms);
+            })
+        ]);
+    } finally {
+        if (timer !== undefined) {
+            clearTimeout(timer);
+        }
+    }
 }
 
 /** Attempts to read the current git branch for the document's repo. Returns null on failure. */
@@ -937,33 +946,48 @@ export async function extractSemanticTags(
         [['scripts', 'tools'],                                                  'tooling'],
     ];
     for (const [patterns, tag] of pathHints) {
-        if (patterns.some(p => segs.some(s => s.includes(p)) || lowerPath.includes(p))) {
+        // Exact path segment (or segment.ext) for short tokens; dotted patterns (.test./.spec.) use path includes.
+        // Avoid s.includes(p) false positives e.g. "contest" matching "test".
+        if (patterns.some(p => {
+            if (p.includes('.')) {
+                return lowerPath.includes(p);
+            }
+            return segs.some(s => s === p || s.startsWith(p + '.'));
+        })) {
             tags.push(tag);
         }
     }
 
-    // Layers 3+4: Async (git branch + document symbols) within budget
-    const [branchResult, symbolsResult] = await Promise.all([
-        withTimeout(getGitBranch(doc), timeoutMs),
-        withTimeout(getDocumentSymbolTags(doc), timeoutMs),
-    ]);
-    if (branchResult) { tags.push(branchResult); }
-    if (symbolsResult && symbolsResult.length > 0) { tags.push(...symbolsResult); }
+    // Layers 3+4: Async (git branch + document symbols) within budget — do not start when timeoutMs <= 0
+    if (timeoutMs > 0) {
+        const [branchResult, symbolsResult] = await Promise.all([
+            withTimeout(getGitBranch(doc), timeoutMs),
+            withTimeout(getDocumentSymbolTags(doc), timeoutMs),
+        ]);
+        if (branchResult) { tags.push(branchResult); }
+        if (symbolsResult && symbolsResult.length > 0) { tags.push(...symbolsResult); }
+    }
 
     // Layer 5: Error diagnostics (sync)
+    let hasErrors = false;
     try {
         const diags = vscode.languages.getDiagnostics(doc.uri);
         if (diags.some(d => d.severity === vscode.DiagnosticSeverity.Error)) {
+            hasErrors = true;
             tags.push('has-errors');
         }
     } catch { /* skip in test environments */ }
 
-    // Deduplicate, lowercase, cap at 8
+    // Deduplicate, lowercase, cap at 8; reserve a slot for has-errors when present
     const seen = new Set<string>();
-    return tags
+    const deduped = tags
         .map(t => t.toLowerCase().replace(/\s+/g, '-'))
-        .filter(t => t.length > 0 && !seen.has(t) && seen.add(t))
-        .slice(0, 8);
+        .filter(t => t.length > 0 && !seen.has(t) && seen.add(t));
+
+    if (hasErrors && !deduped.slice(0, 8).includes('has-errors')) {
+        return [...deduped.slice(0, 7), 'has-errors'];
+    }
+    return deduped.slice(0, 8);
 }
 
 export function activate(context: vscode.ExtensionContext) {
