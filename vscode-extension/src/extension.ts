@@ -1386,29 +1386,17 @@ export function activate(context: vscode.ExtensionContext) {
         try {
             const api = new HipCortexAPI();
             const response = await api.queryMemory({ limit: 50 });
-            
-            const items = response.records.map(record => ({
-                label: `${record.actor} → ${record.action}`,
-                description: record.target,
-                detail: new Date(record.timestamp).toLocaleString(),
-                record
-            }));
-            
+
+            const items = response.records.map(record => formatMemoryQuickPickItem(record));
+
             const selected = await vscode.window.showQuickPick(items, {
                 placeHolder: 'Select a memory record to view details'
             });
-            
+
             if (selected) {
-                const record = selected.record;
-                const message = `**Memory Record**\\n\\n` +
-                    `ID: ${record.id}\\n` +
-                    `Actor: ${record.actor}\\n` +
-                    `Action: ${record.action}\\n` +
-                    `Target: ${record.target}\\n` +
-                    `Timestamp: ${new Date(record.timestamp).toLocaleString()}\\n` +
-                    `Metadata: ${JSON.stringify(record.metadata, null, 2)}`;
-                
-                vscode.window.showInformationMessage(message);
+                vscode.window.showInformationMessage(
+                    formatMemoryDetailMessage(selected.record)
+                );
             }
         } catch (error) {
             vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : String(error)}`);
