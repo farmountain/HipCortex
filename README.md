@@ -11,119 +11,7 @@
 **Persistent causal topological memory, recursive Bayesian world-model prediction (`/worldmodel/rollout`), and automatic FSM skill compilation for autonomous AI agents.**
 
 # Vision & Architecture
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>HipCortex Memory Engine — End-to-End Architecture</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
-<style>
-  :root {
-    --bg: #0f1115;
-    --panel: #171a21;
-    --border: #2a2f3a;
-    --text: #e6e8ec;
-    --muted: #8b93a3;
-    --accent: #7dd3fc;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  }
-  header {
-    padding: 28px 32px 16px 32px;
-    border-bottom: 1px solid var(--border);
-  }
-  header h1 {
-    margin: 0 0 6px 0;
-    font-size: 22px;
-    font-weight: 650;
-    letter-spacing: -0.01em;
-  }
-  header p {
-    margin: 0;
-    color: var(--muted);
-    font-size: 14px;
-    max-width: 900px;
-    line-height: 1.5;
-  }
-  .legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px 18px;
-    padding: 14px 32px;
-    border-bottom: 1px solid var(--border);
-    font-size: 12.5px;
-    color: var(--muted);
-  }
-  .legend span.dot {
-    display: inline-block;
-    width: 9px; height: 9px;
-    border-radius: 2px;
-    margin-right: 6px;
-    vertical-align: middle;
-  }
-  #diagram-wrap {
-    padding: 24px;
-    overflow: auto;
-  }
-  #diagram {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 24px;
-    min-width: 1400px;
-  }
-  .controls {
-    display: flex;
-    gap: 8px;
-    padding: 14px 32px 0 32px;
-  }
-  button {
-    background: var(--panel);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 6px 12px;
-    font-size: 13px;
-    cursor: pointer;
-  }
-  button:hover { border-color: var(--accent); color: var(--accent); }
-  footer {
-    padding: 10px 32px 28px 32px;
-    color: var(--muted);
-    font-size: 12px;
-  }
-</style>
-</head>
-<body>
-
-<header>
-  <h1>HipCortex Memory Engine — Full End-to-End Architecture</h1>
-  <p>Sensors → Perception → Memory Hierarchy → five POC-derived cognitive engines (CausalTopoGraph, WorldModelEnhanced,
-     SkillGraph, ConstraintEnforcer, Continual Learning Substrate) → Executive Agent → Action, with the exposed
-     API surface and the nightly regression-safety observability loop.</p>
-</header>
-
-<div class="legend">
-  <div><span class="dot" style="background:#7dd3fc"></span>Input / Perception</div>
-  <div><span class="dot" style="background:#a7f3d0"></span>Memory Hierarchy (TemporalIndexer)</div>
-  <div><span class="dot" style="background:#fde68a"></span>Core Cognitive Engines (POC1–5)</div>
-  <div><span class="dot" style="background:#fca5a5"></span>Executive Agent</div>
-  <div><span class="dot" style="background:#d8b4fe"></span>Action / Interface / Observability</div>
-</div>
-
-<div class="controls">
-  <button onclick="zoom(1.15)">Zoom in</button>
-  <button onclick="zoom(0.87)">Zoom out</button>
-  <button onclick="resetZoom()">Reset</button>
-</div>
-
-<div id="diagram-wrap">
-  <div id="diagram" class="mermaid">
+```mermaid
 flowchart TB
 
     %% ============ SENSORS / INPUT ============
@@ -288,44 +176,10 @@ flowchart TB
     class CTG1,CTG2,CTG3,CTG4,WME1,WME2,WME3,WME4,WME5,SKG1,SKG2,SKG3,SKG4,CE1,CE2,CE3,CE4,CL1,CL2,CL3,CL4,CL5 engineStyle;
     class EX1,EX2,EX3,EX4,EX5,EX6 execStyle;
     class A1,A2,I1,I2,I3,I4,I5,O1 actionStyle;
-  </div>
-</div>
+```
 
-<footer>
-  HipCortex (github.com/farmountain/HipCortex) — architecture derived from the 5 validated POCs (causal world models,
-  continual learning, neuro-symbolic integration, skill acquisition, belief coherence). See the companion gap analysis
-  for what closes the module-level gaps vs. what remains open at the system level.
-</footer>
 
-<script>
-  mermaid.initialize({
-    startOnLoad: true,
-    theme: "dark",
-    themeVariables: {
-      background: "#171a21",
-      primaryColor: "#1f2430",
-      primaryTextColor: "#e6e8ec",
-      primaryBorderColor: "#2a2f3a",
-      lineColor: "#5b6472",
-      secondaryColor: "#1f2430",
-      tertiaryColor: "#1f2430",
-      fontSize: "14px"
-    },
-    flowchart: { curve: "basis", useMaxWidth: false, nodeSpacing: 40, rankSpacing: 55 }
-  });
 
-  let scale = 1;
-  function applyZoom() {
-    const d = document.getElementById('diagram');
-    d.style.transform = `scale(${scale})`;
-    d.style.transformOrigin = 'top left';
-  }
-  function zoom(factor) { scale *= factor; applyZoom(); }
-  function resetZoom() { scale = 1; applyZoom(); }
-</script>
-
-</body>
-</html>
 
 Runs locally as a **single `4 MB` zero-dependency compiled Rust binary (`webserver.exe`)** with sub-millisecond writes (`0.48–0.61 ms p50`), SHA-256 Merkle audit chains, and adaptive context budgeting (`WorkingSetBroker`).
 
