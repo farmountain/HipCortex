@@ -10,6 +10,323 @@
 
 **Persistent causal topological memory, recursive Bayesian world-model prediction (`/worldmodel/rollout`), and automatic FSM skill compilation for autonomous AI agents.**
 
+# Vision & Architecture
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>HipCortex Memory Engine — End-to-End Architecture</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --border: #2a2f3a;
+    --text: #e6e8ec;
+    --muted: #8b93a3;
+    --accent: #7dd3fc;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  header {
+    padding: 28px 32px 16px 32px;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 {
+    margin: 0 0 6px 0;
+    font-size: 22px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+  header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+    max-width: 900px;
+    line-height: 1.5;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    padding: 14px 32px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .legend span.dot {
+    display: inline-block;
+    width: 9px; height: 9px;
+    border-radius: 2px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  #diagram-wrap {
+    padding: 24px;
+    overflow: auto;
+  }
+  #diagram {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    min-width: 1400px;
+  }
+  .controls {
+    display: flex;
+    gap: 8px;
+    padding: 14px 32px 0 32px;
+  }
+  button {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  footer {
+    padding: 10px 32px 28px 32px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>HipCortex Memory Engine — Full End-to-End Architecture</h1>
+  <p>Sensors → Perception → Memory Hierarchy → five POC-derived cognitive engines (CausalTopoGraph, WorldModelEnhanced,
+     SkillGraph, ConstraintEnforcer, Continual Learning Substrate) → Executive Agent → Action, with the exposed
+     API surface and the nightly regression-safety observability loop.</p>
+</header>
+
+<div class="legend">
+  <div><span class="dot" style="background:#7dd3fc"></span>Input / Perception</div>
+  <div><span class="dot" style="background:#a7f3d0"></span>Memory Hierarchy (TemporalIndexer)</div>
+  <div><span class="dot" style="background:#fde68a"></span>Core Cognitive Engines (POC1–5)</div>
+  <div><span class="dot" style="background:#fca5a5"></span>Executive Agent</div>
+  <div><span class="dot" style="background:#d8b4fe"></span>Action / Interface / Observability</div>
+</div>
+
+<div class="controls">
+  <button onclick="zoom(1.15)">Zoom in</button>
+  <button onclick="zoom(0.87)">Zoom out</button>
+  <button onclick="resetZoom()">Reset</button>
+</div>
+
+<div id="diagram-wrap">
+  <div id="diagram" class="mermaid">
+flowchart TB
+
+    %% ============ SENSORS / INPUT ============
+    subgraph INPUT["INPUT LAYER"]
+        direction LR
+        S1[Text]
+        S2[Speech]
+        S3[Vision]
+        S4[Software Events]
+        S5[API Calls]
+        S6[Files]
+    end
+
+    %% ============ PERCEPTION ============
+    subgraph PERCEPTION["PERCEPTION LAYER"]
+        EE[Event Encoder]
+        EB[Episode Builder]
+        SS["✅ SymbolicStore<br/>neural predicate detectors -> calibrated confidences, NOT decisions"]
+    end
+
+    INPUT --> EE --> EB --> SS
+
+    %% ============ MEMORY HIERARCHY ============
+    subgraph MEMHIER["MEMORY HIERARCHY — managed by TemporalIndexer (decay + consolidation)"]
+        direction TB
+        M1[✅ Raw Events]
+        M2[✅ Episodes]
+        M3[✅ Concepts]
+        M4["🆕 Skills (NEW: SkillGraph)"]
+        M5[✅ Beliefs]
+        M6[✅ World Model]
+        M7["✅ Identity (SelfModel)"]
+        M1 --> M2 --> M3 --> M4 --> M5 --> M6 --> M7
+    end
+
+    SS --> M1
+
+    %% ============ CORE ENGINES ============
+    subgraph ENGINES["CORE COGNITIVE ENGINES"]
+
+        subgraph CTG["CausalTopoGraph — POC1: causal world models"]
+            CTG1["✅ Concept Graph (DAG over concepts)"]
+            CTG2["🆕 estimate_causal_effect(adjustment=backdoor)"]
+            CTG3["🆕 predict_under_intervention(do_T=...)"]
+            CTG4["🆕 intervention_robustness_score metric"]
+            CTG1 --> CTG2 --> CTG3 --> CTG4
+        end
+
+        subgraph WME["WorldModelEnhanced — POC5: belief coherence"]
+            WME1["✅ State Transition F(S(t), A) -> S(t+1)"]
+            WME2["✅ Static Bayesian accumulator (Beta / Dirichlet / Kalman)"]
+            WME3["🆕 Discounted / forgetting filter (lambda-tunable)"]
+            WME4["🆕 regime_change_detection_latency metric"]
+            WME5["🆕 belief_coherence_error metric (Bayes-identity check)"]
+            WME1 --> WME2
+            WME1 --> WME3
+            WME3 --> WME4
+            WME2 --> WME5
+            WME3 --> WME5
+        end
+
+        subgraph SKG["SkillGraph + LoopEngine + ProceduralCache — POC4: skill acquisition"]
+            SKG1["✅ Loop / FSM traces (existing)"]
+            SKG2["🆕 discover_skills(trace): MDL / BPE merge, reward-free"]
+            SKG3["🆕 Hierarchical macro-skill library + provenance"]
+            SKG4["🆕 planning_token_reduction_pct(held_out_tasks) metric"]
+            SKG1 --> SKG2 --> SKG3 --> SKG4
+        end
+
+        subgraph CE["ConstraintEnforcer + SafetyGuardrail + CoherenceChecker — POC3: neuro-symbolic"]
+            CE1["✅ Predicate confidences (from SymbolicStore)"]
+            CE2["🆕 Forward-chaining rule base (Horn clauses)"]
+            CE3["🆕 Hard-constraint derivation (e.g. escalate := review AND prior_flag)"]
+            CE4["🆕 violation_rate monitor (target: 0, structurally)"]
+            CE1 --> CE2 --> CE3 --> CE4
+        end
+
+        subgraph CL["Continual Learning Substrate — POC2: catastrophic forgetting<br/>cross-cutting: lives inside TemporalIndexer + SelfModel + WorldModelEnhanced"]
+            CL1["🆕 Online Fisher / importance tracking"]
+            CL2["🆕 EWC-style consolidation penalty"]
+            CL3["🆕 Small replay buffer of critical episodes"]
+            CL4["🆕 continual_consolidate() / reflect endpoint"]
+            CL5["🆕 retention_metric: Task-A accuracy after Task-B"]
+            CL1 --> CL2 --> CL4
+            CL3 --> CL4 --> CL5
+        end
+    end
+
+    M3 --> CTG1
+    M5 --> WME1
+    M4 --> SKG1
+    SS --> CE1
+    M4 --> CL1
+    M6 --> CL1
+
+    %% ============ EXECUTIVE AGENT ============
+    subgraph EXEC["EXECUTIVE AGENT — small, orchestration only"]
+        EX1[Goal Selection]
+        EX2[Task Decomposition]
+        EX3["Planning (consumes SkillGraph macro-actions)"]
+        EX4["Conflict Resolution (consults ConstraintEnforcer)"]
+        EX5["Consequence Prediction (consults CausalTopoGraph + WorldModelEnhanced)"]
+        EX6[Scheduling]
+        EX1 --> EX2 --> EX3
+        EX3 --> EX4
+        EX3 --> EX5
+        EX4 --> EX6
+        EX5 --> EX6
+    end
+
+    CTG4 --> EX5
+    WME5 --> EX5
+    SKG3 --> EX3
+    CE3 --> EX4
+    CL5 -.->|governs whether to update| EX2
+
+    %% ============ ACTION LAYER ============
+    subgraph ACTION["ACTION LAYER"]
+        A1[✅ Tool calls / API / MCP servers]
+        A2["🆕 Environment actions do(X)"]
+    end
+    EXEC --> A1
+    EXEC --> A2
+
+    %% ============ EXPOSED INTERFACE ============
+    subgraph IFACE["EXPOSED INTERFACE — REST / gRPC / MCP"]
+        I1[🆕 causal_intervene]
+        I2[🆕 discover_hierarchical_skills]
+        I3[🆕 update_beliefs_adaptively]
+        I4[🆕 enforce_structural_constraints]
+        I5[🆕 continual_reflect]
+    end
+    CTG3 -.-> I1
+    SKG2 -.-> I2
+    WME3 -.-> I3
+    CE3 -.-> I4
+    CL4 -.-> I5
+
+    %% ============ FEEDBACK LOOP ============
+    A2 -->|outcome becomes new evidence| M1
+    A1 -->|outcome becomes new evidence| M1
+
+    %% ============ OBSERVABILITY ============
+    subgraph OBS["OBSERVABILITY / REGRESSION SAFETY NET"]
+        O1["🆕 nightly POC validation job<br/>asserts CTG4, WME4/5, SKG4, CE4, CL5 don't regress below POC baselines"]
+    end
+    CTG4 --> O1
+    WME4 --> O1
+    WME5 --> O1
+    SKG4 --> O1
+    CE4 --> O1
+    CL5 --> O1
+
+    classDef inputStyle fill:#7dd3fc,stroke:#0369a1,color:#0b1220,font-weight:600;
+    classDef memStyle fill:#a7f3d0,stroke:#047857,color:#0b1220,font-weight:600;
+    classDef engineStyle fill:#fde68a,stroke:#b45309,color:#0b1220,font-weight:600;
+    classDef execStyle fill:#fca5a5,stroke:#b91c1c,color:#0b1220,font-weight:600;
+    classDef actionStyle fill:#d8b4fe,stroke:#7e22ce,color:#0b1220,font-weight:600;
+
+    class S1,S2,S3,S4,S5,S6,EE,EB,SS inputStyle;
+    class M1,M2,M3,M4,M5,M6,M7 memStyle;
+    class CTG1,CTG2,CTG3,CTG4,WME1,WME2,WME3,WME4,WME5,SKG1,SKG2,SKG3,SKG4,CE1,CE2,CE3,CE4,CL1,CL2,CL3,CL4,CL5 engineStyle;
+    class EX1,EX2,EX3,EX4,EX5,EX6 execStyle;
+    class A1,A2,I1,I2,I3,I4,I5,O1 actionStyle;
+  </div>
+</div>
+
+<footer>
+  HipCortex (github.com/farmountain/HipCortex) — architecture derived from the 5 validated POCs (causal world models,
+  continual learning, neuro-symbolic integration, skill acquisition, belief coherence). See the companion gap analysis
+  for what closes the module-level gaps vs. what remains open at the system level.
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: "dark",
+    themeVariables: {
+      background: "#171a21",
+      primaryColor: "#1f2430",
+      primaryTextColor: "#e6e8ec",
+      primaryBorderColor: "#2a2f3a",
+      lineColor: "#5b6472",
+      secondaryColor: "#1f2430",
+      tertiaryColor: "#1f2430",
+      fontSize: "14px"
+    },
+    flowchart: { curve: "basis", useMaxWidth: false, nodeSpacing: 40, rankSpacing: 55 }
+  });
+
+  let scale = 1;
+  function applyZoom() {
+    const d = document.getElementById('diagram');
+    d.style.transform = `scale(${scale})`;
+    d.style.transformOrigin = 'top left';
+  }
+  function zoom(factor) { scale *= factor; applyZoom(); }
+  function resetZoom() { scale = 1; applyZoom(); }
+</script>
+
+</body>
+</html>
+
 Runs locally as a **single `4 MB` zero-dependency compiled Rust binary (`webserver.exe`)** with sub-millisecond writes (`0.48–0.61 ms p50`), SHA-256 Merkle audit chains, and adaptive context budgeting (`WorkingSetBroker`).
 
 ---
