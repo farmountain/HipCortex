@@ -22,6 +22,8 @@ yarn-error.log*
 # VS Code extension build artifacts
 vscode-extension/out/
 vscode-extension/dist/
+# Platform server binaries from npm run fetch-bins (not committed)
+vscode-extension/server/
 
 # SQLite files
 *.db
