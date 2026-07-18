@@ -9,7 +9,7 @@ Legend:
 | **Y** | First-class API / tool / method on this surface |
 | **N** | Not exposed |
 | **partial** | Indirect / session-only / subset of full op |
-| **planned** | Intended next (see Phase 4B for MCP reflect/predict) |
+| **planned** | Intended next (see Known surface gaps) |
 | **bg** | Server-side background only (no request API) |
 
 Columns:
@@ -40,8 +40,8 @@ Columns:
 | delete | Y | Y | Y | Y | N | N | N | N | MCP: `delete_memory` (single id); not GDPR forget |
 | stats | Y | Y | Y | Y | N | N | N | N | MCP: `get_stats` |
 | health | Y | N | Y | Y | Y | Y | N | N | MCP gap; VS Code LM: `hipcortex_health` |
-| reflect | Y | **N** | N | N | partial | N | N | N | REST `POST /memory/reflect`. MCP **planned** Phase 4B. VS Code API client has `reflect()` used internally |
-| predict | Y | **N** | N | N | Y | Y | N | N | REST `/worldmodel/predict`. MCP **planned** Phase 4B. VS Code LM: `hipcortex_predict` |
+| reflect | Y | Y | N | N | partial | N | N | N | REST `POST /memory/reflect`. MCP: `reflect`. VS Code API client has `reflect()` used internally |
+| predict | Y | Y | N | N | Y | Y | N | N | REST `POST/GET /worldmodel/predict`. MCP: `predict` (state+action). VS Code LM: `hipcortex_predict` |
 | rollout | Y | N | Y | Y | Y | N | N | N | REST `POST /worldmodel/rollout`; VS Code LM: `hipcortex_rollout` |
 | purge | bg | Y | N | N | N | N | N | N | REST: background TTL eviction only (no dedicated route). MCP: `purge_expired` |
 | search_code | Y | Y | N | N | N | N | N | N | REST `GET /graph/search`; MCP: `search_code` |
@@ -63,18 +63,19 @@ Checker `scripts/check_capabilities.py` greps these names from `TOOLS` and requi
 | `delete_memory` | delete | Y |
 | `get_live_beliefs` | live_beliefs | Y |
 | `purge_expired` | purge | Y |
+| `reflect` | reflect | Y |
+| `predict` | predict | Y |
 
-**Not in MCP `TOOLS` today (honest gaps):** `reflect`, `predict` / `worldmodel_predict`, `rollout`, `health`, dedicated `query` tool.
+**Not in MCP `TOOLS` today (honest gaps):** `rollout`, `health`, dedicated `query` tool.
 
 MCP serverInfo version in `sdk/mcp/server.py`: **0.5.0**.
 
 ## Known surface gaps (priority)
 
-1. **MCP reflect + predict** — REST has both; Phase 4B adds MCP tools; then flip matrix to Y.
-2. **MCP health / rollout** — available on REST + SDKs + VS Code LM (rollout/health) but not MCP.
-3. **Python/TS SDK** — no `reflect`, no single-step `predict` (rollout only on both SDKs); TS missing `live_beliefs`.
-4. **LangChain / CrewAI** — memory chat adapters only (add/query/forget style); no graph/WM/intelligence ops.
-5. **VS Code LM** — strong on search/health/predict/rollout/graph; no first-class add/forget/delete LM tools (commands cover add/query).
+1. **MCP health / rollout** — available on REST + SDKs + VS Code LM (rollout/health) but not MCP.
+2. **Python/TS SDK** — no `reflect`, no single-step `predict` (rollout only on both SDKs); TS missing `live_beliefs`.
+3. **LangChain / CrewAI** — memory chat adapters only (add/query/forget style); no graph/WM/intelligence ops.
+4. **VS Code LM** — strong on search/health/predict/rollout/graph; no first-class add/forget/delete LM tools (commands cover add/query).
 
 ## How to re-check
 

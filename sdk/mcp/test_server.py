@@ -65,6 +65,8 @@ def test_tools_list():
         "delete_memory",
         "get_live_beliefs",
         "purge_expired",
+        "reflect",
+        "predict",
     }
 
 
@@ -123,3 +125,60 @@ def test_initialized_notification_no_response():
     # Only initialize response, nothing for initialized notification
     assert len(resp) == 1
     assert resp[0]["id"] == 1
+
+
+def test_tools_call_reflect():
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = {
+        "hypothesis": "Prefer JWT for stateless APIs",
+        "confidence": 0.72,
+        "evidence": ["prior decision on auth"],
+        "loops_run": 1,
+        "llm_available": False,
+        "is_fallback": False,
+    }
+    mock_resp.raise_for_status = MagicMock()
+    with patch("requests.post", return_value=mock_resp) as mock_post:
+        resp = _call_server([
+            json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                        "params": {"protocolVersion": "2024-11-05", "capabilities": {}}}),
+            json.dumps({"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                        "params": {"name": "reflect",
+                                   "arguments": {"query": "auth strategy"}}}),
+        ])
+    call_resp = next(r for r in resp if r.get("id") == 2)
+    text = call_resp["result"]["content"][0]["text"]
+    assert "Prefer JWT" in text
+    assert "0.72" in text
+    mock_post.assert_called()
+    args, kwargs = mock_post.call_args
+    assert args[0].endswith("/memory/reflect")
+    assert kwargs.get("json") == {"query": "auth strategy"}
+
+
+def test_tools_call_predict():
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = {
+        "from_state": "degraded",
+        "action": "scale_out",
+        "probabilities": {"healthy": 0.6, "degraded": 0.4},
+        "entropy": 0.97,
+        "observation_count": 12,
+    }
+    mock_resp.raise_for_status = MagicMock()
+    with patch("requests.post", return_value=mock_resp) as mock_post:
+        resp = _call_server([
+            json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                        "params": {"protocolVersion": "2024-11-05", "capabilities": {}}}),
+            json.dumps({"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                        "params": {"name": "predict",
+                                   "arguments": {"state": "degraded", "action": "scale_out"}}}),
+        ])
+    call_resp = next(r for r in resp if r.get("id") == 2)
+    text = call_resp["result"]["content"][0]["text"]
+    assert "healthy" in text
+    assert "0.6" in text
+    mock_post.assert_called()
+    args, kwargs = mock_post.call_args
+    assert args[0].endswith("/worldmodel/predict")
+    assert kwargs.get("json") == {"state": "degraded", "action": "scale_out"}

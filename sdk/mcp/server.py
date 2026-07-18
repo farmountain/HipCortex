@@ -223,6 +223,45 @@ TOOLS = [
         "description": "Trigger purge of all TTL-expired memory records from the store.",
         "inputSchema": {"type": "object", "properties": {}},
     },
+    {
+        "name": "reflect",
+        "description": (
+            "Substrate-first CoT / Bayesian hypothesis sampling via AureusBridge. "
+            "POST /memory/reflect — search memory context, sample hypotheses with confidence. "
+            "Use for uncertain architectural decisions or counterfactual reasoning before final answer."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "required": ["query"],
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "What to reflect on (e.g. 'Postgres vs RocksDB for session store')",
+                },
+            },
+        },
+    },
+    {
+        "name": "predict",
+        "description": (
+            "World-model single-step prediction P(s'|s,a). "
+            "POST /worldmodel/predict with state + action; returns next-state probabilities + entropy."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "required": ["state", "action"],
+            "properties": {
+                "state": {
+                    "type": "string",
+                    "description": "Current world-model state label",
+                },
+                "action": {
+                    "type": "string",
+                    "description": "Action applied from that state",
+                },
+            },
+        },
+    },
 ]
 
 # ---------------------------------------------------------------------------
@@ -404,19 +443,74 @@ def handle_purge_expired(_args: dict) -> str:
     return f"✓ Purge completed. Deleted {deleted} expired records."
 
 
+def handle_reflect(args: dict) -> str:
+    query = args["query"]
+    result = _post("/memory/reflect", {"query": query})
+    if "error" in result and "hypothesis" not in result:
+        return f"✗ Reflect failed: {result.get('error')}"
+    hyp = result.get("hypothesis", "")
+    conf = result.get("confidence", 0)
+    evidence = result.get("evidence", [])
+    loops = result.get("loops_run", 0)
+    llm = result.get("llm_available", False)
+    fallback = result.get("is_fallback", False)
+    lines = [
+        f"Reflect on: {query}",
+        f"  Hypothesis:  {hyp}",
+        f"  Confidence:  {conf}",
+        f"  Loops run:   {loops}",
+        f"  LLM:         {'available' if llm else 'unavailable'}",
+        f"  Fallback:    {fallback}",
+    ]
+    if evidence:
+        lines.append("  Evidence:")
+        for e in evidence if isinstance(evidence, list) else [evidence]:
+            lines.append(f"    • {e}")
+    return "\n".join(lines)
+
+
+def handle_predict(args: dict) -> str:
+    state = args["state"]
+    action = args["action"]
+    result = _post("/worldmodel/predict", {"state": state, "action": action})
+    if "error" in result and "probabilities" not in result:
+        return f"✗ Predict failed: {result.get('error')}"
+    probs = result.get("probabilities", {})
+    entropy = result.get("entropy", 0)
+    obs = result.get("observation_count", 0)
+    from_state = result.get("from_state", state)
+    lines = [
+        f"Predict P(s'|{from_state}, {result.get('action', action)}):",
+        f"  Entropy:            {entropy}",
+        f"  Observation count:  {obs}",
+    ]
+    if probs:
+        lines.append("  Next-state probabilities:")
+        if isinstance(probs, dict):
+            for s, p in sorted(probs.items(), key=lambda x: -float(x[1]) if x[1] is not None else 0):
+                lines.append(f"    • {s}: {p}")
+        else:
+            lines.append(f"    {probs}")
+    else:
+        lines.append("  (no probability mass — observe transitions first)")
+    return "\n".join(lines)
+
+
 def dispatch_tool(name: str, args: dict) -> str:
     handlers = {
-        "add_memory":      handle_add_memory,
-        "search_memory":   handle_search_memory,
-        "forget_actor":    handle_forget_actor,
-        "get_stats":       handle_get_stats,
-        "search_code":     handle_search_code,
-        "link_memories":   handle_link_memories,
-        "get_neighbors":   handle_get_neighbors,
-        "search_related":  handle_search_related,
-        "delete_memory":   handle_delete_memory,
+        "add_memory":       handle_add_memory,
+        "search_memory":    handle_search_memory,
+        "forget_actor":     handle_forget_actor,
+        "get_stats":        handle_get_stats,
+        "search_code":      handle_search_code,
+        "link_memories":    handle_link_memories,
+        "get_neighbors":    handle_get_neighbors,
+        "search_related":   handle_search_related,
+        "delete_memory":    handle_delete_memory,
         "get_live_beliefs": handle_get_live_beliefs,
         "purge_expired":    handle_purge_expired,
+        "reflect":          handle_reflect,
+        "predict":          handle_predict,
     }
     handler = handlers.get(name)
     if handler is None:
