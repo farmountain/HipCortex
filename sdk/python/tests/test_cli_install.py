@@ -692,3 +692,215 @@ def test_cmd_install_prints_summary_counts(tmp_path, monkeypatch, capsys):
     assert "created" in out
     assert "unchanged" in out
 
+
+# ─── Phase 6A: Antigravity / Hermes / OpenClaw ────────────────────────────────
+
+
+def test_install_antigravity_writes_mcp_config(tmp_path):
+    """Antigravity creates ~/.gemini/antigravity/mcp_config.json with mcpServers."""
+    home = tmp_path / "home"
+    home.mkdir()
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import INSTALL_CREATED, INSTALL_UNCHANGED, _desired_mcp_entry, _install_antigravity
+
+        first = _install_antigravity("http://127.0.0.1:3030")
+        second = _install_antigravity("http://127.0.0.1:3030")
+        expected = _desired_mcp_entry("http://127.0.0.1:3030")
+
+    assert first == INSTALL_CREATED
+    assert second == INSTALL_UNCHANGED
+    mcp = home / ".gemini" / "antigravity" / "mcp_config.json"
+    assert mcp.is_file()
+    cfg = json.loads(mcp.read_text(encoding="utf-8"))
+    assert cfg["mcpServers"]["hipcortex"] == expected
+
+
+def test_uninstall_antigravity_removes_entry(tmp_path):
+    home = tmp_path / "home"
+    mcp_dir = home / ".gemini" / "antigravity"
+    mcp_dir.mkdir(parents=True)
+    (mcp_dir / "mcp_config.json").write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "hipcortex": {"command": "x", "args": []},
+                    "other": {"command": "y"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import _uninstall_antigravity
+
+        assert _uninstall_antigravity() is True
+
+    cfg = json.loads((mcp_dir / "mcp_config.json").read_text(encoding="utf-8"))
+    assert "hipcortex" not in cfg["mcpServers"]
+    assert "other" in cfg["mcpServers"]
+
+
+def test_install_hermes_skips_without_dir(tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import INSTALL_SKIPPED, _install_hermes
+
+        assert _install_hermes("http://127.0.0.1:3030") == INSTALL_SKIPPED
+
+
+def test_install_hermes_merges_config_yaml(tmp_path):
+    home = tmp_path / "home"
+    hermes = home / ".hermes"
+    hermes.mkdir(parents=True)
+    (hermes / "config.yaml").write_text(
+        "model: gpt\nmcp_servers:\n  other:\n    command: echo\n",
+        encoding="utf-8",
+    )
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import (
+            INSTALL_CREATED,
+            INSTALL_UNCHANGED,
+            _desired_mcp_entry,
+            _install_hermes,
+        )
+
+        first = _install_hermes("http://127.0.0.1:3030")
+        second = _install_hermes("http://127.0.0.1:3030")
+        entry = _desired_mcp_entry("http://127.0.0.1:3030")
+
+    assert first == INSTALL_CREATED
+    assert second == INSTALL_UNCHANGED
+    text = (hermes / "config.yaml").read_text(encoding="utf-8")
+    assert "hipcortex:" in text
+    assert "other:" in text  # preserved
+    assert entry["args"][0] in text
+    assert entry["env"]["HIPCORTEX_URL"] in text
+
+
+def test_uninstall_hermes_removes_block(tmp_path):
+    home = tmp_path / "home"
+    hermes = home / ".hermes"
+    hermes.mkdir(parents=True)
+    (hermes / "config.yaml").write_text(
+        "mcp_servers:\n  hipcortex:\n    command: python\n    args: [x]\n  keep:\n    command: y\n",
+        encoding="utf-8",
+    )
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import _uninstall_hermes
+
+        assert _uninstall_hermes() is True
+
+    text = (hermes / "config.yaml").read_text(encoding="utf-8")
+    assert "hipcortex:" not in text
+    assert "keep:" in text
+
+
+def test_install_openclaw_skips_without_dir(tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import INSTALL_SKIPPED, _install_openclaw
+
+        assert _install_openclaw("http://127.0.0.1:3030") == INSTALL_SKIPPED
+
+
+def test_install_openclaw_merges_mcp_servers(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    oc = home / ".openclaw"
+    oc.mkdir(parents=True)
+    (oc / "openclaw.json").write_text(
+        json.dumps({"mcp": {"servers": {"other": {"command": "z"}}}}),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("OPENCLAW_CONFIG_PATH", raising=False)
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import (
+            INSTALL_CREATED,
+            INSTALL_UNCHANGED,
+            _desired_mcp_entry,
+            _install_openclaw,
+        )
+
+        first = _install_openclaw("http://127.0.0.1:3030")
+        second = _install_openclaw("http://127.0.0.1:3030")
+        expected = _desired_mcp_entry("http://127.0.0.1:3030")
+
+    assert first == INSTALL_CREATED
+    assert second == INSTALL_UNCHANGED
+    cfg = json.loads((oc / "openclaw.json").read_text(encoding="utf-8"))
+    assert "other" in cfg["mcp"]["servers"]
+    assert cfg["mcp"]["servers"]["hipcortex"] == expected
+
+
+def test_install_openclaw_json5_fallback_sidecar(tmp_path, monkeypatch, capsys):
+    """Non-JSON openclaw.json → sidecar + openclaw mcp add hint."""
+    home = tmp_path / "home"
+    oc = home / ".openclaw"
+    oc.mkdir(parents=True)
+    (oc / "openclaw.json").write_text(
+        '{\n  // comment\n  "mcp": {}\n}\n',
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("OPENCLAW_CONFIG_PATH", raising=False)
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import INSTALL_CREATED, _install_openclaw
+
+        status = _install_openclaw("http://127.0.0.1:3030")
+
+    assert status == INSTALL_CREATED
+    sidecar = oc / "openclaw.hipcortex.mcp.json"
+    assert sidecar.is_file()
+    out = capsys.readouterr().out
+    assert "openclaw mcp add hipcortex" in out
+    assert "HIPCORTEX_URL=" in out
+
+
+def test_uninstall_openclaw_removes_server(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    oc = home / ".openclaw"
+    oc.mkdir(parents=True)
+    (oc / "openclaw.json").write_text(
+        json.dumps(
+            {
+                "mcp": {
+                    "servers": {
+                        "hipcortex": {"command": "x", "args": []},
+                        "keep": {"command": "y"},
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("OPENCLAW_CONFIG_PATH", raising=False)
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import _uninstall_openclaw
+
+        assert _uninstall_openclaw() is True
+
+    cfg = json.loads((oc / "openclaw.json").read_text(encoding="utf-8"))
+    assert "hipcortex" not in cfg["mcp"]["servers"]
+    assert "keep" in cfg["mcp"]["servers"]
+
+
+def test_registry_includes_phase6a_hosts():
+    """_build_agent_registry lists antigravity, hermes, openclaw, grok-build."""
+    from hipcortex.cli import _build_agent_registry
+
+    agents = _build_agent_registry("http://127.0.0.1:3030", sys.executable)
+    ids = {a["id"] for a in agents}
+    assert {"antigravity", "hermes", "openclaw", "grok-build"} <= ids
+    by_id = {a["id"]: a for a in agents}
+    assert by_id["antigravity"]["type"] == "mcp"
+    assert by_id["hermes"]["type"] == "mcp"
+    assert by_id["openclaw"]["type"] == "mcp"
+    assert by_id["grok-build"]["type"] == "guide"
+
+
+def test_known_uninstall_channels_phase6a():
+    from hipcortex.cli import KNOWN_UNINSTALL_CHANNELS
+
+    for ch in ("antigravity", "hermes", "openclaw"):
+        assert ch in KNOWN_UNINSTALL_CHANNELS
+

@@ -60,6 +60,9 @@ KNOWN_UNINSTALL_CHANNELS = (
     "vscode",
     "cline",
     "roocode",
+    "antigravity",
+    "hermes",
+    "openclaw",
 )
 
 # ─── Platform detection ───────────────────────────────────────────────────────
@@ -410,6 +413,227 @@ def _uninstall_mcp_path(mcp_path: Path) -> bool:
     return _remove_mcp_entry(mcp_path)
 
 
+# ─── Antigravity / Hermes / OpenClaw MCP hosts ────────────────────────────────
+
+def _antigravity_mcp_path() -> Path:
+    return Path.home() / ".gemini" / "antigravity" / "mcp_config.json"
+
+
+def _install_antigravity(server_url: str) -> str:
+    """Write ~/.gemini/antigravity/mcp_config.json (mcpServers shape, like Cursor)."""
+    try:
+        return _write_mcp_servers(_antigravity_mcp_path(), server_url)
+    except PermissionError:
+        return INSTALL_SKIPPED
+
+
+def _uninstall_antigravity() -> bool:
+    return _remove_mcp_entry(_antigravity_mcp_path())
+
+
+def _hermes_hipcortex_yaml(entry: dict) -> str:
+    """2-space-indented hipcortex block under mcp_servers (no PyYAML)."""
+    cmd = json.dumps(entry["command"])
+    arg0 = json.dumps(entry["args"][0])
+    url = json.dumps(entry["env"]["HIPCORTEX_URL"])
+    return (
+        f"  hipcortex:\n"
+        f"    command: {cmd}\n"
+        f"    args: [{arg0}]\n"
+        f"    env:\n"
+        f"      HIPCORTEX_URL: {url}\n"
+    )
+
+
+def _hermes_entry_matches(text: str, entry: dict) -> bool:
+    """True if config.yaml already has hipcortex with same command/args/url."""
+    if "hipcortex:" not in text:
+        return False
+    return (
+        entry["command"] in text
+        and entry["args"][0] in text
+        and entry["env"]["HIPCORTEX_URL"] in text
+    )
+
+
+def _hermes_merge_yaml(text: str, entry: dict) -> str:
+    """Insert or replace  hipcortex: under mcp_servers in YAML text."""
+    import re
+
+    block = _hermes_hipcortex_yaml(entry)
+    # Replace existing hipcortex sub-key (2-space indent, body at 4+ spaces)
+    if re.search(r"(?m)^  hipcortex:\s*$", text):
+        return re.sub(
+            r"(?m)^  hipcortex:\s*\n(?:[ ]{4,}.*\n)*",
+            block,
+            text,
+            count=1,
+        )
+    if re.search(r"(?m)^mcp_servers:\s*$", text) or re.search(
+        r"(?m)^mcp_servers:\s+", text
+    ):
+        return re.sub(
+            r"(?m)^(mcp_servers:\s*\n)",
+            r"\1" + block,
+            text,
+            count=1,
+        )
+    # No mcp_servers key — append section
+    return text.rstrip() + "\n\nmcp_servers:\n" + block
+
+
+def _install_hermes(server_url: str) -> str:
+    """Merge mcp_servers.hipcortex into ~/.hermes/config.yaml (no PyYAML dep).
+
+    Skips if ~/.hermes does not exist (user must install Hermes first).
+    """
+    hermes_dir = Path.home() / ".hermes"
+    if not hermes_dir.is_dir():
+        return INSTALL_SKIPPED
+
+    path = hermes_dir / "config.yaml"
+    entry = _desired_mcp_entry(server_url)
+    block = _hermes_hipcortex_yaml(entry)
+
+    if not path.exists():
+        path.write_text("mcp_servers:\n" + block, encoding="utf-8")
+        return INSTALL_CREATED
+
+    text = path.read_text(encoding="utf-8")
+    if _hermes_entry_matches(text, entry):
+        return INSTALL_UNCHANGED
+
+    had = "hipcortex:" in text
+    new_text = _hermes_merge_yaml(text, entry)
+    path.write_text(new_text if new_text.endswith("\n") else new_text + "\n", encoding="utf-8")
+    return INSTALL_UPDATED if had else INSTALL_CREATED
+
+
+def _uninstall_hermes() -> bool:
+    """Remove hipcortex block from ~/.hermes/config.yaml."""
+    import re
+
+    path = Path.home() / ".hermes" / "config.yaml"
+    if not path.exists():
+        return False
+    text = path.read_text(encoding="utf-8")
+    if not re.search(r"(?m)^  hipcortex:\s*$", text):
+        return False
+    new = re.sub(
+        r"(?m)^  hipcortex:\s*\n(?:[ ]{4,}.*\n)*",
+        "",
+        text,
+        count=1,
+    )
+    path.write_text(new, encoding="utf-8")
+    return True
+
+
+def _openclaw_config_path() -> Path:
+    env = os.environ.get("OPENCLAW_CONFIG_PATH")
+    if env:
+        return Path(env)
+    return Path.home() / ".openclaw" / "openclaw.json"
+
+
+def _install_openclaw(server_url: str) -> str:
+    """Merge mcp.servers.hipcortex into ~/.openclaw/openclaw.json.
+
+    Skips if ~/.openclaw missing (unless OPENCLAW_CONFIG_PATH is set).
+    On JSON5/parse failure: write sidecar + print `openclaw mcp add` hint.
+    """
+    path = _openclaw_config_path()
+    custom = bool(os.environ.get("OPENCLAW_CONFIG_PATH"))
+    if not custom and not path.parent.is_dir():
+        return INSTALL_SKIPPED
+
+    entry = _desired_mcp_entry(server_url)
+    oc_entry = {
+        "command": entry["command"],
+        "args": list(entry["args"]),
+        "env": dict(entry["env"]),
+    }
+
+    data: dict = {}
+    if path.exists():
+        raw = path.read_text(encoding="utf-8")
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            # JSON5 / comments — cannot merge safely
+            sidecar = path.parent / "openclaw.hipcortex.mcp.json"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            sidecar.write_text(
+                json.dumps({"hipcortex": oc_entry}, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            arg0 = oc_entry["args"][0]
+            url = oc_entry["env"]["HIPCORTEX_URL"]
+            cmd = oc_entry["command"]
+            print(
+                f"  {_GRAY}OpenClaw config is not plain JSON (JSON5?). "
+                f"Wrote sidecar {sidecar.name}. Merge manually or run:{_RESET}"
+            )
+            print(
+                f"  openclaw mcp add hipcortex --command {cmd} "
+                f"--arg {arg0} --env HIPCORTEX_URL={url}"
+            )
+            return INSTALL_CREATED
+
+    if not isinstance(data, dict):
+        data = {}
+    mcp = data.setdefault("mcp", {})
+    if not isinstance(mcp, dict):
+        mcp = {}
+        data["mcp"] = mcp
+    servers = mcp.setdefault("servers", {})
+    if not isinstance(servers, dict):
+        servers = {}
+        mcp["servers"] = servers
+
+    prev = servers.get("hipcortex")
+    if prev == oc_entry:
+        return INSTALL_UNCHANGED
+
+    had = prev is not None
+    servers["hipcortex"] = oc_entry
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    return INSTALL_UPDATED if had else INSTALL_CREATED
+
+
+def _uninstall_openclaw() -> bool:
+    """Remove mcp.servers.hipcortex from openclaw.json (+ sidecar if present)."""
+    removed = False
+    path = _openclaw_config_path()
+    sidecar = path.parent / "openclaw.hipcortex.mcp.json"
+    if sidecar.exists():
+        try:
+            sidecar.unlink()
+            removed = True
+        except OSError:
+            pass
+    if not path.exists():
+        return removed
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return removed
+    if not isinstance(data, dict):
+        return removed
+    mcp = data.get("mcp")
+    if not isinstance(mcp, dict):
+        return removed
+    servers = mcp.get("servers")
+    if not isinstance(servers, dict) or "hipcortex" not in servers:
+        return removed
+    del servers["hipcortex"]
+    mcp["servers"] = servers
+    data["mcp"] = mcp
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    return True
+
+
 def _resolve_uninstall_channels(args: argparse.Namespace) -> list[str]:
     """Channels to uninstall. Default --all when neither flag given (compat)."""
     channels = list(getattr(args, "channel", None) or [])
@@ -444,6 +668,12 @@ def _uninstall_channel(channel: str) -> bool:
         return _uninstall_mcp_path(Path.cwd() / ".cline" / "mcp.json")
     if channel == "roocode":
         return _uninstall_mcp_path(Path.cwd() / ".roo" / "mcp.json")
+    if channel == "antigravity":
+        return _uninstall_antigravity()
+    if channel == "hermes":
+        return _uninstall_hermes()
+    if channel == "openclaw":
+        return _uninstall_openclaw()
     return False
 
 
@@ -549,6 +779,43 @@ def _build_agent_registry(server_url: str, python_exe: str) -> list:
                 _install_mcp_generic(server_url, Path.cwd() / ".roo" / "mcp.json"),
                 ".roo/mcp.json",
             ),
+        },
+        {
+            "id": "antigravity",
+            "name": "Antigravity",
+            "desc": "Google Gemini · ~/.gemini/antigravity MCP",
+            "type": "mcp",
+            "fn": lambda: (
+                _install_antigravity(server_url),
+                "~/.gemini/antigravity/mcp_config.json",
+            ),
+        },
+        {
+            "id": "hermes",
+            "name": "Hermes",
+            "desc": "Nous · mcp_servers in ~/.hermes/config.yaml",
+            "type": "mcp",
+            "fn": lambda: (
+                _install_hermes(server_url),
+                "~/.hermes/config.yaml",
+            ),
+        },
+        {
+            "id": "openclaw",
+            "name": "OpenClaw",
+            "desc": "OpenClaw · mcp.servers in openclaw.json",
+            "type": "mcp",
+            "fn": lambda: (
+                _install_openclaw(server_url),
+                "~/.openclaw/openclaw.json",
+            ),
+        },
+        {
+            "id": "grok-build",
+            "name": "Grok Build",
+            "desc": "xAI · host guide (no dedicated installer yet)",
+            "type": "guide",
+            "guide": "https://github.com/farmountain/HipCortex/blob/main/docs/hosts/grok-build.md",
         },
         {
             "id": "continue",
@@ -1436,6 +1703,9 @@ def cmd_uninstall(args: argparse.Namespace) -> None:
         "vscode": "VS Code",
         "cline": "Cline",
         "roocode": "RooCode",
+        "antigravity": "Antigravity",
+        "hermes": "Hermes",
+        "openclaw": "OpenClaw",
     }
     removed_n = 0
     for ch in channels:
@@ -1573,10 +1843,11 @@ def _fallback_channels() -> list[dict]:
         {"id": "cline", "name": "Cline", "status": "mcp", "install": "hipcortex install"},
         {"id": "roocode", "name": "RooCode", "status": "mcp", "install": "hipcortex install"},
         {"id": "langchain", "name": "LangChain", "status": "framework", "install": "package + scaffold"},
-        {"id": "antigravity", "name": "Antigravity IDE", "status": "claimed", "install": "use VSIX if VS Code-compatible"},
+        {"id": "antigravity", "name": "Antigravity IDE", "status": "mcp", "install": "hipcortex install"},
         {"id": "grok-code", "name": "Grok Code", "status": "claimed", "install": "none"},
-        {"id": "hermes", "name": "Hermes", "status": "claimed", "install": "none"},
-        {"id": "openclaw", "name": "OpenClaw", "status": "claimed", "install": "none"},
+        {"id": "grok-build", "name": "Grok Build", "status": "guide", "install": "docs/hosts/grok-build.md"},
+        {"id": "hermes", "name": "Hermes", "status": "mcp", "install": "hipcortex install"},
+        {"id": "openclaw", "name": "OpenClaw", "status": "mcp", "install": "hipcortex install"},
         {"id": "continue", "name": "Continue", "status": "guide", "install": "docs only"},
         {"id": "copilot", "name": "GitHub Copilot", "status": "guide", "install": "docs only"},
     ]
