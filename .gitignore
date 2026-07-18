@@ -67,4 +67,33 @@ __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+*.egg-info/
+sdk/python/build/
+sdk/python/dist/
+sdk/python/**/*.egg-info/
+
+# TypeScript SDK pack artifacts
+sdk/typescript/*.tgz
+
+# Agent / IDE scratch (local only)
+.superpowers/
+.agent/
+.agents/
+.claude/worktrees/
+.cline/
+.clone/
+.codewhale/
+.cursor/
+.deepseek/
+.roo/
+.serena/
+.graphify*
+graphify-out/
+mcps/
+$null
+
+# Local runtime / media (not release artifacts)
+worldmodel.json
+*.mp4
+/hipcortex-memory-*.vsix
 
