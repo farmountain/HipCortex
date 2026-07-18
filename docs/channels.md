@@ -98,3 +98,8 @@ See also: [cross-channel UX plan](superpowers/plans/2026-07-18-cross-channel-ux-
 
 Use project file .hipcortex/config.toml (url, actor, mode, channels, aliases). See [docs/usage.md](usage.md).
 
+
+## Capabilities
+
+See [capabilities.md](capabilities.md) for REST / MCP / SDK / extension matrix.
+

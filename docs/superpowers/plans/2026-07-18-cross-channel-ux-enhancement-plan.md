@@ -158,7 +158,7 @@ session_id = "proj-myapp"
 
 ---
 
-### Phase 4: Capability matrix generation (4鈥? days)
+### Phase 4: Capability matrix generation — **DONE** (2026-07-18: a182d9a, 551eea7, 374059b)
 
 **Files:**
 - Source of truth: OpenAPI / route table
@@ -172,9 +172,9 @@ session_id = "proj-myapp"
 
  
  
-- [ ] **Step 3:** Python/TS: fill gaps for link/neighbors/delete if missing.
-- [ ] **Step 4:** Extension: document LM tool vs command differences in usage.md.
-- [ ] **Step 5:** Commit: `feat: capability matrix and MCP reflect parity`
+- [x] **Step 3:** Python/TS: fill gaps for link/neighbors/delete if missing.
+- [x] **Step 4:** Extension: document LM tool vs command differences in usage.md.
+- [x] **Step 5:** Commit: `feat: capability matrix and MCP reflect parity`
 
 **Success:** CI fails if new REST route unmarked in matrix without MCP/SDK decision.
 
@@ -370,5 +370,6 @@ Web + docs research (not yet implemented). Use for installer design.
 - `hermes`: claimed → **mcp**  
 - `openclaw`: claimed → **mcp**  
 - `grok-code` / `grok-build`: claimed → **guide** until path confirmed, then **mcp**
+
 
 
