@@ -1,4 +1,4 @@
-import type { AddMemoryRequest, AddMemoryResponse, BulkAddRequest, BulkAddResponse, CoherenceStatusResponse, ForgetResponse, HipCortexClientOptions, QueryMemoryResponse, QueryParams, SearchRequest, SearchResponse, StatsResponse, LinkMemoriesRequest, LinkMemoriesResponse, NeighborsResponse, RelatedSearchResponse, DeleteMemoryResponse, RolloutRequest, RolloutResponse } from "./types";
+import type { AddMemoryRequest, AddMemoryResponse, BulkAddRequest, BulkAddResponse, CoherenceStatusResponse, ForgetResponse, HipCortexClientOptions, QueryMemoryResponse, QueryParams, SearchRequest, SearchResponse, StatsResponse, LinkMemoriesRequest, LinkMemoriesResponse, NeighborsResponse, RelatedSearchResponse, DeleteMemoryResponse, RolloutRequest, RolloutResponse, LiveBeliefsResponse, ReflectRequest, ReflectResponse, PredictRequest, PredictResponse } from "./types";
 export declare class HipCortexClient {
     private readonly baseUrl;
     private readonly headers;
@@ -13,6 +13,15 @@ export declare class HipCortexClient {
     health(): Promise<boolean>;
     stats(): Promise<StatsResponse>;
     coherenceStatus(): Promise<CoherenceStatusResponse>;
+    /** GET /memory/live_beliefs — unified symbolic facts, hypotheses, world state, intel. */
+    liveBeliefs(params?: {
+        actor?: string;
+        limit?: number;
+    }): Promise<LiveBeliefsResponse>;
+    /** POST /memory/reflect — AureusBridge CoT / hypothesis sample over memory context. */
+    reflect(req: ReflectRequest | string): Promise<ReflectResponse>;
+    /** POST /worldmodel/predict — single-step P(s'|s,a) world-model prediction. */
+    predict(req: PredictRequest): Promise<PredictResponse>;
     addHumanMessage(sessionId: string, content: string): Promise<AddMemoryResponse>;
     addAiMessage(sessionId: string, content: string): Promise<AddMemoryResponse>;
     getConversationHistory(sessionId: string, limit?: number): Promise<QueryMemoryResponse>;

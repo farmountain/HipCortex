@@ -33,15 +33,15 @@ Columns:
 | query | Y | partial | Y | Y | N | Y | partial | partial | MCP: `search_memory` falls back to `GET /memory/query`; CrewAI recall = conversation history |
 | search | Y | Y | Y | Y | Y | Y | N | N | MCP name: `search_memory`; VS Code LM: `hipcortex_search` |
 | forget | Y | Y | Y | Y | N | N | Y | Y | MCP: `forget_actor`; LangChain/CrewAI: session/agent clear |
-| live_beliefs | Y | Y | Y | N | partial | N | N | N | MCP: `get_live_beliefs`; VS Code LM search path may merge beliefs |
+| live_beliefs | Y | Y | Y | Y | partial | N | N | N | MCP: `get_live_beliefs`; TS: `liveBeliefs()`; VS Code LM search path may merge beliefs |
 | link | Y | Y | Y | Y | N | Y | N | N | MCP: `link_memories`; chat `/link` |
 | neighbors | Y | Y | Y | Y | N | N | N | N | MCP: `get_neighbors` |
 | search_related | Y | Y | Y | Y | Y | N | N | N | MCP: `search_related`; VS Code LM: `hipcortex_graph_search` |
 | delete | Y | Y | Y | Y | N | N | N | N | MCP: `delete_memory` (single id); not GDPR forget |
 | stats | Y | Y | Y | Y | N | N | N | N | MCP: `get_stats` |
 | health | Y | N | Y | Y | Y | Y | N | N | MCP gap; VS Code LM: `hipcortex_health` |
-| reflect | Y | Y | N | N | partial | N | N | N | REST `POST /memory/reflect`. MCP: `reflect`. VS Code API client has `reflect()` used internally |
-| predict | Y | Y | N | N | Y | Y | N | N | REST `POST/GET /worldmodel/predict`. MCP: `predict` (state+action). VS Code LM: `hipcortex_predict` |
+| reflect | Y | Y | Y | Y | partial | N | N | N | REST `POST /memory/reflect`. MCP/Python/TS: `reflect`. VS Code API client has `reflect()` used internally |
+| predict | Y | Y | Y | Y | Y | Y | N | N | REST `POST/GET /worldmodel/predict`. MCP/Python/TS: `predict` (state+action). VS Code LM: `hipcortex_predict` |
 | rollout | Y | N | Y | Y | Y | N | N | N | REST `POST /worldmodel/rollout`; VS Code LM: `hipcortex_rollout` |
 | purge | bg | Y | N | N | N | N | N | N | REST: background TTL eviction only (no dedicated route). MCP: `purge_expired` |
 | search_code | Y | Y | N | N | N | N | N | N | REST `GET /graph/search`; MCP: `search_code` |
@@ -73,7 +73,7 @@ MCP serverInfo version in `sdk/mcp/server.py`: **0.5.0**.
 ## Known surface gaps (priority)
 
 1. **MCP health / rollout** — available on REST + SDKs + VS Code LM (rollout/health) but not MCP.
-2. **Python/TS SDK** — no `reflect`, no single-step `predict` (rollout only on both SDKs); TS missing `live_beliefs`.
+2. **Python/TS SDK** — `live_beliefs` / `reflect` / `predict` parity done (v0.5.0+); adapters still lack graph/WM/intelligence ops.
 3. **LangChain / CrewAI** — memory chat adapters only (add/query/forget style); no graph/WM/intelligence ops.
 4. **VS Code LM** — strong on search/health/predict/rollout/graph; no first-class add/forget/delete LM tools (commands cover add/query).
 

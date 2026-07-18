@@ -74,6 +74,22 @@ class HipCortexClient {
     async coherenceStatus() {
         return this.request("GET", "/coherence/status");
     }
+    /** GET /memory/live_beliefs — unified symbolic facts, hypotheses, world state, intel. */
+    async liveBeliefs(params) {
+        return this.request("GET", "/memory/live_beliefs", undefined, {
+            actor: params?.actor,
+            limit: params?.limit,
+        });
+    }
+    /** POST /memory/reflect — AureusBridge CoT / hypothesis sample over memory context. */
+    async reflect(req) {
+        const body = typeof req === "string" ? { query: req } : req;
+        return this.request("POST", "/memory/reflect", body);
+    }
+    /** POST /worldmodel/predict — single-step P(s'|s,a) world-model prediction. */
+    async predict(req) {
+        return this.request("POST", "/worldmodel/predict", req);
+    }
     async addHumanMessage(sessionId, content) {
         return this.addMemory({ actor: sessionId, action: "human_message", target: content, record_type: "Temporal" });
     }

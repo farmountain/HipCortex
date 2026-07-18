@@ -8,6 +8,8 @@ import type {
   LinkMemoriesRequest, LinkMemoriesResponse,
   NeighborsResponse, RelatedSearchResponse,
   DeleteMemoryResponse, RolloutRequest, RolloutResponse,
+  LiveBeliefsResponse, ReflectRequest, ReflectResponse,
+  PredictRequest, PredictResponse,
 } from "./types";
 
 export class HipCortexClient {
@@ -97,6 +99,25 @@ export class HipCortexClient {
 
   async coherenceStatus(): Promise<CoherenceStatusResponse> {
     return this.request<CoherenceStatusResponse>("GET", "/coherence/status");
+  }
+
+  /** GET /memory/live_beliefs — unified symbolic facts, hypotheses, world state, intel. */
+  async liveBeliefs(params?: { actor?: string; limit?: number }): Promise<LiveBeliefsResponse> {
+    return this.request<LiveBeliefsResponse>("GET", "/memory/live_beliefs", undefined, {
+      actor: params?.actor,
+      limit: params?.limit,
+    });
+  }
+
+  /** POST /memory/reflect — AureusBridge CoT / hypothesis sample over memory context. */
+  async reflect(req: ReflectRequest | string): Promise<ReflectResponse> {
+    const body: ReflectRequest = typeof req === "string" ? { query: req } : req;
+    return this.request<ReflectResponse>("POST", "/memory/reflect", body);
+  }
+
+  /** POST /worldmodel/predict — single-step P(s'|s,a) world-model prediction. */
+  async predict(req: PredictRequest): Promise<PredictResponse> {
+    return this.request<PredictResponse>("POST", "/worldmodel/predict", req);
   }
 
   async addHumanMessage(sessionId: string, content: string): Promise<AddMemoryResponse> {

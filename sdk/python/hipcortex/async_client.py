@@ -296,6 +296,41 @@ class AsyncHipCortexClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def reflect(self, query: str) -> Dict[str, Any]:
+        """POST /memory/reflect — AureusBridge CoT / hypothesis sample over memory context.
+
+        Args:
+            query: What to reflect on (e.g. architectural choice, counterfactual).
+
+        Returns:
+            Dict with ``hypothesis``, ``confidence``, ``evidence``, ``loops_run``,
+            ``llm_available``, ``is_fallback`` (or ``error`` on failure).
+        """
+        resp = await self._client.post(
+            f"{self.base_url}/memory/reflect",
+            json={"query": query},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    async def predict(self, state: str, action: str) -> Dict[str, Any]:
+        """POST /worldmodel/predict — single-step P(s'|s,a) world-model prediction.
+
+        Args:
+            state:  Current world-model state label.
+            action: Action applied from that state.
+
+        Returns:
+            Dict with ``from_state``, ``action``, ``probabilities``, ``entropy``,
+            ``observation_count`` (or ``error`` on failure).
+        """
+        resp = await self._client.post(
+            f"{self.base_url}/worldmodel/predict",
+            json={"state": state, "action": action},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
     async def graph(self) -> Dict[str, Any]:
         """Return the full symbolic graph (nodes + edges)."""
         resp = await self._client.get(f"{self.base_url}/graph")

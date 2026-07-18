@@ -58,3 +58,44 @@ async def test_async_health_returns_bool():
         client = AsyncHipCortexClient(base_url="http://localhost:3030")
         ok = await client.health()
         assert ok is False
+
+
+@pytest.mark.asyncio
+async def test_async_reflect():
+    from hipcortex.async_client import AsyncHipCortexClient
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "hypothesis": "use postgres",
+        "confidence": 0.8,
+        "loops_run": 1,
+    }
+    mock_response.raise_for_status = MagicMock()
+
+    with patch("httpx.AsyncClient.post", return_value=mock_response) as mock_post:
+        client = AsyncHipCortexClient(base_url="http://localhost:3030")
+        result = await client.reflect("db choice")
+        assert result["hypothesis"] == "use postgres"
+        mock_post.assert_called_once()
+        assert mock_post.call_args[0][0].endswith("/memory/reflect")
+
+
+@pytest.mark.asyncio
+async def test_async_predict():
+    from hipcortex.async_client import AsyncHipCortexClient
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "from_state": "idle",
+        "action": "move",
+        "probabilities": {"active": 0.9},
+        "entropy": 0.1,
+    }
+    mock_response.raise_for_status = MagicMock()
+
+    with patch("httpx.AsyncClient.post", return_value=mock_response) as mock_post:
+        client = AsyncHipCortexClient(base_url="http://localhost:3030")
+        result = await client.predict("idle", "move")
+        assert result["from_state"] == "idle"
+        mock_post.assert_called_once()
+        assert mock_post.call_args[0][0].endswith("/worldmodel/predict")

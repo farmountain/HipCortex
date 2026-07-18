@@ -161,3 +161,68 @@ export interface RolloutResponse {
   [key: string]: unknown;
 }
 
+/** GET /memory/live_beliefs — unified symbolic + hyp + world + intel surface. */
+export interface LiveBeliefsResponse {
+  symbolic_facts?: {
+    nodes?: unknown[];
+    edges?: unknown[];
+    total_nodes?: number;
+    total_edges?: number;
+    [key: string]: unknown;
+  };
+  code_facts?: unknown[];
+  current_hypotheses?: {
+    top?: Array<{ text?: string; confidence?: number; evidence?: unknown }>;
+    count?: number;
+    loops?: number;
+    [key: string]: unknown;
+  };
+  world_state?: Record<string, unknown>;
+  intel?: {
+    self?: { healthy?: boolean; [key: string]: unknown };
+    coherence?: { inconsistencies?: number; [key: string]: unknown };
+    pinned_memories?: unknown[];
+    [key: string]: unknown;
+  };
+  summary?: string;
+  loops_run?: number;
+  actor?: string | null;
+  limit?: number;
+  source?: string;
+  [key: string]: unknown;
+}
+
+/** POST /memory/reflect body. */
+export interface ReflectRequest {
+  query: string;
+}
+
+/** POST /memory/reflect response (AureusBridge hypothesis sample). */
+export interface ReflectResponse {
+  hypothesis?: string;
+  confidence?: number;
+  evidence?: unknown;
+  loops_run?: number;
+  llm_available?: boolean;
+  is_fallback?: boolean;
+  error?: string;
+  [key: string]: unknown;
+}
+
+/** POST /worldmodel/predict body (also accepted as GET query params). */
+export interface PredictRequest {
+  state: string;
+  action: string;
+}
+
+/** POST/GET /worldmodel/predict — P(s'|s,a) distribution. */
+export interface PredictResponse {
+  from_state?: string;
+  action?: string;
+  probabilities?: Record<string, number>;
+  entropy?: number;
+  observation_count?: number;
+  error?: string;
+  [key: string]: unknown;
+}
+

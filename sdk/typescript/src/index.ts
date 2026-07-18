@@ -7,5 +7,7 @@ export type {
   QueryMemoryResponse, QueryParams,
   SearchRequest, SearchResponse, SearchResult,
   StatsResponse, RolloutRequest, RolloutResponse,
+  LiveBeliefsResponse, ReflectRequest, ReflectResponse,
+  PredictRequest, PredictResponse,
 } from "./types";
 

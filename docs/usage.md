@@ -6,6 +6,17 @@ test, and extend the system for agentic, edge, or AI research use.
 **Channel support matrix (honest statuses):** [docs/channels.md](channels.md) · `hipcortex channels`.  
 Statuses: `native` | `mcp` | `framework` | `guide` | `claimed` | `none`. Hermes / OpenClaw / Grok / Antigravity-specific paths are **claimed**, not first-class wizard targets.
 
+**Capability matrix (REST / MCP / Python / TS / VS Code / adapters):** [docs/capabilities.md](capabilities.md) · `python scripts/check_capabilities.py`.
+
+### VS Code: LM tools vs commands
+
+| Surface | What it is | Typical ops |
+|---------|------------|-------------|
+| **LM tools** | `vscode.lm.registerTool` — agent/chat model can invoke tools | search, health, predict, rollout, graph search (`hipcortex_*`) |
+| **Commands** | `package.json` contributes + chat participant / palette | add, query, link, install, health UI, worldmodel predict |
+
+LM tools = agent-callable (no UI click). Commands = human or slash-command path. Full honesty table: [capabilities.md](capabilities.md).
+
 ---
 
 ## 1. Build & Run
