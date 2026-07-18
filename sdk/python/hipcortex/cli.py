@@ -31,7 +31,12 @@ INSTALL_DIR = Path.home() / ".hipcortex"
 BINARY_NAME = "hipcortex-server"
 DEFAULT_URL = "http://127.0.0.1:3030"
 MANAGED_URL = "https://hipcortex.fly.dev"
-PID_FILE = INSTALL_DIR / "hipcortex.pid"
+
+# Daemon paths — re-exported for callers; source of truth is hipcortex.daemon
+try:
+    from .daemon import DEFAULT_DATA_DIR, LOCK_FILE, PID_FILE
+except ImportError:  # pragma: no cover
+    from hipcortex.daemon import DEFAULT_DATA_DIR, LOCK_FILE, PID_FILE  # type: ignore
 
 # Claude Code registration line appended to ~/.claude/CLAUDE.md
 _CLAUDE_REGISTRATION = """
@@ -1013,8 +1018,17 @@ def cmd_install(args: argparse.Namespace) -> None:
                 print("(starting in background)")
 
 
+def _load_daemon():
+    try:
+        from . import daemon as d
+    except ImportError:  # pragma: no cover
+        import hipcortex.daemon as d  # type: ignore
+    return d
+
+
 def cmd_start(args: argparse.Namespace) -> None:
-    """Start the local HipCortex server."""
+    """Start the local HipCortex server (shared daemon protocol)."""
+    d = _load_daemon()
     try:
         os_name, arch = _detect_platform()
     except RuntimeError as e:
@@ -1027,159 +1041,131 @@ def cmd_start(args: argparse.Namespace) -> None:
         print("Run: hipcortex install")
         sys.exit(1)
 
-    port = args.port or int(os.environ.get("PORT", "3030"))
-    health_url = f"http://127.0.0.1:{port}/health"
-
-    # ── Check if something is already on this port ──────────────────────
-    import socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.settimeout(0.5)
-    port_taken = sock.connect_ex(("127.0.0.1", port)) == 0
-    sock.close()
-
-    if port_taken:
-        try:
-            import json as _json, urllib.request as _ur
-            with _ur.urlopen(health_url, timeout=2) as r:
-                data = _json.loads(r.read())
-                if data.get("service") == "hipcortex":
-                    print(f"✓ HipCortex already running on http://127.0.0.1:{port}")
-                    print(f"  Version: {data.get('version', 'unknown')}")
-                    print(f"  Run 'hipcortex stop' to stop it first.")
-                    sys.exit(1)
-        except Exception:
-            pass
-        print(f"✗ Port {port} already in use by another application.")
-        print(f"  Use --port to pick a different port.")
-        sys.exit(1)
-
-    # ── Check PID file for stale daemon ─────────────────────────────────
-    if PID_FILE.exists():
-        try:
-            old_pid = int(PID_FILE.read_text().strip())
-            import signal
-            os.kill(old_pid, 0)  # check if alive
-            print(f"✗ HipCortex daemon already running (PID {old_pid}).")
-            print(f"  Run 'hipcortex stop' to stop it first.")
-            sys.exit(1)
-        except (OSError, ValueError):
-            # PID file exists but process is dead — clean it up
-            print(f"Cleaning up stale PID file (PID {old_pid} no longer running)")
-            PID_FILE.unlink(missing_ok=True)
-
-    data_dir = args.data_dir or os.environ.get("DATA_DIR", str(Path.home() / ".hipcortex" / "data"))
-    Path(data_dir).mkdir(parents=True, exist_ok=True)
-
-    env = os.environ.copy()
-    env["PORT"] = str(port)
-    env["DATA_DIR"] = data_dir
+    port = args.port or int(os.environ.get("PORT", str(d.DEFAULT_PORT)))
+    data_dir = getattr(args, "data_dir", None) or os.environ.get(
+        "DATA_DIR", str(d.DEFAULT_DATA_DIR)
+    )
 
     print(f"Starting HipCortex on http://127.0.0.1:{port}")
     print(f"Data: {data_dir}")
 
-    import subprocess
-    proc = subprocess.Popen([str(binary)], env=env)
+    try:
+        result = d.start_server(binary, port=port, data_dir=data_dir)
+    except d.AlreadyRunning as e:
+        health = d.health_check(f"http://127.0.0.1:{port}")
+        print(f"✓ HipCortex already running on http://127.0.0.1:{port}")
+        if health:
+            print(f"  Version: {health.get('version', 'unknown')}")
+        print(f"  Run 'hipcortex stop' to stop it first.")
+        print(f"  ({e})")
+        sys.exit(1)
+    except d.PortInUse:
+        print(f"✗ Port {port} already in use by another application.")
+        print("  Use --port to pick a different port.")
+        sys.exit(1)
+    except d.LockError as e:
+        print(f"✗ {e}")
+        print("  Another start may be in progress; try 'hipcortex status' or 'hipcortex stop'.")
+        sys.exit(1)
+    except d.DaemonError as e:
+        print(f"✗ Failed to start: {e}", file=sys.stderr)
+        sys.exit(1)
+    except FileNotFoundError as e:
+        print(f"✗ {e}")
+        print("Run: hipcortex install")
+        sys.exit(1)
 
-    # Write PID file
-    PID_FILE.write_text(str(proc.pid))
-    print(f"PID: {proc.pid}")
-
-    # Poll /health until server is ready (max 10 seconds)
-    import time
-    for _ in range(20):
-        time.sleep(0.5)
-        try:
-            with urllib.request.urlopen(health_url, timeout=1) as r:
-                import json as _json2
-                if r.status == 200:
-                    data = _json2.loads(r.read())
-                    ver = data.get("version", "?")
-                    print(f"✓ HipCortex v{ver} running on http://127.0.0.1:{port}")
-                    print(f"  /hipcortex remember 'your note'   (Claude Code)")
-                    print(f"  curl {health_url}")
-                    print(f"  hipcortex stop   (to shut down)")
-                    print()
-                    break
-        except Exception:
-            pass
+    print(f"PID: {result['pid']}")
+    if result.get("ready") and result.get("health"):
+        ver = result["health"].get("version", "?")
+        print(f"✓ HipCortex v{ver} running on {result['url']}")
+        print("  /hipcortex remember 'your note'   (Claude Code)")
+        print(f"  curl {result['url']}/health")
+        print("  hipcortex stop   (to shut down)")
+        print()
     else:
         print("  Server may still be starting... check health manually.")
 
 
 def cmd_stop(args: argparse.Namespace) -> None:
-    """Stop the local HipCortex server."""
-    import signal
+    """Stop the local HipCortex server (PID file, then port fallback)."""
+    d = _load_daemon()
+    port = args.port or int(os.environ.get("PORT", str(d.DEFAULT_PORT)))
+    result = d.stop_server(port=port)
 
-    port = args.port or int(os.environ.get("PORT", "3030"))
-
-    # Try PID file first
-    if PID_FILE.exists():
-        try:
-            pid = int(PID_FILE.read_text().strip())
-            os.kill(pid, signal.SIGTERM)
+    if result.get("stopped"):
+        pid = result.get("pid")
+        method = result.get("method")
+        if method == "pid" and pid is not None:
             print(f"✓ Sent stop signal to HipCortex (PID {pid})")
-            PID_FILE.unlink()
-            # Wait for graceful shutdown
-            import time
-            for _ in range(10):
-                time.sleep(0.3)
-                try:
-                    os.kill(pid, 0)
-                except OSError:
-                    print(f"  Process exited cleanly.")
-                    return
-            # Force kill if still alive
-            try:
-                os.kill(pid, signal.SIGKILL)
-                print(f"  Force-killed after timeout.")
-            except OSError:
-                pass
-            return
-        except (ValueError, OSError) as e:
-            print(f"PID file exists but process unreachable: {e}")
-            PID_FILE.unlink(missing_ok=True)
-
-    # Fallback: find and kill process on port
-    import subprocess, platform
-    try:
-        if platform.system() == "Windows":
-            result = subprocess.run(
-                ["netstat", "-ano"], capture_output=True, text=True
-            )
-            for line in result.stdout.splitlines():
-                if f":{port}" in line and "LISTENING" in line:
-                    pid = line.strip().split()[-1]
-                    subprocess.run(["taskkill", "/PID", pid, "/F"], capture_output=True)
-                    print(f"✓ Stopped HipCortex on port {port} (PID {pid})")
-                    PID_FILE.unlink(missing_ok=True)
-                    return
+            print("  Process exited cleanly.")
+        elif pid is not None:
+            print(f"✓ Stopped HipCortex on port {port} (PID {pid})")
         else:
-            result = subprocess.run(
-                ["lsof", "-ti", f":{port}"], capture_output=True, text=True
-            )
-            pids = result.stdout.strip().split()
-            for pid in pids:
-                os.kill(int(pid), signal.SIGTERM)
-                print(f"✓ Stopped HipCortex on port {port} (PID {pid})")
-            PID_FILE.unlink(missing_ok=True)
-            return
-    except Exception:
-        pass
+            print(f"✓ Stopped HipCortex on port {port}")
+        return
 
     print(f"No HipCortex process found on port {port}.")
-    PID_FILE.unlink(missing_ok=True)
 
 
 def cmd_status(args: argparse.Namespace) -> None:
-    """Check server health."""
-    url = args.url or os.environ.get("HIPCORTEX_URL", DEFAULT_URL)
+    """Check server health via shared daemon.health_check."""
+    d = _load_daemon()
+    url = (args.url or os.environ.get("HIPCORTEX_URL", DEFAULT_URL)).rstrip("/")
+    data = d.health_check(url, timeout=5.0)
+    if data is not None:
+        # compact one-line summary
+        if "raw" in data and len(data) <= 2:
+            body = data["raw"]
+        else:
+            body = json.dumps(data, separators=(",", ":"))
+        print(f"✓ HipCortex running at {url} ({body})")
+        pid = d.read_pid()
+        if pid is not None:
+            alive = d.is_pid_alive(pid)
+            print(f"  PID file: {pid} ({'alive' if alive else 'stale'})")
+        if d.LOCK_FILE.exists():
+            print(f"  Lock: {d.LOCK_FILE}")
+        return
+    print(f"✗ Not reachable at {url}")
+    print("  Run: hipcortex start")
+
+
+def cmd_restart(args: argparse.Namespace) -> None:
+    """Stop then start local server."""
+    d = _load_daemon()
     try:
-        import urllib.request
-        with urllib.request.urlopen(f"{url}/health", timeout=5) as r:
-            print(f"✓ HipCortex running at {url} ({r.read().decode().strip()})")
-    except Exception as e:
-        print(f"✗ Not reachable at {url}: {e}")
-        print("  Run: hipcortex start")
+        os_name, arch = _detect_platform()
+    except RuntimeError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    binary = _binary_path(os_name, arch)
+    if not binary.exists():
+        print(f"Binary not found at {binary}")
+        print("Run: hipcortex install")
+        sys.exit(1)
+
+    port = args.port or int(os.environ.get("PORT", str(d.DEFAULT_PORT)))
+    data_dir = getattr(args, "data_dir", None) or os.environ.get(
+        "DATA_DIR", str(d.DEFAULT_DATA_DIR)
+    )
+    print(f"Restarting HipCortex on http://127.0.0.1:{port} ...")
+    try:
+        result = d.restart_server(binary, port=port, data_dir=data_dir)
+    except d.DaemonError as e:
+        print(f"✗ Restart failed: {e}", file=sys.stderr)
+        sys.exit(1)
+    except FileNotFoundError as e:
+        print(f"✗ {e}")
+        sys.exit(1)
+
+    print(f"PID: {result['pid']}")
+    if result.get("ready") and result.get("health"):
+        ver = result["health"].get("version", "?")
+        print(f"✓ HipCortex v{ver} running on {result['url']}")
+    else:
+        print("  Server may still be starting... check health manually.")
 
 
 def cmd_doctor(args: argparse.Namespace) -> None:
@@ -1434,11 +1420,22 @@ def build_parser() -> argparse.ArgumentParser:
     # start
     p_start = sub.add_parser("start", help="Start the local HipCortex server")
     p_start.add_argument("--port", type=int, help="Port (default: 3030)")
-    p_start.add_argument("--data-dir", help="Data directory (default: ~/.hipcortex/data)")
+    p_start.add_argument(
+        "--data-dir",
+        help=f"Data directory (default: {DEFAULT_DATA_DIR})",
+    )
 
     # status
     p_status = sub.add_parser("status", help="Check server health")
     p_status.add_argument("--url", help="Server URL to check")
+
+    # restart
+    p_restart = sub.add_parser("restart", help="Restart the local HipCortex server")
+    p_restart.add_argument("--port", type=int, help="Port (default: 3030)")
+    p_restart.add_argument(
+        "--data-dir",
+        help=f"Data directory (default: {DEFAULT_DATA_DIR})",
+    )
 
     # doctor (post-install verification)
     p_doctor = sub.add_parser(
@@ -1507,6 +1504,8 @@ def main() -> None:
         cmd_start(args)
     elif args.command == "status":
         cmd_status(args)
+    elif args.command == "restart":
+        cmd_restart(args)
     elif args.command == "doctor":
         cmd_doctor(args)
     elif args.command == "stop":
