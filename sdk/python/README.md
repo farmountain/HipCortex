@@ -10,6 +10,7 @@ Runs against the standalone local Rust binary (`http://127.0.0.1:3030`) with `0.
 
 ```bash
 pip install hipcortex
+hipcortex doctor   # verify server health + version after install
 ```
 
 ---

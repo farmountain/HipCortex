@@ -6,6 +6,8 @@ Usage:
     hipcortex install --mode proactive  # substrate-first harness (MUST get_live_beliefs first etc)
     hipcortex start             # start the local server (downloads if needed)
     hipcortex status            # check server health
+    hipcortex doctor            # post-install verification (health + version)
+    hipcortex doctor --probe    # also POST /memory/add + search roundtrip
     hipcortex channels          # print channel honesty matrix (docs/channels.yaml)
 """
 
@@ -1157,6 +1159,18 @@ def cmd_status(args: argparse.Namespace) -> None:
         print("  Run: hipcortex start")
 
 
+def cmd_doctor(args: argparse.Namespace) -> None:
+    """Post-install verification: GET /health, version, optional add/search probe."""
+    try:
+        from .doctor import doctor_exit_code, format_report, run_doctor
+    except ImportError:
+        from hipcortex.doctor import doctor_exit_code, format_report, run_doctor
+
+    report = run_doctor(url=getattr(args, "url", None), probe=bool(getattr(args, "probe", False)))
+    print(format_report(report))
+    sys.exit(doctor_exit_code(report))
+
+
 def cmd_uninstall(args: argparse.Namespace) -> None:
     """Remove HipCortex from AI coding assistants and optionally delete binary."""
     print("Uninstalling HipCortex...")
@@ -1403,6 +1417,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_status = sub.add_parser("status", help="Check server health")
     p_status.add_argument("--url", help="Server URL to check")
 
+    # doctor (post-install verification)
+    p_doctor = sub.add_parser(
+        "doctor",
+        help="Post-install verification (GET /health, version; optional --probe)",
+    )
+    p_doctor.add_argument(
+        "--url",
+        help=f"Server URL (default: HIPCORTEX_URL or {DEFAULT_URL})",
+    )
+    p_doctor.add_argument(
+        "--probe",
+        action="store_true",
+        help="Also POST /memory/add + /memory/search roundtrip (online only)",
+    )
+
     # stop
     p_stop = sub.add_parser("stop", help="Stop the local HipCortex server")
     p_stop.add_argument("--port", type=int, help="Port (default: 3030)")
@@ -1452,6 +1481,8 @@ def main() -> None:
         cmd_start(args)
     elif args.command == "status":
         cmd_status(args)
+    elif args.command == "doctor":
+        cmd_doctor(args)
     elif args.command == "stop":
         cmd_stop(args)
     elif args.command == "uninstall":
