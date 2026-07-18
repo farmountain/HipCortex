@@ -170,3 +170,56 @@ def test_install_claude_code_actor_configuration(tmp_path):
     assert 'Use "developer_alice" as the actor.' in content
     assert 'Use the current git repository name as the actor' not in content
 
+
+def test_cmd_install_writes_project_config(tmp_path, monkeypatch):
+    """cmd_install writes .hipcortex/config.toml with url, actor, mode, channels."""
+    home = _make_fake_home(tmp_path)
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    monkeypatch.chdir(proj)
+
+    from hipcortex import config as cfg
+
+    monkeypatch.setattr(cfg, "USER_CONFIG_PATH", tmp_path / "user.toml")
+    monkeypatch.delenv("HIPCORTEX_URL", raising=False)
+    monkeypatch.delenv("HIPCORTEX_ACTOR", raising=False)
+
+    agents = [
+        {
+            "id": "claude-code",
+            "name": "Claude Code",
+            "desc": "",
+            "type": "native",
+            "fn": lambda: (True, "ok"),
+        },
+        {
+            "id": "cursor",
+            "name": "Cursor",
+            "desc": "",
+            "type": "mcp",
+            "fn": lambda: (True, "ok"),
+        },
+    ]
+    args = MagicMock()
+    args.url = "http://install:9090"
+    args.force = False
+    args.yes = True
+    args.mode = "proactive"
+    args.actor = "install-actor"
+
+    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.cli._install_mcp_server"
+    ), patch("hipcortex.cli._build_agent_registry", return_value=agents):
+        from hipcortex.cli import cmd_install
+
+        cmd_install(args)
+
+    from hipcortex.config import load_settings
+
+    s = load_settings(proj)
+    assert s.url == "http://install:9090"
+    assert s.actor == "install-actor"
+    assert s.mode == "proactive"
+    assert s.channels == ["claude-code", "cursor"]
+    assert (proj / ".hipcortex" / "config.toml").is_file()
+

@@ -897,6 +897,29 @@ def cmd_install(args: argparse.Namespace) -> None:
         except Exception as e:
             print(f"  ✗ {name:<22} error: {e}")
 
+    # ── 4b. Project config (.hipcortex/config.toml) ───────────────────────────
+    try:
+        try:
+            from .config import ensure_project_config
+        except ImportError:
+            from hipcortex.config import ensure_project_config
+
+        channel_ids = [
+            a["id"]
+            for a in chosen
+            if a.get("type") not in ("guide", "section") and a.get("id")
+        ]
+        cfg_path = ensure_project_config(
+            Path.cwd(),
+            url=server_url,
+            actor=actor,
+            mode=mode or "conservative",
+            channels=channel_ids,
+        )
+        print(f"  {_GREEN}✓{_RESET} Project config        {_DIM}{cfg_path}{_RESET}")
+    except Exception as e:
+        print(f"  {_GRAY}–{_RESET} Project config        {_DIM}skipped ({e}){_RESET}")
+
     # ── 5. Start server ───────────────────────────────────────────────────────
     if binary_path and binary_path.exists():
         health_url = "http://localhost:3030/health"
@@ -1424,7 +1447,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_doctor.add_argument(
         "--url",
-        help=f"Server URL (default: HIPCORTEX_URL or {DEFAULT_URL})",
+        help=(
+            f"Server URL (default: HIPCORTEX_URL > .hipcortex/config.toml "
+            f"> user config > {DEFAULT_URL})"
+        ),
     )
     p_doctor.add_argument(
         "--probe",

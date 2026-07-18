@@ -239,6 +239,11 @@ def resolve_actor(name: str, settings: HipCortexSettings) -> str:
     return settings.aliases.get(name, name)
 
 
+def get_default_actor(project_root: Optional[PathLike] = None) -> Optional[str]:
+    """Return resolved default actor from settings (env > project > user), or None."""
+    return load_settings(project_root).actor
+
+
 def ensure_project_config(
     cwd: PathLike,
     url: str,

@@ -33,8 +33,12 @@ def _health_resp(status=200, body=None):
 # ── resolve / offline ────────────────────────────────────────────────────────
 
 
-def test_resolve_url_default(monkeypatch):
+def test_resolve_url_default(tmp_path, monkeypatch):
     monkeypatch.delenv("HIPCORTEX_URL", raising=False)
+    monkeypatch.chdir(tmp_path)
+    from hipcortex import config as cfg
+
+    monkeypatch.setattr(cfg, "USER_CONFIG_PATH", tmp_path / "user.toml")
     from hipcortex.doctor import DEFAULT_URL, resolve_url
 
     assert resolve_url() == DEFAULT_URL
@@ -53,6 +57,19 @@ def test_resolve_url_explicit_wins(monkeypatch):
     from hipcortex.doctor import resolve_url
 
     assert resolve_url("http://arg:2/") == "http://arg:2"
+
+
+def test_resolve_url_from_project_config(tmp_path, monkeypatch):
+    monkeypatch.delenv("HIPCORTEX_URL", raising=False)
+    monkeypatch.chdir(tmp_path)
+    from hipcortex import config as cfg
+    from hipcortex.config import ensure_project_config
+
+    monkeypatch.setattr(cfg, "USER_CONFIG_PATH", tmp_path / "user.toml")
+    ensure_project_config(tmp_path, url="http://proj:8080")
+    from hipcortex.doctor import resolve_url
+
+    assert resolve_url() == "http://proj:8080"
 
 
 def test_is_offline(monkeypatch):

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import time
 from typing import Any, Dict, List, Optional
 
@@ -17,7 +16,9 @@ class AsyncHipCortexClient:
     LangChain 0.3+ async chains, and any asyncio / anyio event loop.
 
     Args:
-        base_url: Root URL (falls back to HIPCORTEX_URL env for auto-lifecycle after install).
+        base_url: Root URL. When ``None``, resolved via
+            :func:`hipcortex.config.load_settings` (``HIPCORTEX_URL`` >
+            project ``.hipcortex/config.toml`` > user config > default).
         timeout:  Per-request timeout in seconds.
         api_key:  Optional Bearer token sent as ``Authorization: Bearer <key>``.
 
@@ -38,9 +39,10 @@ class AsyncHipCortexClient:
         timeout: float = 10.0,
         api_key: Optional[str] = None,
     ) -> None:
-        # Auto-lifecycle: respect HIPCORTEX_URL (set by installers / mcp) if not explicit
         if base_url is None:
-            base_url = os.getenv("HIPCORTEX_URL", "http://127.0.0.1:3030")
+            from .config import load_settings
+
+            base_url = load_settings().url
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self._api_key = api_key

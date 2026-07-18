@@ -101,6 +101,44 @@ hipcortex install --mode proactive --actor my_project_agent
 hipcortex install --mode proactive --url https://hipcortex.fly.dev
 ```
 
+### Project config (`.hipcortex/config.toml`)
+
+`hipcortex install` writes a per-project config under the current working directory:
+
+```toml
+# .hipcortex/config.toml
+url = "http://127.0.0.1:3030"
+actor = "my_project_agent"
+mode = "conservative"          # or proactive
+channels = ["claude-code", "cursor"]
+server_version_policy = "major_minor"
+```
+
+Optional user defaults: `~/.hipcortex/user.toml` (same keys).
+
+**URL resolution** (client, `hipcortex doctor`, adapters with no explicit URL):
+
+1. `HIPCORTEX_URL` env  
+2. project `.hipcortex/config.toml`  
+3. user `~/.hipcortex/user.toml`  
+4. default `http://127.0.0.1:3030`
+
+**Actor resolution**: `HIPCORTEX_ACTOR` > project > user. Optional `[aliases]` maps channel-local names to a canonical actor.
+
+```python
+from hipcortex import HipCortexClient
+from hipcortex.config import load_settings, get_default_actor
+
+client = HipCortexClient()          # uses resolved url
+settings = load_settings()          # full merge for current cwd
+actor = get_default_actor()         # or settings.actor
+```
+
+```sh
+hipcortex doctor                    # health against resolved url
+hipcortex doctor --url http://…     # explicit override
+```
+
 **Using `/memory/reflect` manually:**
 
 ```sh

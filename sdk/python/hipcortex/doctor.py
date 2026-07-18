@@ -19,7 +19,8 @@ from typing import Any, Dict, List, Optional
 
 import requests
 
-DEFAULT_URL = "http://127.0.0.1:3030"
+from .config import DEFAULT_URL, load_settings
+
 OFFLINE_ENV = "HIPCORTEX_DOCTOR_OFFLINE"
 
 
@@ -56,10 +57,10 @@ class DoctorReport:
 
 
 def resolve_url(url: Optional[str] = None) -> str:
-    """Resolve base URL from arg, HIPCORTEX_URL, or default localhost:3030."""
+    """Resolve base URL: explicit arg > load_settings (env > project > user > default)."""
     if url:
         return url.rstrip("/")
-    return os.getenv("HIPCORTEX_URL", DEFAULT_URL).rstrip("/")
+    return load_settings().url.rstrip("/")
 
 
 def is_offline() -> bool:
@@ -93,7 +94,7 @@ def run_doctor(
     """Run post-install checks against a HipCortex server.
 
     Args:
-        url: Base URL (falls back to HIPCORTEX_URL / http://127.0.0.1:3030).
+        url: Base URL (falls back to :func:`hipcortex.config.load_settings`).
         probe: If True and online, POST /memory/add + /memory/search roundtrip.
         timeout: Per-request timeout seconds.
         session: Optional requests.Session (for tests / injection).
@@ -101,7 +102,8 @@ def run_doctor(
     Returns:
         DoctorReport with structured checks (ok/fail/warn/skip).
     """
-    base = resolve_url(url)
+    settings = load_settings()
+    base = url.rstrip("/") if url else settings.url.rstrip("/")
     report = DoctorReport(url=base)
 
     if is_offline():
@@ -188,7 +190,7 @@ def run_doctor(
     if not probe:
         return report
 
-    actor = "hipcortex-doctor"
+    actor = settings.actor or "hipcortex-doctor"
     action = "probe"
     target = "doctor-roundtrip"
     try:

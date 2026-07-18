@@ -16,6 +16,7 @@ from hipcortex.config import (
     DEFAULT_URL,
     HipCortexSettings,
     ensure_project_config,
+    get_default_actor,
     load_settings,
     load_toml_file,
     project_config_path,
@@ -257,6 +258,16 @@ def test_resolve_actor_alias():
     assert resolve_actor("session_id", s) == "proj-myapp"
     assert resolve_actor("other", s) == "other"
     assert resolve_actor("", s) == ""
+
+
+def test_get_default_actor(tmp_path, user_cfg, monkeypatch):
+    monkeypatch.delenv("HIPCORTEX_ACTOR", raising=False)
+    monkeypatch.delenv("HIPCORTEX_URL", raising=False)
+    assert get_default_actor(tmp_path) is None
+    ensure_project_config(tmp_path, url="http://x", actor="proj-a")
+    assert get_default_actor(tmp_path) == "proj-a"
+    monkeypatch.setenv("HIPCORTEX_ACTOR", "env-a")
+    assert get_default_actor(tmp_path) == "env-a"
 
 
 # ── ensure_project_config ────────────────────────────────────────────────────
