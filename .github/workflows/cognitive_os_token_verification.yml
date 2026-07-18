@@ -1,0 +1,28 @@
+# Headroom / Caveman token compression bounds (stdlib only).
+# tests/verify_token_optimization.py degrades offline: no Rust server on GHA →
+# skips live HTTP, still asserts Top-5/Top-3 savings math (59–89% / 70–92%).
+# test_e2e_cognitive_os_live.py is not in-repo; do not reference it here.
+name: Cognitive OS Token Optimization Verification
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  verify-token-optimization:
+    name: Verify Headroom & Caveman token savings (offline-capable)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Run token optimization verification harness
+        run: python tests/verify_token_optimization.py
