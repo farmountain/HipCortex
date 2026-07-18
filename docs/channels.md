@@ -93,3 +93,8 @@
 | MCP `serverInfo.version` | may be stale (fix in Phase 1) |
 
 See also: [cross-channel UX plan](superpowers/plans/2026-07-18-cross-channel-ux-enhancement-plan.md), [problem catalog](superpowers/specs/2026-07-18-cross-channel-ux-problem-catalog.md).
+
+## Project identity
+
+Use project file .hipcortex/config.toml (url, actor, mode, channels, aliases). See [docs/usage.md](usage.md).
+
