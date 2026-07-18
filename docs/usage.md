@@ -366,3 +366,18 @@ HipCortex uses **one** local data directory and PID protocol:
 
 **Commands:** `hipcortex start|stop|restart|status|doctor`
 
+
+## Install wizard v2
+
+| Flag | Meaning |
+|------|---------|
+| `--yes` / `-y` | Non-interactive: configure all non-guide agents |
+| `--dry-run` | Print plan; no binary/config/skill/MCP/scaffold writes |
+| `--scaffold` | Write framework starter files into cwd (off by default) |
+| `--mode proactive` | Substrate-first Claude Code SKILL |
+| `--actor NAME` | Default actor in skill/config |
+
+`hipcortex uninstall --channel claude-code` (repeatable) or `--all`. `--purge` removes binary and data under `~/.hipcortex`.
+
+Re-run install is **idempotent**: summary shows created / updated / unchanged / skipped.
+

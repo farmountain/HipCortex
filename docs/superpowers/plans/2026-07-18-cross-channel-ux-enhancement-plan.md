@@ -180,7 +180,7 @@ session_id = "proj-myapp"
 
 ---
 
-### Phase 5: Wizard v2 (idempotent install) (5鈥? days)
+### Phase 5: Wizard v2 (idempotent install) — **DONE** (2026-07-18: e23f76f, dee598b)
 
 **Files:** `sdk/python/hipcortex/cli.py`, tests
 
@@ -195,10 +195,10 @@ session_id = "proj-myapp"
 
  
  
-- [ ] **Step 3:** Stop writing framework files unless `--scaffold`.
-- [ ] **Step 4:** `uninstall` for skill/mcp entries.
-- [ ] **Step 5:** Tests for double-install stability.
-- [ ] **Step 6:** Commit: `feat(cli): idempotent install v2 with dry-run and uninstall`
+- [x] **Step 3:** Stop writing framework files unless `--scaffold`.
+- [x] **Step 4:** `uninstall` for skill/mcp entries.
+- [x] **Step 5:** Tests for double-install stability.
+- [x] **Step 6:** Commit: `feat(cli): idempotent install v2 with dry-run and uninstall`
 
 **Success:** Run install twice 鈫?no duplicate MCP servers, no extra files without scaffold.
 
@@ -370,6 +370,7 @@ Web + docs research (not yet implemented). Use for installer design.
 - `hermes`: claimed → **mcp**  
 - `openclaw`: claimed → **mcp**  
 - `grok-code` / `grok-build`: claimed → **guide** until path confirmed, then **mcp**
+
 
 
 

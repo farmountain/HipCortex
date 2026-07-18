@@ -1,4 +1,4 @@
-# HipCortex — The Autonomous Cognitive OS & Persistent Causal Substrate (`v0.5.0`)
+﻿# HipCortex 鈥?The Autonomous Cognitive OS & Persistent Causal Substrate (`v0.5.0`)
 
 ![Version](https://img.shields.io/badge/version-v0.5.0-blue.svg)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
@@ -29,21 +29,21 @@ flowchart TB
     subgraph PERCEPTION["PERCEPTION LAYER"]
         EE[Event Encoder]
         EB[Episode Builder]
-        SS["✅ SymbolicStore<br/>neural predicate detectors -> calibrated confidences, NOT decisions"]
+        SS["鉁?SymbolicStore<br/>neural predicate detectors -> calibrated confidences, NOT decisions"]
     end
 
     INPUT --> EE --> EB --> SS
 
     %% ============ MEMORY HIERARCHY ============
-    subgraph MEMHIER["MEMORY HIERARCHY — managed by TemporalIndexer (decay + consolidation)"]
+    subgraph MEMHIER["MEMORY HIERARCHY 鈥?managed by TemporalIndexer (decay + consolidation)"]
         direction TB
-        M1[✅ Raw Events]
-        M2[✅ Episodes]
-        M3[✅ Concepts]
-        M4["🆕 Skills (NEW: SkillGraph)"]
-        M5[✅ Beliefs]
-        M6[✅ World Model]
-        M7["✅ Identity (SelfModel)"]
+        M1[鉁?Raw Events]
+        M2[鉁?Episodes]
+        M3[鉁?Concepts]
+        M4["馃啎 Skills (NEW: SkillGraph)"]
+        M5[鉁?Beliefs]
+        M6[鉁?World Model]
+        M7["鉁?Identity (SelfModel)"]
         M1 --> M2 --> M3 --> M4 --> M5 --> M6 --> M7
     end
 
@@ -52,20 +52,20 @@ flowchart TB
     %% ============ CORE ENGINES ============
     subgraph ENGINES["CORE COGNITIVE ENGINES"]
 
-        subgraph CTG["CausalTopoGraph — POC1: causal world models"]
-            CTG1["✅ Concept Graph (DAG over concepts)"]
-            CTG2["🆕 estimate_causal_effect(adjustment=backdoor)"]
-            CTG3["🆕 predict_under_intervention(do_T=...)"]
-            CTG4["🆕 intervention_robustness_score metric"]
+        subgraph CTG["CausalTopoGraph 鈥?POC1: causal world models"]
+            CTG1["鉁?Concept Graph (DAG over concepts)"]
+            CTG2["馃啎 estimate_causal_effect(adjustment=backdoor)"]
+            CTG3["馃啎 predict_under_intervention(do_T=...)"]
+            CTG4["馃啎 intervention_robustness_score metric"]
             CTG1 --> CTG2 --> CTG3 --> CTG4
         end
 
-        subgraph WME["WorldModelEnhanced — POC5: belief coherence"]
-            WME1["✅ State Transition F(S(t), A) -> S(t+1)"]
-            WME2["✅ Static Bayesian accumulator (Beta / Dirichlet / Kalman)"]
-            WME3["🆕 Discounted / forgetting filter (lambda-tunable)"]
-            WME4["🆕 regime_change_detection_latency metric"]
-            WME5["🆕 belief_coherence_error metric (Bayes-identity check)"]
+        subgraph WME["WorldModelEnhanced 鈥?POC5: belief coherence"]
+            WME1["鉁?State Transition F(S(t), A) -> S(t+1)"]
+            WME2["鉁?Static Bayesian accumulator (Beta / Dirichlet / Kalman)"]
+            WME3["馃啎 Discounted / forgetting filter (lambda-tunable)"]
+            WME4["馃啎 regime_change_detection_latency metric"]
+            WME5["馃啎 belief_coherence_error metric (Bayes-identity check)"]
             WME1 --> WME2
             WME1 --> WME3
             WME3 --> WME4
@@ -73,28 +73,28 @@ flowchart TB
             WME3 --> WME5
         end
 
-        subgraph SKG["SkillGraph + LoopEngine + ProceduralCache — POC4: skill acquisition"]
-            SKG1["✅ Loop / FSM traces (existing)"]
-            SKG2["🆕 discover_skills(trace): MDL / BPE merge, reward-free"]
-            SKG3["🆕 Hierarchical macro-skill library + provenance"]
-            SKG4["🆕 planning_token_reduction_pct(held_out_tasks) metric"]
+        subgraph SKG["SkillGraph + LoopEngine + ProceduralCache 鈥?POC4: skill acquisition"]
+            SKG1["鉁?Loop / FSM traces (existing)"]
+            SKG2["馃啎 discover_skills(trace): MDL / BPE merge, reward-free"]
+            SKG3["馃啎 Hierarchical macro-skill library + provenance"]
+            SKG4["馃啎 planning_token_reduction_pct(held_out_tasks) metric"]
             SKG1 --> SKG2 --> SKG3 --> SKG4
         end
 
-        subgraph CE["ConstraintEnforcer + SafetyGuardrail + CoherenceChecker — POC3: neuro-symbolic"]
-            CE1["✅ Predicate confidences (from SymbolicStore)"]
-            CE2["🆕 Forward-chaining rule base (Horn clauses)"]
-            CE3["🆕 Hard-constraint derivation (e.g. escalate := review AND prior_flag)"]
-            CE4["🆕 violation_rate monitor (target: 0, structurally)"]
+        subgraph CE["ConstraintEnforcer + SafetyGuardrail + CoherenceChecker 鈥?POC3: neuro-symbolic"]
+            CE1["鉁?Predicate confidences (from SymbolicStore)"]
+            CE2["馃啎 Forward-chaining rule base (Horn clauses)"]
+            CE3["馃啎 Hard-constraint derivation (e.g. escalate := review AND prior_flag)"]
+            CE4["馃啎 violation_rate monitor (target: 0, structurally)"]
             CE1 --> CE2 --> CE3 --> CE4
         end
 
-        subgraph CL["Continual Learning Substrate — POC2: catastrophic forgetting<br/>cross-cutting: lives inside TemporalIndexer + SelfModel + WorldModelEnhanced"]
-            CL1["🆕 Online Fisher / importance tracking"]
-            CL2["🆕 EWC-style consolidation penalty"]
-            CL3["🆕 Small replay buffer of critical episodes"]
-            CL4["🆕 continual_consolidate() / reflect endpoint"]
-            CL5["🆕 retention_metric: Task-A accuracy after Task-B"]
+        subgraph CL["Continual Learning Substrate 鈥?POC2: catastrophic forgetting<br/>cross-cutting: lives inside TemporalIndexer + SelfModel + WorldModelEnhanced"]
+            CL1["馃啎 Online Fisher / importance tracking"]
+            CL2["馃啎 EWC-style consolidation penalty"]
+            CL3["馃啎 Small replay buffer of critical episodes"]
+            CL4["馃啎 continual_consolidate() / reflect endpoint"]
+            CL5["馃啎 retention_metric: Task-A accuracy after Task-B"]
             CL1 --> CL2 --> CL4
             CL3 --> CL4 --> CL5
         end
@@ -108,7 +108,7 @@ flowchart TB
     M6 --> CL1
 
     %% ============ EXECUTIVE AGENT ============
-    subgraph EXEC["EXECUTIVE AGENT — small, orchestration only"]
+    subgraph EXEC["EXECUTIVE AGENT 鈥?small, orchestration only"]
         EX1[Goal Selection]
         EX2[Task Decomposition]
         EX3["Planning (consumes SkillGraph macro-actions)"]
@@ -130,19 +130,19 @@ flowchart TB
 
     %% ============ ACTION LAYER ============
     subgraph ACTION["ACTION LAYER"]
-        A1[✅ Tool calls / API / MCP servers]
-        A2["🆕 Environment actions do(X)"]
+        A1[鉁?Tool calls / API / MCP servers]
+        A2["馃啎 Environment actions do(X)"]
     end
     EXEC --> A1
     EXEC --> A2
 
     %% ============ EXPOSED INTERFACE ============
-    subgraph IFACE["EXPOSED INTERFACE — REST / gRPC / MCP"]
-        I1[🆕 causal_intervene]
-        I2[🆕 discover_hierarchical_skills]
-        I3[🆕 update_beliefs_adaptively]
-        I4[🆕 enforce_structural_constraints]
-        I5[🆕 continual_reflect]
+    subgraph IFACE["EXPOSED INTERFACE 鈥?REST / gRPC / MCP"]
+        I1[馃啎 causal_intervene]
+        I2[馃啎 discover_hierarchical_skills]
+        I3[馃啎 update_beliefs_adaptively]
+        I4[馃啎 enforce_structural_constraints]
+        I5[馃啎 continual_reflect]
     end
     CTG3 -.-> I1
     SKG2 -.-> I2
@@ -156,7 +156,7 @@ flowchart TB
 
     %% ============ OBSERVABILITY ============
     subgraph OBS["OBSERVABILITY / REGRESSION SAFETY NET"]
-        O1["🆕 nightly POC validation job<br/>asserts CTG4, WME4/5, SKG4, CE4, CL5 don't regress below POC baselines"]
+        O1["馃啎 nightly POC validation job<br/>asserts CTG4, WME4/5, SKG4, CE4, CL5 don't regress below POC baselines"]
     end
     CTG4 --> O1
     WME4 --> O1
@@ -181,11 +181,11 @@ flowchart TB
 
 
 
-Runs locally as a **single `4 MB` zero-dependency compiled Rust binary (`webserver.exe`)** with sub-millisecond writes (`0.48–0.61 ms p50`), SHA-256 Merkle audit chains, and adaptive context budgeting (`WorkingSetBroker`).
+Runs locally as a **single `4 MB` zero-dependency compiled Rust binary (`webserver.exe`)** with sub-millisecond writes (`0.48鈥?.61 ms p50`), SHA-256 Merkle audit chains, and adaptive context budgeting (`WorkingSetBroker`).
 
 ---
 
-## ⚡ The Caveman Comparison Matrix (`Fact vs. Cloud & Local Vectors`)
+## 鈿?The Caveman Comparison Matrix (`Fact vs. Cloud & Local Vectors`)
 
 We believe in **100% rigorous, unassailable engineering benchmarks** (`Headroom & Caveman mode audits`). When comparing memory engines, transport layer and embedding computation model matter:
 
@@ -193,57 +193,57 @@ We believe in **100% rigorous, unassailable engineering benchmarks** (`Headroom 
 | :--- | :---: | :---: | :---: | :--- |
 | **HipCortex Local Rust (`v0.5.0` Linux)** | **`0.61 ms`** (`0.48 ms` bare) | **`1.1 ms`** | **`0.23 ms`** | Compiled `4 MB` Rust binary over local HTTP (`127.0.0.1`). Zero public network RTT. Indexes causal topological relationships (`petgraph`) + SHA-256 Merkle audit chains without heavy dense vector inference bottlenecks. |
 | **HipCortex Local Rust (`v0.5.0` Windows)** | **`2.05 ms`** | **`3.67 ms`** | **`0.52 ms`** | Same compiled Rust binary measured over Windows loopback (`127.0.0.1`). |
-| **Self-Hosted Local Vector Store (`Mem0/Python`)** | `~15–35 ms` | `~50–80 ms` | `~10–25 ms` | Local Python process + embedding model inference (`~10–25 ms`) + local vector index upsert (`Qdrant/Chroma`). *HipCortex is ~15× to 30× faster than local vector stores.* |
-| **Cloud Vector Memory API (`Mem0 Cloud US-East`)** | `~142 ms` | `~310 ms` | `~89 ms` | Public HTTPS round-trip across internet + cloud embedding calculation + remote vector DB upsert. *HipCortex local binary is ~230× to 300× faster than cloud APIs.* |
+| **Self-Hosted Local Vector Store (`Mem0/Python`)** | `~15鈥?5 ms` | `~50鈥?0 ms` | `~10鈥?5 ms` | Local Python process + embedding model inference (`~10鈥?5 ms`) + local vector index upsert (`Qdrant/Chroma`). *HipCortex is ~15脳 to 30脳 faster than local vector stores.* |
+| **Cloud Vector Memory API (`Mem0 Cloud US-East`)** | `~142 ms` | `~310 ms` | `~89 ms` | Public HTTPS round-trip across internet + cloud embedding calculation + remote vector DB upsert. *HipCortex local binary is ~230脳 to 300脳 faster than cloud APIs.* |
 
 > [!IMPORTANT]
 > **Why HipCortex is sub-millisecond:** We replace expensive dense vector calculation on critical write paths with **precise topological causal graph indexing (`petgraph`) and Dirichlet-Multinomial transition counters**, ensuring zero network I/O and zero LLM embedding delays when saving memory state.
 
 ---
 
-## 🧠 Headroom vs. Caveman Mode Token Optimization (`59% – 88% Savings`)
+## 馃 Headroom vs. Caveman Mode Token Optimization (`59% 鈥?88% Savings`)
 
-In long autonomous coding sessions (`Claude Code`, `Copilot`, VS Code–compatible hosts), full conversation history injection causes **context stuffing**, degraded reasoning, and astronomical token bills.
+In long autonomous coding sessions (`Claude Code`, `Copilot`, VS Code鈥揷ompatible hosts), full conversation history injection causes **context stuffing**, degraded reasoning, and astronomical token bills.
 
 HipCortex (`WorkingSetBroker` + `TemporalIndexer`) solves this with **Topological Context Budgeting**, verified via `benchmarks/token_reduction_benchmark.py` (`tiktoken cl100k_base`):
 
-| Context Strategy | Input Tokens (Turn 20) | Steady-State Savings (Turns 11–20) | Projected 50-Turn Session Savings | When to Use |
+| Context Strategy | Input Tokens (Turn 20) | Steady-State Savings (Turns 11鈥?0) | Projected 50-Turn Session Savings | When to Use |
 | :--- | :---: | :---: | :---: | :--- |
-| **Full History Injection** | `8,861 tokens` | Baseline (`0%`) | Baseline (`~2,308 tok/turn`) | ❌ Default Copilot/Claude behavior |
-| **Rolling-10 Window** | `6,772 tokens` | `-23.6%` | `-17.0%` | ⚠️ Forgets early architectural rules |
-| **Headroom Mode (`Top-5`)** | **`4,160 tokens`** | **`-62.7%` (`-59% average`)** | **`-84.0%`** | ✅ **Standard balance:** Retains broad context with huge budget headroom |
-| **Caveman Mode (`Top-3`)** | **`2,737 tokens`** | **`-69.1%` (`-70% average`)** | **`-88.0%`** | ⚡ **Strict optimization:** Ultra-lean context for high-frequency loops |
-| **Proactive Substrate (`live_beliefs`)** | **`700 tokens`** | **`-93.0%`** | **`-96.0%`** | 🤖 **Substrate-as-Mind:** Agent queries pre-merged `CausalTopoGraph` directly |
+| **Full History Injection** | `8,861 tokens` | Baseline (`0%`) | Baseline (`~2,308 tok/turn`) | 鉂?Default Copilot/Claude behavior |
+| **Rolling-10 Window** | `6,772 tokens` | `-23.6%` | `-17.0%` | 鈿狅笍 Forgets early architectural rules |
+| **Headroom Mode (`Top-5`)** | **`4,160 tokens`** | **`-62.7%` (`-59% average`)** | **`-84.0%`** | 鉁?**Standard balance:** Retains broad context with huge budget headroom |
+| **Caveman Mode (`Top-3`)** | **`2,737 tokens`** | **`-69.1%` (`-70% average`)** | **`-88.0%`** | 鈿?**Strict optimization:** Ultra-lean context for high-frequency loops |
+| **Proactive Substrate (`live_beliefs`)** | **`700 tokens`** | **`-93.0%`** | **`-96.0%`** | 馃 **Substrate-as-Mind:** Agent queries pre-merged `CausalTopoGraph` directly |
 
 ---
 
-## 🏗️ 6-Layer Cognitive Architecture
+## 馃彈锔?6-Layer Cognitive Architecture
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        CLIENT / AGENT LAYER                            │
-│   (Claude Code, Cursor, VS Code VSIX/MCP — honest matrix: docs/channels.md) │
-└───────────────────────────────────▲────────────────────────────────────┘
-                                    │  MCP / HTTP JSON-RPC (`Tier 0` Session)
-┌───────────────────────────────────▼────────────────────────────────────┘
-│ LAYER 1: WORKING SET BROKER (`WorkingSetBroker` / `SessionContext`)    │
-│          Pages active context into Tier 0; manages token budget        │
-├────────────────────────────────────────────────────────────────────────┤
-│ LAYER 2: TEMPORAL INDEXER (`TemporalIndexer` — 5 Memory Tiers)         │
-│          WorkingSet ──► ShortTerm ──► LongTerm ──► Causal ──► Procedural│
-├────────────────────────────────────────────────────────────────────────┤
-│ LAYER 3: CAUSAL TOPOLOGICAL GRAPH (`CausalTopoGraph` / `petgraph`)     │
-│          Directed acyclic & cyclic causal links, Backdoor Adjustment   │
-├────────────────────────────────────────────────────────────────────────┤
-│ LAYER 4: WORLD MODEL & SIMULATOR (`WorldModelEnhanced` / `MctsSimulator`)│
-│          Dirichlet-Multinomial transitions, MCTS `POST /worldmodel/rollout`│
-├────────────────────────────────────────────────────────────────────────┤
-│ LAYER 5: OMEGA LOOP ENGINE (`LoopEngine` / `SelfModel`)                │
-│          Bayesian attribution, surprise calculation, FSM skill compile │
-├────────────────────────────────────────────────────────────────────────┤
-│ LAYER 6: GRAPH & AUDIT STORAGE (`GraphDatabase` / Merkle SHA-256)      │
-│          Tamper-evident Merkle hash chain, durable local SQLite/JSON   │
-└────────────────────────────────────────────────────────────────────────┘
+鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+鈹?                       CLIENT / AGENT LAYER                            鈹?
+鈹?  (Claude Code, Cursor, VS Code VSIX/MCP 鈥?honest matrix: docs/channels.md) 鈹?
+鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈻测攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+                                    鈹? MCP / HTTP JSON-RPC (`Tier 0` Session)
+鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈻尖攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+鈹?LAYER 1: WORKING SET BROKER (`WorkingSetBroker` / `SessionContext`)    鈹?
+鈹?         Pages active context into Tier 0; manages token budget        鈹?
+鈹溾攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+鈹?LAYER 2: TEMPORAL INDEXER (`TemporalIndexer` 鈥?5 Memory Tiers)         鈹?
+鈹?         WorkingSet 鈹€鈹€鈻?ShortTerm 鈹€鈹€鈻?LongTerm 鈹€鈹€鈻?Causal 鈹€鈹€鈻?Procedural鈹?
+鈹溾攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+鈹?LAYER 3: CAUSAL TOPOLOGICAL GRAPH (`CausalTopoGraph` / `petgraph`)     鈹?
+鈹?         Directed acyclic & cyclic causal links, Backdoor Adjustment   鈹?
+鈹溾攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+鈹?LAYER 4: WORLD MODEL & SIMULATOR (`WorldModelEnhanced` / `MctsSimulator`)鈹?
+鈹?         Dirichlet-Multinomial transitions, MCTS `POST /worldmodel/rollout`鈹?
+鈹溾攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+鈹?LAYER 5: OMEGA LOOP ENGINE (`LoopEngine` / `SelfModel`)                鈹?
+鈹?         Bayesian attribution, surprise calculation, FSM skill compile 鈹?
+鈹溾攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+鈹?LAYER 6: GRAPH & AUDIT STORAGE (`GraphDatabase` / Merkle SHA-256)      鈹?
+鈹?         Tamper-evident Merkle hash chain, durable local SQLite/JSON   鈹?
+鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
 ```
 
 ---
@@ -253,43 +253,47 @@ HipCortex (`WorkingSetBroker` + `TemporalIndexer`) solves this with **Topologica
 
 ```bash
 pip install hipcortex
-hipcortex install   # interactive wizard — picks your IDEs and frameworks
+hipcortex install   # interactive wizard 鈥?picks your IDEs and frameworks
 hipcortex channels  # honest support matrix (native / mcp / framework / guide / claimed)
 ```
 
 Supported surfaces and honesty badges: **[docs/channels.md](docs/channels.md)**.  
-Hermes, OpenClaw, Grok Code, and Antigravity-specific installers are **claimed** (docs examples only) until Phase 6 — not first-class wizard targets.
+Hermes, OpenClaw, Grok Code, and Antigravity-specific installers are **claimed** (docs examples only) until Phase 6 鈥?not first-class wizard targets.
 
 The wizard auto-detects your setup and configures everything:
 
 ```
-  ██╗  ██╗██╗██████╗  ██████╗ ██████╗ ██████╗ ████████╗███████╗██╗  ██╗
+  鈻堚枅鈺? 鈻堚枅鈺椻枅鈻堚晽鈻堚枅鈻堚枅鈻堚枅鈺? 鈻堚枅鈻堚枅鈻堚枅鈺?鈻堚枅鈻堚枅鈻堚枅鈺?鈻堚枅鈻堚枅鈻堚枅鈺?鈻堚枅鈻堚枅鈻堚枅鈻堚枅鈺椻枅鈻堚枅鈻堚枅鈻堚枅鈺椻枅鈻堚晽  鈻堚枅鈺?
   ...
-  Persistent causal memory for AI agents · hipcortex.fly.dev
+  Persistent causal memory for AI agents 路 hipcortex.fly.dev
 
-  Select what to configure:  (Space toggle · Enter confirm · q quit)
+  Select what to configure:  (Space toggle 路 Enter confirm 路 q quit)
 
-  ── Coding Assistants ──────────────────────────────────────
- › ● Claude Code        Anthropic · SKILL.md native, no MCP process
-   ● Cursor             Anysphere · MCP tools in AI panel
-   ● Windsurf           Codeium · global MCP settings
-   ● VS Code            Microsoft · MCP via settings.json
-   ● GitHub Copilot     GitHub · OpenAPI tool registration
+  鈹€鈹€ Coding Assistants 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+ 鈥?鈼?Claude Code        Anthropic 路 SKILL.md native, no MCP process
+   鈼?Cursor             Anysphere 路 MCP tools in AI panel
+   鈼?Windsurf           Codeium 路 global MCP settings
+   鈼?VS Code            Microsoft 路 MCP via settings.json
+   鈼?GitHub Copilot     GitHub 路 OpenAPI tool registration
    ...
 
-  ── Agent Frameworks ───────────────────────────────────────
-   ● LangChain [detected]  drop-in ConversationBufferMemory
-   ● CrewAI             RememberTool + RecallTool
-   ● AutoGen            AutoGen 0.4 Memory protocol
-   ● LlamaIndex         SimpleChatStore-compatible
+  鈹€鈹€ Agent Frameworks 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+   鈼?LangChain [detected]  drop-in ConversationBufferMemory
+   鈼?CrewAI             RememberTool + RecallTool
+   鈼?AutoGen            AutoGen 0.4 Memory protocol
+   鈼?LlamaIndex         SimpleChatStore-compatible
 ```
 
-**Coding assistants** → writes MCP config / SKILL.md automatically.  
-**Agent frameworks** → writes a ready-to-import starter file in your project.
+**Coding assistants** 鈫?writes MCP config / SKILL.md automatically.  
+**Agent frameworks** 鈫?writes a ready-to-import starter file in your project.
 
 ```bash
 hipcortex start          # download binary + start server on :3030
 hipcortex install --yes  # non-interactive: configure all supported agents
+hipcortex install --dry-run   # plan only
+hipcortex install --scaffold  # write framework starter files to cwd
+hipcortex uninstall --channel claude-code
+hipcortex uninstall --all
 hipcortex install --url https://hipcortex.fly.dev  # use managed free tier
 ```
 
@@ -306,7 +310,7 @@ What changes for the agent:
 | Step | Contract |
 |------|----------|
 | **MUST query first** | Before frontier reasoning, call `GET /memory/live_beliefs` or `GET /memory/search` |
-| **Cognitive offload** | Hypotheses, world-model predictions, and self-health live in the Rust substrate — not in the prompt |
+| **Cognitive offload** | Hypotheses, world-model predictions, and self-health live in the Rust substrate 鈥?not in the prompt |
 | **Reflect / decide** | `POST /memory/reflect` for Bayesian CoT; gate with `POST /decide/can-execute`; write back via `/memory/ingest` |
 | **Token path** | Proactive substrate (`live_beliefs`) targets up to **~93%** steady-state context reduction vs full history |
 
@@ -318,9 +322,9 @@ Template: `sdk/python/hipcortex/install/SKILL.md`. Details: [docs/usage.md](docs
 
 **Try live (no install):**
 ```bash
-curl https://hipcortex.fly.dev/health          # → ok
-curl https://hipcortex.fly.dev/stats           # → {"total_records":0,...}
-curl https://hipcortex.fly.dev/openapi.json    # → OpenAPI 3.0 spec
+curl https://hipcortex.fly.dev/health          # 鈫?ok
+curl https://hipcortex.fly.dev/stats           # 鈫?{"total_records":0,...}
+curl https://hipcortex.fly.dev/openapi.json    # 鈫?OpenAPI 3.0 spec
 ```
 
 **Use from Python:**
@@ -362,7 +366,7 @@ const { results } = await client.search({ query: "Hello", limit: 5 });
 | VS Code extension | `code --install-extension hipcortex-memory-0.5.4.vsix` |
 | MCP (Cursor/Claude/Windsurf) | `hipcortex install` or [sdk/mcp/README.md](sdk/mcp/README.md) |
 
-> Binary downloads: [GitHub Releases](https://github.com/farmountain/HipCortex/releases) · Docker: [Docker Hub](https://hub.docker.com) · VS Code: [Marketplace](https://marketplace.visualstudio.com) · MCP guide: [sdk/mcp/README.md](sdk/mcp/README.md) · **Channel honesty matrix:** [docs/channels.md](docs/channels.md) (`hipcortex channels`)
+> Binary downloads: [GitHub Releases](https://github.com/farmountain/HipCortex/releases) 路 Docker: [Docker Hub](https://hub.docker.com) 路 VS Code: [Marketplace](https://marketplace.visualstudio.com) 路 MCP guide: [sdk/mcp/README.md](sdk/mcp/README.md) 路 **Channel honesty matrix:** [docs/channels.md](docs/channels.md) (`hipcortex channels`)
 
 **Auto-embedding (Ollama / OpenAI):**
 ```bash
@@ -376,12 +380,12 @@ curl -X POST http://localhost:3030/memory/embed \
 ## Framework integrations
 
 ```python
-# LangChain — sync drop-in for ConversationBufferMemory
+# LangChain 鈥?sync drop-in for ConversationBufferMemory
 from hipcortex.langchain_memory import HipCortexMemory
 memory = HipCortexMemory(session_id="user-42", url="http://localhost:3030")
 chain  = ConversationChain(llm=ChatOpenAI(), memory=memory)
 
-# LangChain — async (FastAPI, Django async, LangChain 0.2+)
+# LangChain 鈥?async (FastAPI, Django async, LangChain 0.2+)
 from hipcortex import AsyncHipCortexClient
 from hipcortex.langchain_memory import AsyncHipCortexMemory
 async_client = AsyncHipCortexClient("http://localhost:3030")
@@ -389,11 +393,11 @@ async_memory = AsyncHipCortexMemory(client=async_client, session_id="user-42")
 history = await async_memory.aload_memory_variables({})
 await async_memory.asave_context({"input": "Hello"}, {"output": "Hi!"})
 
-# LlamaIndex — SimpleChatStore-compatible
+# LlamaIndex 鈥?SimpleChatStore-compatible
 from hipcortex.llamaindex_storage import HipCortexChatStore
 store = HipCortexChatStore(client=client)
 
-# AutoGen 0.4 — Memory protocol
+# AutoGen 0.4 鈥?Memory protocol
 from hipcortex.adapters.autogen import HipCortexAutoGenMemory
 mem   = HipCortexAutoGenMemory(client=client, agent_id="researcher")
 # AutoGen 0.4 (recommended):
@@ -401,7 +405,7 @@ agent = AssistantAgent(name="researcher", model_client=..., memory=[mem])
 # AutoGen 0.3 (legacy):
 # agent.register_hook("process_message_before_send", mem.on_message_sent_v03)
 
-# CrewAI — BaseTool subclasses
+# CrewAI 鈥?BaseTool subclasses
 from hipcortex.adapters.crewai import HipCortexRememberTool, HipCortexRecallTool
 tools = [HipCortexRememberTool(client=client), HipCortexRecallTool(client=client)]
 ```
@@ -413,19 +417,19 @@ tools = [HipCortexRememberTool(client=client), HipCortexRecallTool(client=client
 ### Memory
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/memory/ingest` | **Zero-config** — plain text, auto-classifies type/priority/tags |
+| `POST` | `/memory/ingest` | **Zero-config** 鈥?plain text, auto-classifies type/priority/tags |
 | `POST` | `/memory/add` | Full-control store (`confidence`, `source`, `priority`, `tags`, `ttl_seconds`) |
 | `POST` | `/memory/bulk` | Add multiple records in one request |
-| `GET` | `/memory/query` | Filter records — returns all 15 fields incl. confidence/priority/tags |
+| `GET` | `/memory/query` | Filter records 鈥?returns all 15 fields incl. confidence/priority/tags |
 | `POST` | `/memory/search` | Keyword or cosine search; add `embedding_model` to auto-embed |
-| `GET` | `/memory/search-flat` | Plain string array — for no-code tools (n8n, Flowise) |
+| `GET` | `/memory/search-flat` | Plain string array 鈥?for no-code tools (n8n, Flowise) |
 | `POST` | `/memory/context` | LLM-ready formatted context block (inject directly into prompts) |
 | `GET` | `/memory/latest` | Most recent fact per actor+action (no stale returns) |
 | `POST` | `/memory/reflect` | AureusBridge Bayesian reflexion over memory context |
 | `PATCH` | `/memory/update/:id` | In-place correction, version++ |
-| `POST` | `/memory/quarantine/:id` | Move to quarantine — excluded from search |
+| `POST` | `/memory/quarantine/:id` | Move to quarantine 鈥?excluded from search |
 | `POST` | `/memory/corroborate/:id` | Boost confidence (+0.10) |
-| `POST` | `/memory/contradict/:id` | Reduce confidence (−0.15); auto-quarantines below 0.30 |
+| `POST` | `/memory/contradict/:id` | Reduce confidence (鈭?.15); auto-quarantines below 0.30 |
 | `DELETE` | `/memory/forget/:actor` | GDPR right-to-forget (temporal + symbolic + audit) |
 | `POST` | `/memory/consolidate` | Keyword dedup report |
 | `GET` | `/memory/export` | Full data portability export |
@@ -433,7 +437,7 @@ tools = [HipCortexRememberTool(client=client), HipCortexRecallTool(client=client
 ### World Model (Dirichlet + Kalman + Causal DAG)
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/worldmodel/observe` | Feed state transition → Dirichlet update |
+| `POST` | `/worldmodel/observe` | Feed state transition 鈫?Dirichlet update |
 | `GET` | `/worldmodel/predict` | P(s'\|s,a) distribution + entropy |
 | `GET` | `/worldmodel/states` | All observed states + actions |
 | `GET` | `/worldmodel/transitions` | Transitions from a given state |
@@ -451,7 +455,7 @@ tools = [HipCortexRememberTool(client=client), HipCortexRecallTool(client=client
 | `GET` | `/self/health` | System health score + module breakdown |
 | `GET` | `/self/capabilities` | Registered capability descriptors |
 | `POST` | `/self/capabilities` | Register capability at runtime |
-| `GET` | `/self/can-execute` | Decision engine — should I run this operation? |
+| `GET` | `/self/can-execute` | Decision engine 鈥?should I run this operation? |
 | `GET` | `/coherence/status` | Cross-module coherence metrics (persistent checker) |
 | `GET` | `/coherence/inconsistencies` | Active inconsistency reports |
 
@@ -463,20 +467,20 @@ tools = [HipCortexRememberTool(client=client), HipCortexRecallTool(client=client
 | `GET` | `/metrics` | Prometheus metrics |
 | `POST` | `/webhooks/register` | Register webhook (post-write events) |
 | `GET` | `/audit/verify` | Merkle chain tamper detection |
-| `POST` | `/regulatory/hold` | MiFID II hold — blocks GDPR forget |
+| `POST` | `/regulatory/hold` | MiFID II hold 鈥?blocks GDPR forget |
 | `GET` | `/openapi.json` | OpenAPI 3.0 spec (public) |
 
-**Authentication:** set `HIPCORTEX_API_KEYS=sk-mykey:pro` → send `X-Api-Key: sk-mykey`.  
+**Authentication:** set `HIPCORTEX_API_KEYS=sk-mykey:pro` 鈫?send `X-Api-Key: sk-mykey`.  
 Unset = open mode (self-hosted / dev).
 
 > Every `GET /memory/query` and `GET /memory/search` response now includes all 15 fields:  
-> `id` · `record_type` · `timestamp` · `actor` · `action` · `target` · `metadata` · `integrity` · `confidence` · `source` · `priority` · `tags` · `version` · `status` · `expires_at`
+> `id` 路 `record_type` 路 `timestamp` 路 `actor` 路 `action` 路 `target` 路 `metadata` 路 `integrity` 路 `confidence` 路 `source` 路 `priority` 路 `tags` 路 `version` 路 `status` 路 `expires_at`
 
 ---
 
 ## Deploy
 
-Three paths — see [DEPLOY.md](DEPLOY.md):
+Three paths 鈥?see [DEPLOY.md](DEPLOY.md):
 
 ```bash
 # Fly.io (5 min, EU-first)
@@ -496,19 +500,19 @@ cargo build --release --bin webserver --no-default-features --features "web-serv
 Those systems optimize for **retrieval** (cosine similarity over embeddings).  
 HipCortex optimizes for **cognition**:
 
-- **Temporal decay** — memories fade at configurable rates; important ones persist
-- **Causal world model** — Dirichlet-Multinomial transitions, Kalman entity tracking, do-calculus interventions
-- **Coherence checking** — cross-module consistency validation catches temporal-symbolic mismatches
-- **Self-model** — EWMA performance tracking, expected utility decision engine
-- **Merkle-chained audit log** — every write is tamper-evident; `AuditLog::verify()` detects tampering
-- **Safety guardrail** — every mutation goes through `SafetyGuardrail::check_precondition` before hitting state
+- **Temporal decay** 鈥?memories fade at configurable rates; important ones persist
+- **Causal world model** 鈥?Dirichlet-Multinomial transitions, Kalman entity tracking, do-calculus interventions
+- **Coherence checking** 鈥?cross-module consistency validation catches temporal-symbolic mismatches
+- **Self-model** 鈥?EWMA performance tracking, expected utility decision engine
+- **Merkle-chained audit log** 鈥?every write is tamper-evident; `AuditLog::verify()` detects tampering
+- **Safety guardrail** 鈥?every mutation goes through `SafetyGuardrail::check_precondition` before hitting state
 
 This makes HipCortex the right foundation for AGI-grade agents, not just chatbot memory.  
 See [docs/architecture.md](docs/architecture.md) and [docs/whitepaper.md](docs/whitepaper.md).
 
 ---
 
-## ✨ Features
+## 鉁?Features
 
 HipCortex is built from modular building blocks so you can mix and match memory
 and reasoning components.
@@ -586,7 +590,7 @@ cargo run --example mcp_server --features web-server
 cargo run -- llm-generate --model mistral "Hello"
 ```
 
-## 🧠 Intelligence Layer
+## 馃 Intelligence Layer
 
 HipCortex includes a metacognitive intelligence layer with three subsystems:
 
@@ -612,9 +616,9 @@ curl -X POST https://hipcortex.fly.dev/coherence/check
 curl https://hipcortex.fly.dev/health/summary
 ```
 
-**Design principles**: All intelligence hooks are opt-in (`Option<Arc<>>`). Modules function with or without them. Write-gating is synchronous — violating operations are blocked pre-execution.
+**Design principles**: All intelligence hooks are opt-in (`Option<Arc<>>`). Modules function with or without them. Write-gating is synchronous 鈥?violating operations are blocked pre-execution.
 
-📖 Full docs: [`INTELLIGENCE.md`](INTELLIGENCE.md) · [`docs/intelligence_architecture.md`](docs/intelligence_architecture.md) · [`docs/intelligence_integration_guide.md`](docs/intelligence_integration_guide.md)
+馃摉 Full docs: [`INTELLIGENCE.md`](INTELLIGENCE.md) 路 [`docs/intelligence_architecture.md`](docs/intelligence_architecture.md) 路 [`docs/intelligence_integration_guide.md`](docs/intelligence_integration_guide.md)
 
 ## Safety & Guardrail
 
@@ -629,7 +633,7 @@ cargo run -- safety-audit
 
 ---
 
-## 🏗️ Project Structure
+## 馃彈锔?Project Structure
 
 | Path/Module                           | Purpose                                 |
 |---------------------------------------|-----------------------------------------|
@@ -652,7 +656,7 @@ cargo run -- safety-audit
 
 ---
 
-## 🚀 Building from source (Rust contributors)
+## 馃殌 Building from source (Rust contributors)
 
 ```sh
 # Minimal build (no external deps)
@@ -683,7 +687,7 @@ cargo run -- llm-generate "Tell me a story"
 cargo run -- worldmodel-predict '{"state":"robot","action":"move"}'
 ```
 
-## 🛠️ Use Cases
+## 馃洜锔?Use Cases
 
 
 - **Agentic AI via OpenManus:** manage conversation context and reasoning traces for single or multi-agent systems.
@@ -693,18 +697,18 @@ cargo run -- worldmodel-predict '{"state":"robot","action":"move"}'
 - **Real-Time Automation:** expose REST/gRPC APIs and upcoming CLI/web dashboards via the IntegrationLayer.
 - **Knowledge Export:** use `rag_adapter` with `PdfExporter` or `NotionExporter` for long-term persistence.
 
-## 👥 Key User Roles
-- **AI Agent** – stores traces and retrieves context.
-- **Developer** – integrates the engine via REST/gRPC or protocol adapters.
-- **Architect** – designs workflows and multi-agent systems using the modules.
-- **Researcher** – experiments with new memory types or reasoning loops.
+## 馃懃 Key User Roles
+- **AI Agent** 鈥?stores traces and retrieves context.
+- **Developer** 鈥?integrates the engine via REST/gRPC or protocol adapters.
+- **Architect** 鈥?designs workflows and multi-agent systems using the modules.
+- **Researcher** 鈥?experiments with new memory types or reasoning loops.
 
-## 🗺️ Use Case Map
+## 馃椇锔?Use Case Map
 1. **Store reasoning trace** through the PerceptionAdapter and TemporalIndexer.
 2. **Query symbols** from the SymbolicStore.
 3. **Update state** via the ProceduralCache or AureusBridge.
 4. **Visualize world model** using real-time CLI and web dashboards.
-## 🧪 Test & Automation
+## 馃И Test & Automation
 - **Run all tests:**  
   `cargo test`
 
@@ -719,7 +723,7 @@ cargo run -- worldmodel-predict '{"state":"robot","action":"move"}'
   - Recent perception tests: `multimodal_perception_tests.rs`, `smart_glasses_sit.rs`, `humanoid_perception_uat.rs`
 
 - **CI/CD Ready:**  
-  You can use GitHub Actions or any CI provider—add `.github/workflows/ci.yml` (see Rust starter templates) to run on every PR or push.
+  You can use GitHub Actions or any CI provider鈥攁dd `.github/workflows/ci.yml` (see Rust starter templates) to run on every PR or push.
 
 - **VS Code Integration:**  
   Open with VS Code. Test & bench tasks are already available via `.vscode/tasks.json` (Ctrl+Shift+B).
@@ -729,39 +733,39 @@ cargo run -- worldmodel-predict '{"state":"robot","action":"move"}'
   - Ensure all modules have coverage before merge
   - Add benchmarks for any new algorithm or data structure
 
-## 🏆 Project Success Criteria
+## 馃弳 Project Success Criteria
 
 HipCortex aims to remain stable and extensible as the ecosystem grows. The core
 success criteria include:
 
-- **Technical Architecture** – all modules compile cleanly and interoperate as
+- **Technical Architecture** 鈥?all modules compile cleanly and interoperate as
   described in the architecture diagram.
-- **Data Integrity & Consistency** – no reasoning traces or symbolic graphs are
+- **Data Integrity & Consistency** 鈥?no reasoning traces or symbolic graphs are
   lost or corrupted across sessions.
-- **Scalability & Performance** – memory usage and runtime must support edge
+- **Scalability & Performance** 鈥?memory usage and runtime must support edge
   constraints while scaling horizontally on servers.
-- **Extensibility** – pluggable perception encoders, symbolic stores and caches
+- **Extensibility** 鈥?pluggable perception encoders, symbolic stores and caches
   should be swappable without modifying core logic.
-- **Observability & Debugging** – real-time logging and dashboards provide a
+- **Observability & Debugging** 鈥?real-time logging and dashboards provide a
   clear view of every state transition.
-- **Math & Statistical Soundness** – temporal indexes, concept graphs and FSM
+- **Math & Statistical Soundness** 鈥?temporal indexes, concept graphs and FSM
   transitions follow well-defined models validated by tests or simulation.
-- **Integration with LLMs** – connectors and protocols handle context without
+- **Integration with LLMs** 鈥?connectors and protocols handle context without
   hallucination drift.
-- **Documentation & Community** – README, architecture docs and examples remain
+- **Documentation & Community** 鈥?README, architecture docs and examples remain
   up to date for contributors.
 
-## 📊 Critical Data & Math Foundation
+## 馃搳 Critical Data & Math Foundation
 
 Each value stream collects metrics that align with solid statistical models.
 Examples include:
 
-- *PerceptionAdapter* – input token entropy and PCA/ICA statistics.
-- *TemporalIndexer* – trace lifetimes modeled with Markov chains.
-- *SymbolicStore* – graph degree variance and clustering coefficients.
-- *ProceduralCache* – FSM state transition matrices and ergodicity checks.
-- *AureusBridge* – Bayesian inference metrics for reasoning loops.
-- *IntegrationLayer* – API latency and queuing statistics.
+- *PerceptionAdapter* 鈥?input token entropy and PCA/ICA statistics.
+- *TemporalIndexer* 鈥?trace lifetimes modeled with Markov chains.
+- *SymbolicStore* 鈥?graph degree variance and clustering coefficients.
+- *ProceduralCache* 鈥?FSM state transition matrices and ergodicity checks.
+- *AureusBridge* 鈥?Bayesian inference metrics for reasoning loops.
+- *IntegrationLayer* 鈥?API latency and queuing statistics.
 
 See [docs/architecture.md](docs/architecture.md) for the complete mapping of
 | docs/memory_design.md | Math, logic and symbolic reasoning extension |
@@ -791,3 +795,4 @@ real-time CLI/web tools, and expanded LLM connectors.
 | docs/contributing.md | Contribution guide, code/test policy                  |
 | docs/agent.md        | Codex agent workflow and contribution guide           |
 | LICENSE              | Apache License 2.0                                           |
+
