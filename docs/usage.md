@@ -338,3 +338,20 @@ for h in best { println!("{} : {}", h.state, h.probability); }
 mgr.export_dot("hypotheses.dot");
 ```
 
+
+## Shared local server (CLI + VS Code + MCP)
+
+HipCortex uses **one** local data directory and PID protocol:
+
+| Path | Role |
+|------|------|
+| `~/.hipcortex/data` | Memory store (`DATA_DIR`) |
+| `~/.hipcortex/hipcortex.pid` | Daemon PID (CLI + extension handoff) |
+| `~/.hipcortex/server.lock` | Start lock (CLI) |
+
+**Attach-first:** VS Code extension and `hipcortex start` reuse a healthy server on the configured URL instead of spawning a second process. `hipcortex stop` / `hipcortex restart` manage the daemon.
+
+**Migration:** Older extension builds used `~/.hipcortex-vscode` as data dir. New builds write to `~/.hipcortex/data`. If you need old records, copy or restore from backup into the new data dir, or point `DATA_DIR` / config `data_dir` at the old path once.
+
+**Commands:** `hipcortex start|stop|restart|status|doctor`
+

@@ -132,7 +132,7 @@ session_id = "proj-myapp"
 
 ---
 
-### Phase 3: Single server attach model (5鈥? days)
+### Phase 3: Single server attach model — **DONE** (2026-07-18: b596bab, df6d85b)
 
 **Files:**
 - Modify: CLI server start (PID file, health, stop)
@@ -150,9 +150,9 @@ session_id = "proj-myapp"
 
  
  
-- [ ] **Step 3:** Extension attach-first refactor (tests for version policy remain).
-- [ ] **Step 4:** Migration note for old `~/.hipcortex-vscode` data.
-- [ ] **Step 5:** Commit: `feat: shared local daemon attach protocol for CLI and extension`
+- [x] **Step 3:** Extension attach-first refactor (tests for version policy remain).
+- [x] **Step 4:** Migration note for old `~/.hipcortex-vscode` data.
+- [x] **Step 5:** Commit: `feat: shared local daemon attach protocol for CLI and extension`
 
 **Success:** Run VSIX + `hipcortex install` + Cursor MCP simultaneously 鈫?**one** server process, one data dir.
 
@@ -370,4 +370,5 @@ Web + docs research (not yet implemented). Use for installer design.
 - `hermes`: claimed → **mcp**  
 - `openclaw`: claimed → **mcp**  
 - `grok-code` / `grok-build`: claimed → **guide** until path confirmed, then **mcp**
+
 
