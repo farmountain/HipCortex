@@ -456,7 +456,7 @@ def main() -> None:
             respond(id_, {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "hipcortex", "version": "0.2.0"},
+                "serverInfo": {"name": "hipcortex", "version": "0.5.0"},
             })
         elif method == "initialized":
             pass  # notification — no response
