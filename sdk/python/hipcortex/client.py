@@ -238,6 +238,12 @@ class HipCortexClient:
         resp.raise_for_status()
         return resp.json()
 
+    def live_beliefs(self) -> Dict[str, Any]:
+        """Fetch the unified live beliefs (symbolic facts, hypotheses, world predictions)."""
+        resp = self._session.get(f"{self.base_url}/memory/live_beliefs", timeout=self.timeout)
+        resp.raise_for_status()
+        return resp.json()
+
     def stats(self) -> Dict[str, Any]:
         """Return live server statistics: record counts, type breakdown, metering state."""
         resp = self._session.get(f"{self.base_url}/stats", timeout=self.timeout)

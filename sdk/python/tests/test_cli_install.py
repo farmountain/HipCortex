@@ -155,3 +155,18 @@ def test_binary_url_format():
 
     url_win = _binary_url("windows", "amd64")
     assert url_win.endswith(".exe")
+
+
+def test_install_claude_code_actor_configuration(tmp_path):
+    """install_claude_code overrides default actor description in SKILL.md when actor is provided."""
+    home = _make_fake_home(tmp_path)
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import _install_claude_code
+        result = _install_claude_code("http://localhost:3030", actor="developer_alice")
+
+    assert result is True
+    skill_file = home / ".claude" / "skills" / "hipcortex" / "SKILL.md"
+    content = skill_file.read_text(encoding="utf-8")
+    assert 'Use "developer_alice" as the actor.' in content
+    assert 'Use the current git repository name as the actor' not in content
+

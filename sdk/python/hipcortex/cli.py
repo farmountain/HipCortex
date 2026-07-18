@@ -102,7 +102,7 @@ def _skill_dir() -> Path:
     return Path.home() / ".claude" / "skills" / "hipcortex"
 
 
-def _install_claude_code(server_url: str, mode: str = "conservative") -> bool:
+def _install_claude_code(server_url: str, mode: str = "conservative", actor: str = None) -> bool:
     """Write SKILL.md + append to CLAUDE.md. Returns True on success.
     Supports --mode proactive (uses substrate-first template + harness registration).
     """
@@ -118,6 +118,13 @@ def _install_claude_code(server_url: str, mode: str = "conservative") -> bool:
     # Read template and substitute server URL
     content = skill_md_src.read_text(encoding="utf-8")
     content = content.replace("http://localhost:3030", server_url)
+    
+    if actor:
+        content = content.replace(
+            "Use the current git repository name as the actor (run `git rev-parse --show-toplevel | xargs basename` to get it). Fall back to \"default\" if not in a git repo.",
+            f"Use \"{actor}\" as the actor."
+        )
+
     # If proactive, ensure the (now substrate-first) content; modify for emphasis if needed (minimal)
     if mode == "proactive":
         # Ensure key harness language is present (source is proactive base; this guards)
@@ -831,9 +838,10 @@ def cmd_install(args: argparse.Namespace) -> None:
 
     # Support --mode proactive for claude (surgical: patch claude fn only; other fns unchanged)
     mode = getattr(args, "mode", "conservative")
+    actor = getattr(args, "actor", None)
     for a in agents:
         if a.get("id") == "claude-code":
-            a["fn"] = lambda: (_install_claude_code(server_url, mode), "~/.claude/skills/hipcortex/")
+            a["fn"] = lambda act=actor: (_install_claude_code(server_url, mode, actor=act), "~/.claude/skills/hipcortex/")
             break
 
     yes_all = getattr(args, "yes", False)
@@ -1288,6 +1296,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_install.add_argument("--force", action="store_true", help="Re-download binary even if it exists")
     p_install.add_argument("--yes", "-y", action="store_true", help="Non-interactive: configure all supported agents")
     p_install.add_argument("--mode", choices=["conservative", "proactive"], default="conservative", help="SKILL policy: conservative (explicit) or proactive (substrate-first harness; MUST search/get_live_beliefs first)")
+    p_install.add_argument("--actor", help="Configure default actor for this client install")
 
     # start
     p_start = sub.add_parser("start", help="Start the local HipCortex server")

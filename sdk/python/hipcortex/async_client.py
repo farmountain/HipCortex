@@ -288,6 +288,12 @@ class AsyncHipCortexClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def live_beliefs(self) -> Dict[str, Any]:
+        """Fetch the unified live beliefs (symbolic facts, hypotheses, world predictions)."""
+        resp = await self._client.get(f"{self.base_url}/memory/live_beliefs")
+        resp.raise_for_status()
+        return resp.json()
+
     async def graph(self) -> Dict[str, Any]:
         """Return the full symbolic graph (nodes + edges)."""
         resp = await self._client.get(f"{self.base_url}/graph")
