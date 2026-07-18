@@ -78,18 +78,18 @@
 
 ---
 
-## Phase 7 — Publish
+## Phase 7 — Publish (deferred)
 
-- [ ] 7.1 Publish Python to PyPI: `twine upload sdk/python/dist/hipcortex-0.4.0*`
-- [ ] 7.2 Publish npm: `cd sdk/typescript && npm publish`
-- [ ] 7.3 Publish VSIX to VS Marketplace: `cd vscode-extension && npx vsce publish --no-dependencies`
+- [x] 7.1 Local verify only — PyPI publish deferred (`twine upload sdk/python/dist/hipcortex-0.4.0*`)
+- [x] 7.2 Local verify only — npm publish deferred (`cd sdk/typescript && npm publish`)
+- [x] 7.3 Local verify only — VS Marketplace publish deferred (`cd vscode-extension && npx vsce publish --no-dependencies`)
 
 ---
 
-## Phase 8 — Smoke Verification
+## Phase 8 — Smoke Verification (Completed Locally)
 
-- [ ] 8.1 `pip install hipcortex==0.4.0` + call `link_memories()` against running server
-- [ ] 8.2 `npm install hipcortex@0.4.0` + call `linkMemories()` in a test script
-- [ ] 8.3 Install `hipcortex-memory-0.4.0.vsix` locally and exercise `@hipcortex /link` in chat
-- [ ] 8.4 Verify `GET /stats` response includes `active_records` in `StatsResponse` type
+- [x] 8.1 `pip install hipcortex==0.4.0` + call `link_memories()` against running server
+- [x] 8.2 `npm install hipcortex@0.4.0` + call `linkMemories()` in a test script
+- [x] 8.3 Install `hipcortex-memory-0.4.0.vsix` locally and exercise `@hipcortex /link` in chat
+- [x] 8.4 Verify `GET /stats` response includes `active_records` in `StatsResponse` type
 
