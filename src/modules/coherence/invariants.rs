@@ -320,6 +320,11 @@ impl SystemInvariants {
             .1 += 1;
     }
 
+    /// Get the entity lifecycle map for testing/validation
+    pub fn get_entity_lifecycle(&self) -> &HashMap<String, (usize, usize)> {
+        &self.entity_lifecycle
+    }
+
     /// Update symbolic graph edges for acyclicity validation.
     /// Called before a write that would add/remove edges.
     pub fn set_symbolic_edges(&mut self, edges: Vec<(String, String)>) {

@@ -11,13 +11,16 @@ use tokio;
 struct TestServer {
     process: Option<Child>,
     base_url: String,
+    _temp_dir: tempfile::TempDir,
 }
 
 impl TestServer {
     async fn start() -> Result<Self, Box<dyn std::error::Error>> {
         let temp_dir = tempdir()?;
-        let memory_file = temp_dir.path().join("test_memory.jsonl");
         
+        let port = 10000 + (rand::random::<u16>() % 10000);
+        let base_url = format!("http://127.0.0.1:{}", port);
+
         // Start the server in the background
         let mut process = Command::new("cargo")
             .args(&[
@@ -25,13 +28,13 @@ impl TestServer {
                 "--bin", "webserver",
                 "--features", "web-server,petgraph_backend"
             ])
-            .env("MEMORY_FILE", memory_file.to_str().unwrap())
+            .env("DATA_DIR", temp_dir.path().to_str().unwrap())
+            .env("PORT", port.to_string())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
 
         // Wait for server to start
-        let base_url = "http://127.0.0.1:3030".to_string();
         let client = reqwest::Client::new();
         
         for _ in 0..30 {
@@ -41,6 +44,7 @@ impl TestServer {
                     return Ok(TestServer {
                         process: Some(process),
                         base_url,
+                        _temp_dir: temp_dir,
                     });
                 }
             }

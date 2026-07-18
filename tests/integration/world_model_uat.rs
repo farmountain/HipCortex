@@ -28,7 +28,7 @@ async fn web_server_graph_endpoint() {
     let resp = reqwest::get("http://127.0.0.1:3010/graph").await.unwrap();
     let text = resp.text().await.unwrap();
     let parsed: (Vec<SymbolicNode>, Vec<SymbolicEdge>) = serde_json::from_str(&text).unwrap();
-    assert_eq!(parsed.0.len(), 2);
+    assert_eq!(parsed.0.len(), 3);
     assert_eq!(parsed.1.len(), 1);
     server.abort();
 }

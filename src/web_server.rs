@@ -290,6 +290,8 @@ pub struct MemoryNeighborsResponse {
     pub neighbors:    Vec<String>,
     /// Incoming edges ("these memories support/caused/led to this one")
     pub incoming:     Vec<String>,
+    pub records:      Vec<crate::memory_record::MemoryRecord>,
+    pub total:        usize,
 }
 
 /// GET /memory/search/related — find memories related to a seed by Personalized PageRank.
@@ -660,8 +662,9 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     };
     let memory_neighbors_route: axum::routing::MethodRouter = {
         let tg = topo_arc.clone();
+        let ms = memory_store.clone();
         get(move |Path(id): Path<String>| async move {
-            handle_memory_neighbors(tg, id).await
+            handle_memory_neighbors(tg, ms, id).await
         })
     };
 
@@ -714,6 +717,13 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         let cc = coherence_arc.clone();
         get(move |Query(p): Query<LiveBeliefsParams>| async move {
             handle_memory_live_beliefs(ms, ss, wm, au, sm, cc, Query(p)).await
+        })
+    };
+
+    let delete_memory_route = {
+        let ms = memory_store.clone();
+        delete(move |Path(id): Path<String>| async move {
+            handle_delete_memory(ms, Path(id)).await
         })
     };
 
@@ -843,6 +853,7 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         .route("/memory/contradict/:id", contradict_route)
         .route("/memory/context", context_route)
         .route("/memory/live_beliefs", live_beliefs_route)
+        .route("/memory/:id",             delete_memory_route)
         .route("/metrics", metrics_route)
         .route("/stats", stats_route)
         .route("/tier", get(handle_tier))
@@ -2063,13 +2074,14 @@ async fn handle_memory_link<B: MemoryBackend + Send + Sync + 'static>(
 
 /// GET /memory/neighbors/:id — return outgoing and incoming linked records for a MemoryRecord.
 #[cfg(feature = "web-server")]
-async fn handle_memory_neighbors(
+async fn handle_memory_neighbors<B: MemoryBackend + Send + Sync + 'static>(
     topo: Arc<Mutex<crate::topological_memory::CausalTopoGraph>>,
+    memory_store: Arc<Mutex<MemoryStore<B>>>,
     id: String,
 ) -> Json<MemoryNeighborsResponse> {
     let sym_id = format!("mem-{}", id);
-    match topo.lock() {
-        Err(_) => Json(MemoryNeighborsResponse { id, neighbors: vec![], incoming: vec![] }),
+    let (neighbors, incoming) = match topo.lock() {
+        Err(_) => (vec![], vec![]),
         Ok(tg) => {
             let neighbors: Vec<String> = tg
                 .get_neighbors(&sym_id)
@@ -2081,9 +2093,29 @@ async fn handle_memory_neighbors(
                 .into_iter()
                 .map(|s| s.trim_start_matches("mem-").to_string())
                 .collect();
-            Json(MemoryNeighborsResponse { id, neighbors, incoming })
+            (neighbors, incoming)
+        }
+    };
+
+    let mut records = Vec::new();
+    if let Ok(ms) = memory_store.lock() {
+        for n_id in neighbors.iter().chain(incoming.iter()) {
+            if let Ok(u) = uuid::Uuid::parse_str(n_id) {
+                if let Some(rec) = ms.find_by_id(u) {
+                    records.push(rec.clone());
+                }
+            }
         }
     }
+    let total = records.len();
+
+    Json(MemoryNeighborsResponse {
+        id,
+        neighbors,
+        incoming,
+        records,
+        total,
+    })
 }
 
 /// GET /memory/search/related handler.
@@ -3300,6 +3332,32 @@ async fn handle_delete_webhook(Path(id): Path<String>) -> StatusCode {
         if hooks.len() < before { StatusCode::NO_CONTENT } else { StatusCode::NOT_FOUND }
     } else {
         StatusCode::INTERNAL_SERVER_ERROR
+    }
+}
+
+/// DELETE /memory/:id — delete a single memory record by UUID
+#[cfg(feature = "web-server")]
+async fn handle_delete_memory<B: MemoryBackend + Send + Sync + 'static>(
+    memory_store: Arc<Mutex<MemoryStore<B>>>,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let uuid = uuid::Uuid::parse_str(&id).map_err(|_| (
+        StatusCode::BAD_REQUEST,
+        Json(serde_json::json!({"success": false, "error": "invalid UUID"})),
+    ))?;
+
+    let mut ms = memory_store.lock().map_err(|e| (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
+    ))?;
+
+    if ms.delete_by_id(uuid) {
+        Ok(Json(serde_json::json!({"success": true})))
+    } else {
+        Err((
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"success": false, "error": "not found"})),
+        ))
     }
 }
 

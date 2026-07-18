@@ -82,14 +82,37 @@ fn deepseek_client_endpoints() {
 
 #[test]
 fn local_llm_client_runs_command() {
-    let client = LocalLLMClient::new("echo");
+    let cmd = if cfg!(windows) {
+        let temp_dir = tempfile::tempdir().unwrap().into_path();
+        let rs_path = temp_dir.join("my_echo.rs");
+        let exe_path = temp_dir.join("my_echo.exe");
+        std::fs::write(
+            &rs_path,
+            "fn main() { if let Some(arg) = std::env::args().nth(1) { print!(\"{}\", arg); } }",
+        )
+        .unwrap();
+
+        let status = std::process::Command::new("rustc")
+            .arg("-o")
+            .arg(&exe_path)
+            .arg(&rs_path)
+            .status()
+            .unwrap();
+
+        assert!(status.success(), "Failed to compile my_echo.exe helper");
+        exe_path.to_str().unwrap().to_string()
+    } else {
+        "echo".to_string()
+    };
+
+    let client = LocalLLMClient::new(cmd);
     assert_eq!(client.generate("hello"), "hello");
     
     // Test chat functionality - on Windows, echo might behave differently with newlines
     let chat_result = client.chat(vec!["a".into()], "b");
     // Accept either "a\nb" (Unix-style) or "a b" (Windows-style) behavior
-    assert!(chat_result == "a\nb" || chat_result == "a b", 
-            "Expected 'a\\nb' or 'a b', but got '{}'", chat_result);
+    assert!(chat_result == "a\nb" || chat_result == "a b" || chat_result == "a\r\nb", 
+            "Expected 'a\\nb', 'a\\r\\nb' or 'a b', but got '{}'", chat_result);
     
     assert!(client.embed("x").is_empty());
 }

@@ -16,12 +16,15 @@ pub struct UATTestRunner {
     server_process: Option<Child>,
     base_url: String,
     vscode_extension_path: String,
+    _temp_dir: tempfile::TempDir,
 }
 
 impl UATTestRunner {
     pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let temp_dir = tempdir()?;
-        let memory_file = temp_dir.path().join("uat_memory.jsonl");
+        
+        let port = 10000 + (rand::random::<u16>() % 10000);
+        let base_url = format!("http://127.0.0.1:{}", port);
         
         // Start HipCortex server
         let server_process = Command::new("cargo")
@@ -30,12 +33,11 @@ impl UATTestRunner {
                 "--bin", "webserver",
                 "--features", "web-server,petgraph_backend"
             ])
-            .env("MEMORY_FILE", memory_file.to_str().unwrap())
+            .env("DATA_DIR", temp_dir.path().to_str().unwrap())
+            .env("PORT", port.to_string())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
-
-        let base_url = "http://127.0.0.1:3030".to_string();
         let vscode_extension_path = "d:\\All_Projects\\HipCortex\\HipCortex\\vscode-extension".to_string();
         
         // Wait for server to be ready with longer timeout
@@ -49,6 +51,7 @@ impl UATTestRunner {
                         server_process: Some(server_process),
                         base_url,
                         vscode_extension_path,
+                        _temp_dir: temp_dir,
                     });
                 }
             }
