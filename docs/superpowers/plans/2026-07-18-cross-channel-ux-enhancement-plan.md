@@ -311,3 +311,63 @@ Priority order:
 - **Scope:** Execute Phase 0 (honesty + matrix) and Phase 1 (version stamp + doctor); Phase 6 hosts pending research update
 - **Constraints:** headroom/caveman; surgical commits; keep extension tags/autostart green
 
+
+---
+
+## Phase 6 research update (2026-07-18)
+
+Web + docs research (not yet implemented). Use for installer design.
+
+### OpenClaw (status ¡ú **mcp** implementable)
+
+| Item | Finding |
+|------|---------|
+| Config | `~/.openclaw/openclaw.json` (JSON5); env `OPENCLAW_CONFIG_PATH` |
+| MCP client registry | `mcp.servers` in OpenClaw config |
+| CLI | `openclaw mcp add <name> --command ¡­ --arg ¡­` (stdio); also `set`/`doctor`/`probe` |
+| UI | Control UI `/settings/mcp` |
+| HipCortex install strategy | `openclaw mcp add hipcortex --command python --arg <path-to-mcp-server.py>` with env `HIPCORTEX_URL`, OR write `mcp.servers.hipcortex` stdio block into openclaw.json |
+| Note | OpenClaw can also **serve** as MCP; we need OpenClaw as **client** of HipCortex MCP |
+
+### Hermes Agent / Nous (status ¡ú **mcp** implementable)
+
+| Item | Finding |
+|------|---------|
+| Config | `~/.hermes/config.yaml` (+ `~/.hermes/.env` for secrets) |
+| MCP key | `mcp_servers:` map; each entry `command` + `args` (+ `env`) |
+| CLI | `hermes mcp` manage; tools discovered at startup via `discover_mcp_tools()` |
+| Example | `mcp_servers: hipcortex: { command: python, args: [path], env: { HIPCORTEX_URL: ... } }` |
+| HipCortex strategy | Merge yaml under `mcp_servers.hipcortex`; document `hermes mcp` probe |
+
+### Grok Build / xAI (status ¡ú **mcp** / **guide**)
+
+| Item | Finding |
+|------|---------|
+| Product | Grok Build CLI (beta 2026); npm install; SuperGrok / X Premium+ |
+| Compatibility claim | AGENTS.md, plugins, hooks, skills, **MCP servers work out of the box** (x.ai news) |
+| Config | Prefer standard project MCP / AGENTS.md patterns (align with Claude Code / Cursor-style); exact path may follow product docs ¡ª treat first installer as **MCP stdio** into project or user MCP config when documented |
+| HipCortex strategy | Phase 6a: guide with sample MCP JSON; Phase 6b: detect Grok Build config file when path stabilizes |
+
+### Antigravity IDE (status ¡ú **mcp** + **vsix**)
+
+| Item | Finding |
+|------|---------|
+| Nature | VS Code fork; extensions via **Open VSX** not MS marketplace |
+| MCP | Built-in **MCP Store**; custom servers via `mcp_config.json` (Antigravity docs) |
+| VSIX | Import VS Code extensions / Open VSX publish path for hipcortex-memory |
+| HipCortex strategy | (1) Document Open VSX publish; (2) `_install_antigravity` writes `mcp_config.json` same stdio as Cursor; (3) optional VSIX install instructions for Antigravity |
+
+### Installer priority (updated)
+
+1. **Antigravity** ¡ª `mcp_config.json` + Open VSX note (highest overlap with VSIX)  
+2. **Hermes** ¡ª `~/.hermes/config.yaml` `mcp_servers` merge  
+3. **OpenClaw** ¡ª `openclaw mcp add` or `~/.openclaw/openclaw.json` `mcp.servers`  
+4. **Grok Build** ¡ª guide first; MCP sample; native when config path confirmed  
+
+### channels.yaml status updates to apply after Phase 6 code
+
+- `antigravity`: claimed ¡ú **mcp** (when installer lands) / keep **vsix** note for Open VSX  
+- `hermes`: claimed ¡ú **mcp**  
+- `openclaw`: claimed ¡ú **mcp**  
+- `grok-code` / `grok-build`: claimed ¡ú **guide** until path confirmed, then **mcp**
+
