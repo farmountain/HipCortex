@@ -1,4 +1,5 @@
 """Tests for hipcortex install CLI — run: pytest sdk/python/tests/test_cli_install.py -v"""
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -206,6 +207,8 @@ def test_cmd_install_writes_project_config(tmp_path, monkeypatch):
     args.yes = True
     args.mode = "proactive"
     args.actor = "install-actor"
+    args.dry_run = False
+    args.scaffold = False
 
     with patch("hipcortex.cli.Path.home", return_value=home), patch(
         "hipcortex.cli._install_mcp_server"
@@ -222,4 +225,252 @@ def test_cmd_install_writes_project_config(tmp_path, monkeypatch):
     assert s.mode == "proactive"
     assert s.channels == ["claude-code", "cursor"]
     assert (proj / ".hipcortex" / "config.toml").is_file()
+
+
+def _install_args(**kwargs):
+    """Namespace-like args for cmd_install tests (real bools, not MagicMock attrs)."""
+    defaults = {
+        "url": "http://localhost:3030",
+        "force": False,
+        "yes": True,
+        "mode": "conservative",
+        "actor": None,
+        "dry_run": False,
+        "scaffold": False,
+    }
+    defaults.update(kwargs)
+    return argparse.Namespace(**defaults)
+
+
+def test_scaffold_off_by_default_no_framework_files(tmp_path, monkeypatch, capsys):
+    """Default install must not write hipcortex_*.py (or other) framework starters to cwd."""
+    home = _make_fake_home(tmp_path)
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    monkeypatch.chdir(proj)
+
+    from hipcortex import config as cfg
+
+    monkeypatch.setattr(cfg, "USER_CONFIG_PATH", tmp_path / "user.toml")
+    monkeypatch.delenv("HIPCORTEX_URL", raising=False)
+
+    fw_code = "# starter"
+    agents = [
+        {
+            "id": "claude-code",
+            "name": "Claude Code",
+            "desc": "",
+            "type": "native",
+            "fn": lambda: (True, "ok"),
+        },
+        {
+            "id": "langchain",
+            "name": "LangChain",
+            "desc": "",
+            "type": "framework",
+            "file": "hipcortex_langchain.py",
+            "code": fw_code,
+        },
+    ]
+    args = _install_args(url="http://x:1", scaffold=False)
+
+    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.cli._install_mcp_server"
+    ), patch("hipcortex.cli._build_agent_registry", return_value=agents), patch(
+        "hipcortex.cli._write_framework_starter"
+    ) as write_fw:
+        from hipcortex.cli import cmd_install
+
+        cmd_install(args)
+
+    write_fw.assert_not_called()
+    assert not (proj / "hipcortex_langchain.py").exists()
+    out = capsys.readouterr().out
+    assert "--scaffold" in out or "package API only" in out
+
+
+def test_scaffold_on_writes_framework_starter(tmp_path, monkeypatch):
+    """--scaffold writes framework starter files to cwd."""
+    home = _make_fake_home(tmp_path)
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    monkeypatch.chdir(proj)
+
+    from hipcortex import config as cfg
+
+    monkeypatch.setattr(cfg, "USER_CONFIG_PATH", tmp_path / "user.toml")
+
+    agents = [
+        {
+            "id": "langchain",
+            "name": "LangChain",
+            "desc": "",
+            "type": "framework",
+            "file": "hipcortex_langchain.py",
+            "code": "# langchain starter\n",
+        },
+    ]
+    args = _install_args(url="http://x:1", scaffold=True)
+
+    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.cli._install_mcp_server"
+    ), patch("hipcortex.cli._build_agent_registry", return_value=agents):
+        from hipcortex.cli import cmd_install
+
+        cmd_install(args)
+
+    starter = proj / "hipcortex_langchain.py"
+    assert starter.is_file()
+    assert "langchain starter" in starter.read_text(encoding="utf-8")
+
+
+def test_dry_run_no_writes(tmp_path, monkeypatch, capsys):
+    """--dry-run prints plan; no MCP, skill, config, scaffold, or binary download."""
+    home = _make_fake_home(tmp_path)
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    monkeypatch.chdir(proj)
+
+    from hipcortex import config as cfg
+
+    monkeypatch.setattr(cfg, "USER_CONFIG_PATH", tmp_path / "user.toml")
+
+    skill_calls = []
+    agents = [
+        {
+            "id": "claude-code",
+            "name": "Claude Code",
+            "desc": "",
+            "type": "native",
+            "fn": lambda: skill_calls.append("called") or (True, "ok"),
+        },
+        {
+            "id": "langchain",
+            "name": "LangChain",
+            "desc": "",
+            "type": "framework",
+            "file": "hipcortex_langchain.py",
+            "code": "# no write",
+        },
+    ]
+    args = _install_args(url="http://x:1", dry_run=True, scaffold=True)
+
+    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.cli._install_mcp_server"
+    ) as mcp, patch(
+        "hipcortex.cli._build_agent_registry", return_value=agents
+    ), patch(
+        "hipcortex.cli._write_framework_starter"
+    ) as write_fw, patch(
+        "hipcortex.cli._download_binary"
+    ) as dl:
+        from hipcortex.cli import cmd_install
+
+        cmd_install(args)
+
+    mcp.assert_not_called()
+    write_fw.assert_not_called()
+    dl.assert_not_called()
+    assert skill_calls == []
+    assert not (proj / ".hipcortex" / "config.toml").exists()
+    assert not (proj / "hipcortex_langchain.py").exists()
+    out = capsys.readouterr().out
+    assert "[dry-run]" in out
+    assert "would install" in out.lower() or "would write" in out.lower()
+
+
+def test_dry_run_would_download_when_no_url(tmp_path, monkeypatch, capsys):
+    """--dry-run without --url plans binary download but does not download."""
+    home = _make_fake_home(tmp_path)
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    monkeypatch.chdir(proj)
+
+    from hipcortex import config as cfg
+
+    monkeypatch.setattr(cfg, "USER_CONFIG_PATH", tmp_path / "user.toml")
+
+    agents = [
+        {
+            "id": "claude-code",
+            "name": "Claude Code",
+            "desc": "",
+            "type": "native",
+            "fn": lambda: (True, "ok"),
+        },
+    ]
+    args = _install_args(url=None, dry_run=True, force=True)
+
+    fake_bin = tmp_path / "bin" / "hipcortex"
+    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.cli._install_mcp_server"
+    ), patch("hipcortex.cli._build_agent_registry", return_value=agents), patch(
+        "hipcortex.cli._detect_platform", return_value=("linux", "amd64")
+    ), patch(
+        "hipcortex.cli._binary_path", return_value=fake_bin
+    ), patch(
+        "hipcortex.cli._download_binary"
+    ) as dl:
+        from hipcortex.cli import cmd_install
+
+        cmd_install(args)
+
+    dl.assert_not_called()
+    out = capsys.readouterr().out
+    assert "would download binary" in out
+
+
+def test_non_tty_auto_enables_yes(tmp_path, monkeypatch, capsys):
+    """Non-TTY without --yes auto-enables --yes and prints notice."""
+    home = _make_fake_home(tmp_path)
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    monkeypatch.chdir(proj)
+
+    from hipcortex import config as cfg
+
+    monkeypatch.setattr(cfg, "USER_CONFIG_PATH", tmp_path / "user.toml")
+
+    agents = [
+        {
+            "id": "claude-code",
+            "name": "Claude Code",
+            "desc": "",
+            "type": "native",
+            "fn": lambda: (True, "ok"),
+        },
+    ]
+    args = _install_args(url="http://x:1", yes=False)
+
+    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.cli._install_mcp_server"
+    ), patch("hipcortex.cli._build_agent_registry", return_value=agents), patch(
+        "hipcortex.cli.sys.stdin.isatty", return_value=False
+    ), patch(
+        "hipcortex.cli._run_wizard"
+    ) as wizard:
+        from hipcortex.cli import cmd_install
+
+        cmd_install(args)
+
+    wizard.assert_not_called()
+    assert args.yes is True
+    out = capsys.readouterr().out
+    assert "auto-enabling --yes" in out
+    assert (proj / ".hipcortex" / "config.toml").is_file()
+
+
+def test_parser_has_scaffold_and_dry_run():
+    """build_parser exposes --scaffold and --dry-run on install."""
+    from hipcortex.cli import build_parser
+
+    p = build_parser()
+    ns = p.parse_args(["install", "--scaffold", "--dry-run", "--yes"])
+    assert ns.scaffold is True
+    assert ns.dry_run is True
+    assert ns.yes is True
+
+    ns2 = p.parse_args(["install"])
+    assert ns2.scaffold is False
+    assert ns2.dry_run is False
 

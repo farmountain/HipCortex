@@ -821,6 +821,21 @@ def cmd_install(args: argparse.Namespace) -> None:
     """Interactive wizard: download binary + configure chosen AI coding assistants."""
     print(_SPLASH)
 
+    # Use `is True` so MagicMock auto-attrs in tests don't become truthy.
+    dry_run = getattr(args, "dry_run", False) is True
+    scaffold = getattr(args, "scaffold", False) is True
+
+    # Non-TTY without --yes: auto-enable --yes (safe full subset refined later in 5C)
+    if getattr(args, "yes", False) is not True and not sys.stdin.isatty():
+        args.yes = True
+        print(
+            f"  {_GRAY}Non-TTY stdin: auto-enabling --yes "
+            f"(pass --yes explicitly to silence this message){_RESET}\n"
+        )
+
+    if dry_run:
+        print(f"  {_CYAN}[dry-run]{_RESET} No files will be written; no binary download.\n")
+
     # ── 1. Server URL ─────────────────────────────────────────────────────────
     if args.url:
         server_url = args.url.rstrip("/")
@@ -833,13 +848,21 @@ def cmd_install(args: argparse.Namespace) -> None:
 
         if binary_path.exists() and not getattr(args, "force", False):
             print(f"  {_GREEN}✓{_RESET} Binary: {binary_path}")
+        elif dry_run:
+            print(
+                f"  {_CYAN}[dry-run]{_RESET} would download binary "
+                f"for {os_name}/{arch} → {binary_path}"
+            )
         else:
             print(f"  Downloading binary for {os_name}/{arch}...")
             _download_binary(_binary_url(os_name, arch), binary_path)
             print(f"  {_GREEN}✓{_RESET} Binary: {binary_path}")
 
     # ── 2. MCP server script ──────────────────────────────────────────────────
-    _install_mcp_server()
+    if dry_run:
+        print(f"  {_CYAN}[dry-run]{_RESET} would install MCP server script → ~/.hipcortex-mcp/server.py")
+    else:
+        _install_mcp_server()
 
     # ── 3. Agent selection ────────────────────────────────────────────────────
     agents = _build_agent_registry(server_url, sys.executable)
@@ -852,26 +875,22 @@ def cmd_install(args: argparse.Namespace) -> None:
             a["fn"] = lambda act=actor: (_install_claude_code(server_url, mode, actor=act), "~/.claude/skills/hipcortex/")
             break
 
-    yes_all = getattr(args, "yes", False)
+    yes_all = getattr(args, "yes", False) is True
     if yes_all:
         # Non-interactive: configure all auto-configurable agents
+        # Framework starters only materialize when --scaffold (still listed if scaffold)
         chosen = [a for a in agents if a["type"] != "guide"]
         print(f"  --yes: configuring all {len(chosen)} supported agents\n")
     else:
         print(f"  {_BOLD}Which AI coding assistants do you use?{_RESET}\n")
-        # Check if terminal is interactive
-        if not sys.stdin.isatty():
-            chosen = [a for a in agents if a["type"] != "guide"]
-            print(f"  Non-interactive: configuring all supported agents\n")
-        else:
-            chosen = _run_wizard(agents)
+        chosen = _run_wizard(agents)
 
     if not chosen:
         print(f"  {_GRAY}Nothing selected. Run 'hipcortex install' again anytime.{_RESET}\n")
         return
 
     # ── 4. Configure chosen agents ────────────────────────────────────────────
-    print(f"\n  {_BOLD}Configuring:{_RESET}\n")
+    print(f"\n  {_BOLD}{'Would configure' if dry_run else 'Configuring'}:{_RESET}\n")
     guide_items = []
 
     import re as _re
@@ -886,12 +905,28 @@ def cmd_install(args: argparse.Namespace) -> None:
             print(f"  {_CYAN}ℹ{_RESET} {name:<22} {agent['guide']}")
             continue
         if agent["type"] == "framework":
+            fname = agent.get("file", "starter.py")
+            if not scaffold:
+                print(
+                    f"  {_GRAY}–{_RESET} {name:<22} "
+                    f"{_DIM}package API only (pass --scaffold to write {fname}){_RESET}"
+                )
+                continue
+            if dry_run:
+                dest = str(Path.cwd() / fname)
+                print(f"  {_CYAN}[dry-run]{_RESET} would write {name:<14} → {dest}")
+                framework_files.append((name, dest))
+                continue
             try:
-                ok, dest = _write_framework_starter(agent["file"], agent["code"])
+                ok, dest = _write_framework_starter(fname, agent["code"])
                 print(f"  {_GREEN}✓{_RESET} {name:<22} {_DIM}{dest}{_RESET}")
                 framework_files.append((name, dest))
             except Exception as e:
                 print(f"  ✗ {name:<22} error: {e}")
+            continue
+        # native / mcp agents — never call installer fn in dry-run
+        if dry_run:
+            print(f"  {_CYAN}[dry-run]{_RESET} would install {name}")
             continue
         try:
             ok, detail = agent["fn"]()
@@ -903,30 +938,41 @@ def cmd_install(args: argparse.Namespace) -> None:
             print(f"  ✗ {name:<22} error: {e}")
 
     # ── 4b. Project config (.hipcortex/config.toml) ───────────────────────────
-    try:
-        try:
-            from .config import ensure_project_config
-        except ImportError:
-            from hipcortex.config import ensure_project_config
-
-        channel_ids = [
-            a["id"]
-            for a in chosen
-            if a.get("type") not in ("guide", "section") and a.get("id")
-        ]
-        cfg_path = ensure_project_config(
-            Path.cwd(),
-            url=server_url,
-            actor=actor,
-            mode=mode or "conservative",
-            channels=channel_ids,
+    channel_ids = [
+        a["id"]
+        for a in chosen
+        if a.get("type") not in ("guide", "section") and a.get("id")
+        and (a.get("type") != "framework" or scaffold)
+    ]
+    if dry_run:
+        print(
+            f"  {_CYAN}[dry-run]{_RESET} would write project config "
+            f"→ {Path.cwd() / '.hipcortex' / 'config.toml'} "
+            f"(channels={channel_ids})"
         )
-        print(f"  {_GREEN}✓{_RESET} Project config        {_DIM}{cfg_path}{_RESET}")
-    except Exception as e:
-        print(f"  {_GRAY}–{_RESET} Project config        {_DIM}skipped ({e}){_RESET}")
+    else:
+        try:
+            try:
+                from .config import ensure_project_config
+            except ImportError:
+                from hipcortex.config import ensure_project_config
+
+            cfg_path = ensure_project_config(
+                Path.cwd(),
+                url=server_url,
+                actor=actor,
+                mode=mode or "conservative",
+                channels=channel_ids,
+            )
+            print(f"  {_GREEN}✓{_RESET} Project config        {_DIM}{cfg_path}{_RESET}")
+        except Exception as e:
+            print(f"  {_GRAY}–{_RESET} Project config        {_DIM}skipped ({e}){_RESET}")
 
     # ── 5. Start server ───────────────────────────────────────────────────────
-    if binary_path and binary_path.exists():
+    if dry_run:
+        if binary_path:
+            print(f"  {_CYAN}[dry-run]{_RESET} would start server if binary present and not running")
+    elif binary_path and binary_path.exists():
         health_url = "http://localhost:3030/health"
         already_running = False
         try:
@@ -957,8 +1003,16 @@ def cmd_install(args: argparse.Namespace) -> None:
                 print("(starting in background)")
 
     # ── 6. Usage hints ────────────────────────────────────────────────────────
-    print(f"\n  {_BOLD}Ready!{_RESET}\n")
-    configured_names = {a["id"] for a in chosen if a["type"] not in ("guide", "section")}
+    if dry_run:
+        print(f"\n  {_BOLD}Dry-run complete — no changes made.{_RESET}\n")
+    else:
+        print(f"\n  {_BOLD}Ready!{_RESET}\n")
+    configured_names = {
+        a["id"]
+        for a in chosen
+        if a["type"] not in ("guide", "section")
+        and (a["type"] != "framework" or scaffold)
+    }
 
     if "claude-code" in configured_names:
         print(f"  Claude Code  →  /hipcortex remember 'your note'")
@@ -966,10 +1020,17 @@ def cmd_install(args: argparse.Namespace) -> None:
     if configured_names & {"cursor", "windsurf", "cline", "roocode", "vscode"}:
         print(f"  Cursor/etc   →  restart IDE · use hipcortex MCP tools")
     if framework_files:
-        print(f"\n  {_BOLD}Starter files written:{_RESET}")
+        label = "Starter files planned:" if dry_run else "Starter files written:"
+        print(f"\n  {_BOLD}{label}{_RESET}")
         for fname, fpath in framework_files:
             print(f"  {_GREEN}✓{_RESET} {fname:<20} {_DIM}{fpath}{_RESET}")
-        print(f"  {_DIM}Edit these files and import into your project.{_RESET}")
+        if not dry_run:
+            print(f"  {_DIM}Edit these files and import into your project.{_RESET}")
+    elif any(a.get("type") == "framework" for a in chosen) and not scaffold:
+        print(
+            f"\n  {_DIM}Framework starters skipped (default). "
+            f"Re-run with --scaffold to write hipcortex_*.py to cwd.{_RESET}"
+        )
     if guide_items:
         print(f"\n  {_DIM}Setup guides:{_RESET}")
         for a in guide_items:
@@ -978,6 +1039,8 @@ def cmd_install(args: argparse.Namespace) -> None:
     print(f"\n  Docs: {_CYAN}https://github.com/farmountain/HipCortex{_RESET}\n")
 
     # Auto-start the server if binary was downloaded and server isn't already running
+    if dry_run:
+        return
     if binary_path and binary_path.exists():
         health_url = f"http://localhost:3030/health"
         already_running = False
@@ -1414,6 +1477,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_install.add_argument("--url", help=f"Use an existing server instead of local binary (e.g. {MANAGED_URL})")
     p_install.add_argument("--force", action="store_true", help="Re-download binary even if it exists")
     p_install.add_argument("--yes", "-y", action="store_true", help="Non-interactive: configure all supported agents")
+    p_install.add_argument(
+        "--scaffold",
+        action="store_true",
+        help="Write framework starter files to cwd (hipcortex_langchain.py, etc.). Off by default.",
+    )
+    p_install.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print planned actions only — no binary download, config, skill, MCP, or scaffold writes",
+    )
     p_install.add_argument("--mode", choices=["conservative", "proactive"], default="conservative", help="SKILL policy: conservative (explicit) or proactive (substrate-first harness; MUST search/get_live_beliefs first)")
     p_install.add_argument("--actor", help="Configure default actor for this client install")
 
