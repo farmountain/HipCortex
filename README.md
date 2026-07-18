@@ -6,7 +6,7 @@
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 [![PyPI](https://img.shields.io/pypi/v/hipcortex.svg)](https://pypi.org/project/hipcortex/)
-[![VS Code](https://img.shields.io/badge/VS%20Code-v0.5.0-blue.svg)](vscode-extension/)
+[![VS Code](https://img.shields.io/badge/VS%20Code-v0.5.4-blue.svg)](vscode-extension/)
 
 **Persistent causal topological memory, recursive Bayesian world-model prediction (`/worldmodel/rollout`), and automatic FSM skill compilation for autonomous AI agents.**
 
@@ -203,7 +203,7 @@ We believe in **100% rigorous, unassailable engineering benchmarks** (`Headroom 
 
 ## 🧠 Headroom vs. Caveman Mode Token Optimization (`59% – 88% Savings`)
 
-In long autonomous coding sessions (`Claude Code`, `Copilot`, `Antigravity IDE`), full conversation history injection causes **context stuffing**, degraded reasoning, and astronomical token bills.
+In long autonomous coding sessions (`Claude Code`, `Copilot`, VS Code–compatible hosts), full conversation history injection causes **context stuffing**, degraded reasoning, and astronomical token bills.
 
 HipCortex (`WorkingSetBroker` + `TemporalIndexer`) solves this with **Topological Context Budgeting**, verified via `benchmarks/token_reduction_benchmark.py` (`tiktoken cl100k_base`):
 
@@ -222,7 +222,7 @@ HipCortex (`WorkingSetBroker` + `TemporalIndexer`) solves this with **Topologica
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        CLIENT / AGENT LAYER                            │
-│   (Claude Code, Antigravity IDE, Cursor, Grok Code, Hermes, OpenClaw)  │
+│   (Claude Code, Cursor, VS Code VSIX/MCP — honest matrix: docs/channels.md) │
 └───────────────────────────────────▲────────────────────────────────────┘
                                     │  MCP / HTTP JSON-RPC (`Tier 0` Session)
 ┌───────────────────────────────────▼────────────────────────────────────┘
@@ -254,7 +254,11 @@ HipCortex (`WorkingSetBroker` + `TemporalIndexer`) solves this with **Topologica
 ```bash
 pip install hipcortex
 hipcortex install   # interactive wizard — picks your IDEs and frameworks
+hipcortex channels  # honest support matrix (native / mcp / framework / guide / claimed)
 ```
+
+Supported surfaces and honesty badges: **[docs/channels.md](docs/channels.md)**.  
+Hermes, OpenClaw, Grok Code, and Antigravity-specific installers are **claimed** (docs examples only) until Phase 6 — not first-class wizard targets.
 
 The wizard auto-detects your setup and configures everything:
 
@@ -355,10 +359,10 @@ const { results } = await client.search({ query: "Hello", limit: 5 });
 | Pre-built binary | `curl -L <url> -o hipcortex && chmod +x hipcortex && ./hipcortex` |
 | Docker | `docker run -p 3030:3030 hipcortex:latest` |
 | Build from source | `cargo run --bin webserver --features "web-server,petgraph_backend"` |
-| VS Code extension | `code --install-extension hipcortex-memory-0.3.0.vsix` |
-| MCP (Cursor/Claude/Windsurf) | `curl -fsSL <install.sh> | bash` |
+| VS Code extension | `code --install-extension hipcortex-memory-0.5.4.vsix` |
+| MCP (Cursor/Claude/Windsurf) | `hipcortex install` or [sdk/mcp/README.md](sdk/mcp/README.md) |
 
-> Binary downloads: [GitHub Releases](https://github.com/farmountain/HipCortex/releases) · Docker: [Docker Hub](https://hub.docker.com) · VS Code: [Marketplace](https://marketplace.visualstudio.com) · MCP guide: [sdk/mcp/README.md](sdk/mcp/README.md)
+> Binary downloads: [GitHub Releases](https://github.com/farmountain/HipCortex/releases) · Docker: [Docker Hub](https://hub.docker.com) · VS Code: [Marketplace](https://marketplace.visualstudio.com) · MCP guide: [sdk/mcp/README.md](sdk/mcp/README.md) · **Channel honesty matrix:** [docs/channels.md](docs/channels.md) (`hipcortex channels`)
 
 **Auto-embedding (Ollama / OpenAI):**
 ```bash

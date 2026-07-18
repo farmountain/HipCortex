@@ -1,0 +1,245 @@
+# HipCortex channel registry — single honesty source for README / wizard / CLI
+# status: native | mcp | framework | guide | claimed | none
+#   native    — first-class product surface (installer or package)
+#   mcp       — wizard writes MCP host config
+#   framework — package adapter and/or install scaffold
+#   guide     — docs/copy-paste only; no auto-installer
+#   claimed   — marketing or path guessed; NOT in install registry (Phase 6)
+#   none      — not a consumer install channel
+#
+# Rule: no README "first-class" claim without matching status here.
+# Generated human table: docs/channels.md
+# Print: hipcortex channels
+
+version: 1
+updated: "2026-07-18"
+
+channels:
+  # ── Distribution surfaces ──────────────────────────────────────────────
+  - id: rust-binary
+    name: Rust binary / Cargo
+    category: distribution
+    status: native
+    install: "cargo build / GitHub Releases"
+    notes: "Crate version 0.5.0; CLI + webserver"
+
+  - id: pip
+    name: pip (Python SDK + CLI)
+    category: distribution
+    status: native
+    install: "pip install hipcortex && hipcortex install"
+    notes: "Wizard + SDK; package 0.5.0"
+
+  - id: npm
+    name: npm (TypeScript SDK)
+    category: distribution
+    status: native
+    install: "npm install hipcortex"
+    notes: "HTTP client only; no install wizard"
+
+  - id: docker
+    name: Docker
+    category: distribution
+    status: native
+    install: "docker run -p 3030:3030 hipcortex:latest"
+    notes: "Image availability may lag releases"
+
+  - id: managed
+    name: Managed tier (Fly)
+    category: distribution
+    status: native
+    install: "hipcortex install --url https://hipcortex.fly.dev"
+    notes: "Remote HTTP; optional free tier"
+
+  - id: mcp-server
+    name: MCP server (Python stdio)
+    category: distribution
+    status: mcp
+    install: "hipcortex install (copies ~/.hipcortex-mcp/server.py)"
+    notes: "serverInfo.version may lag product (Phase 1 stamps)"
+
+  - id: vscode-extension
+    name: VS Code / Antigravity VSIX
+    category: distribution
+    status: native
+    install: "code --install-extension hipcortex-memory-0.5.4.vsix"
+    notes: "Extension 0.5.4; expects server 0.5.0; Antigravity = VS Code-compatible host, no separate installer"
+
+  # ── Coding assistants (install registry) ───────────────────────────────
+  - id: claude-code
+    name: Claude Code
+    category: coding-assistant
+    status: native
+    install: "hipcortex install → SKILL.md + optional MCP"
+    notes: "Proactive mode: --mode proactive --actor <id>"
+
+  - id: cursor
+    name: Cursor
+    category: coding-assistant
+    status: mcp
+    install: "hipcortex install → .cursor/mcp.json"
+    notes: "Project or global MCP"
+
+  - id: windsurf
+    name: Windsurf
+    category: coding-assistant
+    status: mcp
+    install: "hipcortex install → windsurf mcp_settings.json"
+    notes: "Codeium global MCP"
+
+  - id: vscode-mcp
+    name: VS Code (MCP via wizard)
+    category: coding-assistant
+    status: mcp
+    install: "hipcortex install → settings.json mcpServers"
+    notes: "Parallel to VSIX path; MCP-only (no LM tools)"
+
+  - id: cline
+    name: Cline
+    category: coding-assistant
+    status: mcp
+    install: "hipcortex install → .cline/mcp.json"
+    notes: ""
+
+  - id: roocode
+    name: RooCode
+    category: coding-assistant
+    status: mcp
+    install: "hipcortex install → .roo/mcp.json"
+    notes: ""
+
+  - id: continue
+    name: Continue
+    category: coding-assistant
+    status: guide
+    install: "sdk/continue/README.md"
+    notes: "Guide only"
+
+  - id: copilot
+    name: GitHub Copilot
+    category: coding-assistant
+    status: guide
+    install: "docs / OpenAPI tools"
+    notes: "Guide only; no auto-config"
+
+  - id: codex
+    name: OpenAI Codex CLI
+    category: coding-assistant
+    status: guide
+    install: "sdk/mcp/README.md shell integration"
+    notes: "Guide only"
+
+  - id: aider
+    name: Aider
+    category: coding-assistant
+    status: guide
+    install: "sdk/mcp/README.md shell integration"
+    notes: "Guide only"
+
+  - id: gemini
+    name: Gemini CLI
+    category: coding-assistant
+    status: guide
+    install: "Manual MCP config"
+    notes: "Guide only; no wizard installer"
+
+  - id: amazonq
+    name: Amazon Q Developer
+    category: coding-assistant
+    status: guide
+    install: "Manual MCP (~/.amazonq/mcp.json example)"
+    notes: "Guide only; path not verified by wizard"
+
+  # ── Claimed / Phase 6 hosts (NOT first-class) ──────────────────────────
+  - id: antigravity
+    name: Antigravity IDE
+    category: coding-assistant
+    status: claimed
+    install: "Use vscode-extension VSIX or VS Code-compatible MCP"
+    notes: "No dedicated profile; VSIX may work if VS Code API compatible"
+
+  - id: grok-code
+    name: Grok Code / Grok Build
+    category: coding-assistant
+    status: claimed
+    install: "none (MCP path guessed in sdk/mcp/README)"
+    notes: "No install registry entry; Phase 6 research"
+
+  - id: hermes
+    name: Hermes Agent
+    category: coding-assistant
+    status: claimed
+    install: "none (MCP path guessed)"
+    notes: "No install registry entry; Phase 6 research"
+
+  - id: openclaw
+    name: OpenClaw Orchestrator
+    category: coding-assistant
+    status: claimed
+    install: "none (MCP path guessed)"
+    notes: "No install registry entry; Phase 6 research"
+
+  # ── Agent frameworks ───────────────────────────────────────────────────
+  - id: langchain
+    name: LangChain
+    category: framework
+    status: framework
+    install: "pip + hipcortex.langchain_memory; wizard scaffold"
+    notes: "Package-first preferred; scaffold writes cwd file"
+
+  - id: crewai
+    name: CrewAI
+    category: framework
+    status: framework
+    install: "hipcortex.adapters.crewai; wizard scaffold"
+    notes: ""
+
+  - id: autogen
+    name: AutoGen
+    category: framework
+    status: framework
+    install: "hipcortex.adapters.autogen; wizard scaffold"
+    notes: ""
+
+  - id: llamaindex
+    name: LlamaIndex
+    category: framework
+    status: framework
+    install: "hipcortex.llamaindex_storage; wizard scaffold"
+    notes: ""
+
+  - id: pydantic-ai
+    name: Pydantic AI
+    category: framework
+    status: framework
+    install: "wizard scaffold (REST tools)"
+    notes: "No dedicated package adapter yet"
+
+  - id: dspy
+    name: DSPy
+    category: framework
+    status: framework
+    install: "wizard scaffold (trace helpers)"
+    notes: "Thin"
+
+  - id: n8n
+    name: n8n / Make.com
+    category: framework
+    status: framework
+    install: "wizard curl snippet scaffold"
+    notes: "HTTP only"
+
+  - id: flowise
+    name: Flowise / Dify
+    category: framework
+    status: guide
+    install: "OpenAPI URL paste"
+    notes: "Guide via openapi.json"
+
+  # ── Internal / non-consumer ────────────────────────────────────────────
+  - id: openmanus
+    name: OpenManus
+    category: internal
+    status: none
+    install: "Rust IntegrationLayer (in-process)"
+    notes: "Not a consumer install channel"

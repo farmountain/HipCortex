@@ -1,0 +1,95 @@
+# HipCortex channel matrix
+
+**Source of truth:** [`docs/channels.yaml`](channels.yaml)  
+**Print CLI:** `hipcortex channels`  
+**Updated:** 2026-07-18 (Phase 0 honesty)
+
+## Status legend
+
+| Status | Meaning |
+|--------|---------|
+| **native** | First-class product surface (package, VSIX, skill installer) |
+| **mcp** | Wizard writes MCP host config |
+| **framework** | Package adapter and/or install scaffold |
+| **guide** | Docs / copy-paste only — no auto-installer |
+| **claimed** | Mentioned in marketing or guessed MCP path — **not** in install registry |
+| **none** | Internal / not a consumer install channel |
+
+**Rule:** README must not present a channel as first-class unless status is `native`, `mcp`, or `framework`.
+
+---
+
+## Distribution
+
+| Channel | Status | Install | Notes |
+|---------|--------|---------|-------|
+| Rust binary / Cargo | native | `cargo build` / GitHub Releases | Crate **0.5.0** |
+| pip (Python SDK + CLI) | native | `pip install hipcortex` | Wizard + SDK **0.5.0** |
+| npm (TypeScript SDK) | native | `npm install hipcortex` | Client only; no wizard |
+| Docker | native | `docker run -p 3030:3030 …` | Image may lag releases |
+| Managed tier (Fly) | native | `hipcortex install --url https://hipcortex.fly.dev` | Remote HTTP |
+| MCP server (Python stdio) | mcp | `hipcortex install` → `~/.hipcortex-mcp/` | Banner version may lag |
+| VS Code / Antigravity VSIX | native | `code --install-extension hipcortex-memory-0.5.4.vsix` | Ext **0.5.4**; server **0.5.0** |
+
+---
+
+## Coding assistants
+
+| Channel | Status | Install | Notes |
+|---------|--------|---------|-------|
+| Claude Code | native | wizard → SKILL.md | Proactive: `--mode proactive` |
+| Cursor | mcp | wizard → `.cursor/mcp.json` | |
+| Windsurf | mcp | wizard → Codeium MCP settings | |
+| VS Code (MCP wizard) | mcp | wizard → `settings.json` | Parallel to VSIX |
+| Cline | mcp | wizard → `.cline/mcp.json` | |
+| RooCode | mcp | wizard → `.roo/mcp.json` | |
+| Continue | guide | `sdk/continue/README.md` | |
+| GitHub Copilot | guide | docs / OpenAPI | |
+| OpenAI Codex CLI | guide | shell / MCP docs | |
+| Aider | guide | shell integration docs | |
+| Gemini CLI | guide | manual MCP | |
+| Amazon Q Developer | guide | manual MCP example | |
+
+### Claimed (not first-class — Phase 6)
+
+| Channel | Status | Reality |
+|---------|--------|---------|
+| Antigravity IDE | claimed | No dedicated installer; use **VSIX** if VS Code–compatible |
+| Grok Code / Grok Build | claimed | No registry entry; MCP path unverified |
+| Hermes Agent | claimed | No registry entry; MCP path unverified |
+| OpenClaw | claimed | No registry entry; MCP path unverified |
+
+---
+
+## Agent frameworks
+
+| Channel | Status | Install | Notes |
+|---------|--------|---------|-------|
+| LangChain | framework | `hipcortex.langchain_memory` + scaffold | Package-first preferred |
+| CrewAI | framework | `hipcortex.adapters.crewai` | |
+| AutoGen | framework | `hipcortex.adapters.autogen` | |
+| LlamaIndex | framework | `hipcortex.llamaindex_storage` | |
+| Pydantic AI | framework | wizard scaffold | Thin REST tools |
+| DSPy | framework | wizard scaffold | Thin |
+| n8n / Make.com | framework | curl snippet scaffold | HTTP only |
+| Flowise / Dify | guide | paste OpenAPI URL | |
+
+---
+
+## Internal
+
+| Channel | Status | Notes |
+|---------|--------|-------|
+| OpenManus | none | In-process Rust integration — not a consumer channel |
+
+---
+
+## Version snapshot (Phase 0 baseline)
+
+| Surface | Version |
+|---------|---------|
+| Cargo / pip / npm (product) | 0.5.0 |
+| VS Code extension (VSIX) | 0.5.4 |
+| MCP `serverInfo.version` | may be stale (fix in Phase 1) |
+
+See also: [cross-channel UX plan](superpowers/plans/2026-07-18-cross-channel-ux-enhancement-plan.md), [problem catalog](superpowers/specs/2026-07-18-cross-channel-ux-problem-catalog.md).

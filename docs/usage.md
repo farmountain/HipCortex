@@ -3,6 +3,9 @@
 Welcome to the HipCortex AI Memory Engine! This guide explains how to build, run,
 test, and extend the system for agentic, edge, or AI research use.
 
+**Channel support matrix (honest statuses):** [docs/channels.md](channels.md) · `hipcortex channels`.  
+Statuses: `native` | `mcp` | `framework` | `guide` | `claimed` | `none`. Hermes / OpenClaw / Grok / Antigravity-specific paths are **claimed**, not first-class wizard targets.
+
 ---
 
 ## 1. Build & Run

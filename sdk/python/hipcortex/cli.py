@@ -6,6 +6,7 @@ Usage:
     hipcortex install --mode proactive  # substrate-first harness (MUST get_live_beliefs first etc)
     hipcortex start             # start the local server (downloads if needed)
     hipcortex status            # check server health
+    hipcortex channels          # print channel honesty matrix (docs/channels.yaml)
 """
 
 from __future__ import annotations
@@ -1232,6 +1233,101 @@ def cmd_restore(args: argparse.Namespace) -> None:
         __import__('sys').exit(1)
 
 
+def _channels_yaml_candidates() -> list[Path]:
+    """Resolve docs/channels.yaml from repo checkout or CWD."""
+    here = Path(__file__).resolve()
+    # sdk/python/hipcortex/cli.py → repo root is parents[3]
+    roots = []
+    if len(here.parents) > 3:
+        roots.append(here.parents[3])
+    roots.append(Path.cwd())
+    return [r / "docs" / "channels.yaml" for r in roots]
+
+
+def _parse_channels_yaml(text: str) -> list[dict]:
+    """Minimal YAML list parser for channels.yaml (no PyYAML dep)."""
+    channels: list[dict] = []
+    current: Optional[dict] = None
+    in_channels = False
+    for raw in text.splitlines():
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if stripped == "channels:" or stripped.startswith("channels:"):
+            in_channels = True
+            continue
+        if not in_channels:
+            continue
+        if stripped.startswith("- id:"):
+            if current:
+                channels.append(current)
+            val = stripped.split(":", 1)[1].strip().strip('"').strip("'")
+            current = {"id": val}
+            continue
+        if current is not None and ":" in stripped and not stripped.startswith("-"):
+            key, val = stripped.split(":", 1)
+            current[key.strip()] = val.strip().strip('"').strip("'")
+    if current:
+        channels.append(current)
+    return channels
+
+
+def _fallback_channels() -> list[dict]:
+    """Hardcoded subset when channels.yaml is not on disk (PyPI install)."""
+    return [
+        {"id": "claude-code", "name": "Claude Code", "status": "native", "install": "hipcortex install"},
+        {"id": "cursor", "name": "Cursor", "status": "mcp", "install": "hipcortex install"},
+        {"id": "windsurf", "name": "Windsurf", "status": "mcp", "install": "hipcortex install"},
+        {"id": "vscode-extension", "name": "VS Code VSIX", "status": "native", "install": "hipcortex-memory-0.5.4.vsix"},
+        {"id": "vscode-mcp", "name": "VS Code MCP", "status": "mcp", "install": "hipcortex install"},
+        {"id": "cline", "name": "Cline", "status": "mcp", "install": "hipcortex install"},
+        {"id": "roocode", "name": "RooCode", "status": "mcp", "install": "hipcortex install"},
+        {"id": "langchain", "name": "LangChain", "status": "framework", "install": "package + scaffold"},
+        {"id": "antigravity", "name": "Antigravity IDE", "status": "claimed", "install": "use VSIX if VS Code-compatible"},
+        {"id": "grok-code", "name": "Grok Code", "status": "claimed", "install": "none"},
+        {"id": "hermes", "name": "Hermes", "status": "claimed", "install": "none"},
+        {"id": "openclaw", "name": "OpenClaw", "status": "claimed", "install": "none"},
+        {"id": "continue", "name": "Continue", "status": "guide", "install": "docs only"},
+        {"id": "copilot", "name": "GitHub Copilot", "status": "guide", "install": "docs only"},
+    ]
+
+
+def cmd_channels(args: argparse.Namespace) -> None:
+    """Print channel honesty matrix from docs/channels.yaml (or fallback)."""
+    source = "embedded fallback"
+    channels: list[dict] = []
+    for path in _channels_yaml_candidates():
+        if path.is_file():
+            try:
+                channels = _parse_channels_yaml(path.read_text(encoding="utf-8"))
+                source = str(path)
+                break
+            except OSError:
+                continue
+    if not channels:
+        channels = _fallback_channels()
+
+    status_filter = (args.status or "").strip().lower() or None
+    if status_filter:
+        channels = [c for c in channels if c.get("status", "").lower() == status_filter]
+
+    print(f"HipCortex channels  (source: {source})")
+    print("status: native | mcp | framework | guide | claimed | none")
+    print(f"{'ID':<18} {'STATUS':<12} {'NAME':<28} INSTALL")
+    print("-" * 90)
+    for c in channels:
+        print(
+            f"{c.get('id', '?'):<18} "
+            f"{c.get('status', '?'):<12} "
+            f"{c.get('name', c.get('id', '?')):<28} "
+            f"{c.get('install', '')}"
+        )
+    print()
+    print("Full table: docs/channels.md  ·  registry: docs/channels.yaml")
+    if any(c.get("status") == "claimed" for c in channels):
+        print("Note: 'claimed' = marketing/docs example only — not first-class install.")
+
+
 def cmd_index(args: argparse.Namespace) -> None:
     """Index a codebase into HipCortex symbolic knowledge graph."""
     url = args.url or os.environ.get("HIPCORTEX_URL", DEFAULT_URL)
@@ -1333,6 +1429,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_index.add_argument("--actor", help="Actor label for this codebase (default: codebase)")
     p_index.add_argument("--extensions", help="Comma-separated file extensions (default: .py,.ts,.js)")
 
+    # channels (Phase 0 honesty matrix)
+    p_channels = sub.add_parser(
+        "channels",
+        help="Print channel honesty matrix (native/mcp/framework/guide/claimed)",
+    )
+    p_channels.add_argument(
+        "--status",
+        help="Filter by status (native|mcp|framework|guide|claimed|none)",
+    )
+
     return parser
 
 
@@ -1356,6 +1462,8 @@ def main() -> None:
         cmd_restore(args)
     elif args.command == "index":
         cmd_index(args)
+    elif args.command == "channels":
+        cmd_channels(args)
     else:
         parser.print_help()
         sys.exit(1)

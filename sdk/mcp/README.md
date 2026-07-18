@@ -15,7 +15,19 @@ hipcortex setup --mode headroom --url http://127.0.0.1:3030
 
 ---
 
-## 📋 Exact Copy-Paste Configurations (12 Autonomous Agents)
+## Channel status (honesty)
+
+Not every host below has a **wizard installer**. Official matrix: [docs/channels.md](../../docs/channels.md) · `hipcortex channels`.
+
+| Hosts | Status |
+|-------|--------|
+| Claude Code, Cursor, Windsurf, VS Code MCP, Cline, RooCode | **native / mcp** (wizard) |
+| Continue, Copilot, Codex, Aider, Gemini, Amazon Q, Flowise | **guide** |
+| Grok Code, Hermes, OpenClaw, Antigravity-specific paths | **claimed** — example JSON only; paths unverified; no `hipcortex install` entry |
+
+---
+
+## 📋 Exact Copy-Paste Configurations
 
 ### 1. Claude Code (`claude mcp add`)
 Run in your terminal:
@@ -63,8 +75,10 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 }
 ```
 
-### 4. Grok Code (`~/.grok/mcp.json`)
-Add to your Grok Code configuration directory `~/.grok/mcp.json`:
+### 4. Grok Code (`~/.grok/mcp.json`) — **claimed / unverified**
+> Status: **claimed** — not in `hipcortex install` registry. Path is a community guess; verify against your Grok host docs before relying on it.
+
+Example (if your host uses standard MCP JSON):
 ```json
 {
   "mcpServers": {
@@ -77,8 +91,8 @@ Add to your Grok Code configuration directory `~/.grok/mcp.json`:
 }
 ```
 
-### 5. Hermes Agent (`~/.hermes/mcp_config.json`)
-Add to `~/.hermes/mcp_config.json`:
+### 5. Hermes Agent (`~/.hermes/mcp_config.json`) — **claimed / unverified**
+> Status: **claimed** — no installer; config path not CI-verified.
 ```json
 {
   "mcpServers": {
@@ -91,8 +105,8 @@ Add to `~/.hermes/mcp_config.json`:
 }
 ```
 
-### 6. OpenClaw Orchestrator (`~/.openclaw/mcp.json`)
-Add to `~/.openclaw/mcp.json`:
+### 6. OpenClaw Orchestrator (`~/.openclaw/mcp.json`) — **claimed / unverified**
+> Status: **claimed** — no installer; config path not CI-verified.
 ```json
 {
   "mcpServers": {
@@ -131,8 +145,10 @@ Launch Aider with HipCortex MCP:
 aider --mcp-server "python -m hipcortex.mcp.server --mode headroom"
 ```
 
-### 10. Gemini CLI & Antigravity IDE (`~/.gemini/antigravity-ide/mcp/`)
-Place `hipcortex.json` into your Antigravity IDE `mcp` server directory:
+### 10. Gemini CLI & Antigravity IDE — **guide / claimed**
+> **Gemini:** guide-only (manual MCP). **Antigravity:** **claimed** as a distinct product path — prefer the **VS Code VSIX** (`hipcortex-memory-0.5.4.vsix`) if the host is VS Code–compatible. The path below is unverified.
+
+Example MCP fragment:
 ```json
 {
   "command": "python",
