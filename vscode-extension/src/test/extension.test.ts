@@ -17,6 +17,9 @@ import {
     extractPortFromBaseUrl,
     isServerVersionAcceptable,
     shouldReuseRunningServer,
+    sharedDataDir,
+    sharedInstallDir,
+    sharedPidPath,
 } from '../extension';
 import { TokenTracker } from '../token-tracker';
 
@@ -677,5 +680,12 @@ describe('server lifecycle helpers', () => {
             expectedVersion: EXPECTED_SERVER_VERSION,
             strict: false,
         })).toBe(true);
+    });
+
+    test('sharedDataDir: ~/.hipcortex/data (CLI-aligned)', () => {
+        expect(sharedInstallDir()).toBe(path.join(os.homedir(), '.hipcortex'));
+        expect(sharedDataDir()).toBe(path.join(os.homedir(), '.hipcortex', 'data'));
+        expect(sharedPidPath()).toBe(path.join(os.homedir(), '.hipcortex', 'hipcortex.pid'));
+        expect(sharedDataDir()).not.toContain('hipcortex-vscode');
     });
 });

@@ -19,6 +19,38 @@ export function buildPublishedBinaryName(platform: string, arch: string): string
     return binaryName;
 }
 
+/** Unified install root shared with Python CLI (`~/.hipcortex`). */
+export function sharedInstallDir(): string {
+    return path.join(os.homedir(), '.hipcortex');
+}
+
+/** Default DATA_DIR shared with CLI daemon (`~/.hipcortex/data`). */
+export function sharedDataDir(): string {
+    return path.join(sharedInstallDir(), 'data');
+}
+
+/** PID file path for CLI stop compatibility (`~/.hipcortex/hipcortex.pid`). */
+export function sharedPidPath(): string {
+    return path.join(sharedInstallDir(), 'hipcortex.pid');
+}
+
+/** Best-effort write of server PID for CLI `hipcortex stop`. */
+function writeSharedPidBestEffort(pid: number | undefined, log: (msg: string) => void): void {
+    if (pid === undefined || !Number.isFinite(pid) || pid <= 0) {
+        return;
+    }
+    try {
+        const installDir = sharedInstallDir();
+        if (!fs.existsSync(installDir)) {
+            fs.mkdirSync(installDir, { recursive: true });
+        }
+        fs.writeFileSync(sharedPidPath(), String(pid), 'utf8');
+        log(`Wrote shared PID ${pid} → ${sharedPidPath()}`);
+    } catch (err) {
+        log(`Could not write shared PID file: ${err instanceof Error ? err.message : String(err)}`);
+    }
+}
+
 const MIN_BINARY_BYTES = 1_000_000;
 const SERVER_START_TIMEOUT_SEC = 30;
 
@@ -311,6 +343,7 @@ export class HipCortexAPI {
                 strict,
             })
         ) {
+            // Attach-first: never killProcessOnPort when reusing a healthy acceptable server.
             log(
                 `Reusing active HipCortex server on port ${portStr}` +
                     (serverVersion ? ` (version ${serverVersion})` : ' (version unknown)')
@@ -328,14 +361,20 @@ export class HipCortexAPI {
         }
 
         try {
+            // Only reached when not reusing; free the port before spawn.
             await killProcessOnPort(port);
 
             log('Starting HipCortex server...');
             const binaryPath = await this.ensureServerBinary(outputChannel);
 
-            const serverDir = path.join(os.homedir(), '.hipcortex-vscode');
-            if (!fs.existsSync(serverDir)) {
-                fs.mkdirSync(serverDir, { recursive: true });
+            // Logs/cwd stay under extension-local dir; DATA_DIR shares with CLI.
+            const serverCwd = path.join(os.homedir(), '.hipcortex-vscode');
+            if (!fs.existsSync(serverCwd)) {
+                fs.mkdirSync(serverCwd, { recursive: true });
+            }
+            const dataDir = sharedDataDir();
+            if (!fs.existsSync(dataDir)) {
+                fs.mkdirSync(dataDir, { recursive: true });
             }
 
             if (globalServerProcess) {
@@ -344,11 +383,11 @@ export class HipCortexAPI {
             }
 
             globalServerProcess = cp.spawn(binaryPath, [], {
-                cwd: serverDir,
+                cwd: serverCwd,
                 env: {
                     ...process.env,
                     PORT: portStr,
-                    DATA_DIR: serverDir,
+                    DATA_DIR: dataDir,
                     RUST_LOG: 'info',
                 },
                 stdio: ['ignore', 'pipe', 'pipe'],
@@ -375,7 +414,8 @@ export class HipCortexAPI {
             for (let i = 0; i < SERVER_START_TIMEOUT_SEC; i++) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 if (await this.healthCheck()) {
-                    log(`Server ready on ${this.baseUrl}`);
+                    writeSharedPidBestEffort(globalServerProcess?.pid, log);
+                    log(`Server ready on ${this.baseUrl} (DATA_DIR=${dataDir})`);
                     return true;
                 }
             }
@@ -421,7 +461,14 @@ export class HipCortexAPI {
             }
         }
 
-        // 2. User cache — re-download if corrupt
+        // 2. CLI install dir (~/.hipcortex/hipcortex-*) — prefer over download
+        const cliBinaryPath = path.join(sharedInstallDir(), binaryName);
+        if (isValidServerBinary(cliBinaryPath)) {
+            log(`Using CLI-installed server binary: ${cliBinaryPath}`);
+            return cliBinaryPath;
+        }
+
+        // 3. User cache — re-download if corrupt
         const binDir = path.join(os.homedir(), '.hipcortex-vscode', 'bin');
         if (!fs.existsSync(binDir)) {
             fs.mkdirSync(binDir, { recursive: true });
@@ -436,7 +483,7 @@ export class HipCortexAPI {
             log('Removed corrupt cached binary; re-downloading...');
         }
 
-        // 3. Download from GitHub releases
+        // 4. Download from GitHub releases
         const downloadUrl = `https://github.com/farmountain/HipCortex/releases/latest/download/${binaryName}`;
         log(`Downloading ${binaryName} from GitHub releases...`);
         await this.downloadFile(downloadUrl, cachedPath);
