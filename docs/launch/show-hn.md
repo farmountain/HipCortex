@@ -11,14 +11,15 @@ Show HN: HipCortex — Rust AI memory with metacognitive intelligence layer, MCP
 I built HipCortex because every memory system treats memory as retrieval. HipCortex treats it as cognition: temporal decay, causal world modeling, cross-module coherence, and metacognitive self-awareness.
 
 What's different:
-- **0.6ms p50 write latency** on Linux (1.7ms on Windows) — SHA-256 audit trail included
+- **0.48–0.61ms p50 write latency** on Linux (≈2ms on Windows loopback) — SHA-256 Merkle audit trail included
 - **Intelligence layer** — Self-Model (metacognitive health + decision engine), World-Model Enhanced (Dirichlet-Multinomial transitions, Kalman entity tracking, causal do-calculus), Coherence Checker (5 inconsistency types, 3 resolution strategies, 4 mathematical invariants with synchronous write-gating)
-- **MCP server** for Cursor, Claude Code, Windsurf — `curl install.sh | bash` → persistent memory across sessions
+- **Proactive agent harness** — `hipcortex install --mode proactive` forces substrate-first loop (`GET /memory/live_beliefs` before frontier tokens; up to ~93% context reduction vs full history)
+- **MCP server** for Cursor, Claude Code, Windsurf — one install → persistent memory across sessions
 - **GDPR right-to-forget**: `DELETE /memory/forget/:actor` — atomic across temporal + symbolic + audit
-- **ARM64 binary** — 4MB, Raspberry Pi 5, Jetson, AWS Graviton, M1/M2/M4 Mac
-- **Zero dependencies** — single binary, no database required
+- **ARM64 binary** — ~4MB, Raspberry Pi 5, Jetson, AWS Graviton, M1/M2/M4 Mac
+- **Zero dependencies** — single binary, no database required (petgraph default)
 - **Framework integrations**: LangChain, LlamaIndex, AutoGen 0.4, CrewAI, Continue.dev, Flowise, Dify
-- **45+ REST endpoints** — health monitoring, prediction, counterfactual reasoning, coherence resolution
+- **45+ REST endpoints** — health, prediction, counterfactual reasoning, coherence resolution, live_beliefs
 - **npm + PyPI + VS Code extension**: `npm i hipcortex` / `pip install hipcortex`
 
 **Metacognitive intelligence (what makes this different):**

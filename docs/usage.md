@@ -7,28 +7,36 @@ test, and extend the system for agentic, edge, or AI research use.
 
 ## 1. Build & Run
 
+Minimal path (works on a clean machine — no external DB libs):
+
 ```sh
-cargo build
-cargo run
+cargo build --no-default-features --features "petgraph_backend"
+cargo run  --example quickstart --no-default-features --features "petgraph_backend"
+# HTTP server (optional)
+cargo run --bin webserver --no-default-features --features "web-server,petgraph_backend"
 ```
 
-* `main.rs` demonstrates all major features and acts as a quickstart demo.
+* Quickstart demo: `examples/quickstart.rs`. CLI binary: `cargo run --` (see root `CLAUDE.md`).
 
 ## 2. Run All Tests
 
 ```sh
-cargo test
+cargo test --no-default-features --features "petgraph_backend" --lib
+cargo test --no-default-features --features "petgraph_backend" --test unit_suite
+cargo test --no-default-features --features "petgraph_backend" --test integration_suite
 ```
 
-* Unit, integration, and property-based tests are in `/tests/integration_tests.rs`.
+* Suites: `tests/unit_suite.rs`, `tests/integration_suite.rs`, `tests/property_suite.rs`.
+* E2E user harness (Python): `tests/e2e_user_harness/` — plan in `HipCortex_E2E_User_Testing_Plan.md`.
 
 ## 3. Run Benchmarks
 
 ```sh
-cargo bench
+cargo bench --no-default-features --features "petgraph_backend"
+python benchmarks/token_reduction_benchmark.py
 ```
 
-* Criterion benchmarks are in `/benches/criterion_bench.rs`.
+* Criterion benches under `/benches/`. Token matrix: Headroom / Caveman / Proactive substrate.
 
 ## 4. Example Usage
 
@@ -73,8 +81,59 @@ See the implementations and comments in:
 - Proactive `SKILL.md` in the Python package (`sdk/python/hipcortex/install/SKILL.md`)
 - Live observation surface: `GET /memory/live_beliefs`
 
+### Claude Agent Harness & Substrate-First Loop
+
+When configured in `proactive` mode (via `hipcortex install --mode proactive`), Claude Code or other agents adopt a **substrate-first** cognitive loop:
+
+1. **Perceive**: Agent reads the user query.
+2. **Substrate Query (MUST)**: Before any frontier reasoning tokens, call `GET /memory/live_beliefs` (aggregates symbolic graph, current hypotheses, world predictions, self-health) to load persistent context.
+3. **Reflect (CoT / Counterfactual)**: For complex decisions or high uncertainty, call `POST /memory/reflect` with a target query (e.g. `{"query": "database choice options"}`). Server runs `AureusBridge::reflect_on_memory` to sample hypotheses and return posteriors.
+4. **Decide & Act**: Gate actions with `POST /decide/can-execute`; write decisions via `/memory/ingest` (or `add_memory` for full field control).
+
+Install (writes SKILL + harness registration):
+
+```sh
+hipcortex install --mode proactive --actor my_project_agent
+# optional: point at managed tier
+hipcortex install --mode proactive --url https://hipcortex.fly.dev
+```
+
+**Using `/memory/reflect` manually:**
+
+```sh
+curl -X POST http://localhost:3030/memory/reflect \
+     -H "Content-Type: application/json" \
+     -d '{"query": "Postgres migration decisions"}'
+```
+
+Returns:
+
+```json
+{
+  "success": true,
+  "loops_run": 3,
+  "llm_used": true,
+  "hypothesis": {
+    "id": "hyp_uuid_...",
+    "text": "Using Postgres handles multi-user concurrency safely",
+    "confidence": 0.89,
+    "evidence": ["locks configured", "concurrency tests passed"]
+  }
+}
+```
+
+Related surfaces:
+
+| Surface | Role |
+|---------|------|
+| `GET /memory/live_beliefs` | Pre-merged observations (facts + hyp + world + intel) |
+| `GET /memory/search` / `search-flat` | Top-k recall for Headroom/Caveman budgeting |
+| `POST /memory/ingest` | Zero-config write after decisions |
+| `POST /decide/can-execute` | Self-model gate before side effects |
+
 ### Loop / Ω (Omega) Substrate
-Topological memory substrate and full Ω loop (snapshot → simulate → attribute → mutate → gate) now exposed via MCP/Integration auto feeds and PerceptionSession (with_topo). Use `hipcortex::topological_memory::CausalTopoGraph` and `hipcortex::loop_engine::LoopEngine` directly or via harness for substrate-first ops. See plan 2026-06-20-harness-and-omega-loop-engineering.md and `src/{mcp_server,modules/{integration_layer,perception_adapter,loop_engine}}`.
+
+Topological memory substrate and full Ω loop (snapshot → simulate → attribute → mutate → gate) exposed via MCP/Integration auto feeds and `PerceptionSession` (with_topo). Use `hipcortex::topological_memory::CausalTopoGraph` and `hipcortex::loop_engine::LoopEngine` directly or via harness for substrate-first ops. See `docs/superpowers/plans/2026-06-20-harness-and-omega-loop-engineering.md` and `src/{mcp_server,modules/{integration_layer,perception_adapter,loop_engine}}`.
 
 ### Run a WASM plugin
 

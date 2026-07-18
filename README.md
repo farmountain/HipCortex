@@ -289,6 +289,27 @@ hipcortex install --yes  # non-interactive: configure all supported agents
 hipcortex install --url https://hipcortex.fly.dev  # use managed free tier
 ```
 
+### Claude Agent Harness & Proactive Mode
+
+Proactive install writes a substrate-first SKILL for Claude Code (and compatible harnesses):
+
+```bash
+hipcortex install --mode proactive --actor my_project_agent
+```
+
+What changes for the agent:
+
+| Step | Contract |
+|------|----------|
+| **MUST query first** | Before frontier reasoning, call `GET /memory/live_beliefs` or `GET /memory/search` |
+| **Cognitive offload** | Hypotheses, world-model predictions, and self-health live in the Rust substrate — not in the prompt |
+| **Reflect / decide** | `POST /memory/reflect` for Bayesian CoT; gate with `POST /decide/can-execute`; write back via `/memory/ingest` |
+| **Token path** | Proactive substrate (`live_beliefs`) targets up to **~93%** steady-state context reduction vs full history |
+
+Template: `sdk/python/hipcortex/install/SKILL.md`. Details: [docs/usage.md](docs/usage.md#claude-agent-harness--substrate-first-loop).
+
+---
+
 ## 60-second quickstart
 
 **Try live (no install):**
