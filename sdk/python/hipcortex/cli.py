@@ -45,6 +45,23 @@ _CLAUDE_REGISTRATION = """
 When the user types `/hipcortex`, invoke the Skill tool with `skill: "hipcortex"` before doing anything else.
 """
 
+# Install result statuses (idempotent installers)
+INSTALL_CREATED = "created"
+INSTALL_UPDATED = "updated"
+INSTALL_UNCHANGED = "unchanged"
+INSTALL_SKIPPED = "skipped"
+INSTALL_DRY_RUN = "dry-run"
+
+# Uninstallable MCP / native channels
+KNOWN_UNINSTALL_CHANNELS = (
+    "claude-code",
+    "cursor",
+    "windsurf",
+    "vscode",
+    "cline",
+    "roocode",
+)
+
 # ─── Platform detection ───────────────────────────────────────────────────────
 
 def _detect_platform() -> tuple[str, str]:
@@ -110,42 +127,99 @@ def _skill_dir() -> Path:
     return Path.home() / ".claude" / "skills" / "hipcortex"
 
 
-def _install_claude_code(server_url: str, mode: str = "conservative", actor: str = None) -> bool:
-    """Write SKILL.md + append to CLAUDE.md. Returns True on success.
-    Supports --mode proactive (uses substrate-first template + harness registration).
-    """
-    claude_dir = Path.home() / ".claude"
-    if not claude_dir.exists():
-        return False  # Claude Code not installed
+def _desired_mcp_entry(server_url: str) -> dict:
+    """Canonical hipcortex MCP server entry for merge/compare."""
+    mcp_server_py = str(Path.home() / ".hipcortex-mcp" / "server.py")
+    return {
+        "command": sys.executable,
+        "args": [mcp_server_py],
+        "env": {"HIPCORTEX_URL": server_url},
+    }
 
-    # Write skill file
-    skill_dir = _skill_dir()
-    skill_dir.mkdir(parents=True, exist_ok=True)
+
+def _write_mcp_servers(mcp_path: Path, server_url: str) -> str:
+    """Merge hipcortex into mcpServers JSON. Returns created|updated|unchanged."""
+    entry = _desired_mcp_entry(server_url)
+    existing: dict = {}
+    if mcp_path.exists():
+        try:
+            existing = json.loads(mcp_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            existing = {}
+
+    mcp_servers = existing.setdefault("mcpServers", {})
+    prev = mcp_servers.get("hipcortex")
+    if prev == entry:
+        return INSTALL_UNCHANGED
+
+    had_entry = prev is not None
+    mcp_servers["hipcortex"] = entry
+    mcp_path.parent.mkdir(parents=True, exist_ok=True)
+    mcp_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+    return INSTALL_UPDATED if had_entry else INSTALL_CREATED
+
+
+def _remove_mcp_entry(mcp_path: Path) -> bool:
+    """Remove hipcortex key from mcpServers. True if something removed."""
+    if not mcp_path.exists():
+        return False
+    try:
+        data = json.loads(mcp_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return False
+    servers = data.get("mcpServers")
+    if not isinstance(servers, dict) or "hipcortex" not in servers:
+        return False
+    del servers["hipcortex"]
+    data["mcpServers"] = servers
+    mcp_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return True
+
+
+def _build_skill_content(server_url: str, mode: str = "conservative", actor: str = None) -> str:
+    """Render SKILL.md body for the given server/mode/actor."""
     skill_md_src = Path(__file__).parent / "install" / "SKILL.md"
-
-    # Read template and substitute server URL
     content = skill_md_src.read_text(encoding="utf-8")
     content = content.replace("http://localhost:3030", server_url)
-    
+
     if actor:
         content = content.replace(
             "Use the current git repository name as the actor (run `git rev-parse --show-toplevel | xargs basename` to get it). Fall back to \"default\" if not in a git repo.",
-            f"Use \"{actor}\" as the actor."
+            f"Use \"{actor}\" as the actor.",
         )
 
-    # If proactive, ensure the (now substrate-first) content; modify for emphasis if needed (minimal)
     if mode == "proactive":
-        # Ensure key harness language is present (source is proactive base; this guards)
         if "MUST: Before any question" not in content:
             content = content.replace(
                 "Invoke HipCortex when the user asks you to:",
                 "You are a memory-centric agent. MUST search/get_live_beliefs first (substrate for state/hyp/pred); LLM only final/creative hyp.",
             )
-    (skill_dir / "SKILL.md").write_text(content, encoding="utf-8")
+    return content
 
-    # Append registration to CLAUDE.md if not already present (update for proactive)
+
+def _install_claude_code(server_url: str, mode: str = "conservative", actor: str = None) -> str:
+    """Write SKILL.md + append to CLAUDE.md. Returns install status string.
+    Supports --mode proactive (uses substrate-first template + harness registration).
+    """
+    claude_dir = Path.home() / ".claude"
+    if not claude_dir.exists():
+        return INSTALL_SKIPPED  # Claude Code not installed
+
+    skill_dir = _skill_dir()
+    skill_file = skill_dir / "SKILL.md"
+    content = _build_skill_content(server_url, mode=mode, actor=actor)
+
+    skill_existed = skill_file.exists()
+    skill_same = skill_existed and skill_file.read_text(encoding="utf-8") == content
+
+    if not skill_same:
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        skill_file.write_text(content, encoding="utf-8")
+
+    # Append registration to CLAUDE.md if not already present
     claude_md = claude_dir / "CLAUDE.md"
     existing = claude_md.read_text(encoding="utf-8") if claude_md.exists() else ""
+    reg_added = False
     if "hipcortex" not in existing:
         reg = _CLAUDE_REGISTRATION
         if mode == "proactive":
@@ -155,28 +229,44 @@ def _install_claude_code(server_url: str, mode: str = "conservative", actor: str
             )
         with claude_md.open("a", encoding="utf-8") as f:
             f.write(reg)
+        reg_added = True
 
-    return True
+    if not skill_existed:
+        status = INSTALL_CREATED
+    elif skill_same:
+        status = INSTALL_UNCHANGED
+    else:
+        status = INSTALL_UPDATED
+    if reg_added and status == INSTALL_UNCHANGED:
+        status = INSTALL_UPDATED
+    return status
 
 
-def _uninstall_claude_code() -> None:
-    """Remove HipCortex skill from Claude Code."""
+def _uninstall_claude_code() -> bool:
+    """Remove HipCortex skill from Claude Code. True if anything removed."""
+    removed = False
     skill_dir = _skill_dir()
     if skill_dir.exists():
         shutil.rmtree(skill_dir)
+        removed = True
     claude_md = Path.home() / ".claude" / "CLAUDE.md"
     if claude_md.exists():
         text = claude_md.read_text(encoding="utf-8")
-        # Remove the registration block
         marker = "\n# hipcortex"
         if marker in text:
             idx = text.index(marker)
-            # Find end of registration block (next \n# or end of file)
             end = text.find("\n# ", idx + 1)
             claude_md.write_text(
                 text[:idx] + (text[end:] if end != -1 else ""),
                 encoding="utf-8",
             )
+            removed = True
+        elif text.lstrip().startswith("# hipcortex"):
+            # Block at start of file
+            end = text.find("\n# ", 1)
+            claude_md.write_text(text[end:] if end != -1 else "", encoding="utf-8")
+            removed = True
+    return removed
 
 # ─── MCP registration (Cursor / Windsurf) ────────────────────────────────────
 
@@ -196,61 +286,48 @@ def _cursor_mcp_path(global_: bool = False) -> Optional[Path]:
         return Path.cwd() / ".cursor" / "mcp.json"
 
 
-def _install_cursor(server_url: str, global_: bool = False) -> bool:
-    """Write/update .cursor/mcp.json. Returns True on success."""
+def _install_cursor(server_url: str, global_: bool = False) -> str:
+    """Write/update .cursor/mcp.json. Returns created|updated|unchanged|skipped."""
     mcp_path = _cursor_mcp_path(global_=global_)
     if mcp_path is None:
-        return False
-
-    mcp_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Read existing config or start fresh
-    existing: dict = {}
-    if mcp_path.exists():
-        try:
-            existing = json.loads(mcp_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            existing = {}
-
-    # Inject hipcortex MCP server entry
-    mcp_servers = existing.setdefault("mcpServers", {})
-    mcp_server_py = str(Path.home() / ".hipcortex-mcp" / "server.py")
-    mcp_servers["hipcortex"] = {
-        "command": sys.executable,
-        "args": [mcp_server_py],
-        "env": {"HIPCORTEX_URL": server_url},
-    }
-
-    mcp_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
-    return True
+        return INSTALL_SKIPPED
+    return _write_mcp_servers(mcp_path, server_url)
 
 
-def _install_vscode(server_url: str) -> bool:
-    """Write mcpServers to VS Code settings.json. Returns True on success."""
+def _vscode_settings_path() -> Path:
     if platform.system() == "Windows":
-        settings_path = Path(os.environ.get("APPDATA", "")) / "Code" / "User" / "settings.json"
-    elif platform.system() == "Darwin":
-        settings_path = Path.home() / "Library" / "Application Support" / "Code" / "User" / "settings.json"
-    else:
-        settings_path = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "Code" / "User" / "settings.json"
+        return Path(os.environ.get("APPDATA", "")) / "Code" / "User" / "settings.json"
+    if platform.system() == "Darwin":
+        return Path.home() / "Library" / "Application Support" / "Code" / "User" / "settings.json"
+    return (
+        Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+        / "Code"
+        / "User"
+        / "settings.json"
+    )
 
+
+def _install_vscode(server_url: str) -> str:
+    """Write mcpServers to VS Code settings.json. Returns install status."""
+    settings_path = _vscode_settings_path()
     if not settings_path.exists():
-        return False  # VS Code not installed
+        return INSTALL_SKIPPED  # VS Code not installed
 
     try:
         settings: dict = json.loads(settings_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, PermissionError):
-        return False
+        return INSTALL_SKIPPED
 
-    mcp_server_py = str(Path.home() / ".hipcortex-mcp" / "server.py")
+    entry = _desired_mcp_entry(server_url)
     mcp_servers = settings.setdefault("mcpServers", {})
-    mcp_servers["hipcortex"] = {
-        "command": sys.executable,
-        "args": [mcp_server_py],
-        "env": {"HIPCORTEX_URL": server_url},
-    }
+    prev = mcp_servers.get("hipcortex")
+    if prev == entry:
+        return INSTALL_UNCHANGED
+
+    had_entry = prev is not None
+    mcp_servers["hipcortex"] = entry
     settings_path.write_text(json.dumps(settings, indent=2), encoding="utf-8")
-    return True
+    return INSTALL_UPDATED if had_entry else INSTALL_CREATED
 
 # ─── MCP server script installer ─────────────────────────────────────────────
 
@@ -274,54 +351,100 @@ def _install_mcp_server() -> None:
 
 # ─── Windsurf MCP registration ────────────────────────────────────────────────
 
-def _install_windsurf(server_url: str) -> bool:
-    """Write/update Windsurf MCP config."""
+def _windsurf_base() -> Path:
     if platform.system() == "Windows":
-        base = Path(os.environ.get("APPDATA", Path.home())) / "Codeium" / "windsurf"
-    elif platform.system() == "Darwin":
-        base = Path.home() / "Library" / "Application Support" / "Codeium" / "windsurf"
-    else:
-        base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "Codeium" / "windsurf"
+        return Path(os.environ.get("APPDATA", Path.home())) / "Codeium" / "windsurf"
+    if platform.system() == "Darwin":
+        return Path.home() / "Library" / "Application Support" / "Codeium" / "windsurf"
+    return (
+        Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+        / "Codeium"
+        / "windsurf"
+    )
 
+
+def _install_windsurf(server_url: str) -> str:
+    """Write/update Windsurf MCP config. Returns install status."""
+    base = _windsurf_base()
     if not base.exists():
-        return False
+        return INSTALL_SKIPPED
 
-    mcp_path = base / "mcp_settings.json"
-    mcp_path.parent.mkdir(parents=True, exist_ok=True)
-    existing: dict = {}
-    if mcp_path.exists():
-        try:
-            existing = json.loads(mcp_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            existing = {}
-
-    mcp_server_py = str(Path.home() / ".hipcortex-mcp" / "server.py")
-    existing.setdefault("mcpServers", {})["hipcortex"] = {
-        "command": sys.executable,
-        "args": [mcp_server_py],
-        "env": {"HIPCORTEX_URL": server_url},
-    }
-    mcp_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
-    return True
+    return _write_mcp_servers(base / "mcp_settings.json", server_url)
 
 
-def _install_mcp_generic(server_url: str, mcp_path: Path) -> bool:
-    """Write MCP config to an arbitrary path (Cline, RooCode, Kilo Code, etc.)."""
-    mcp_path.parent.mkdir(parents=True, exist_ok=True)
-    existing: dict = {}
-    if mcp_path.exists():
-        try:
-            existing = json.loads(mcp_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            existing = {}
-    mcp_server_py = str(Path.home() / ".hipcortex-mcp" / "server.py")
-    existing.setdefault("mcpServers", {})["hipcortex"] = {
-        "command": sys.executable,
-        "args": [mcp_server_py],
-        "env": {"HIPCORTEX_URL": server_url},
-    }
-    mcp_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
-    return True
+def _install_mcp_generic(server_url: str, mcp_path: Path) -> str:
+    """Write MCP config to an arbitrary path (Cline, RooCode, etc.). Returns status."""
+    return _write_mcp_servers(mcp_path, server_url)
+
+
+def _install_cursor_prefer_local(server_url: str) -> str:
+    """Install Cursor MCP: prefer project .cursor/mcp.json, else global."""
+    local = _install_cursor(server_url, global_=False)
+    # Local always can create parent dirs → never skipped. Keep fallback for safety.
+    if local != INSTALL_SKIPPED:
+        return local
+    return _install_cursor(server_url, global_=True)
+
+
+def _uninstall_cursor() -> bool:
+    """Remove hipcortex from project + global Cursor mcp.json."""
+    removed = False
+    local = _cursor_mcp_path(global_=False)
+    if local and _remove_mcp_entry(local):
+        removed = True
+    global_path = _cursor_mcp_path(global_=True)
+    if global_path and _remove_mcp_entry(global_path):
+        removed = True
+    return removed
+
+
+def _uninstall_windsurf() -> bool:
+    return _remove_mcp_entry(_windsurf_base() / "mcp_settings.json")
+
+
+def _uninstall_vscode() -> bool:
+    return _remove_mcp_entry(_vscode_settings_path())
+
+
+def _uninstall_mcp_path(mcp_path: Path) -> bool:
+    return _remove_mcp_entry(mcp_path)
+
+
+def _resolve_uninstall_channels(args: argparse.Namespace) -> list[str]:
+    """Channels to uninstall. Default --all when neither flag given (compat)."""
+    channels = list(getattr(args, "channel", None) or [])
+    all_flag = getattr(args, "all", False) is True
+    if all_flag or not channels:
+        return list(KNOWN_UNINSTALL_CHANNELS)
+    # Validate + de-dupe preserving order
+    seen: set[str] = set()
+    out: list[str] = []
+    for ch in channels:
+        key = ch.strip().lower()
+        if key not in KNOWN_UNINSTALL_CHANNELS:
+            print(f"  {_GRAY}–{_RESET} unknown channel '{ch}' (skip)")
+            continue
+        if key not in seen:
+            seen.add(key)
+            out.append(key)
+    return out
+
+
+def _uninstall_channel(channel: str) -> bool:
+    """Uninstall a single channel. Returns True if something removed."""
+    if channel == "claude-code":
+        return _uninstall_claude_code()
+    if channel == "cursor":
+        return _uninstall_cursor()
+    if channel == "windsurf":
+        return _uninstall_windsurf()
+    if channel == "vscode":
+        return _uninstall_vscode()
+    if channel == "cline":
+        return _uninstall_mcp_path(Path.cwd() / ".cline" / "mcp.json")
+    if channel == "roocode":
+        return _uninstall_mcp_path(Path.cwd() / ".roo" / "mcp.json")
+    return False
 
 
 # ─── Interactive multi-select wizard ─────────────────────────────────────────
@@ -391,10 +514,7 @@ def _build_agent_registry(server_url: str, python_exe: str) -> list:
             "name": "Cursor",
             "desc": "Anysphere · MCP tools in AI panel",
             "type": "mcp",
-            "fn": lambda: (
-                _install_cursor(server_url, global_=False) or _install_cursor(server_url, global_=True),
-                ".cursor/mcp.json"
-            ),
+            "fn": lambda: (_install_cursor_prefer_local(server_url), ".cursor/mcp.json"),
         },
         {
             "id": "windsurf",
@@ -415,14 +535,20 @@ def _build_agent_registry(server_url: str, python_exe: str) -> list:
             "name": "Cline",
             "desc": "saoudrizwan · .cline/mcp.json in project",
             "type": "mcp",
-            "fn": lambda: (_install_mcp_generic(server_url, Path.cwd() / ".cline" / "mcp.json"), ".cline/mcp.json"),
+            "fn": lambda: (
+                _install_mcp_generic(server_url, Path.cwd() / ".cline" / "mcp.json"),
+                ".cline/mcp.json",
+            ),
         },
         {
             "id": "roocode",
             "name": "RooCode",
             "desc": "RooVeterinary · .roo/mcp.json in project",
             "type": "mcp",
-            "fn": lambda: (_install_mcp_generic(server_url, Path.cwd() / ".roo" / "mcp.json"), ".roo/mcp.json"),
+            "fn": lambda: (
+                _install_mcp_generic(server_url, Path.cwd() / ".roo" / "mcp.json"),
+                ".roo/mcp.json",
+            ),
         },
         {
             "id": "continue",
@@ -872,7 +998,10 @@ def cmd_install(args: argparse.Namespace) -> None:
     actor = getattr(args, "actor", None)
     for a in agents:
         if a.get("id") == "claude-code":
-            a["fn"] = lambda act=actor: (_install_claude_code(server_url, mode, actor=act), "~/.claude/skills/hipcortex/")
+            a["fn"] = lambda act=actor: (
+                _install_claude_code(server_url, mode, actor=act),
+                "~/.claude/skills/hipcortex/",
+            )
             break
 
     yes_all = getattr(args, "yes", False) is True
@@ -895,6 +1024,17 @@ def cmd_install(args: argparse.Namespace) -> None:
 
     import re as _re
     framework_files = []
+    status_counts: dict[str, int] = {
+        INSTALL_CREATED: 0,
+        INSTALL_UPDATED: 0,
+        INSTALL_UNCHANGED: 0,
+        INSTALL_SKIPPED: 0,
+        INSTALL_DRY_RUN: 0,
+        "error": 0,
+    }
+
+    def _bump(status: str) -> None:
+        status_counts[status] = status_counts.get(status, 0) + 1
 
     for agent in chosen:
         if agent["type"] == "section":
@@ -911,31 +1051,59 @@ def cmd_install(args: argparse.Namespace) -> None:
                     f"  {_GRAY}–{_RESET} {name:<22} "
                     f"{_DIM}package API only (pass --scaffold to write {fname}){_RESET}"
                 )
+                _bump(INSTALL_SKIPPED)
                 continue
             if dry_run:
                 dest = str(Path.cwd() / fname)
                 print(f"  {_CYAN}[dry-run]{_RESET} would write {name:<14} → {dest}")
                 framework_files.append((name, dest))
+                _bump(INSTALL_DRY_RUN)
                 continue
             try:
                 ok, dest = _write_framework_starter(fname, agent["code"])
-                print(f"  {_GREEN}✓{_RESET} {name:<22} {_DIM}{dest}{_RESET}")
-                framework_files.append((name, dest))
+                if ok:
+                    print(
+                        f"  {_GREEN}✓{_RESET} {name:<22} "
+                        f"{_CYAN}{INSTALL_CREATED:<10}{_RESET} {_DIM}{dest}{_RESET}"
+                    )
+                    framework_files.append((name, dest))
+                    _bump(INSTALL_CREATED)
+                else:
+                    print(f"  {_GRAY}–{_RESET} {name:<22} {_DIM}skipped{_RESET}")
+                    _bump(INSTALL_SKIPPED)
             except Exception as e:
                 print(f"  ✗ {name:<22} error: {e}")
+                _bump("error")
             continue
         # native / mcp agents — never call installer fn in dry-run
         if dry_run:
             print(f"  {_CYAN}[dry-run]{_RESET} would install {name}")
+            _bump(INSTALL_DRY_RUN)
             continue
         try:
-            ok, detail = agent["fn"]()
-            if ok:
-                print(f"  {_GREEN}✓{_RESET} {name:<22} {_DIM}{detail}{_RESET}")
+            status, detail = agent["fn"]()
+            # Back-compat if a custom fn still returns bool
+            if isinstance(status, bool):
+                status = INSTALL_CREATED if status else INSTALL_SKIPPED
+            if status == INSTALL_SKIPPED:
+                print(
+                    f"  {_GRAY}–{_RESET} {name:<22} "
+                    f"{_DIM}{status:<10} not found (install first){_RESET}"
+                )
+            elif status == INSTALL_UNCHANGED:
+                print(
+                    f"  {_GREEN}✓{_RESET} {name:<22} "
+                    f"{_DIM}{status:<10}{detail}{_RESET}"
+                )
             else:
-                print(f"  {_GRAY}–{_RESET} {name:<22} {_DIM}not found (install first){_RESET}")
+                print(
+                    f"  {_GREEN}✓{_RESET} {name:<22} "
+                    f"{_CYAN}{status:<10}{_RESET} {_DIM}{detail}{_RESET}"
+                )
+            _bump(status)
         except Exception as e:
             print(f"  ✗ {name:<22} error: {e}")
+            _bump("error")
 
     # ── 4b. Project config (.hipcortex/config.toml) ───────────────────────────
     channel_ids = [
@@ -1001,6 +1169,15 @@ def cmd_install(args: argparse.Namespace) -> None:
                     pass
             else:
                 print("(starting in background)")
+
+    # ── 5b. Install summary counts ────────────────────────────────────────────
+    summary_parts = [
+        f"{n} {label}"
+        for label, n in status_counts.items()
+        if n > 0
+    ]
+    if summary_parts:
+        print(f"\n  {_BOLD}Install summary:{_RESET} " + ", ".join(summary_parts))
 
     # ── 6. Usage hints ────────────────────────────────────────────────────────
     if dry_run:
@@ -1244,19 +1421,46 @@ def cmd_doctor(args: argparse.Namespace) -> None:
 
 
 def cmd_uninstall(args: argparse.Namespace) -> None:
-    """Remove HipCortex from AI coding assistants and optionally delete binary."""
+    """Remove HipCortex channel configs; optional --purge for binary + MCP script."""
+    channels = _resolve_uninstall_channels(args)
     print("Uninstalling HipCortex...")
-    _uninstall_claude_code()
-    print("  ✓ Removed from Claude Code")
+    if not channels:
+        print(f"  {_GRAY}No channels selected.{_RESET}")
+    else:
+        print(f"  Channels: {', '.join(channels)}")
 
-    if args.purge:
+    labels = {
+        "claude-code": "Claude Code",
+        "cursor": "Cursor",
+        "windsurf": "Windsurf",
+        "vscode": "VS Code",
+        "cline": "Cline",
+        "roocode": "RooCode",
+    }
+    removed_n = 0
+    for ch in channels:
+        label = labels.get(ch, ch)
+        try:
+            did = _uninstall_channel(ch)
+        except Exception as e:
+            print(f"  ✗ {label}: {e}")
+            continue
+        if did:
+            print(f"  {_GREEN}✓{_RESET} Removed from {label}")
+            removed_n += 1
+        else:
+            print(f"  {_GRAY}–{_RESET} {label}: nothing to remove")
+
+    print(f"  Uninstall summary: {removed_n} channel(s) cleaned")
+
+    if getattr(args, "purge", False) is True:
         if INSTALL_DIR.exists():
             shutil.rmtree(INSTALL_DIR)
-            print(f"  ✓ Deleted {INSTALL_DIR}")
+            print(f"  {_GREEN}✓{_RESET} Deleted {INSTALL_DIR}")
         mcp_dir = Path.home() / ".hipcortex-mcp"
         if mcp_dir.exists():
             shutil.rmtree(mcp_dir)
-            print(f"  ✓ Deleted {mcp_dir}")
+            print(f"  {_GREEN}✓{_RESET} Deleted {mcp_dir}")
 
 def cmd_backup(args: argparse.Namespace) -> None:
     """Export all memory records to a JSON backup file."""
@@ -1533,8 +1737,31 @@ def build_parser() -> argparse.ArgumentParser:
     p_stop.add_argument("--port", type=int, help="Port (default: 3030)")
 
     # uninstall
-    p_uninstall = sub.add_parser("uninstall", help="Remove HipCortex configuration")
-    p_uninstall.add_argument("--purge", action="store_true", help="Also delete downloaded binary and data")
+    p_uninstall = sub.add_parser(
+        "uninstall",
+        help="Remove HipCortex channel configuration (skill / MCP entries)",
+    )
+    p_uninstall.add_argument(
+        "--channel",
+        action="append",
+        dest="channel",
+        metavar="CHANNEL",
+        help=(
+            "Channel to remove (repeatable): "
+            + ", ".join(KNOWN_UNINSTALL_CHANNELS)
+        ),
+    )
+    p_uninstall.add_argument(
+        "--all",
+        action="store_true",
+        dest="all",
+        help="Remove all known channels (default when --channel omitted)",
+    )
+    p_uninstall.add_argument(
+        "--purge",
+        action="store_true",
+        help="Also delete downloaded binary (~/.hipcortex) and MCP script (~/.hipcortex-mcp)",
+    )
 
     # backup
     p_backup = sub.add_parser("backup", help="Export memory records to JSON file")

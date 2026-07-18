@@ -17,10 +17,10 @@ def test_install_claude_code_writes_skill_md(tmp_path):
     """install_claude_code writes SKILL.md to ~/.claude/skills/hipcortex/."""
     home = _make_fake_home(tmp_path)
     with patch("hipcortex.cli.Path.home", return_value=home):
-        from hipcortex.cli import _install_claude_code
+        from hipcortex.cli import INSTALL_CREATED, _install_claude_code
         result = _install_claude_code("http://localhost:3030")
 
-    assert result is True
+    assert result == INSTALL_CREATED
     skill_file = home / ".claude" / "skills" / "hipcortex" / "SKILL.md"
     assert skill_file.exists(), "SKILL.md not written"
     content = skill_file.read_text(encoding="utf-8")
@@ -57,14 +57,14 @@ def test_install_claude_code_no_duplicate(tmp_path):
     assert content.count("# hipcortex") == 1
 
 
-def test_install_claude_code_not_installed_returns_false(tmp_path):
-    """Returns False when ~/.claude/ does not exist (Claude Code not installed)."""
+def test_install_claude_code_not_installed_returns_skipped(tmp_path):
+    """Returns skipped when ~/.claude/ does not exist (Claude Code not installed)."""
     home = tmp_path / "home_no_claude"
     home.mkdir()
     with patch("hipcortex.cli.Path.home", return_value=home):
-        from hipcortex.cli import _install_claude_code
+        from hipcortex.cli import INSTALL_SKIPPED, _install_claude_code
         result = _install_claude_code("http://localhost:3030")
-    assert result is False
+    assert result == INSTALL_SKIPPED
 
 
 def test_install_cursor_writes_mcp_json(tmp_path):
@@ -75,10 +75,10 @@ def test_install_cursor_writes_mcp_json(tmp_path):
     home = _make_fake_home(tmp_path)
     with patch("hipcortex.cli.Path.home", return_value=home), \
          patch("hipcortex.cli.Path.cwd", return_value=project_dir):
-        from hipcortex.cli import _install_cursor
+        from hipcortex.cli import INSTALL_CREATED, _install_cursor
         result = _install_cursor("http://localhost:3030", global_=False)
 
-    assert result is True
+    assert result == INSTALL_CREATED
     mcp_json = project_dir / ".cursor" / "mcp.json"
     assert mcp_json.exists()
     config = json.loads(mcp_json.read_text())
@@ -90,10 +90,10 @@ def test_install_claude_code_proactive_mode_writes_harness(tmp_path):
     """--mode proactive writes substrate-first SKILL with MUST + Harness and updates CLAUDE reg."""
     home = _make_fake_home(tmp_path)
     with patch("hipcortex.cli.Path.home", return_value=home):
-        from hipcortex.cli import _install_claude_code
+        from hipcortex.cli import INSTALL_CREATED, _install_claude_code
         result = _install_claude_code("http://localhost:3030", mode="proactive")
 
-    assert result is True
+    assert result == INSTALL_CREATED
     skill_file = home / ".claude" / "skills" / "hipcortex" / "SKILL.md"
     content = skill_file.read_text(encoding="utf-8")
     assert "You are a memory-centric agent" in content
@@ -162,10 +162,10 @@ def test_install_claude_code_actor_configuration(tmp_path):
     """install_claude_code overrides default actor description in SKILL.md when actor is provided."""
     home = _make_fake_home(tmp_path)
     with patch("hipcortex.cli.Path.home", return_value=home):
-        from hipcortex.cli import _install_claude_code
+        from hipcortex.cli import INSTALL_CREATED, _install_claude_code
         result = _install_claude_code("http://localhost:3030", actor="developer_alice")
 
-    assert result is True
+    assert result == INSTALL_CREATED
     skill_file = home / ".claude" / "skills" / "hipcortex" / "SKILL.md"
     content = skill_file.read_text(encoding="utf-8")
     assert 'Use "developer_alice" as the actor.' in content
@@ -473,4 +473,222 @@ def test_parser_has_scaffold_and_dry_run():
     ns2 = p.parse_args(["install"])
     assert ns2.scaffold is False
     assert ns2.dry_run is False
+
+
+# ─── Phase 5B: idempotent statuses + channel uninstall ────────────────────────
+
+
+def test_double_skill_install_second_unchanged(tmp_path):
+    """Second identical skill install returns unchanged (no rewrite needed)."""
+    home = _make_fake_home(tmp_path)
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import (
+            INSTALL_CREATED,
+            INSTALL_UNCHANGED,
+            _install_claude_code,
+        )
+
+        first = _install_claude_code("http://localhost:3030")
+        second = _install_claude_code("http://localhost:3030")
+
+    assert first == INSTALL_CREATED
+    assert second == INSTALL_UNCHANGED
+    skill = home / ".claude" / "skills" / "hipcortex" / "SKILL.md"
+    assert skill.is_file()
+
+
+def test_double_cursor_install_second_unchanged(tmp_path):
+    """Second identical Cursor MCP merge returns unchanged."""
+    project_dir = tmp_path / "proj"
+    project_dir.mkdir()
+    home = _make_fake_home(tmp_path)
+    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.cli.Path.cwd", return_value=project_dir
+    ):
+        from hipcortex.cli import (
+            INSTALL_CREATED,
+            INSTALL_UNCHANGED,
+            _install_cursor,
+        )
+
+        first = _install_cursor("http://localhost:3030", global_=False)
+        second = _install_cursor("http://localhost:3030", global_=False)
+
+    assert first == INSTALL_CREATED
+    assert second == INSTALL_UNCHANGED
+
+
+def test_cursor_install_updated_when_url_changes(tmp_path):
+    """Different HIPCORTEX_URL → updated status."""
+    project_dir = tmp_path / "proj"
+    project_dir.mkdir()
+    home = _make_fake_home(tmp_path)
+    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.cli.Path.cwd", return_value=project_dir
+    ):
+        from hipcortex.cli import INSTALL_CREATED, INSTALL_UPDATED, _install_cursor
+
+        first = _install_cursor("http://localhost:3030", global_=False)
+        second = _install_cursor("http://localhost:9999", global_=False)
+
+    assert first == INSTALL_CREATED
+    assert second == INSTALL_UPDATED
+    cfg = json.loads((project_dir / ".cursor" / "mcp.json").read_text())
+    assert cfg["mcpServers"]["hipcortex"]["env"]["HIPCORTEX_URL"] == "http://localhost:9999"
+
+
+def test_uninstall_channel_claude_code_only(tmp_path, monkeypatch, capsys):
+    """uninstall --channel claude-code removes skill; leaves cursor MCP."""
+    home = _make_fake_home(tmp_path)
+    skill_dir = home / ".claude" / "skills" / "hipcortex"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("skill", encoding="utf-8")
+    (home / ".claude" / "CLAUDE.md").write_text(
+        "# other\n\n# hipcortex\n- **hipcortex** skill\n",
+        encoding="utf-8",
+    )
+
+    proj = tmp_path / "proj"
+    cursor = proj / ".cursor"
+    cursor.mkdir(parents=True)
+    (cursor / "mcp.json").write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "hipcortex": {"command": "x", "args": []},
+                    "other": {"command": "y"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(proj)
+
+    args = argparse.Namespace(channel=["claude-code"], all=False, purge=False)
+    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.cli.INSTALL_DIR", home / ".hipcortex"
+    ):
+        from hipcortex.cli import cmd_uninstall
+
+        cmd_uninstall(args)
+
+    assert not skill_dir.exists()
+    # Cursor MCP untouched
+    cfg = json.loads((cursor / "mcp.json").read_text())
+    assert "hipcortex" in cfg["mcpServers"]
+    out = capsys.readouterr().out
+    assert "Claude Code" in out
+
+
+def test_uninstall_channel_cursor_removes_mcp_entry(tmp_path, monkeypatch):
+    """uninstall --channel cursor drops hipcortex MCP key, keeps others."""
+    home = _make_fake_home(tmp_path)
+    proj = tmp_path / "proj"
+    cursor = proj / ".cursor"
+    cursor.mkdir(parents=True)
+    (cursor / "mcp.json").write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "hipcortex": {"command": "x", "args": []},
+                    "other-tool": {"command": "y"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(proj)
+
+    args = argparse.Namespace(channel=["cursor"], all=False, purge=False)
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import cmd_uninstall
+
+        cmd_uninstall(args)
+
+    cfg = json.loads((cursor / "mcp.json").read_text())
+    assert "hipcortex" not in cfg["mcpServers"]
+    assert "other-tool" in cfg["mcpServers"]
+
+
+def test_uninstall_default_all_channels(tmp_path, monkeypatch, capsys):
+    """No --channel and no --all → default all known channels (compat)."""
+    home = _make_fake_home(tmp_path)
+    skill_dir = home / ".claude" / "skills" / "hipcortex"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("x", encoding="utf-8")
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    monkeypatch.chdir(proj)
+
+    args = argparse.Namespace(channel=None, all=False, purge=False)
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import cmd_uninstall
+
+        cmd_uninstall(args)
+
+    assert not skill_dir.exists()
+    out = capsys.readouterr().out
+    assert "claude-code" in out
+    assert "cursor" in out
+
+
+def test_parser_uninstall_channel_and_all():
+    """build_parser exposes --channel (append) and --all on uninstall."""
+    from hipcortex.cli import build_parser
+
+    p = build_parser()
+    ns = p.parse_args(["uninstall", "--channel", "claude-code", "--channel", "cursor"])
+    assert ns.channel == ["claude-code", "cursor"]
+    assert ns.all is False
+    assert ns.purge is False
+
+    ns2 = p.parse_args(["uninstall", "--all", "--purge"])
+    assert ns2.all is True
+    assert ns2.purge is True
+    assert ns2.channel is None
+
+
+def test_cmd_install_prints_summary_counts(tmp_path, monkeypatch, capsys):
+    """cmd_install prints Install summary with status counts."""
+    home = _make_fake_home(tmp_path)
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    monkeypatch.chdir(proj)
+
+    from hipcortex import config as cfg
+
+    monkeypatch.setattr(cfg, "USER_CONFIG_PATH", tmp_path / "user.toml")
+    monkeypatch.delenv("HIPCORTEX_URL", raising=False)
+
+    from hipcortex.cli import INSTALL_CREATED, INSTALL_UNCHANGED
+
+    agents = [
+        {
+            "id": "claude-code",
+            "name": "Claude Code",
+            "desc": "",
+            "type": "native",
+            "fn": lambda: (INSTALL_CREATED, "skill"),
+        },
+        {
+            "id": "cursor",
+            "name": "Cursor",
+            "desc": "",
+            "type": "mcp",
+            "fn": lambda: (INSTALL_UNCHANGED, "mcp"),
+        },
+    ]
+    args = _install_args(url="http://x:1")
+
+    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.cli._install_mcp_server"
+    ), patch("hipcortex.cli._build_agent_registry", return_value=agents):
+        from hipcortex.cli import cmd_install
+
+        cmd_install(args)
+
+    out = capsys.readouterr().out
+    assert "Install summary:" in out
+    assert "created" in out
+    assert "unchanged" in out
 
