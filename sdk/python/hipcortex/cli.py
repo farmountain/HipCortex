@@ -1749,7 +1749,17 @@ def cmd_install(args: argparse.Namespace) -> None:
 
         if not already_running:
             import subprocess as _sp
-            data_dir = str(INSTALL_DIR / "data")
+            try:
+                from .config import load_settings as _ls
+                from .daemon import resolve_start_data_dir as _rsdd
+            except ImportError:  # pragma: no cover
+                from hipcortex.config import load_settings as _ls  # type: ignore
+                from hipcortex.daemon import resolve_start_data_dir as _rsdd  # type: ignore
+
+            data_dir = _rsdd(
+                settings_data_dir=_ls().data_dir,
+                default=DEFAULT_DATA_DIR,
+            )
             Path(data_dir).mkdir(parents=True, exist_ok=True)
             env = os.environ.copy()
             env.update({"PORT": "3030", "DATA_DIR": data_dir, "RUST_LOG": "warn"})
@@ -1844,8 +1854,18 @@ def cmd_install(args: argparse.Namespace) -> None:
 
         if not already_running:
             import subprocess as _sp
-            data_dir = str(INSTALL_DIR / "data")
             import pathlib as _pl
+            try:
+                from .config import load_settings as _ls
+                from .daemon import resolve_start_data_dir as _rsdd
+            except ImportError:  # pragma: no cover
+                from hipcortex.config import load_settings as _ls  # type: ignore
+                from hipcortex.daemon import resolve_start_data_dir as _rsdd  # type: ignore
+
+            data_dir = _rsdd(
+                settings_data_dir=_ls().data_dir,
+                default=DEFAULT_DATA_DIR,
+            )
             _pl.Path(data_dir).mkdir(parents=True, exist_ok=True)
             env = os.environ.copy()
             env["PORT"] = "3030"
@@ -1897,8 +1917,16 @@ def cmd_start(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     port = args.port or int(os.environ.get("PORT", str(d.DEFAULT_PORT)))
-    data_dir = getattr(args, "data_dir", None) or os.environ.get(
-        "DATA_DIR", str(d.DEFAULT_DATA_DIR)
+    try:
+        from .config import load_settings as _load_settings
+    except ImportError:  # pragma: no cover
+        from hipcortex.config import load_settings as _load_settings  # type: ignore
+
+    _settings = _load_settings()
+    data_dir = d.resolve_start_data_dir(
+        getattr(args, "data_dir", None),
+        settings_data_dir=_settings.data_dir,
+        default=d.DEFAULT_DATA_DIR,
     )
 
     print(f"Starting HipCortex on http://127.0.0.1:{port}")
@@ -2002,8 +2030,16 @@ def cmd_restart(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     port = args.port or int(os.environ.get("PORT", str(d.DEFAULT_PORT)))
-    data_dir = getattr(args, "data_dir", None) or os.environ.get(
-        "DATA_DIR", str(d.DEFAULT_DATA_DIR)
+    try:
+        from .config import load_settings as _load_settings
+    except ImportError:  # pragma: no cover
+        from hipcortex.config import load_settings as _load_settings  # type: ignore
+
+    _settings = _load_settings()
+    data_dir = d.resolve_start_data_dir(
+        getattr(args, "data_dir", None),
+        settings_data_dir=_settings.data_dir,
+        default=d.DEFAULT_DATA_DIR,
     )
     print(f"Restarting HipCortex on http://127.0.0.1:{port} ...")
     try:

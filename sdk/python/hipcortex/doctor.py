@@ -16,11 +16,11 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 
-from .config import DEFAULT_URL, load_settings
+from .config import DEFAULT_SERVER_VERSION_POLICY, DEFAULT_URL, load_settings
 
 OFFLINE_ENV = "HIPCORTEX_DOCTOR_OFFLINE"
 
@@ -28,6 +28,71 @@ OFFLINE_ENV = "HIPCORTEX_DOCTOR_OFFLINE"
 SKILL_HARNESS_MARKERS = ("MUST", "live_beliefs")
 
 PathLike = Union[str, Path]
+
+
+def _parse_major_minor(version: str) -> Optional[Tuple[int, int]]:
+    """Parse leading X.Y from a version string; ignore patch/pre-release."""
+    cleaned = str(version).strip().lstrip("vV")
+    parts = cleaned.split(".")
+    if len(parts) < 2:
+        return None
+    try:
+        return int(parts[0]), int(parts[1])
+    except ValueError:
+        return None
+
+
+def version_policy_ok(
+    server_version: Optional[str],
+    client_version: str,
+    policy: str = "major_minor",
+) -> Tuple[bool, str]:
+    """Return (ok, message) for client/server version policy.
+
+    Policies:
+    - ``any_healthy``: ok whenever health already succeeded (version optional)
+    - ``exact``: server string equals client string
+    - ``major_minor`` (default): major+minor match; patch may differ
+    - unknown policy treated as ``major_minor``
+
+    Missing server version under major_minor/exact is not a hard fail —
+    ``ok=False`` so the doctor can **warn**; it does not fail the report alone.
+    """
+    pol = (policy or DEFAULT_SERVER_VERSION_POLICY).strip().lower()
+    if pol not in ("major_minor", "exact", "any_healthy"):
+        pol = "major_minor"
+
+    if pol == "any_healthy":
+        return True, f"any_healthy policy (client {client_version})"
+
+    if not server_version:
+        return (
+            False,
+            f"server version missing (client {client_version}, policy {pol})",
+        )
+
+    sv = str(server_version)
+    cv = str(client_version)
+
+    if pol == "exact":
+        if sv == cv:
+            return True, f"exact match {sv}"
+        return False, f"exact mismatch: server {sv} vs client {cv}"
+
+    # major_minor
+    s = _parse_major_minor(sv)
+    c = _parse_major_minor(cv)
+    if s is None or c is None:
+        return (
+            False,
+            f"unparseable version server={sv!r} client={cv!r}",
+        )
+    if s == c:
+        return (
+            True,
+            f"major_minor match {s[0]}.{s[1]} (server {sv}, client {cv})",
+        )
+    return False, f"major_minor mismatch: server {sv} vs client {cv}"
 
 
 def package_skill_path() -> Path:
@@ -282,24 +347,24 @@ def run_doctor(
         detail=body if isinstance(body, dict) else None,
     )
 
-    # ── version ──────────────────────────────────────────────────────────
+    # ── version (policy from settings; never hard-fails alone) ───────────
+    from . import __version__ as client_version
+
     version = None
     if isinstance(body, dict):
         version = body.get("version")
-    if version:
-        report.add(
-            "version",
-            "ok",
-            f"server version {version}",
-            detail={"version": version},
-        )
+    policy = settings.server_version_policy or DEFAULT_SERVER_VERSION_POLICY
+    ok_ver, ver_msg = version_policy_ok(version, client_version, policy)
+    detail: Dict[str, Any] = {
+        "server_version": version,
+        "client_version": client_version,
+        "policy": policy,
+    }
+    if ok_ver:
+        report.add("version", "ok", ver_msg, detail=detail)
     else:
-        report.add(
-            "version",
-            "warn",
-            "health ok but version field missing",
-            detail=body if isinstance(body, dict) else None,
-        )
+        # mismatch or missing → warn (not fail)
+        report.add("version", "warn", ver_msg, detail=detail)
 
     # ── optional probe: add + search ─────────────────────────────────────
     if not probe:

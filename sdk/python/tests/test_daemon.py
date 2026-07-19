@@ -328,6 +328,7 @@ def test_stop_server_via_lock_pid(daemon_paths):
 def test_resolve_data_dir_default(daemon_paths, monkeypatch):
     d = daemon_paths
     monkeypatch.delenv("DATA_DIR", raising=False)
+    monkeypatch.delenv("HIPCORTEX_DATA_DIR", raising=False)
     path = d.resolve_data_dir()
     assert path == d.DEFAULT_DATA_DIR
     assert path.exists()
@@ -336,7 +337,79 @@ def test_resolve_data_dir_default(daemon_paths, monkeypatch):
 def test_resolve_data_dir_env(daemon_paths, tmp_path, monkeypatch):
     d = daemon_paths
     custom = tmp_path / "custom-data"
+    monkeypatch.delenv("HIPCORTEX_DATA_DIR", raising=False)
     monkeypatch.setenv("DATA_DIR", str(custom))
     path = d.resolve_data_dir()
     assert path == custom
     assert path.exists()
+
+
+def test_resolve_data_dir_prefers_hipcortex_env(daemon_paths, tmp_path, monkeypatch):
+    d = daemon_paths
+    preferred = tmp_path / "hc-data"
+    legacy = tmp_path / "legacy-data"
+    monkeypatch.setenv("HIPCORTEX_DATA_DIR", str(preferred))
+    monkeypatch.setenv("DATA_DIR", str(legacy))
+    path = d.resolve_data_dir()
+    assert path == preferred
+    assert path.exists()
+
+
+def test_resolve_start_data_dir_precedence(daemon_paths, tmp_path, monkeypatch):
+    d = daemon_paths
+    cli = str(tmp_path / "cli")
+    env_hc = str(tmp_path / "env-hc")
+    env_legacy = str(tmp_path / "env-legacy")
+    settings = str(tmp_path / "settings")
+    default = str(tmp_path / "default")
+
+    # cli wins
+    assert (
+        d.resolve_start_data_dir(
+            cli,
+            env={"HIPCORTEX_DATA_DIR": env_hc, "DATA_DIR": env_legacy},
+            settings_data_dir=settings,
+            default=default,
+        )
+        == cli
+    )
+    # HIPCORTEX_DATA_DIR over DATA_DIR and settings
+    assert (
+        d.resolve_start_data_dir(
+            None,
+            env={"HIPCORTEX_DATA_DIR": env_hc, "DATA_DIR": env_legacy},
+            settings_data_dir=settings,
+            default=default,
+        )
+        == env_hc
+    )
+    # legacy DATA_DIR over settings
+    assert (
+        d.resolve_start_data_dir(
+            None,
+            env={"DATA_DIR": env_legacy},
+            settings_data_dir=settings,
+            default=default,
+        )
+        == env_legacy
+    )
+    # settings over default
+    assert (
+        d.resolve_start_data_dir(
+            None,
+            env={},
+            settings_data_dir=settings,
+            default=default,
+        )
+        == settings
+    )
+    # default last
+    assert (
+        d.resolve_start_data_dir(
+            None,
+            env={},
+            settings_data_dir=None,
+            default=default,
+        )
+        == default
+    )

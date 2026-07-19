@@ -453,3 +453,75 @@ def test_cmd_doctor_exits_zero_offline(monkeypatch):
     with pytest.raises(SystemExit) as ei:
         cmd_doctor(ns)
     assert ei.value.code == 0
+
+
+# ── version_policy_ok ────────────────────────────────────────────────────────
+
+
+def test_version_policy_major_minor_patch_ok():
+    from hipcortex.doctor import version_policy_ok
+
+    ok, msg = version_policy_ok("0.5.1", "0.5.0", "major_minor")
+    assert ok is True
+    assert "major_minor" in msg
+
+
+def test_version_policy_major_minor_mismatch():
+    from hipcortex.doctor import version_policy_ok
+
+    ok, msg = version_policy_ok("0.6.0", "0.5.0", "major_minor")
+    assert ok is False
+    assert "mismatch" in msg
+
+
+def test_version_policy_exact():
+    from hipcortex.doctor import version_policy_ok
+
+    ok, _ = version_policy_ok("0.5.0", "0.5.0", "exact")
+    assert ok is True
+    ok2, msg2 = version_policy_ok("0.5.1", "0.5.0", "exact")
+    assert ok2 is False
+    assert "exact" in msg2
+
+
+def test_version_policy_any_healthy_none_version():
+    from hipcortex.doctor import version_policy_ok
+
+    ok, msg = version_policy_ok(None, "0.5.0", "any_healthy")
+    assert ok is True
+    assert "any_healthy" in msg
+
+
+def test_version_policy_missing_server_not_ok_for_strict():
+    from hipcortex.doctor import version_policy_ok
+
+    ok, msg = version_policy_ok(None, "0.5.0", "major_minor")
+    assert ok is False
+    assert "missing" in msg
+
+
+def test_version_policy_unknown_falls_back_to_major_minor():
+    from hipcortex.doctor import version_policy_ok
+
+    ok, _ = version_policy_ok("0.5.9", "0.5.0", "weird_policy")
+    assert ok is True
+    ok2, _ = version_policy_ok("1.0.0", "0.5.0", "weird_policy")
+    assert ok2 is False
+
+
+def test_doctor_version_mismatch_warns(tmp_path, monkeypatch):
+    """major_minor mismatch → warn, not fail."""
+    monkeypatch.delenv("HIPCORTEX_DOCTOR_OFFLINE", raising=False)
+    from hipcortex.doctor import doctor_exit_code, run_doctor
+
+    sess = MagicMock()
+    sess.get.return_value = _health_resp(
+        200, {"service": "hipcortex", "version": "9.9.0", "status": "ok"}
+    )
+
+    report = run_doctor(session=sess, **_skill_kw(tmp_path))
+    assert report.ok is True  # warn does not fail
+    assert doctor_exit_code(report) == 0
+    by_name = {c.name: c for c in report.checks}
+    assert by_name["version"].status == "warn"
+    assert "mismatch" in by_name["version"].message

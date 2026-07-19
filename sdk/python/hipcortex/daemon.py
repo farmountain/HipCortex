@@ -17,7 +17,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Mapping, Optional, Union
 
 # ─── Paths (unified install root) ────────────────────────────────────────────
 
@@ -57,12 +57,43 @@ def ensure_install_dir() -> Path:
     return INSTALL_DIR
 
 
+def resolve_start_data_dir(
+    cli_arg: Optional[str] = None,
+    *,
+    env: Optional[Mapping[str, str]] = None,
+    settings_data_dir: Optional[str] = None,
+    default: Optional[PathLike] = None,
+) -> str:
+    """Resolve data dir for start/restart without creating directories.
+
+    Precedence (highest first):
+    1. Explicit CLI ``cli_arg``
+    2. ``HIPCORTEX_DATA_DIR`` then legacy ``DATA_DIR``
+    3. ``settings_data_dir`` from config.toml
+    4. ``default`` (``DEFAULT_DATA_DIR``)
+    """
+    if cli_arg:
+        return str(cli_arg)
+    environ = env if env is not None else os.environ
+    for key in ("HIPCORTEX_DATA_DIR", "DATA_DIR"):
+        val = environ.get(key)
+        if val:
+            return str(val)
+    if settings_data_dir:
+        return str(settings_data_dir)
+    return str(default if default is not None else DEFAULT_DATA_DIR)
+
+
 def resolve_data_dir(data_dir: Optional[PathLike] = None) -> Path:
-    """Default always ``~/.hipcortex/data`` (not vscode path)."""
+    """Resolve and create data dir.
+
+    Precedence: explicit arg > ``HIPCORTEX_DATA_DIR`` > legacy ``DATA_DIR``
+    > ``DEFAULT_DATA_DIR`` (``~/.hipcortex/data``). Settings wiring is at CLI.
+    """
     if data_dir is not None:
         path = Path(data_dir)
     else:
-        env = os.environ.get("DATA_DIR")
+        env = os.environ.get("HIPCORTEX_DATA_DIR") or os.environ.get("DATA_DIR")
         path = Path(env) if env else DEFAULT_DATA_DIR
     path.mkdir(parents=True, exist_ok=True)
     return path
