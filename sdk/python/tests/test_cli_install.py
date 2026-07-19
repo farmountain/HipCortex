@@ -237,6 +237,7 @@ def _install_args(**kwargs):
         "actor": None,
         "dry_run": False,
         "scaffold": False,
+        "index": None,  # None = auto (proactive on / conservative off)
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -473,6 +474,288 @@ def test_parser_has_scaffold_and_dry_run():
     ns2 = p.parse_args(["install"])
     assert ns2.scaffold is False
     assert ns2.dry_run is False
+
+
+def test_parser_has_index_flags():
+    """build_parser exposes --index / --no-index; default None (mode-dependent)."""
+    from hipcortex.cli import build_parser
+
+    p = build_parser()
+    ns = p.parse_args(["install"])
+    assert ns.index is None
+
+    ns_on = p.parse_args(["install", "--index"])
+    assert ns_on.index is True
+
+    ns_off = p.parse_args(["install", "--no-index"])
+    assert ns_off.index is False
+
+
+def test_resolve_install_index_flag_modes():
+    """proactive defaults on; conservative off; flags override; dry_run off."""
+    from hipcortex.cli import _resolve_install_index_flag
+
+    assert _resolve_install_index_flag(
+        argparse.Namespace(index=None), "proactive", dry_run=False
+    ) is True
+    assert _resolve_install_index_flag(
+        argparse.Namespace(index=None), "conservative", dry_run=False
+    ) is False
+    assert _resolve_install_index_flag(
+        argparse.Namespace(index=True), "conservative", dry_run=False
+    ) is True
+    assert _resolve_install_index_flag(
+        argparse.Namespace(index=False), "proactive", dry_run=False
+    ) is False
+    assert _resolve_install_index_flag(
+        argparse.Namespace(index=None), "proactive", dry_run=True
+    ) is False
+    # MagicMock auto-attr is not bool True/False → treated as auto
+    assert _resolve_install_index_flag(
+        MagicMock(index=MagicMock()), "proactive", dry_run=False
+    ) is True
+    assert _resolve_install_index_flag(
+        MagicMock(index=MagicMock()), "conservative", dry_run=False
+    ) is False
+
+
+def _minimal_install_agents():
+    return [
+        {
+            "id": "claude-code",
+            "name": "Claude Code",
+            "desc": "",
+            "type": "native",
+            "fn": lambda: (True, "ok"),
+        },
+    ]
+
+
+def test_proactive_install_calls_index_bootstrap(tmp_path, monkeypatch):
+    """mode=proactive (not dry_run) defaults to index bootstrap."""
+    home = _make_fake_home(tmp_path)
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "main.py").write_text("x=1\n", encoding="utf-8")
+    monkeypatch.chdir(proj)
+
+    from hipcortex import config as cfg
+
+    monkeypatch.setattr(cfg, "USER_CONFIG_PATH", tmp_path / "user.toml")
+    monkeypatch.delenv("HIPCORTEX_URL", raising=False)
+
+    args = _install_args(url="http://idx:3030", mode="proactive", index=None)
+
+    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.cli._install_mcp_server"
+    ), patch(
+        "hipcortex.cli._build_agent_registry", return_value=_minimal_install_agents()
+    ), patch("hipcortex.cli._bootstrap_codebase_index", return_value=True) as boot:
+        from hipcortex.cli import cmd_install
+
+        cmd_install(args)
+
+    boot.assert_called_once()
+    call_kw = boot.call_args
+    assert call_kw[0][0] == "http://idx:3030" or call_kw.args[0] == "http://idx:3030"
+
+
+def test_proactive_no_index_skips_bootstrap(tmp_path, monkeypatch):
+    """--no-index skips bootstrap even in proactive mode."""
+    home = _make_fake_home(tmp_path)
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    monkeypatch.chdir(proj)
+
+    from hipcortex import config as cfg
+
+    monkeypatch.setattr(cfg, "USER_CONFIG_PATH", tmp_path / "user.toml")
+
+    args = _install_args(url="http://x:1", mode="proactive", index=False)
+
+    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.cli._install_mcp_server"
+    ), patch(
+        "hipcortex.cli._build_agent_registry", return_value=_minimal_install_agents()
+    ), patch("hipcortex.cli._bootstrap_codebase_index") as boot:
+        from hipcortex.cli import cmd_install
+
+        cmd_install(args)
+
+    boot.assert_not_called()
+
+
+def test_conservative_default_skips_index(tmp_path, monkeypatch):
+    """conservative mode does not index unless --index."""
+    home = _make_fake_home(tmp_path)
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    monkeypatch.chdir(proj)
+
+    from hipcortex import config as cfg
+
+    monkeypatch.setattr(cfg, "USER_CONFIG_PATH", tmp_path / "user.toml")
+
+    args = _install_args(url="http://x:1", mode="conservative", index=None)
+
+    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.cli._install_mcp_server"
+    ), patch(
+        "hipcortex.cli._build_agent_registry", return_value=_minimal_install_agents()
+    ), patch("hipcortex.cli._bootstrap_codebase_index") as boot:
+        from hipcortex.cli import cmd_install
+
+        cmd_install(args)
+
+    boot.assert_not_called()
+
+
+def test_conservative_with_index_calls_bootstrap(tmp_path, monkeypatch):
+    """conservative + --index forces bootstrap."""
+    home = _make_fake_home(tmp_path)
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    monkeypatch.chdir(proj)
+
+    from hipcortex import config as cfg
+
+    monkeypatch.setattr(cfg, "USER_CONFIG_PATH", tmp_path / "user.toml")
+
+    args = _install_args(url="http://x:1", mode="conservative", index=True)
+
+    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.cli._install_mcp_server"
+    ), patch(
+        "hipcortex.cli._build_agent_registry", return_value=_minimal_install_agents()
+    ), patch("hipcortex.cli._bootstrap_codebase_index", return_value=True) as boot:
+        from hipcortex.cli import cmd_install
+
+        cmd_install(args)
+
+    boot.assert_called_once()
+
+
+def test_dry_run_skips_index_even_proactive(tmp_path, monkeypatch, capsys):
+    """dry_run never calls index; may print would-bootstrap for proactive."""
+    home = _make_fake_home(tmp_path)
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    monkeypatch.chdir(proj)
+
+    from hipcortex import config as cfg
+
+    monkeypatch.setattr(cfg, "USER_CONFIG_PATH", tmp_path / "user.toml")
+
+    args = _install_args(url="http://x:1", mode="proactive", dry_run=True, index=None)
+
+    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.cli._install_mcp_server"
+    ), patch(
+        "hipcortex.cli._build_agent_registry", return_value=_minimal_install_agents()
+    ), patch("hipcortex.cli._bootstrap_codebase_index") as boot:
+        from hipcortex.cli import cmd_install
+
+        cmd_install(args)
+
+    boot.assert_not_called()
+    out = capsys.readouterr().out
+    assert "would bootstrap codebase index" in out
+    assert not (proj / ".hipcortex" / "config.toml").exists()
+
+
+def test_index_bootstrap_failure_does_not_fail_install(tmp_path, monkeypatch, capsys):
+    """Index errors are best-effort; install still completes + writes config."""
+    home = _make_fake_home(tmp_path)
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "app.py").write_text("def f(): pass\n", encoding="utf-8")
+    monkeypatch.chdir(proj)
+
+    from hipcortex import config as cfg
+
+    monkeypatch.setattr(cfg, "USER_CONFIG_PATH", tmp_path / "user.toml")
+
+    args = _install_args(url="http://dead:9", mode="proactive", index=True)
+
+    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.cli._install_mcp_server"
+    ), patch(
+        "hipcortex.cli._build_agent_registry", return_value=_minimal_install_agents()
+    ), patch(
+        "hipcortex.cli._bootstrap_codebase_index",
+        side_effect=RuntimeError("should be caught by cmd_install?"),
+    ) as boot:
+        # cmd_install should NOT wrap bootstrap — bootstrap itself never raises.
+        # Simulate bootstrap swallowing: return False instead of raise.
+        boot.side_effect = None
+        boot.return_value = False
+        from hipcortex.cli import cmd_install
+
+        cmd_install(args)
+
+    boot.assert_called_once()
+    assert (proj / ".hipcortex" / "config.toml").is_file()
+    out = capsys.readouterr().out
+    assert "Ready!" in out
+
+
+def test_bootstrap_codebase_index_swallows_errors(tmp_path, monkeypatch, capsys):
+    """_bootstrap_codebase_index never raises; prints skip on indexer failure."""
+    proj = tmp_path / "srcproj"
+    proj.mkdir()
+    (proj / "m.py").write_text("a=1\n", encoding="utf-8")
+
+    with patch("hipcortex.cli._server_healthy", return_value=True), patch(
+        "hipcortex.cli._looks_like_codebase", return_value=True
+    ), patch("hipcortex.client.HipCortexClient"), patch(
+        "hipcortex.indexer.CodeIndexer", side_effect=RuntimeError("index boom")
+    ):
+        from hipcortex.cli import _bootstrap_codebase_index
+
+        ok = _bootstrap_codebase_index("http://localhost:3030", path=proj)
+
+    assert ok is False
+    assert "skipped" in capsys.readouterr().out
+
+
+def test_bootstrap_codebase_index_uses_code_indexer(tmp_path, monkeypatch, capsys):
+    """_bootstrap_codebase_index calls CodeIndexer.index when healthy + source tree."""
+    proj = tmp_path / "srcproj"
+    proj.mkdir()
+    (proj / "m.py").write_text("a=1\n", encoding="utf-8")
+    monkeypatch.chdir(proj)
+
+    mock_indexer = MagicMock()
+    mock_indexer.index.return_value = {"files": 1, "nodes": 2, "edges": 3}
+
+    with patch("hipcortex.cli._server_healthy", return_value=True), patch(
+        "hipcortex.client.HipCortexClient"
+    ), patch("hipcortex.indexer.CodeIndexer", return_value=mock_indexer):
+        from hipcortex.cli import _bootstrap_codebase_index
+
+        ok = _bootstrap_codebase_index("http://localhost:3030", path=proj, actor="codebase")
+
+    assert ok is True
+    mock_indexer.index.assert_called_once()
+    out = capsys.readouterr().out
+    assert "1 files" in out or "files" in out
+
+
+def test_bootstrap_skips_when_server_unhealthy(tmp_path, monkeypatch, capsys):
+    proj = tmp_path / "srcproj"
+    proj.mkdir()
+    (proj / "m.py").write_text("a=1\n", encoding="utf-8")
+
+    with patch("hipcortex.cli._server_healthy", return_value=False), patch(
+        "hipcortex.indexer.CodeIndexer"
+    ) as Idx:
+        from hipcortex.cli import _bootstrap_codebase_index
+
+        ok = _bootstrap_codebase_index("http://localhost:3030", path=proj)
+
+    assert ok is False
+    Idx.assert_not_called()
+    assert "skipped" in capsys.readouterr().out
 
 
 def test_framework_templates_load_from_package():

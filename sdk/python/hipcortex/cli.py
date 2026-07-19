@@ -4,6 +4,8 @@ Usage:
     hipcortex install           # download binary + configure Claude Code + Cursor
     hipcortex install --url URL # use existing server instead of local binary
     hipcortex install --mode proactive  # substrate-first harness (MUST get_live_beliefs first etc)
+    hipcortex install --mode proactive --no-index  # skip optional codebase index bootstrap
+    hipcortex install --index           # force index bootstrap (even in conservative mode)
     hipcortex start             # start the local server (downloads if needed)
     hipcortex status            # check server health
     hipcortex doctor            # post-install verification (health + version)
@@ -1168,6 +1170,117 @@ def _run_wizard(agents: list) -> list:
     return [agents[i] for i in sorted(selected)]
 
 
+# ─── Install: optional codebase index bootstrap ──────────────────────────────
+
+_INDEX_SOURCE_EXTS = {".py", ".ts", ".js", ".rs", ".go", ".java", ".tsx", ".jsx"}
+_INDEX_SKIP_DIRS = {
+    "node_modules", ".git", "__pycache__", ".venv", "venv", "dist", "build",
+    "target", ".tox", ".mypy_cache",
+}
+
+
+def _resolve_install_index_flag(args: argparse.Namespace, mode: str, dry_run: bool) -> bool:
+    """Whether install should attempt codebase index bootstrap.
+
+    - dry_run: never
+    - --index: always (when not dry_run)
+    - --no-index: never
+    - default None: True only when mode == proactive
+    MagicMock / non-bool attrs treated as None (auto).
+    """
+    if dry_run:
+        return False
+    raw = getattr(args, "index", None)
+    if raw is True:
+        return True
+    if raw is False:
+        return False
+    # None or non-bool (e.g. MagicMock): mode default
+    return mode == "proactive"
+
+
+def _looks_like_codebase(root: Path) -> bool:
+    """True if root is a git repo or has shallow source files."""
+    try:
+        git = root / ".git"
+        if git.is_dir() or git.is_file():
+            return True
+        for p in root.iterdir():
+            if p.is_file() and p.suffix in _INDEX_SOURCE_EXTS:
+                return True
+            if (
+                p.is_dir()
+                and not p.name.startswith(".")
+                and p.name not in _INDEX_SKIP_DIRS
+            ):
+                try:
+                    for child in p.iterdir():
+                        if child.is_file() and child.suffix in _INDEX_SOURCE_EXTS:
+                            return True
+                except OSError:
+                    continue
+    except OSError:
+        return False
+    return False
+
+
+def _server_healthy(url: str, timeout: float = 2.0) -> bool:
+    """Best-effort GET {url}/health."""
+    base = url.rstrip("/")
+    try:
+        with urllib.request.urlopen(f"{base}/health", timeout=timeout) as r:
+            return r.status == 200
+    except Exception:
+        return False
+
+
+def _bootstrap_codebase_index(
+    server_url: str,
+    path: Optional[Path] = None,
+    actor: Optional[str] = None,
+) -> bool:
+    """Best-effort CodeIndexer on path (default cwd). Never raises. Returns True if ran ok."""
+    root = path if path is not None else Path.cwd()
+    act = actor or "codebase"
+    try:
+        if not _looks_like_codebase(root):
+            print(
+                f"  {_GRAY}–{_RESET} Codebase index        "
+                f"{_DIM}skipped (cwd not a git/source tree){_RESET}"
+            )
+            return False
+        if not _server_healthy(server_url):
+            print(
+                f"  {_GRAY}–{_RESET} Codebase index        "
+                f"{_DIM}skipped (server not healthy at {server_url}){_RESET}"
+            )
+            return False
+        try:
+            from .client import HipCortexClient
+            from .indexer import CodeIndexer
+        except ImportError:
+            from hipcortex.client import HipCortexClient
+            from hipcortex.indexer import CodeIndexer
+
+        client = HipCortexClient(base_url=server_url.rstrip("/"))
+        indexer = CodeIndexer(client=client)
+        print(f"  Indexing codebase at {root} ...")
+        stats = indexer.index(path=str(root), actor=act)
+        print(
+            f"  {_GREEN}✓{_RESET} Codebase index        "
+            f"{_DIM}{stats.get('files', 0)} files, "
+            f"{stats.get('nodes', 0)} nodes, "
+            f"{stats.get('edges', 0)} edges{_RESET}"
+        )
+        return True
+    except Exception as e:
+        print(
+            f"  {_GRAY}–{_RESET} Codebase index        "
+            f"{_DIM}skipped ({e}){_RESET}"
+        )
+        return False
+
+
 # ─── Commands ────────────────────────────────────────────────────────────────
 
 def cmd_install(args: argparse.Namespace) -> None:
@@ -1396,6 +1509,23 @@ def cmd_install(args: argparse.Namespace) -> None:
                     pass
             else:
                 print("(starting in background)")
+
+    # ── 5a. Optional codebase index bootstrap ─────────────────────────────────
+    # proactive default: index unless --no-index; conservative: only if --index
+    if dry_run and _resolve_install_index_flag(
+        args, mode or "conservative", dry_run=False
+    ):
+        # dry_run forces False in resolver; re-check mode default for message only
+        print(
+            f"  {_CYAN}[dry-run]{_RESET} would bootstrap codebase index "
+            f"at {Path.cwd()} (server healthy + source tree)"
+        )
+    elif _resolve_install_index_flag(args, mode or "conservative", dry_run):
+        _bootstrap_codebase_index(
+            server_url,
+            path=Path.cwd(),
+            actor=actor or "codebase",
+        )
 
     # ── 5b. Install summary counts ────────────────────────────────────────────
     summary_parts = [
@@ -1924,6 +2054,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_install.add_argument("--mode", choices=["conservative", "proactive"], default="conservative", help="SKILL policy: conservative (explicit) or proactive (substrate-first harness; MUST search/get_live_beliefs first)")
     p_install.add_argument("--actor", help="Configure default actor for this client install")
+    p_install.add_argument(
+        "--index",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Bootstrap codebase index into HipCortex after install "
+            "(default: on for --mode proactive; off for conservative). "
+            "Use --no-index to skip; --index to force on conservative."
+        ),
+    )
 
     # start
     p_start = sub.add_parser("start", help="Start the local HipCortex server")
