@@ -151,7 +151,7 @@ hipcortex doctor --url http://…     # explicit override
 hipcortex doctor --probe            # add+search roundtrip (local URL only by default)
 ```
 
-`--probe` requires a search hit matching a unique probe target (empty results fail). Non-local URLs skip probe unless `HIPCORTEX_DOCTOR_PROBE_REMOTE=1`. Health/version still run on remote.
+`--probe` requires a search hit matching a unique probe target (empty results fail). On success, probe best-effort deletes its record when an id is returned. Non-local URLs skip probe unless `HIPCORTEX_DOCTOR_PROBE_REMOTE=1`. Health/version still run on remote.
 
 **Using `/memory/reflect` manually:**
 

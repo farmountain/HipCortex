@@ -13,7 +13,8 @@ CLI:
 Probe (``--probe``) is local-only by default: only localhost / 127.0.0.1 / ::1 /
 0.0.0.0 may run add+search. Remote URLs skip probe unless
 ``HIPCORTEX_DOCTOR_PROBE_REMOTE=1``. Success requires a search hit matching the
-unique probe target (empty results fail).
+unique probe target (empty results fail). After a successful roundtrip the probe
+best-effort DELETEs the created memory record when an id is returned.
 """
 
 from __future__ import annotations
@@ -309,6 +310,44 @@ def _session_post(
     return session.post(url, json=json, timeout=timeout)
 
 
+def _session_delete(
+    session: requests.Session,
+    url: str,
+    timeout: float,
+) -> requests.Response:
+    return session.delete(url, timeout=timeout)
+
+
+def _extract_probe_record_id(add_body: Any) -> Optional[str]:
+    """Pull record id from add response (``record_id`` or ``id``)."""
+    if not isinstance(add_body, dict):
+        return None
+    rid = add_body.get("record_id")
+    if rid is None:
+        rid = add_body.get("id")
+    if rid is None:
+        return None
+    text = str(rid).strip()
+    return text or None
+
+
+def _probe_cleanup(
+    session: requests.Session,
+    base: str,
+    record_id: Optional[str],
+    timeout: float,
+) -> str:
+    """Best-effort DELETE of probe record. Return ok | skipped_no_id | failed:..."""
+    if not record_id:
+        return "skipped_no_id"
+    try:
+        resp = _session_delete(session, f"{base}/memory/{record_id}", timeout)
+        resp.raise_for_status()
+        return "ok"
+    except Exception as e:  # noqa: BLE001 — probe must stay green on cleanup fail
+        return f"failed: {e}"
+
+
 def run_doctor(
     url: Optional[str] = None,
     probe: bool = False,
@@ -325,6 +364,7 @@ def run_doctor(
         probe: If True and online, POST /memory/add + /memory/search roundtrip.
             Local URLs only by default; set HIPCORTEX_DOCTOR_PROBE_REMOTE=1 for remote.
             Fails unless search returns a hit matching the unique probe target.
+            On success, best-effort DELETE /memory/{id} (detail ``cleanup`` status).
         timeout: Per-request timeout seconds.
         session: Optional requests.Session (for tests / injection).
         package_skill: Override path to package install/SKILL.md (tests).
@@ -499,6 +539,9 @@ def run_doctor(
         )
         return report
 
+    record_id = _extract_probe_record_id(add_body)
+    cleanup_status = _probe_cleanup(sess, base, record_id, timeout)
+
     remote_note = " (remote allowed)" if remote_probe else ""
     report.add(
         "probe",
@@ -509,6 +552,8 @@ def run_doctor(
             "search_count": len(results),
             "target": target,
             "remote": remote_probe,
+            "cleanup": cleanup_status,
+            "record_id": record_id,
         },
     )
     return report

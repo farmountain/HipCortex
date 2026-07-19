@@ -550,6 +550,106 @@ def test_doctor_probe_add_fails(tmp_path, monkeypatch):
     assert "add" in by_name["probe"].message.lower()
 
 
+# ── probe cleanup ─────────────────────────────────────────────────────────────
+
+
+def _probe_success_session(record_id=None, add_body=None, delete_error=None):
+    """Session mock: healthy + add + search hit; optional DELETE fail."""
+    sess = MagicMock()
+    sess.get.return_value = _health_resp(
+        200, {"service": "hipcortex", "version": "0.5.0", "status": "ok"}
+    )
+    if add_body is None:
+        body = {"success": True}
+        if record_id is not None:
+            body["record_id"] = record_id
+        add_body = body
+    add_r = _health_resp(200, add_body)
+
+    def _post_side_effect(url, json=None, timeout=None, **kwargs):
+        if url.endswith("/memory/add"):
+            return add_r
+        add_json = sess.post.call_args_list[0].kwargs.get("json") or sess.post.call_args_list[0][
+            1
+        ].get("json")
+        target = add_json["target"]
+        return _health_resp(
+            200,
+            {
+                "results": [
+                    {"score": 1.0, "record": {"target": target, "action": "probe"}}
+                ]
+            },
+        )
+
+    sess.post.side_effect = _post_side_effect
+    if delete_error is not None:
+        sess.delete.side_effect = delete_error
+    else:
+        sess.delete.return_value = _health_resp(200, {"success": True})
+    return sess
+
+
+def test_doctor_probe_cleanup_deletes_record(tmp_path, monkeypatch):
+    monkeypatch.delenv("HIPCORTEX_DOCTOR_OFFLINE", raising=False)
+    from hipcortex.doctor import run_doctor
+
+    sess = _probe_success_session(record_id="abc")
+    report = run_doctor(
+        url="http://127.0.0.1:3030",
+        probe=True,
+        session=sess,
+        **_skill_kw(tmp_path),
+    )
+    assert report.ok is True
+    by_name = {c.name: c for c in report.checks}
+    assert by_name["probe"].status == "ok"
+    assert by_name["probe"].detail["cleanup"] == "ok"
+    sess.delete.assert_called_once()
+    del_url = sess.delete.call_args[0][0]
+    assert del_url.endswith("/memory/abc")
+
+
+def test_doctor_probe_cleanup_fail_still_ok(tmp_path, monkeypatch):
+    monkeypatch.delenv("HIPCORTEX_DOCTOR_OFFLINE", raising=False)
+    import requests
+    from hipcortex.doctor import run_doctor
+
+    sess = _probe_success_session(
+        record_id="abc", delete_error=requests.ConnectionError("gone")
+    )
+    report = run_doctor(
+        url="http://127.0.0.1:3030",
+        probe=True,
+        session=sess,
+        **_skill_kw(tmp_path),
+    )
+    assert report.ok is True
+    by_name = {c.name: c for c in report.checks}
+    assert by_name["probe"].status == "ok"
+    cleanup = by_name["probe"].detail["cleanup"]
+    assert cleanup.startswith("failed:")
+    sess.delete.assert_called_once()
+
+
+def test_doctor_probe_cleanup_skipped_no_id(tmp_path, monkeypatch):
+    monkeypatch.delenv("HIPCORTEX_DOCTOR_OFFLINE", raising=False)
+    from hipcortex.doctor import run_doctor
+
+    sess = _probe_success_session(add_body={"success": True})
+    report = run_doctor(
+        url="http://127.0.0.1:3030",
+        probe=True,
+        session=sess,
+        **_skill_kw(tmp_path),
+    )
+    assert report.ok is True
+    by_name = {c.name: c for c in report.checks}
+    assert by_name["probe"].status == "ok"
+    assert by_name["probe"].detail["cleanup"] == "skipped_no_id"
+    sess.delete.assert_not_called()
+
+
 # ── CLI wire ─────────────────────────────────────────────────────────────────
 
 
