@@ -2,7 +2,7 @@
 
 **Source of truth:** [`docs/channels.yaml`](channels.yaml)  
 **Print CLI:** `hipcortex channels`  
-**Updated:** 2026-07-18 (Phase 0 honesty)
+**Updated:** 2026-07-18 (Phase 6B — Antigravity / Hermes / OpenClaw installers)
 
 ## Status legend
 
@@ -43,21 +43,16 @@
 | VS Code (MCP wizard) | mcp | wizard → `settings.json` | Parallel to VSIX |
 | Cline | mcp | wizard → `.cline/mcp.json` | |
 | RooCode | mcp | wizard → `.roo/mcp.json` | |
+| Antigravity IDE | mcp | wizard → `~/.gemini/antigravity/mcp_config.json` | Also VSIX path; [hosts](hosts/README.md) |
+| Hermes Agent | mcp | wizard → `~/.hermes/config.yaml` | Needs `~/.hermes` present |
+| OpenClaw | mcp | wizard → `~/.openclaw/openclaw.json` | JSON5 sidecar fallback |
+| Grok Code / Grok Build | guide | [docs/hosts/grok-build.md](hosts/grok-build.md) | Sample MCP only |
 | Continue | guide | `sdk/continue/README.md` | |
 | GitHub Copilot | guide | docs / OpenAPI | |
 | OpenAI Codex CLI | guide | shell / MCP docs | |
 | Aider | guide | shell integration docs | |
 | Gemini CLI | guide | manual MCP | |
 | Amazon Q Developer | guide | manual MCP example | |
-
-### Claimed (not first-class — Phase 6)
-
-| Channel | Status | Reality |
-|---------|--------|---------|
-| Antigravity IDE | claimed | No dedicated installer; use **VSIX** if VS Code–compatible |
-| Grok Code / Grok Build | claimed | No registry entry; MCP path unverified |
-| Hermes Agent | claimed | No registry entry; MCP path unverified |
-| OpenClaw | claimed | No registry entry; MCP path unverified |
 
 ---
 
@@ -84,22 +79,20 @@
 
 ---
 
-## Version snapshot (Phase 0 baseline)
+## Version snapshot
 
 | Surface | Version |
 |---------|---------|
 | Cargo / pip / npm (product) | 0.5.0 |
 | VS Code extension (VSIX) | 0.5.4 |
-| MCP `serverInfo.version` | may be stale (fix in Phase 1) |
+| MCP `serverInfo.version` | stamped with product (Phase 1) |
 
-See also: [cross-channel UX plan](superpowers/plans/2026-07-18-cross-channel-ux-enhancement-plan.md), [problem catalog](superpowers/specs/2026-07-18-cross-channel-ux-problem-catalog.md).
+See also: [host install notes](hosts/README.md), [cross-channel UX plan](superpowers/plans/2026-07-18-cross-channel-ux-enhancement-plan.md), [problem catalog](superpowers/specs/2026-07-18-cross-channel-ux-problem-catalog.md).
 
 ## Project identity
 
-Use project file .hipcortex/config.toml (url, actor, mode, channels, aliases). See [docs/usage.md](usage.md).
-
+Use project file `.hipcortex/config.toml` (url, actor, mode, channels, aliases). See [docs/usage.md](usage.md).
 
 ## Capabilities
 
 See [capabilities.md](capabilities.md) for REST / MCP / SDK / extension matrix.
-

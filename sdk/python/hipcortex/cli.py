@@ -1844,7 +1844,7 @@ def _fallback_channels() -> list[dict]:
         {"id": "roocode", "name": "RooCode", "status": "mcp", "install": "hipcortex install"},
         {"id": "langchain", "name": "LangChain", "status": "framework", "install": "package + scaffold"},
         {"id": "antigravity", "name": "Antigravity IDE", "status": "mcp", "install": "hipcortex install"},
-        {"id": "grok-code", "name": "Grok Code", "status": "claimed", "install": "none"},
+        {"id": "grok-code", "name": "Grok Code", "status": "guide", "install": "docs/hosts/grok-build.md"},
         {"id": "grok-build", "name": "Grok Build", "status": "guide", "install": "docs/hosts/grok-build.md"},
         {"id": "hermes", "name": "Hermes", "status": "mcp", "install": "hipcortex install"},
         {"id": "openclaw", "name": "OpenClaw", "status": "mcp", "install": "hipcortex install"},

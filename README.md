@@ -258,7 +258,7 @@ hipcortex channels  # honest support matrix (native / mcp / framework / guide / 
 ```
 
 Supported surfaces and honesty badges: **[docs/channels.md](docs/channels.md)**.  
-Hermes, OpenClaw, Grok Code, and Antigravity-specific installers are **claimed** (docs examples only) until Phase 6 鈥?not first-class wizard targets.
+Antigravity, Hermes, and OpenClaw are **mcp** wizard targets (`hipcortex install`). Grok Build/Code is **guide** only — [docs/hosts/grok-build.md](docs/hosts/grok-build.md). Host notes: [docs/hosts/README.md](docs/hosts/README.md).
 
 The wizard auto-detects your setup and configures everything:
 

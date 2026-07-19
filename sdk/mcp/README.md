@@ -23,7 +23,8 @@ Not every host below has a **wizard installer**. Official matrix: [docs/channels
 |-------|--------|
 | Claude Code, Cursor, Windsurf, VS Code MCP, Cline, RooCode | **native / mcp** (wizard) |
 | Continue, Copilot, Codex, Aider, Gemini, Amazon Q, Flowise | **guide** |
-| Grok Code, Hermes, OpenClaw, Antigravity-specific paths | **claimed** — example JSON only; paths unverified; no `hipcortex install` entry |
+| Antigravity, Hermes, OpenClaw | **mcp** — `hipcortex install` ([docs/hosts/README.md](../../docs/hosts/README.md)) |
+| Grok Code / Grok Build | **guide** — [docs/hosts/grok-build.md](../../docs/hosts/grok-build.md) |
 
 ---
 
@@ -75,10 +76,10 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 }
 ```
 
-### 4. Grok Code (`~/.grok/mcp.json`) — **claimed / unverified**
-> Status: **claimed** — not in `hipcortex install` registry. Path is a community guess; verify against your Grok host docs before relying on it.
+### 4. Grok Code / Grok Build — **guide**
+> Status: **guide** — sample MCP only. Canonical notes: [docs/hosts/grok-build.md](../../docs/hosts/grok-build.md). No `hipcortex install` auto-write yet.
 
-Example (if your host uses standard MCP JSON):
+Example (if your host uses standard MCP JSON; path may vary):
 ```json
 {
   "mcpServers": {
@@ -91,29 +92,30 @@ Example (if your host uses standard MCP JSON):
 }
 ```
 
-### 5. Hermes Agent (`~/.hermes/mcp_config.json`) — **claimed / unverified**
-> Status: **claimed** — no installer; config path not CI-verified.
-```json
-{
-  "mcpServers": {
-    "hipcortex": {
-      "command": "python",
-      "args": ["-m", "hipcortex.mcp.server", "--mode", "headroom"],
-      "env": { "HIPCORTEX_URL": "http://127.0.0.1:3030" }
-    }
-  }
-}
+### 5. Hermes Agent (`~/.hermes/config.yaml`) — **mcp**
+> Status: **mcp** — `hipcortex install` merges `mcp_servers.hipcortex` (skips if `~/.hermes` missing). See [docs/hosts/README.md](../../docs/hosts/README.md).
+
+```yaml
+mcp_servers:
+  hipcortex:
+    command: python
+    args: ["/home/YOU/.hipcortex-mcp/server.py"]
+    env:
+      HIPCORTEX_URL: http://127.0.0.1:3030
 ```
 
-### 6. OpenClaw Orchestrator (`~/.openclaw/mcp.json`) — **claimed / unverified**
-> Status: **claimed** — no installer; config path not CI-verified.
+### 6. OpenClaw Orchestrator (`~/.openclaw/openclaw.json`) — **mcp**
+> Status: **mcp** — `hipcortex install` merges `mcp.servers.hipcortex` (JSON5 → sidecar + `openclaw mcp add` hint). See [docs/hosts/README.md](../../docs/hosts/README.md).
+
 ```json
 {
-  "mcpServers": {
-    "hipcortex": {
-      "command": "python",
-      "args": ["-m", "hipcortex.mcp.server", "--mode", "headroom"],
-      "env": { "HIPCORTEX_URL": "http://127.0.0.1:3030" }
+  "mcp": {
+    "servers": {
+      "hipcortex": {
+        "command": "python",
+        "args": ["/home/YOU/.hipcortex-mcp/server.py"],
+        "env": { "HIPCORTEX_URL": "http://127.0.0.1:3030" }
+      }
     }
   }
 }
@@ -145,15 +147,19 @@ Launch Aider with HipCortex MCP:
 aider --mcp-server "python -m hipcortex.mcp.server --mode headroom"
 ```
 
-### 10. Gemini CLI & Antigravity IDE — **guide / claimed**
-> **Gemini:** guide-only (manual MCP). **Antigravity:** **claimed** as a distinct product path — prefer the **VS Code VSIX** (`hipcortex-memory-0.5.4.vsix`) if the host is VS Code–compatible. The path below is unverified.
+### 10. Gemini CLI & Antigravity IDE — **guide / mcp**
+> **Gemini CLI:** guide-only (manual MCP). **Antigravity:** **mcp** — `hipcortex install` writes `~/.gemini/antigravity/mcp_config.json`. Also VSIX (`hipcortex-memory-0.5.4.vsix`) if VS Code–compatible. See [docs/hosts/README.md](../../docs/hosts/README.md).
 
-Example MCP fragment:
+Example MCP fragment (`mcpServers` shape):
 ```json
 {
-  "command": "python",
-  "args": ["-m", "hipcortex.mcp.server", "--mode", "headroom"],
-  "env": { "HIPCORTEX_URL": "http://127.0.0.1:3030" }
+  "mcpServers": {
+    "hipcortex": {
+      "command": "python",
+      "args": ["/home/YOU/.hipcortex-mcp/server.py"],
+      "env": { "HIPCORTEX_URL": "http://127.0.0.1:3030" }
+    }
+  }
 }
 ```
 

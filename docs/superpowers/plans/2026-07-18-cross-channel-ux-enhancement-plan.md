@@ -204,7 +204,7 @@ session_id = "proj-myapp"
 
 ---
 
-### Phase 6: Host installers (Hermes, OpenClaw, Grok, Antigravity, 鈥? (ongoing)
+### Phase 6: Host installers (Hermes, OpenClaw, Grok, Antigravity) — **PARTIAL DONE** (2026-07-18: installers `3cd4359`; docs Phase 6B)
 
 Per host:
 
@@ -220,10 +220,27 @@ Priority order:
 3. **Grok Build / xAI tooling** (MCP or skill if paths known)  
 4. **Hermes / OpenClaw** (community agent configs 鈥?research then implement)
 
- 
- 
-- [ ] **Step 3:** Leave others as guide with working deep links.
-- [ ] **Step 4:** Commit per host: `feat(cli): install support for <host>`
+- [x] **Step 3:** Grok left as guide with deep link `docs/hosts/grok-build.md`.
+- [x] **Step 4:** Installers commit `3cd4359`; docs commit Phase 6B.
+
+
+#### Phase 6 status (2026-07-18)
+
+| Host | Status | Evidence |
+|------|--------|----------|
+| Antigravity | **mcp** installer | `3cd4359` + channels.yaml |
+| Hermes | **mcp** installer | `3cd4359` + channels.yaml |
+| OpenClaw | **mcp** installer | `3cd4359` + channels.yaml |
+| Grok Build / Code | **guide** | `docs/hosts/grok-build.md` (no auto-installer) |
+
+- [x] Antigravity / Hermes / OpenClaw: document path + `_install_*` + uninstall
+- [x] Grok: guide with sample MCP JSON (`docs/hosts/`)
+- [x] channels.yaml / channels.md / README honesty aligned
+- [ ] Grok native MCP installer when config path product-stable (Phase 6c)
+- [ ] Optional E2E smoke CI per host
+- [x] Commit installers: `feat(cli): install Antigravity Hermes OpenClaw MCP hosts` (`3cd4359`)
+- [x] Commit docs: `docs: Phase 6 host installers and channel status`
+
 
 ---
 
@@ -308,7 +325,7 @@ Priority order:
 
 - **Status:** APPROVED for execution (Phases 0鈥? first)
 - **Date:** 2026-07-18
-- **Scope:** Execute Phase 0 (honesty + matrix) and Phase 1 (version stamp + doctor); Phase 6 hosts pending research update
+- **Scope:** Execute Phase 0 (honesty + matrix) and Phase 1 (version stamp + doctor); Phase 6 partial: mcp installers (3cd4359) + host docs; Grok still guide
 - **Constraints:** headroom/caveman; surgical commits; keep extension tags/autostart green
 
 
@@ -364,12 +381,12 @@ Web + docs research (not yet implemented). Use for installer design.
 3. **OpenClaw** — `openclaw mcp add` or `~/.openclaw/openclaw.json` `mcp.servers`  
 4. **Grok Build** — guide first; MCP sample; native when config path confirmed  
 
-### channels.yaml status updates to apply after Phase 6 code
+### channels.yaml status updates — **applied** (Phase 6B docs)
 
-- `antigravity`: claimed → **mcp** (when installer lands) / keep **vsix** note for Open VSX  
+- `antigravity`: claimed → **mcp** (installer `3cd4359`; VSIX note retained)  
 - `hermes`: claimed → **mcp**  
 - `openclaw`: claimed → **mcp**  
-- `grok-code` / `grok-build`: claimed → **guide** until path confirmed, then **mcp**
+- `grok-code` / `grok-build`: claimed → **guide** (`docs/hosts/grok-build.md`) until path confirmed, then **mcp**
 
 
 

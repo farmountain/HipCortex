@@ -4,7 +4,7 @@
 #   mcp       — wizard writes MCP host config
 #   framework — package adapter and/or install scaffold
 #   guide     — docs/copy-paste only; no auto-installer
-#   claimed   — marketing or path guessed; NOT in install registry (Phase 6)
+#   claimed   — marketing or path guessed; NOT in install registry
 #   none      — not a consumer install channel
 #
 # Rule: no README "first-class" claim without matching status here.
@@ -12,7 +12,7 @@
 # Print: hipcortex channels
 
 version: 1
-updated: "2026-07-18"
+updated: "2026-07-18"  # Phase 6B: antigravity/hermes/openclaw → mcp; grok → guide
 
 channels:
   # ── Distribution surfaces ──────────────────────────────────────────────
@@ -150,34 +150,34 @@ channels:
     install: "Manual MCP (~/.amazonq/mcp.json example)"
     notes: "Guide only; path not verified by wizard"
 
-  # ── Claimed / Phase 6 hosts (NOT first-class) ──────────────────────────
+  # ── Phase 6 hosts (installers + guides) ────────────────────────────────
   - id: antigravity
     name: Antigravity IDE
     category: coding-assistant
-    status: claimed
-    install: "Use vscode-extension VSIX or VS Code-compatible MCP"
-    notes: "No dedicated profile; VSIX may work if VS Code API compatible"
-
-  - id: grok-code
-    name: Grok Code / Grok Build
-    category: coding-assistant
-    status: claimed
-    install: "none (MCP path guessed in sdk/mcp/README)"
-    notes: "No install registry entry; Phase 6 research"
+    status: mcp
+    install: "hipcortex install → ~/.gemini/antigravity/mcp_config.json"
+    notes: "Wizard MCP; also VSIX if VS Code-compatible (Open VSX). See docs/hosts/README.md"
 
   - id: hermes
     name: Hermes Agent
     category: coding-assistant
-    status: claimed
-    install: "none (MCP path guessed)"
-    notes: "No install registry entry; Phase 6 research"
+    status: mcp
+    install: "hipcortex install → ~/.hermes/config.yaml mcp_servers"
+    notes: "Skips if ~/.hermes missing. See docs/hosts/README.md"
 
   - id: openclaw
     name: OpenClaw Orchestrator
     category: coding-assistant
-    status: claimed
-    install: "none (MCP path guessed)"
-    notes: "No install registry entry; Phase 6 research"
+    status: mcp
+    install: "hipcortex install → ~/.openclaw/openclaw.json mcp.servers"
+    notes: "JSON5 fallback: sidecar + openclaw mcp add hint. OPENCLAW_CONFIG_PATH. See docs/hosts/README.md"
+
+  - id: grok-code
+    name: Grok Code / Grok Build
+    category: coding-assistant
+    status: guide
+    install: "docs/hosts/grok-build.md (sample MCP JSON; no auto-installer yet)"
+    notes: "Config path not product-stable; guide only until Phase 6c"
 
   # ── Agent frameworks ───────────────────────────────────────────────────
   - id: langchain

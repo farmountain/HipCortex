@@ -4,7 +4,7 @@ Welcome to the HipCortex AI Memory Engine! This guide explains how to build, run
 test, and extend the system for agentic, edge, or AI research use.
 
 **Channel support matrix (honest statuses):** [docs/channels.md](channels.md) · `hipcortex channels`.  
-Statuses: `native` | `mcp` | `framework` | `guide` | `claimed` | `none`. Hermes / OpenClaw / Grok / Antigravity-specific paths are **claimed**, not first-class wizard targets.
+Statuses: `native` | `mcp` | `framework` | `guide` | `claimed` | `none`. Antigravity / Hermes / OpenClaw: **mcp** (`hipcortex install`). Grok: **guide** ([hosts/grok-build.md](hosts/grok-build.md)). Host index: [hosts/README.md](hosts/README.md).
 
 **Capability matrix (REST / MCP / Python / TS / VS Code / adapters):** [docs/capabilities.md](capabilities.md) · `python scripts/check_capabilities.py`.
 
