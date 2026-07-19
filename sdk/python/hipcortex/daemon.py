@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import platform
+import re
 import signal
 import socket
 import subprocess
@@ -120,6 +121,14 @@ def is_pid_alive(pid: int) -> bool:
         return False
 
 
+def _tasklist_output_matches_pid(out: str, pid: int) -> bool:
+    """Token-safe match of *pid* in tasklist stdout (reject INFO / No tasks)."""
+    text = (out or "").strip()
+    if not text or "No tasks" in text or "INFO:" in text:
+        return False
+    return re.search(rf"\b{int(pid)}\b", text) is not None
+
+
 def _windows_pid_alive(pid: int) -> bool:
     try:
         # tasklist is ubiquitous; avoid psutil dependency.
@@ -129,12 +138,25 @@ def _windows_pid_alive(pid: int) -> bool:
             text=True,
             timeout=5,
         )
-        out = (result.stdout or "").strip()
-        if not out or "No tasks" in out or "INFO:" in out:
-            return False
-        return str(pid) in out
+        return _tasklist_output_matches_pid(result.stdout or "", pid)
     except (OSError, subprocess.SubprocessError):
         return False
+
+
+def _netstat_line_matches_listen_port(line: str, port: int) -> bool:
+    """True if a netstat line is LISTENING and local address ends with ``:{port}``.
+
+    Anchors on the local-address field so ``:3030`` does not match ``:30301``
+    or ``:13030`` (substring pitfalls).
+    """
+    parts = line.strip().split()
+    if len(parts) < 4:
+        return False
+    if "LISTENING" not in (p.upper() for p in parts):
+        return False
+    # Windows netstat -ano: Proto LocalAddress ForeignAddress State PID
+    local = parts[1]
+    return local.endswith(f":{int(port)}")
 
 
 # ─── PID file ────────────────────────────────────────────────────────────────
@@ -253,7 +275,7 @@ def _force_kill_pid(pid: int) -> None:
 
 
 def _pids_on_port(port: int) -> list[int]:
-    """Best-effort discover PIDs listening on port."""
+    """Best-effort discover PIDs listening on *port* (anchored local address)."""
     pids: list[int] = []
     try:
         if platform.system() == "Windows":
@@ -264,7 +286,7 @@ def _pids_on_port(port: int) -> list[int]:
                 timeout=10,
             )
             for line in (result.stdout or "").splitlines():
-                if f":{port}" not in line or "LISTENING" not in line.upper():
+                if not _netstat_line_matches_listen_port(line, port):
                     continue
                 parts = line.strip().split()
                 if not parts:
@@ -335,11 +357,9 @@ def start_server(
     port = int(port)
     url = f"http://{host}:{port}"
     health = health_check(url)
-    if health is not None and (
-        health.get("service") == "hipcortex"
-        or health.get("status") == "ok"
-        or "version" in health
-    ):
+    # Only trust explicit HipCortex identity — foreign HTTP 200 on the port
+    # must become PortInUse, not AlreadyRunning.
+    if health is not None and health.get("service") == "hipcortex":
         raise AlreadyRunning(f"HipCortex already running on {url}")
 
     if is_port_open(host, port):
@@ -405,57 +425,70 @@ def start_server(
     }
 
 
-def stop_server(port: int = DEFAULT_PORT, *, host: str = DEFAULT_HOST) -> Dict[str, Any]:
-    """Stop server via PID file first, then port fallback. Releases lock.
+def _wait_terminated(pid: int, *, soft_rounds: int = 10, soft_sleep: float = 0.3) -> None:
+    _terminate_pid(pid)
+    for _ in range(soft_rounds):
+        time.sleep(soft_sleep)
+        if not is_pid_alive(pid):
+            return
+    _force_kill_pid(pid)
+    time.sleep(0.2)
 
-    Returns dict: stopped, pid, method (pid|port|none).
+
+def stop_server(port: int = DEFAULT_PORT, *, host: str = DEFAULT_HOST) -> Dict[str, Any]:
+    """Stop only known HipCortex processes. Releases lock/pid files.
+
+    Order:
+      1. PID file holder (if alive)
+      2. Lock file holder (if alive)
+      3. Health proves ``service==hipcortex`` → kill anchored port PIDs
+      4. Else clear stale pid/lock only — never kill arbitrary listeners
+
+    Returns dict: stopped, pid, method (pid|lock|port|none).
     """
     port = int(port)
-    stopped = False
-    method = "none"
-    used_pid: Optional[int] = None
+    url = f"http://{host}:{port}"
 
+    # 1. PID file
     pid = read_pid()
     if pid is not None:
         if is_pid_alive(pid):
-            _terminate_pid(pid)
-            for _ in range(10):
-                time.sleep(0.3)
-                if not is_pid_alive(pid):
-                    break
-            else:
-                _force_kill_pid(pid)
-                time.sleep(0.2)
-            stopped = True
-            method = "pid"
-            used_pid = pid
+            _wait_terminated(pid)
             clear_pid()
             release_lock()
-            return {"stopped": True, "pid": used_pid, "method": method}
+            return {"stopped": True, "pid": pid, "method": "pid"}
         # Stale pid file
         clear_pid()
 
-    # Port fallback
-    for p in _pids_on_port(port):
-        _terminate_pid(p)
-        for _ in range(8):
-            time.sleep(0.25)
-            if not is_pid_alive(p):
-                break
-        else:
-            _force_kill_pid(p)
-        stopped = True
-        method = "port"
-        used_pid = p
+    # 2. Lock holder
+    lock_pid = _read_lock_pid()
+    if lock_pid is not None and is_pid_alive(lock_pid):
+        _wait_terminated(lock_pid)
+        clear_pid()
+        release_lock()
+        return {"stopped": True, "pid": lock_pid, "method": "lock"}
 
+    # 3. Confirmed HipCortex on port — only then touch port listeners
+    health = health_check(url)
+    if health is not None and health.get("service") == "hipcortex":
+        used_pid: Optional[int] = None
+        stopped = False
+        for p in _pids_on_port(port):
+            _wait_terminated(p, soft_rounds=8, soft_sleep=0.25)
+            stopped = True
+            used_pid = p
+        clear_pid()
+        release_lock()
+        return {
+            "stopped": stopped,
+            "pid": used_pid,
+            "method": "port" if stopped else "none",
+        }
+
+    # 4. No evidence of our process — clear stale metadata only
     clear_pid()
     release_lock()
-
-    # Also clear if nothing was listening but lock/pid leftovers exist
-    if not stopped and not is_port_open(host, port):
-        return {"stopped": False, "pid": None, "method": "none"}
-
-    return {"stopped": stopped, "pid": used_pid, "method": method}
+    return {"stopped": False, "pid": None, "method": "none"}
 
 
 def restart_server(

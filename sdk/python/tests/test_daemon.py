@@ -215,16 +215,111 @@ def test_stop_server_none(daemon_paths):
 
 def test_stop_server_port_fallback(daemon_paths):
     d = daemon_paths
-    # no pid file
-    with patch.object(d, "_pids_on_port", return_value=[8888]):
-        with patch.object(d, "is_pid_alive", side_effect=[True, False, False]):
-            with patch.object(d, "_terminate_pid") as term:
-                result = d.stop_server(port=3030)
+    # no pid file / no lock — only kill port PIDs when health proves hipcortex
+    with patch.object(
+        d, "health_check", return_value={"service": "hipcortex", "status": "ok"}
+    ):
+        with patch.object(d, "_pids_on_port", return_value=[8888]):
+            with patch.object(d, "is_pid_alive", side_effect=[True, False, False]):
+                with patch.object(d, "_terminate_pid") as term:
+                    result = d.stop_server(port=3030)
 
     assert result["stopped"] is True
     assert result["method"] == "port"
     assert result["pid"] == 8888
     term.assert_called()
+
+
+def test_netstat_line_matches_listen_port(daemon_paths):
+    d = daemon_paths
+    assert d._netstat_line_matches_listen_port(
+        "  TCP    127.0.0.1:3030         0.0.0.0:0              LISTENING       1234",
+        3030,
+    )
+    assert d._netstat_line_matches_listen_port(
+        "  TCP    0.0.0.0:3030           0.0.0.0:0              LISTENING       99",
+        3030,
+    )
+    assert d._netstat_line_matches_listen_port(
+        "  TCP    [::]:3030              [::]:0                 LISTENING       1",
+        3030,
+    )
+    # must not match superstring ports
+    assert not d._netstat_line_matches_listen_port(
+        "  TCP    127.0.0.1:30301        0.0.0.0:0              LISTENING       1",
+        3030,
+    )
+    assert not d._netstat_line_matches_listen_port(
+        "  TCP    127.0.0.1:13030        0.0.0.0:0              LISTENING       1",
+        3030,
+    )
+    # non-LISTENING
+    assert not d._netstat_line_matches_listen_port(
+        "  TCP    127.0.0.1:3030         127.0.0.1:50000        ESTABLISHED     1",
+        3030,
+    )
+
+
+def test_windows_pid_alive_token(daemon_paths):
+    d = daemon_paths
+    # whole-token: 123 must not match a 1234-only line
+    assert d._tasklist_output_matches_pid(
+        "python.exe                   123 Console                    1     10,000 K",
+        123,
+    )
+    assert not d._tasklist_output_matches_pid(
+        "python.exe                  1234 Console                    1     10,000 K",
+        123,
+    )
+    assert not d._tasklist_output_matches_pid("INFO: No tasks are running which match the specified criteria.", 123)
+    assert not d._tasklist_output_matches_pid("", 123)
+
+
+def test_start_server_foreign_ok_health_is_port_in_use(daemon_paths, tmp_path):
+    d = daemon_paths
+    binary = tmp_path / "hipcortex-server"
+    binary.write_text("x")
+
+    # Foreign HTTP 200 with status=ok but no service=hipcortex must not be AlreadyRunning
+    with patch.object(d, "health_check", return_value={"status": "ok"}):
+        with patch.object(d, "is_port_open", return_value=True):
+            with pytest.raises(d.PortInUse):
+                d.start_server(binary, port=3030)
+
+    with patch.object(d, "health_check", return_value={"status": "ok", "version": "1.0"}):
+        with patch.object(d, "is_port_open", return_value=True):
+            with pytest.raises(d.PortInUse):
+                d.start_server(binary, port=3030)
+
+
+def test_stop_server_no_kill_without_evidence(daemon_paths):
+    d = daemon_paths
+    # no pid, no lock, health None, but port has listeners → do not kill
+    with patch.object(d, "health_check", return_value=None):
+        with patch.object(d, "_pids_on_port", return_value=[9999, 8888]):
+            with patch.object(d, "_terminate_pid") as term:
+                with patch.object(d, "_force_kill_pid") as force:
+                    result = d.stop_server(port=3030)
+
+    assert result["stopped"] is False
+    assert result["method"] == "none"
+    term.assert_not_called()
+    force.assert_not_called()
+
+
+def test_stop_server_via_lock_pid(daemon_paths):
+    d = daemon_paths
+    d.LOCK_FILE.write_text("6666\n", encoding="utf-8")
+
+    with patch.object(d, "is_pid_alive", side_effect=[True, False]):
+        with patch.object(d, "_terminate_pid") as term:
+            result = d.stop_server(port=3030)
+
+    assert result["stopped"] is True
+    assert result["method"] == "lock"
+    assert result["pid"] == 6666
+    term.assert_called()
+    assert not d.LOCK_FILE.exists()
 
 
 # ── resolve_data_dir ─────────────────────────────────────────────────────────
