@@ -24,6 +24,7 @@ import {
     parseLockPid,
     shouldStealStaleLock,
     netstatLineMatchesListenPort,
+    deactivate,
 } from '../extension';
 import { TokenTracker } from '../token-tracker';
 
@@ -57,6 +58,17 @@ describe('HipCortex Extension Unit Tests', () => {
         jest.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue(mockConfig as any);
         
         api = new HipCortexAPI();
+    });
+
+    afterEach(() => {
+        // Close activate() floating autoStartServer promise / timers
+        try {
+            deactivate();
+        } catch {
+            // ignore
+        }
+        jest.restoreAllMocks();
+        jest.clearAllTimers();
     });
 
     describe('HipCortexAPI', () => {
@@ -250,13 +262,24 @@ describe('HipCortex Extension Unit Tests', () => {
         });
 
         // vscode-extension/src/test/extension.test.ts
-        test('should create HipCortex Server OutputChannel on activate', () => {
+        test('should create HipCortex Server OutputChannel on activate', async () => {
+            // activate() fires autoStartServer without await — mock to avoid open handles
+            jest.spyOn(HipCortexAPI.prototype, 'autoStartServer').mockResolvedValue(false);
             const createSpy = jest.spyOn(vscode.window, 'createOutputChannel');
             const registerToolSpy = jest.spyOn((vscode as any).lm, 'registerTool');
             const mockContext: any = { subscriptions: [], asAbsolutePath: (p: string) => p };
             activate(mockContext);
             expect(createSpy).toHaveBeenCalledWith('HipCortex Server');
             expect(registerToolSpy).toHaveBeenCalledTimes(6);
+            // Drain microtask queue so autoStartServer .then settles under mock
+            await Promise.resolve();
+            for (const sub of mockContext.subscriptions) {
+                if (sub && typeof sub.dispose === 'function') {
+                    sub.dispose();
+                }
+            }
+            mockContext.subscriptions.length = 0;
+            deactivate();
         });
 
         test('onSave should ensure server and send richer metadata (not silently drop)', async () => {
