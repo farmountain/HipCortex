@@ -85,3 +85,8 @@ python scripts/check_capabilities.py --check-mcp
 ```
 
 Exit 0 if every MCP `TOOLS` name appears in this doc and MCP version string is present. Exit 1 on drift.
+
+## Framework package-first
+
+LangChain: `HipCortexMemory.from_settings()`. CrewAI: `make_memory_tools()`. See `examples/adapters/`.
+

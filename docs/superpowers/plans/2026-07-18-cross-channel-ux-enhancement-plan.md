@@ -244,15 +244,15 @@ Priority order:
 
 ---
 
-### Phase 7: Framework package-first adapters (4鈥? days)
+### Phase 7: Framework package-first adapters — **DONE** (2026-07-19: 5f54878, 764691d)
 
 **Files:** `sdk/python/hipcortex/adapters/*`, `langchain_memory.py`, `examples/adapters/*`, TS packages optional
 
  
  
-- [ ] **Step 3:** Examples only reference package APIs; install `--scaffold` copies from package templates (not giant inline strings in cli.py long-term 鈥?move templates to `install/templates/`).
-- [ ] **Step 4:** npm: `npx hipcortex-init` thin wrapper or document Python as canonical installer.
-- [ ] **Step 5:** Commit: `feat(sdk): package-first adapters with shared identity`
+- [x] **Step 3:** Examples only reference package APIs; install `--scaffold` copies from package templates (not giant inline strings in cli.py long-term 鈥?move templates to `install/templates/`).
+- [x] **Step 4:** npm: `npx hipcortex-init` thin wrapper or document Python as canonical installer.
+- [x] **Step 5:** Commit: `feat(sdk): package-first adapters with shared identity`
 
 ---
 
@@ -387,6 +387,7 @@ Web + docs research (not yet implemented). Use for installer design.
 - `hermes`: claimed → **mcp**  
 - `openclaw`: claimed → **mcp**  
 - `grok-code` / `grok-build`: claimed → **guide** (`docs/hosts/grok-build.md`) until path confirmed, then **mcp**
+
 
 
 
