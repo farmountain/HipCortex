@@ -381,3 +381,13 @@ HipCortex uses **one** local data directory and PID protocol:
 
 Re-run install is **idempotent**: summary shows created / updated / unchanged / skipped.
 
+
+## Proactive harness reliability (Phase 8)
+
+| Knob | Default | Meaning |
+|------|---------|---------|
+| `hipcortex install --mode proactive` | | SKILL MUST call `get_live_beliefs` first |
+| `--index` / `--no-index` | index on for proactive | Bootstrap codebase graph after install |
+| MCP `HIPCORTEX_HARNESS_SOFT` | on (not `0`) | Warn if `search_memory` before `get_live_beliefs` (never blocks) |
+| `hipcortex doctor` | | Validates package + installed SKILL has MUST + live_beliefs |
+

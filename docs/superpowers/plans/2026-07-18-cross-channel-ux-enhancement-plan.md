@@ -256,12 +256,12 @@ Priority order:
 
 ---
 
-### Phase 8: Policy / token path reliability (3鈥? days)
+### Phase 8: Policy / token path reliability — **DONE** (2026-07-19: a8bcd8e, 274b1b5, 6f17e46)
 
  
  
-- [ ] **Step 3:** Doctor check: SKILL.md contains live_beliefs MUST language for proactive.
-- [ ] **Step 4:** Commit: `feat: proactive index bootstrap and soft harness telemetry`
+- [x] **Step 3:** Doctor check: SKILL.md contains live_beliefs MUST language for proactive.
+- [x] **Step 4:** Commit: `feat: proactive index bootstrap and soft harness telemetry`
 
 ---
 
@@ -391,4 +391,10 @@ Web + docs research (not yet implemented). Use for installer design.
 
 
 
+
+
+
+## Plan completion
+
+**Phases 0–8 complete** on main as of 2026-07-19 (through Phase 8 policy/token path). Remaining optional: Grok native installer (6c), host E2E CI.
 
