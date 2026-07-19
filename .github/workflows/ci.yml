@@ -186,6 +186,32 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/sdk/python
 
   # ------------------------------------------------------------------
+  # Host MCP install E2E smoke — pure filesystem, no live hosts
+  # Antigravity / Hermes / OpenClaw / Grok installers + unit coverage
+  # ------------------------------------------------------------------
+  host-install-e2e:
+    name: Host install E2E smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package editable
+        run: pip install -e sdk/python && pip install pytest
+
+      - name: Host installer smoke
+        run: >
+          pytest
+          sdk/python/tests/test_host_install_e2e.py
+          sdk/python/tests/test_cli_install.py
+          -k "antigravity or hermes or openclaw or grok"
+          -q --tb=line
+
+  # ------------------------------------------------------------------
   # Token reduction benchmark (proactive harness) — always runs, in-process sim
   # Validates 80%+ reduction per validation-benchmarks spec + agent-substrate plan follow-on.
   # ------------------------------------------------------------------

@@ -95,4 +95,10 @@ Deep dive → **[grok-build.md](grok-build.md)**
 | Antigravity / Hermes / OpenClaw | `sdk/python/hipcortex/cli.py` | Phase 6a (`3cd4359`) |
 | Grok Build / Code | `_install_grok` / `_uninstall_grok` | Phase 6c · `~/.grok/config.toml` |
 
-Tests: `sdk/python/tests/test_cli_install.py` (host write / idempotent / uninstall).
+Tests: `sdk/python/tests/test_cli_install.py` (host write / idempotent / uninstall) · E2E smoke `sdk/python/tests/test_host_install_e2e.py` · CI job **Host install E2E smoke** (`host-install-e2e` in `.github/workflows/ci.yml`):
+
+```bash
+pytest sdk/python/tests/test_host_install_e2e.py \
+  sdk/python/tests/test_cli_install.py \
+  -k "antigravity or hermes or openclaw or grok" -q --tb=line
+```

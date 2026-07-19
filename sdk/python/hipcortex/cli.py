@@ -455,13 +455,20 @@ def _hermes_hipcortex_yaml(entry: dict) -> str:
 
 
 def _hermes_entry_matches(text: str, entry: dict) -> bool:
-    """True if config.yaml already has hipcortex with same command/args/url."""
+    """True if config.yaml already has hipcortex with same command/args/url.
+
+    Accepts raw paths or json.dumps-escaped forms (Windows backslashes).
+    """
     if "hipcortex:" not in text:
         return False
+
+    def _present(val: str) -> bool:
+        return val in text or json.dumps(val) in text
+
     return (
-        entry["command"] in text
-        and entry["args"][0] in text
-        and entry["env"]["HIPCORTEX_URL"] in text
+        _present(entry["command"])
+        and _present(entry["args"][0])
+        and _present(entry["env"]["HIPCORTEX_URL"])
     )
 
 
@@ -471,10 +478,11 @@ def _hermes_merge_yaml(text: str, entry: dict) -> str:
 
     block = _hermes_hipcortex_yaml(entry)
     # Replace existing hipcortex sub-key (2-space indent, body at 4+ spaces)
+    # Callable repl avoids re.sub backslash mangling of Windows paths in block.
     if re.search(r"(?m)^  hipcortex:\s*$", text):
         return re.sub(
             r"(?m)^  hipcortex:\s*\n(?:[ ]{4,}.*\n)*",
-            block,
+            lambda _m: block,
             text,
             count=1,
         )
@@ -483,7 +491,7 @@ def _hermes_merge_yaml(text: str, entry: dict) -> str:
     ):
         return re.sub(
             r"(?m)^(mcp_servers:\s*\n)",
-            r"\1" + block,
+            lambda m: m.group(1) + block,
             text,
             count=1,
         )

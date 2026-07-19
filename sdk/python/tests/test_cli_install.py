@@ -1133,8 +1133,9 @@ def test_install_hermes_merges_config_yaml(tmp_path):
     text = (hermes / "config.yaml").read_text(encoding="utf-8")
     assert "hipcortex:" in text
     assert "other:" in text  # preserved
-    assert entry["args"][0] in text
-    assert entry["env"]["HIPCORTEX_URL"] in text
+    # Paths written via json.dumps (Windows backslashes) or raw
+    assert entry["args"][0] in text or json.dumps(entry["args"][0]) in text
+    assert entry["env"]["HIPCORTEX_URL"] in text or json.dumps(entry["env"]["HIPCORTEX_URL"]) in text
 
 
 def test_uninstall_hermes_removes_block(tmp_path):

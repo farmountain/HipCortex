@@ -47,3 +47,6 @@ include = ["hipcortex*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+markers = [
+    "host_e2e: host MCP installer filesystem smoke (no live hosts)",
+]

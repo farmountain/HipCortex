@@ -238,7 +238,7 @@ Priority order:
 - [x] Grok: guide with sample MCP JSON (`docs/hosts/`) then **mcp** installer (6c)
 - [x] channels.yaml / channels.md / README honesty aligned
 - [x] Grok native MCP installer when config path product-stable (Phase 6c)
-- [ ] Optional E2E smoke CI per host
+- [x] Optional E2E smoke CI per host (`test_host_install_e2e.py` + `host-install-e2e` job)
 - [x] Commit installers: `feat(cli): install Antigravity Hermes OpenClaw MCP hosts` (`3cd4359`)
 - [x] Commit docs: `docs: Phase 6 host installers and channel status`
 
@@ -397,5 +397,5 @@ Web + docs research (not yet implemented). Use for installer design.
 
 ## Plan completion
 
-**Phases 0–8 complete** on main as of 2026-07-19 (through Phase 8 policy/token path + Phase 6c Grok). Remaining optional: host E2E CI.
+**Phases 0–8 complete** on main as of 2026-07-19 (through Phase 8 policy/token path + Phase 6c Grok). Host E2E CI: `host-install-e2e` job + `test_host_install_e2e.py`.
 
