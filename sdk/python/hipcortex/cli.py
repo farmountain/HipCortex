@@ -1380,7 +1380,7 @@ def _fallback_channels() -> list[dict]:
         {"id": "claude-code", "name": "Claude Code", "status": "native", "install": "hipcortex install"},
         {"id": "cursor", "name": "Cursor", "status": "mcp", "install": "hipcortex install"},
         {"id": "windsurf", "name": "Windsurf", "status": "mcp", "install": "hipcortex install"},
-        {"id": "vscode-extension", "name": "VS Code VSIX", "status": "native", "install": "hipcortex-memory-0.5.4.vsix"},
+        {"id": "vscode-extension", "name": "VS Code VSIX", "status": "native", "install": "hipcortex-memory-0.5.5.vsix"},
         {"id": "vscode-mcp", "name": "VS Code MCP", "status": "mcp", "install": "hipcortex install"},
         {"id": "cline", "name": "Cline", "status": "mcp", "install": "hipcortex install"},
         {"id": "roocode", "name": "RooCode", "status": "mcp", "install": "hipcortex install"},
