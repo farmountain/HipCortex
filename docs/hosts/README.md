@@ -5,8 +5,8 @@ HipCortex MCP / wizard targets beyond Claude / Cursor / Windsurf.
 
 ```bash
 pip install hipcortex
-hipcortex install          # interactive — pick Antigravity / Hermes / OpenClaw
-hipcortex uninstall --channel antigravity|hermes|openclaw
+hipcortex install          # interactive — pick Antigravity / Hermes / OpenClaw / Grok
+hipcortex uninstall --channel antigravity|hermes|openclaw|grok
 ```
 
 ---
@@ -66,19 +66,33 @@ openclaw mcp add hipcortex --command python --arg ~/.hipcortex-mcp/server.py --e
 
 ---
 
-## Grok Build / Grok Code — status **guide**
+## Grok Build / Grok Code — status **mcp**
 
-No auto-installer. Sample MCP JSON and verify steps:
+| | |
+|--|--|
+| **Wizard** | `hipcortex install` → `[mcp_servers.hipcortex]` in `~/.grok/config.toml` |
+| **Override** | `GROK_CONFIG_PATH` for non-default config file |
+| **Shape** | TOML table: `command` / `args` / `env` / `enabled` (stdio) |
+| **Skip** | If `~/.grok` missing (unless `GROK_CONFIG_PATH` set) |
+| **Uninstall** | `hipcortex uninstall --channel grok` (aliases: `grok-build`, `grok-code`) |
 
-→ **[grok-build.md](grok-build.md)**
+```toml
+[mcp_servers.hipcortex]
+command = "python"
+args = ["/home/YOU/.hipcortex-mcp/server.py"]
+env = { HIPCORTEX_URL = "http://127.0.0.1:3030" }
+enabled = true
+```
+
+Deep dive → **[grok-build.md](grok-build.md)**
 
 ---
 
 ## Code reference
 
-| Host | Installer | Commit |
+| Host | Installer | Notes |
 |------|-----------|--------|
-| Antigravity / Hermes / OpenClaw | `sdk/python/hipcortex/cli.py` | `3cd4359` |
-| Grok | docs only | Phase 6B |
+| Antigravity / Hermes / OpenClaw | `sdk/python/hipcortex/cli.py` | Phase 6a (`3cd4359`) |
+| Grok Build / Code | `_install_grok` / `_uninstall_grok` | Phase 6c · `~/.grok/config.toml` |
 
 Tests: `sdk/python/tests/test_cli_install.py` (host write / idempotent / uninstall).

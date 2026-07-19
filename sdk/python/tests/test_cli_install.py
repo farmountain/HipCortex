@@ -1254,12 +1254,148 @@ def test_registry_includes_phase6a_hosts():
     assert by_id["antigravity"]["type"] == "mcp"
     assert by_id["hermes"]["type"] == "mcp"
     assert by_id["openclaw"]["type"] == "mcp"
-    assert by_id["grok-build"]["type"] == "guide"
+    assert by_id["grok-build"]["type"] == "mcp"
 
 
 def test_known_uninstall_channels_phase6a():
     from hipcortex.cli import KNOWN_UNINSTALL_CHANNELS
 
-    for ch in ("antigravity", "hermes", "openclaw"):
+    for ch in ("antigravity", "hermes", "openclaw", "grok"):
         assert ch in KNOWN_UNINSTALL_CHANNELS
+
+
+# ─── Grok Build (Phase 6c) ───────────────────────────────────────────────────
+
+
+def test_install_grok_skips_without_dir(tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import INSTALL_SKIPPED, _install_grok
+
+        assert _install_grok("http://127.0.0.1:3030") == INSTALL_SKIPPED
+
+
+def test_install_grok_writes_config_toml(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    grok = home / ".grok"
+    grok.mkdir(parents=True)
+    monkeypatch.delenv("GROK_CONFIG_PATH", raising=False)
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import (
+            INSTALL_CREATED,
+            INSTALL_UNCHANGED,
+            _desired_mcp_entry,
+            _install_grok,
+        )
+
+        first = _install_grok("http://127.0.0.1:3030")
+        second = _install_grok("http://127.0.0.1:3030")
+        entry = _desired_mcp_entry("http://127.0.0.1:3030")
+
+    assert first == INSTALL_CREATED
+    assert second == INSTALL_UNCHANGED
+    text = (grok / "config.toml").read_text(encoding="utf-8")
+    assert "[mcp_servers.hipcortex]" in text
+    assert entry["command"] in text or json.dumps(entry["command"])[1:-1] in text
+    assert entry["args"][0] in text or json.dumps(entry["args"][0])[1:-1] in text
+    assert "HIPCORTEX_URL" in text
+    assert "http://127.0.0.1:3030" in text
+    assert "enabled = true" in text
+
+
+def test_install_grok_preserves_other_servers(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    grok = home / ".grok"
+    grok.mkdir(parents=True)
+    (grok / "config.toml").write_text(
+        "[mcp_servers.headroom]\n"
+        'command = "headroom"\n'
+        'args = ["mcp", "serve"]\n'
+        "enabled = true\n"
+        "\n"
+        "[mcp_servers.kaggle]\n"
+        'url = "https://www.kaggle.com/mcp"\n'
+        "enabled = true\n",
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("GROK_CONFIG_PATH", raising=False)
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import INSTALL_CREATED, _install_grok
+
+        status = _install_grok("http://127.0.0.1:3030")
+
+    assert status == INSTALL_CREATED
+    text = (grok / "config.toml").read_text(encoding="utf-8")
+    assert "[mcp_servers.headroom]" in text
+    assert "headroom" in text
+    assert "[mcp_servers.kaggle]" in text
+    assert "kaggle.com" in text
+    assert "[mcp_servers.hipcortex]" in text
+
+
+def test_install_grok_updates_url(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    grok = home / ".grok"
+    grok.mkdir(parents=True)
+    monkeypatch.delenv("GROK_CONFIG_PATH", raising=False)
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import INSTALL_CREATED, INSTALL_UPDATED, _install_grok
+
+        first = _install_grok("http://127.0.0.1:3030")
+        second = _install_grok("http://127.0.0.1:4040")
+
+    assert first == INSTALL_CREATED
+    assert second == INSTALL_UPDATED
+    text = (grok / "config.toml").read_text(encoding="utf-8")
+    assert "http://127.0.0.1:4040" in text
+    assert "http://127.0.0.1:3030" not in text
+
+
+def test_uninstall_grok_removes_table(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    grok = home / ".grok"
+    grok.mkdir(parents=True)
+    (grok / "config.toml").write_text(
+        "[mcp_servers.keep]\n"
+        'command = "keep"\n'
+        "\n"
+        "[mcp_servers.hipcortex]\n"
+        'command = "python"\n'
+        'args = ["x"]\n'
+        'env = { HIPCORTEX_URL = "http://127.0.0.1:3030" }\n'
+        "enabled = true\n",
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("GROK_CONFIG_PATH", raising=False)
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import _uninstall_grok
+
+        assert _uninstall_grok() is True
+
+    text = (grok / "config.toml").read_text(encoding="utf-8")
+    assert "[mcp_servers.hipcortex]" not in text
+    assert "[mcp_servers.keep]" in text
+    assert "keep" in text
+
+
+def test_install_grok_respects_GROK_CONFIG_PATH(tmp_path, monkeypatch):
+    """Custom GROK_CONFIG_PATH works without ~/.grok under home."""
+    home = tmp_path / "home"
+    home.mkdir()
+    custom = tmp_path / "custom" / "my-grok.toml"
+    custom.parent.mkdir(parents=True)
+    monkeypatch.setenv("GROK_CONFIG_PATH", str(custom))
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import INSTALL_CREATED, INSTALL_UNCHANGED, _install_grok
+
+        first = _install_grok("http://127.0.0.1:3030")
+        second = _install_grok("http://127.0.0.1:3030")
+
+    assert first == INSTALL_CREATED
+    assert second == INSTALL_UNCHANGED
+    assert custom.is_file()
+    text = custom.read_text(encoding="utf-8")
+    assert "[mcp_servers.hipcortex]" in text
+    assert not (home / ".grok").exists()
 

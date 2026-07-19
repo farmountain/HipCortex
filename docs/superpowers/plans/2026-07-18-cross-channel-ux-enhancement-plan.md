@@ -204,7 +204,7 @@ session_id = "proj-myapp"
 
 ---
 
-### Phase 6: Host installers (Hermes, OpenClaw, Grok, Antigravity) — **PARTIAL DONE** (2026-07-18: installers `3cd4359`; docs Phase 6B)
+### Phase 6: Host installers (Hermes, OpenClaw, Grok, Antigravity) — **DONE** (2026-07-19: Phase 6c Grok)
 
 Per host:
 
@@ -216,27 +216,28 @@ Per host:
 Priority order:
 
 1. **Antigravity** (VSIX profile / marketplace listing alignment)  
-2. **Cursor** (already MCP 鈥?harden)  
+2. **Cursor** (already MCP — harden)  
 3. **Grok Build / xAI tooling** (MCP or skill if paths known)  
-4. **Hermes / OpenClaw** (community agent configs 鈥?research then implement)
+4. **Hermes / OpenClaw** (community agent configs — research then implement)
 
-- [x] **Step 3:** Grok left as guide with deep link `docs/hosts/grok-build.md`.
+- [x] **Step 3:** Grok left as guide with deep link `docs/hosts/grok-build.md` (6a/6b).
 - [x] **Step 4:** Installers commit `3cd4359`; docs commit Phase 6B.
+- [x] **Step 5 (Phase 6c):** Grok native MCP installer → `~/.grok/config.toml` `[mcp_servers.hipcortex]`.
 
 
-#### Phase 6 status (2026-07-18)
+#### Phase 6 status (2026-07-19)
 
 | Host | Status | Evidence |
 |------|--------|----------|
 | Antigravity | **mcp** installer | `3cd4359` + channels.yaml |
 | Hermes | **mcp** installer | `3cd4359` + channels.yaml |
 | OpenClaw | **mcp** installer | `3cd4359` + channels.yaml |
-| Grok Build / Code | **guide** | `docs/hosts/grok-build.md` (no auto-installer) |
+| Grok Build / Code | **mcp** installer | `_install_grok` · `~/.grok/config.toml` · Phase 6c |
 
 - [x] Antigravity / Hermes / OpenClaw: document path + `_install_*` + uninstall
-- [x] Grok: guide with sample MCP JSON (`docs/hosts/`)
+- [x] Grok: guide with sample MCP JSON (`docs/hosts/`) then **mcp** installer (6c)
 - [x] channels.yaml / channels.md / README honesty aligned
-- [ ] Grok native MCP installer when config path product-stable (Phase 6c)
+- [x] Grok native MCP installer when config path product-stable (Phase 6c)
 - [ ] Optional E2E smoke CI per host
 - [x] Commit installers: `feat(cli): install Antigravity Hermes OpenClaw MCP hosts` (`3cd4359`)
 - [x] Commit docs: `docs: Phase 6 host installers and channel status`
@@ -325,7 +326,7 @@ Priority order:
 
 - **Status:** APPROVED for execution (Phases 0鈥? first)
 - **Date:** 2026-07-18
-- **Scope:** Execute Phase 0 (honesty + matrix) and Phase 1 (version stamp + doctor); Phase 6 partial: mcp installers (3cd4359) + host docs; Grok still guide
+- **Scope:** Execute Phase 0 (honesty + matrix) and Phase 1 (version stamp + doctor); Phase 6 complete: mcp installers (3cd4359) + Grok 6c (`~/.grok/config.toml`)
 - **Constraints:** headroom/caveman; surgical commits; keep extension tags/autostart green
 
 
@@ -356,7 +357,7 @@ Web + docs research (not yet implemented). Use for installer design.
 | Example | `mcp_servers: hipcortex: { command: python, args: [path], env: { HIPCORTEX_URL: ... } }` |
 | HipCortex strategy | Merge yaml under `mcp_servers.hipcortex`; document `hermes mcp` probe |
 
-### Grok Build / xAI (status → **mcp** / **guide**)
+### Grok Build / xAI (status → **mcp**)
 
 | Item | Finding |
 |------|---------|
@@ -379,14 +380,14 @@ Web + docs research (not yet implemented). Use for installer design.
 1. **Antigravity** — `mcp_config.json` + Open VSX note (highest overlap with VSIX)  
 2. **Hermes** — `~/.hermes/config.yaml` `mcp_servers` merge  
 3. **OpenClaw** — `openclaw mcp add` or `~/.openclaw/openclaw.json` `mcp.servers`  
-4. **Grok Build** — guide first; MCP sample; native when config path confirmed  
+4. **Grok Build** — **mcp** via `~/.grok/config.toml` `[mcp_servers.hipcortex]` (Phase 6c)
 
 ### channels.yaml status updates — **applied** (Phase 6B docs)
 
 - `antigravity`: claimed → **mcp** (installer `3cd4359`; VSIX note retained)  
 - `hermes`: claimed → **mcp**  
 - `openclaw`: claimed → **mcp**  
-- `grok-code` / `grok-build`: claimed → **guide** (`docs/hosts/grok-build.md`) until path confirmed, then **mcp**
+- `grok-code` / `grok-build`: claimed → **guide** → **mcp** (Phase 6c `_install_grok`)
 
 
 
@@ -396,5 +397,5 @@ Web + docs research (not yet implemented). Use for installer design.
 
 ## Plan completion
 
-**Phases 0–8 complete** on main as of 2026-07-19 (through Phase 8 policy/token path). Remaining optional: Grok native installer (6c), host E2E CI.
+**Phases 0–8 complete** on main as of 2026-07-19 (through Phase 8 policy/token path + Phase 6c Grok). Remaining optional: host E2E CI.
 

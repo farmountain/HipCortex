@@ -65,7 +65,14 @@ KNOWN_UNINSTALL_CHANNELS = (
     "antigravity",
     "hermes",
     "openclaw",
+    "grok",
 )
+
+# CLI aliases → canonical uninstall channel id
+_UNINSTALL_CHANNEL_ALIASES = {
+    "grok-build": "grok",
+    "grok-code": "grok",
+}
 
 # ─── Platform detection ───────────────────────────────────────────────────────
 
@@ -636,17 +643,135 @@ def _uninstall_openclaw() -> bool:
     return True
 
 
+def _grok_config_path() -> Path:
+    """Grok Build config: GROK_CONFIG_PATH or ~/.grok/config.toml."""
+    env = os.environ.get("GROK_CONFIG_PATH")
+    if env:
+        return Path(env)
+    return Path.home() / ".grok" / "config.toml"
+
+
+def _desired_grok_toml_block(server_url: str) -> str:
+    """Canonical [mcp_servers.hipcortex] table for ~/.grok/config.toml."""
+    entry = _desired_mcp_entry(server_url)
+    cmd = json.dumps(entry["command"])
+    arg0 = json.dumps(entry["args"][0])
+    url = json.dumps(entry["env"]["HIPCORTEX_URL"])
+    return (
+        "[mcp_servers.hipcortex]\n"
+        f"command = {cmd}\n"
+        f"args = [{arg0}]\n"
+        f"env = {{ HIPCORTEX_URL = {url} }}\n"
+        "enabled = true\n"
+    )
+
+
+def _strip_grok_hipcortex_tables(text: str) -> str:
+    """Remove [mcp_servers.hipcortex] and nested [mcp_servers.hipcortex.*] tables."""
+    import re
+
+    return re.sub(
+        r"(?ms)^\[mcp_servers\.hipcortex(?:\.[^\]]*)?\][ \t]*\n(?:(?!^\[).*\n?)*",
+        "",
+        text,
+    )
+
+
+def _grok_entry_matches(text: str, entry: dict) -> bool:
+    """True if config already has hipcortex with same command/args/url."""
+    if "[mcp_servers.hipcortex]" not in text:
+        return False
+    try:
+        import tomllib
+    except ImportError:  # pragma: no cover — py<3.11
+        tomllib = None  # type: ignore[assignment]
+    if tomllib is not None:
+        try:
+            data = tomllib.loads(text)
+        except Exception:
+            data = None
+        if isinstance(data, dict):
+            servers = data.get("mcp_servers")
+            if isinstance(servers, dict):
+                srv = servers.get("hipcortex")
+                if isinstance(srv, dict):
+                    args = srv.get("args") or []
+                    env = srv.get("env") or {}
+                    if not isinstance(env, dict):
+                        env = {}
+                    return (
+                        srv.get("command") == entry["command"]
+                        and (args[0] if args else None) == entry["args"][0]
+                        and env.get("HIPCORTEX_URL") == entry["env"]["HIPCORTEX_URL"]
+                    )
+    # Fallback: JSON-escaped string forms (matches how we write the block)
+    return (
+        json.dumps(entry["command"]) in text
+        and json.dumps(entry["args"][0]) in text
+        and json.dumps(entry["env"]["HIPCORTEX_URL"]) in text
+    )
+
+
+def _install_grok(server_url: str) -> str:
+    """Merge [mcp_servers.hipcortex] into ~/.grok/config.toml (stdlib only).
+
+    Skips if ~/.grok missing unless GROK_CONFIG_PATH is set.
+    """
+    path = _grok_config_path()
+    custom = bool(os.environ.get("GROK_CONFIG_PATH"))
+    if not custom and not path.parent.is_dir():
+        return INSTALL_SKIPPED
+
+    entry = _desired_mcp_entry(server_url)
+    block = _desired_grok_toml_block(server_url)
+
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(block if block.endswith("\n") else block + "\n", encoding="utf-8")
+        return INSTALL_CREATED
+
+    text = path.read_text(encoding="utf-8")
+    if _grok_entry_matches(text, entry):
+        return INSTALL_UNCHANGED
+
+    had = "[mcp_servers.hipcortex]" in text
+    stripped = _strip_grok_hipcortex_tables(text)
+    # Collapse excess trailing blank lines before append
+    new_text = stripped.rstrip() + "\n\n" + block
+    if not new_text.endswith("\n"):
+        new_text += "\n"
+    path.write_text(new_text, encoding="utf-8")
+    return INSTALL_UPDATED if had else INSTALL_CREATED
+
+
+def _uninstall_grok() -> bool:
+    """Remove [mcp_servers.hipcortex] (+ nested) from Grok config.toml."""
+    path = _grok_config_path()
+    if not path.exists():
+        return False
+    text = path.read_text(encoding="utf-8")
+    if "[mcp_servers.hipcortex" not in text:
+        return False
+    new = _strip_grok_hipcortex_tables(text)
+    if new == text:
+        return False
+    # Keep file tidy: single trailing newline
+    path.write_text(new.rstrip() + "\n" if new.strip() else "", encoding="utf-8")
+    return True
+
+
 def _resolve_uninstall_channels(args: argparse.Namespace) -> list[str]:
     """Channels to uninstall. Default --all when neither flag given (compat)."""
     channels = list(getattr(args, "channel", None) or [])
     all_flag = getattr(args, "all", False) is True
     if all_flag or not channels:
         return list(KNOWN_UNINSTALL_CHANNELS)
-    # Validate + de-dupe preserving order
+    # Validate + de-dupe preserving order (aliases → canonical)
     seen: set[str] = set()
     out: list[str] = []
     for ch in channels:
         key = ch.strip().lower()
+        key = _UNINSTALL_CHANNEL_ALIASES.get(key, key)
         if key not in KNOWN_UNINSTALL_CHANNELS:
             print(f"  {_GRAY}–{_RESET} unknown channel '{ch}' (skip)")
             continue
@@ -676,6 +801,8 @@ def _uninstall_channel(channel: str) -> bool:
         return _uninstall_hermes()
     if channel == "openclaw":
         return _uninstall_openclaw()
+    if channel == "grok":
+        return _uninstall_grok()
     return False
 
 
@@ -858,9 +985,12 @@ def _build_agent_registry(server_url: str, python_exe: str) -> list:
         {
             "id": "grok-build",
             "name": "Grok Build",
-            "desc": "xAI · host guide (no dedicated installer yet)",
-            "type": "guide",
-            "guide": "https://github.com/farmountain/HipCortex/blob/main/docs/hosts/grok-build.md",
+            "desc": "xAI · [mcp_servers.hipcortex] in ~/.grok/config.toml",
+            "type": "mcp",
+            "fn": lambda: (
+                _install_grok(server_url),
+                "~/.grok/config.toml",
+            ),
         },
         {
             "id": "continue",
@@ -1796,6 +1926,7 @@ def cmd_uninstall(args: argparse.Namespace) -> None:
         "antigravity": "Antigravity",
         "hermes": "Hermes",
         "openclaw": "OpenClaw",
+        "grok": "Grok Build",
     }
     removed_n = 0
     for ch in channels:
@@ -1934,8 +2065,8 @@ def _fallback_channels() -> list[dict]:
         {"id": "roocode", "name": "RooCode", "status": "mcp", "install": "hipcortex install"},
         {"id": "langchain", "name": "LangChain", "status": "framework", "install": "package + scaffold"},
         {"id": "antigravity", "name": "Antigravity IDE", "status": "mcp", "install": "hipcortex install"},
-        {"id": "grok-code", "name": "Grok Code", "status": "guide", "install": "docs/hosts/grok-build.md"},
-        {"id": "grok-build", "name": "Grok Build", "status": "guide", "install": "docs/hosts/grok-build.md"},
+        {"id": "grok-code", "name": "Grok Code", "status": "mcp", "install": "hipcortex install"},
+        {"id": "grok-build", "name": "Grok Build", "status": "mcp", "install": "hipcortex install"},
         {"id": "hermes", "name": "Hermes", "status": "mcp", "install": "hipcortex install"},
         {"id": "openclaw", "name": "OpenClaw", "status": "mcp", "install": "hipcortex install"},
         {"id": "continue", "name": "Continue", "status": "guide", "install": "docs only"},

@@ -46,7 +46,7 @@
 | Antigravity IDE | mcp | wizard → `~/.gemini/antigravity/mcp_config.json` | Also VSIX path; [hosts](hosts/README.md) |
 | Hermes Agent | mcp | wizard → `~/.hermes/config.yaml` | Needs `~/.hermes` present |
 | OpenClaw | mcp | wizard → `~/.openclaw/openclaw.json` | JSON5 sidecar fallback |
-| Grok Code / Grok Build | guide | [docs/hosts/grok-build.md](hosts/grok-build.md) | Sample MCP only |
+| Grok Code / Grok Build | mcp | wizard → `~/.grok/config.toml` | `GROK_CONFIG_PATH`; uninstall `--channel grok` |
 | Continue | guide | `sdk/continue/README.md` | |
 | GitHub Copilot | guide | docs / OpenAPI | |
 | OpenAI Codex CLI | guide | shell / MCP docs | |

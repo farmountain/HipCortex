@@ -12,7 +12,7 @@
 # Print: hipcortex channels
 
 version: 1
-updated: "2026-07-18"  # Phase 6B: antigravity/hermes/openclaw → mcp; grok → guide
+updated: "2026-07-19"  # Phase 6c: grok → mcp (~/.grok/config.toml)
 
 channels:
   # ── Distribution surfaces ──────────────────────────────────────────────
@@ -175,9 +175,9 @@ channels:
   - id: grok-code
     name: Grok Code / Grok Build
     category: coding-assistant
-    status: guide
-    install: "docs/hosts/grok-build.md (sample MCP JSON; no auto-installer yet)"
-    notes: "Config path not product-stable; guide only until Phase 6c"
+    status: mcp
+    install: "hipcortex install → ~/.grok/config.toml [mcp_servers.hipcortex]"
+    notes: "GROK_CONFIG_PATH override. Uninstall: --channel grok (aliases grok-build|grok-code). See docs/hosts/grok-build.md"
 
   # ── Agent frameworks ───────────────────────────────────────────────────
   - id: langchain
