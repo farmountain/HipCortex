@@ -43,7 +43,7 @@ where = ["."]
 include = ["hipcortex*"]
 
 [tool.setuptools.package-data]
-"hipcortex.install" = ["SKILL.md"]
+"hipcortex.install" = ["SKILL.md", "templates/*.tmpl"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

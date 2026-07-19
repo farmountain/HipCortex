@@ -9,21 +9,23 @@ pip install hipcortex
 cargo run --bin webserver --no-default-features --features "web-server,petgraph_backend"
 ```
 
-These match the starter files produced by `hipcortex install` for agent frameworks.
-Copy a file into your project and uncomment the framework-specific wiring.
+These match package templates under `sdk/python/hipcortex/install/templates/` (written by
+`hipcortex install --scaffold`). Prefer package APIs (`from_settings` / `make_memory_tools` /
+`client_from_settings`); no giant inline copies.
 
 | File | Framework | What it shows |
 |------|-----------|---------------|
-| [`hipcortex_langchain.py`](hipcortex_langchain.py) | LangChain | Drop-in `HipCortexMemory` / `AsyncHipCortexMemory` |
-| [`hipcortex_crewai.py`](hipcortex_crewai.py) | CrewAI | Remember / Recall / Forget tools |
-| [`hipcortex_autogen.py`](hipcortex_autogen.py) | AutoGen 0.4 | `HipCortexAutoGenMemory` (+ 0.3 hooks) |
-| [`hipcortex_llamaindex.py`](hipcortex_llamaindex.py) | LlamaIndex | `HipCortexChatStore` + storage context |
-| [`hipcortex_pydantic_ai.py`](hipcortex_pydantic_ai.py) | Pydantic AI | `remember` / `recall` as agent tools |
-| [`hipcortex_dspy.py`](hipcortex_dspy.py) | DSPy | Save/load optimization traces via memory |
-| [`hipcortex_n8n_curl.sh`](hipcortex_n8n_curl.sh) | n8n / Make / Zapier | HTTP ingest + flat search curl examples |
+| [`hipcortex_langchain.py`](hipcortex_langchain.py) | LangChain | `HipCortexMemory.from_settings()` |
+| [`hipcortex_crewai.py`](hipcortex_crewai.py) | CrewAI | `make_memory_tools()` |
+| [`hipcortex_autogen.py`](hipcortex_autogen.py) | AutoGen 0.4 | `HipCortexAutoGenMemory.from_settings()` |
+| [`hipcortex_llamaindex.py`](hipcortex_llamaindex.py) | LlamaIndex | `client_from_settings` + chat store |
+| [`hipcortex_pydantic_ai.py`](hipcortex_pydantic_ai.py) | Pydantic AI | `remember` / `recall` tools via client |
+| [`hipcortex_dspy.py`](hipcortex_dspy.py) | DSPy | Save/load optimization traces |
+| [`hipcortex_n8n_curl.sh`](hipcortex_n8n_curl.sh) | n8n / Make / Zapier | HTTP ingest + flat search curl |
 
 ## Notes
 
-- Point `HipCortexClient(...)` / `url=` at your server or managed tier.
-- Full adapters live in `sdk/python/hipcortex/` (`langchain_memory`, `adapters/*`, `llamaindex_storage`).
-- Rust examples (quickstart, world model, etc.) stay in [`../`](../).
+- Config: `HIPCORTEX_URL` or `.hipcortex/config.toml` (explicit URL still OK).
+- Full adapters: `sdk/python/hipcortex/` (`langchain_memory`, `adapters/*`, `llamaindex_storage`).
+- Scaffold source of truth: `sdk/python/hipcortex/install/templates/*.tmpl`.
+- Rust examples stay in [`../`](../).

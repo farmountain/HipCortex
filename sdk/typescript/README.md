@@ -12,6 +12,9 @@ Runs against the standalone local Rust binary (`http://127.0.0.1:3030`) with `0.
 npm install hipcortex
 ```
 
+> **Installer note:** **Python is the canonical installer** (`pip install hipcortex` → `hipcortex install`).  
+> This npm package is a **TypeScript/Node HTTP client only** — no framework scaffold wizard, no binary download, no IDE MCP registration. Use the Python CLI for install/scaffold; use this package for Node apps that talk to an existing HipCortex server.
+
 ---
 
 ## ⚡ Quick Start: Multi-Tier Memory & World Model Prediction

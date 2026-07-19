@@ -475,6 +475,82 @@ def test_parser_has_scaffold_and_dry_run():
     assert ns2.dry_run is False
 
 
+def test_framework_templates_load_from_package():
+    """install/templates/*.tmpl load; {{SERVER_URL}} substituted."""
+    from hipcortex.cli import (
+        _FRAMEWORK_TEMPLATE_FILES,
+        _load_framework_template,
+        _resolve_framework_code,
+        _templates_dir,
+    )
+
+    assert _templates_dir().is_dir()
+    for fid in ("langchain", "crewai", "autogen", "llamaindex", "pydantic-ai", "dspy", "n8n"):
+        raw = _load_framework_template(fid)
+        assert raw is not None, f"missing template for {fid}"
+        assert "{{SERVER_URL}}" in raw or "from_settings" in raw or "client_from_settings" in raw or "make_memory_tools" in raw
+        resolved = _resolve_framework_code(fid, "http://tmpl-test:3030")
+        assert "{{SERVER_URL}}" not in resolved
+        assert "http://tmpl-test:3030" in resolved or "from_settings" in resolved or "make_memory_tools" in resolved
+
+    # Unknown id → empty unless fallback provided
+    assert _load_framework_template("nope") is None
+    assert _resolve_framework_code("nope", "http://x", "FALLBACK {{SERVER_URL}}") == "FALLBACK http://x"
+    assert set(_FRAMEWORK_TEMPLATE_FILES) >= {
+        "langchain", "crewai", "autogen", "llamaindex", "pydantic-ai", "dspy", "n8n"
+    }
+
+
+def test_scaffold_uses_package_template_content(tmp_path, monkeypatch):
+    """--scaffold with real registry writes from_settings / make_memory_tools starters."""
+    home = _make_fake_home(tmp_path)
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    monkeypatch.chdir(proj)
+
+    from hipcortex import config as cfg
+
+    monkeypatch.setattr(cfg, "USER_CONFIG_PATH", tmp_path / "user.toml")
+
+    # Real registry (not mocked) so package templates apply
+    args = _install_args(url="http://scaffold-url:1", scaffold=True)
+    # Restrict to framework agents only via patched yes path that already selects all
+    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.cli._install_mcp_server"
+    ), patch("hipcortex.cli._install_claude_code", return_value="created"), patch(
+        "hipcortex.cli._install_cursor_prefer_local", return_value="created"
+    ), patch(
+        "hipcortex.cli._install_windsurf", return_value="created"
+    ), patch(
+        "hipcortex.cli._install_vscode", return_value="created"
+    ), patch(
+        "hipcortex.cli._install_mcp_generic", return_value="created"
+    ), patch(
+        "hipcortex.cli._install_antigravity", return_value="created"
+    ), patch(
+        "hipcortex.cli._install_hermes", return_value="created"
+    ), patch(
+        "hipcortex.cli._install_openclaw", return_value="created"
+    ):
+        from hipcortex.cli import cmd_install
+
+        cmd_install(args)
+
+    lc = proj / "hipcortex_langchain.py"
+    assert lc.is_file()
+    text = lc.read_text(encoding="utf-8")
+    assert "from_settings" in text
+    assert "HipCortexMemory" in text
+
+    crew = proj / "hipcortex_crewai.py"
+    assert crew.is_file()
+    assert "make_memory_tools" in crew.read_text(encoding="utf-8")
+
+    n8n = proj / "hipcortex_n8n_curl.sh"
+    assert n8n.is_file()
+    assert "http://scaffold-url:1" in n8n.read_text(encoding="utf-8")
+
+
 # ─── Phase 5B: idempotent statuses + channel uninstall ────────────────────────
 
 
