@@ -9,20 +9,29 @@ CLI:
     hipcortex doctor
     hipcortex doctor --probe
     HIPCORTEX_DOCTOR_OFFLINE=1 hipcortex doctor   # skip network
+
+Probe (``--probe``) is local-only by default: only localhost / 127.0.0.1 / ::1 /
+0.0.0.0 may run add+search. Remote URLs skip probe unless
+``HIPCORTEX_DOCTOR_PROBE_REMOTE=1``. Success requires a search hit matching the
+unique probe target (empty results fail).
 """
 
 from __future__ import annotations
 
 import os
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
+from urllib.parse import urlparse
 
 import requests
 
 from .config import DEFAULT_SERVER_VERSION_POLICY, DEFAULT_URL, load_settings
 
 OFFLINE_ENV = "HIPCORTEX_DOCTOR_OFFLINE"
+PROBE_REMOTE_ENV = "HIPCORTEX_DOCTOR_PROBE_REMOTE"
+_LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "0.0.0.0"})
 
 # Case-sensitive harness markers required in proactive SKILL.md
 SKILL_HARNESS_MARKERS = ("MUST", "live_beliefs")
@@ -232,6 +241,57 @@ def is_offline() -> bool:
     return os.getenv(OFFLINE_ENV, "").strip().lower() in ("1", "true", "yes")
 
 
+def is_probe_remote_allowed() -> bool:
+    """True when HIPCORTEX_DOCTOR_PROBE_REMOTE is truthy (1/true/yes)."""
+    return os.getenv(PROBE_REMOTE_ENV, "").strip().lower() in ("1", "true", "yes")
+
+
+def is_local_doctor_url(url: str) -> bool:
+    """True when URL host is localhost-like (safe for default probe).
+
+    Accepts host in {localhost, 127.0.0.1, ::1, 0.0.0.0}. Non-local hosts
+    (e.g. example.com, fly.dev) return False so probe is gated.
+    """
+    if not url or not str(url).strip():
+        return False
+    raw = str(url).strip()
+    if "://" not in raw:
+        raw = f"http://{raw}"
+    try:
+        parsed = urlparse(raw)
+    except ValueError:
+        return False
+    host = (parsed.hostname or "").strip().lower()
+    return host in _LOCAL_HOSTS
+
+
+def _result_contains_target(item: Any, target: str) -> bool:
+    """True if item (or nested structure) mentions the probe target."""
+    if item is None:
+        return False
+    if isinstance(item, str):
+        return target in item
+    if isinstance(item, dict):
+        t = item.get("target")
+        if t is not None and target in str(t):
+            return True
+        rec = item.get("record")
+        if rec is not None and _result_contains_target(rec, target):
+            return True
+        # string form of whole item (unique uuid target → low false-positive)
+        return target in str(item)
+    if isinstance(item, (list, tuple)):
+        return any(_result_contains_target(x, target) for x in item)
+    return target in str(item)
+
+
+def probe_result_matches_target(results: Any, target: str) -> bool:
+    """True if at least one search result matches the probe target."""
+    if not results or not isinstance(results, list):
+        return False
+    return any(_result_contains_target(item, target) for item in results)
+
+
 def _session_get(
     session: requests.Session,
     url: str,
@@ -263,6 +323,8 @@ def run_doctor(
     Args:
         url: Base URL (falls back to :func:`hipcortex.config.load_settings`).
         probe: If True and online, POST /memory/add + /memory/search roundtrip.
+            Local URLs only by default; set HIPCORTEX_DOCTOR_PROBE_REMOTE=1 for remote.
+            Fails unless search returns a hit matching the unique probe target.
         timeout: Per-request timeout seconds.
         session: Optional requests.Session (for tests / injection).
         package_skill: Override path to package install/SKILL.md (tests).
@@ -370,9 +432,21 @@ def run_doctor(
     if not probe:
         return report
 
+    # Remote URL gate: health/version already ran; probe only on local by default
+    remote_probe = False
+    if not is_local_doctor_url(base):
+        if not is_probe_remote_allowed():
+            report.add(
+                "probe",
+                "skip",
+                f"remote URL blocked for probe (set {PROBE_REMOTE_ENV}=1 to allow)",
+            )
+            return report
+        remote_probe = True
+
     actor = settings.actor or "hipcortex-doctor"
     action = "probe"
-    target = "doctor-roundtrip"
+    target = f"doctor-roundtrip-{uuid.uuid4().hex[:12]}"
     try:
         add_resp = _session_post(
             sess,
@@ -411,13 +485,30 @@ def run_doctor(
         return report
 
     results = search_body.get("results", []) if isinstance(search_body, dict) else []
+    if not results or not probe_result_matches_target(results, target):
+        n = len(results) if isinstance(results, list) else 0
+        report.add(
+            "probe",
+            "fail",
+            f"add ok but search missed probe target ({n} result(s), no match)",
+            detail={
+                "add": add_body if isinstance(add_body, dict) else None,
+                "search_count": n,
+                "target": target,
+            },
+        )
+        return report
+
+    remote_note = " (remote allowed)" if remote_probe else ""
     report.add(
         "probe",
         "ok",
-        f"add+search ok ({len(results)} result(s))",
+        f"add+search ok ({len(results)} result(s), hit target){remote_note}",
         detail={
             "add": add_body if isinstance(add_body, dict) else None,
             "search_count": len(results),
+            "target": target,
+            "remote": remote_probe,
         },
     )
     return report

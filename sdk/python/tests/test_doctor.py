@@ -371,6 +371,43 @@ def test_doctor_health_connection_error(tmp_path, monkeypatch):
 # ── probe ────────────────────────────────────────────────────────────────────
 
 
+def test_is_local_doctor_url():
+    from hipcortex.doctor import is_local_doctor_url
+
+    assert is_local_doctor_url("http://localhost:3030") is True
+    assert is_local_doctor_url("http://127.0.0.1:3030") is True
+    assert is_local_doctor_url("http://[::1]:3030") is True
+    assert is_local_doctor_url("http://0.0.0.0:3030") is True
+    assert is_local_doctor_url("https://example.com") is False
+    assert is_local_doctor_url("https://hipcortex.fly.dev") is False
+
+
+def test_doctor_probe_empty_search_fails(tmp_path, monkeypatch):
+    monkeypatch.delenv("HIPCORTEX_DOCTOR_OFFLINE", raising=False)
+    from hipcortex.doctor import run_doctor
+
+    sess = MagicMock()
+    sess.get.return_value = _health_resp(
+        200, {"service": "hipcortex", "version": "0.5.0", "status": "ok"}
+    )
+    add_r = _health_resp(200, {"success": True, "record_id": "abc"})
+    search_r = _health_resp(200, {"results": []})
+    sess.post.side_effect = [add_r, search_r]
+
+    report = run_doctor(
+        url="http://127.0.0.1:3030",
+        probe=True,
+        session=sess,
+        **_skill_kw(tmp_path),
+    )
+    assert report.ok is False
+    by_name = {c.name: c for c in report.checks}
+    assert by_name["probe"].status == "fail"
+    assert "0 result" in by_name["probe"].message.lower() or "no hit" in by_name[
+        "probe"
+    ].message.lower() or "no match" in by_name["probe"].message.lower()
+
+
 def test_doctor_probe_success(tmp_path, monkeypatch):
     monkeypatch.delenv("HIPCORTEX_DOCTOR_OFFLINE", raising=False)
     from hipcortex.doctor import run_doctor
@@ -380,10 +417,37 @@ def test_doctor_probe_success(tmp_path, monkeypatch):
         200, {"service": "hipcortex", "version": "0.5.0", "status": "ok"}
     )
     add_r = _health_resp(200, {"success": True, "record_id": "abc"})
-    search_r = _health_resp(200, {"results": [{"score": 1.0, "record": {}}]})
-    sess.post.side_effect = [add_r, search_r]
 
-    report = run_doctor(probe=True, session=sess, **_skill_kw(tmp_path))
+    def _search_side_effect(url, json=None, timeout=None, **kwargs):
+        # Return hit matching the unique target from the add payload
+        add_payload = sess.post.call_args_list[0]
+        add_json = add_payload.kwargs.get("json") or add_payload[1].get("json")
+        target = add_json["target"]
+        return _health_resp(
+            200,
+            {
+                "results": [
+                    {
+                        "score": 1.0,
+                        "record": {"target": target, "action": "probe"},
+                    }
+                ]
+            },
+        )
+
+    def _post_side_effect(url, json=None, timeout=None, **kwargs):
+        if url.endswith("/memory/add"):
+            return add_r
+        return _search_side_effect(url, json=json, timeout=timeout)
+
+    sess.post.side_effect = _post_side_effect
+
+    report = run_doctor(
+        url="http://127.0.0.1:3030",
+        probe=True,
+        session=sess,
+        **_skill_kw(tmp_path),
+    )
     assert report.ok is True
     by_name = {c.name: c for c in report.checks}
     assert by_name["probe"].status == "ok"
@@ -392,6 +456,75 @@ def test_doctor_probe_success(tmp_path, monkeypatch):
     search_url = sess.post.call_args_list[1][0][0]
     assert add_url.endswith("/memory/add")
     assert search_url.endswith("/memory/search")
+    add_json = sess.post.call_args_list[0].kwargs.get("json") or sess.post.call_args_list[0][1].get(
+        "json"
+    )
+    assert add_json["target"].startswith("doctor-roundtrip-")
+
+
+def test_doctor_probe_remote_skipped_by_default(tmp_path, monkeypatch):
+    monkeypatch.delenv("HIPCORTEX_DOCTOR_OFFLINE", raising=False)
+    monkeypatch.delenv("HIPCORTEX_DOCTOR_PROBE_REMOTE", raising=False)
+    from hipcortex.doctor import run_doctor
+
+    sess = MagicMock()
+    sess.get.return_value = _health_resp(
+        200, {"service": "hipcortex", "version": "0.5.0", "status": "ok"}
+    )
+
+    report = run_doctor(
+        url="https://hipcortex.fly.dev",
+        probe=True,
+        session=sess,
+        **_skill_kw(tmp_path),
+    )
+    by_name = {c.name: c for c in report.checks}
+    assert by_name["health"].status == "ok"
+    assert by_name["probe"].status == "skip"
+    assert "remote" in by_name["probe"].message.lower()
+    assert "HIPCORTEX_DOCTOR_PROBE_REMOTE" in by_name["probe"].message
+    sess.post.assert_not_called()
+    # remote skip is not a hard fail
+    assert report.ok is True
+
+
+def test_doctor_probe_remote_allowed_with_env(tmp_path, monkeypatch):
+    monkeypatch.delenv("HIPCORTEX_DOCTOR_OFFLINE", raising=False)
+    monkeypatch.setenv("HIPCORTEX_DOCTOR_PROBE_REMOTE", "1")
+    from hipcortex.doctor import run_doctor
+
+    sess = MagicMock()
+    sess.get.return_value = _health_resp(
+        200, {"service": "hipcortex", "version": "0.5.0", "status": "ok"}
+    )
+    add_r = _health_resp(200, {"success": True, "record_id": "abc"})
+
+    def _post_side_effect(url, json=None, timeout=None, **kwargs):
+        if url.endswith("/memory/add"):
+            return add_r
+        target = json["query"] if json and "query" in json else "doctor-roundtrip"
+        # Prefer target from prior add
+        add_json = sess.post.call_args_list[0].kwargs.get("json") or sess.post.call_args_list[0][
+            1
+        ].get("json")
+        target = add_json["target"]
+        return _health_resp(
+            200, {"results": [{"score": 1.0, "record": {"target": target}}]}
+        )
+
+    sess.post.side_effect = _post_side_effect
+
+    report = run_doctor(
+        url="https://hipcortex.fly.dev",
+        probe=True,
+        session=sess,
+        **_skill_kw(tmp_path),
+    )
+    by_name = {c.name: c for c in report.checks}
+    assert by_name["probe"].status == "ok"
+    assert "remote" in by_name["probe"].message.lower()
+    assert sess.post.call_count == 2
+    assert report.ok is True
 
 
 def test_doctor_probe_add_fails(tmp_path, monkeypatch):
@@ -405,7 +538,12 @@ def test_doctor_probe_add_fails(tmp_path, monkeypatch):
     )
     sess.post.side_effect = requests.Timeout("slow")
 
-    report = run_doctor(probe=True, session=sess, **_skill_kw(tmp_path))
+    report = run_doctor(
+        url="http://127.0.0.1:3030",
+        probe=True,
+        session=sess,
+        **_skill_kw(tmp_path),
+    )
     assert report.ok is False
     by_name = {c.name: c for c in report.checks}
     assert by_name["probe"].status == "fail"
