@@ -2104,6 +2104,29 @@ def test_wizard_clear_lines_uses_ansi_not_blank_stack():
     assert out.strip() != ""
 
 
+def test_wizard_no_vt_show_all_preprompt_expands_list():
+    """Win no-VT path: y on show-all expands from slim display to full hosts."""
+    from hipcortex.cli import _filter_agents_for_install, _run_wizard
+
+    full = [
+        {"id": "_s", "name": "-- sec --", "desc": "", "type": "section"},
+        {"id": "claude-code", "name": "Claude", "desc": "d", "type": "native"},
+        {"id": "cursor", "name": "Cursor", "desc": "d", "type": "mcp"},
+        {"id": "windsurf", "name": "Windsurf", "desc": "d", "type": "mcp"},
+        {"id": "continue", "name": "Continue", "desc": "g", "type": "guide", "guide": "u"},
+    ]
+    slim = _filter_agents_for_install(full, show_all=False, scaffold=False)
+    # Force no-VT + scripted: show all = y, then pick number 1
+    with patch("hipcortex.cli.platform.system", return_value="Windows"), patch(
+        "hipcortex.cli._enable_windows_vt", return_value=False
+    ), patch("builtins.input", side_effect=["y", "1"]):
+        chosen = _run_wizard(
+            slim, full_agents=full, scaffold=False, show_all=False
+        )
+    assert len(chosen) == 1
+    assert chosen[0]["id"] in ("claude-code", "cursor", "windsurf")
+
+
 def test_cmd_install_yes_skips_guides_and_frameworks_without_scaffold(
     tmp_path, monkeypatch, capsys
 ):

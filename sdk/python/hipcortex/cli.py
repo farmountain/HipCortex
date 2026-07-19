@@ -462,7 +462,15 @@ def _run_wizard(
         sel_cursor = 0
 
     if not use_live:
-        # Non-stacking fallback: one static list + number selection
+        # Non-stacking fallback: optional show-all, then static list + numbers
+        if full_agents is not None and not show_all_state:
+            try:
+                ans = input("  Show all agents? [y/N]: ").strip().lower()
+            except EOFError:
+                ans = ""
+            if ans in ("y", "yes"):
+                show_all_state = True
+                _refilter()
         selectable = _selectable(current)
         print(
             f"  {_BOLD}Select what to configure:{_RESET} "
@@ -735,9 +743,10 @@ def cmd_install(args: argparse.Namespace) -> None:
         n_hosts = sum(
             1 for a in display if a.get("type") in ("native", "mcp", "framework")
         )
+        # Live VT: key `a`. Win no-VT: pre-prompt inside _run_wizard.
         print(
             f"  Showing {n_hosts} detected hosts "
-            f"(a=show all in wizard / re-run with broader list)\n"
+            f"(show all: press a in live wizard, or answer y on fallback prompt)\n"
         )
         print(f"  {_BOLD}Which AI coding assistants do you use?{_RESET}\n")
         chosen = _run_wizard(
@@ -746,6 +755,15 @@ def cmd_install(args: argparse.Namespace) -> None:
 
     if not chosen:
         print(f"  {_GRAY}Nothing selected. Run 'hipcortex install' again anytime.{_RESET}\n")
+        # Still show docs guides when user aborts selection
+        guide_items = [a for a in agents if a.get("type") == "guide"]
+        if guide_items:
+            print(f"\n  {_DIM}Setup guides:{_RESET}")
+            import re as _re_guides
+            for a in guide_items:
+                raw = _re_guides.sub(r"\033\[[^m]*m", "", a.get("name", ""))
+                print(f"    {raw}: {a.get('guide', '')}")
+            print()
         return
 
     # ── 4. Configure chosen agents ────────────────────────────────────────────
