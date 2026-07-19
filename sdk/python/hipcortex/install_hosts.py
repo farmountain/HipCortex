@@ -318,9 +318,10 @@ def _uninstall_claude_code() -> bool:
 def _cursor_mcp_path(global_: bool = False) -> Optional[Path]:
     """Return path to Cursor mcp.json — local (project) or global."""
     if global_:
-        # Global Cursor config location by OS
+        # Global Cursor config location by OS (…/Cursor/mcp.json on all platforms)
         if platform.system() == "Windows":
-            base = Path(os.environ.get("APPDATA", Path.home()))
+            appdata = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
+            base = Path(appdata) / "Cursor"
         elif platform.system() == "Darwin":
             base = Path.home() / "Library" / "Application Support" / "Cursor"
         else:
@@ -451,14 +452,32 @@ def _install_mcp_generic(server_url: str, mcp_path: Path) -> str:
 
 
 def _install_cursor_prefer_local(server_url: str) -> str:
-    """Install Cursor MCP: prefer project .cursor/mcp.json, else global.
+    """Project-local first; never fall through on REFUSED.
 
-    Fall through to global only when local is SKIPPED (path unavailable).
-    REFUSED (corrupt local mcp.json) must not install global silently.
+    Also mirror to global when Cursor user config dir already exists
+    (do not invent APPDATA/Cursor for a missing product install).
     """
     local = _install_cursor(server_url, global_=False)
+    if local == INSTALL_REFUSED:
+        return local
+
+    global_path = _cursor_mcp_path(global_=True)
+    if global_path is None:
+        return local
+    # Only touch global if parent exists (Cursor installed)
+    if not global_path.parent.is_dir():
+        return local
+
+    gstat = _install_cursor(server_url, global_=True)
+    if gstat == INSTALL_REFUSED:
+        # Local ok, global corrupt — keep local status (primary project install)
+        return local
+    # Prefer reporting a meaningful aggregate: if local unchanged but global
+    # created/updated, surface that
+    if local == INSTALL_UNCHANGED and gstat in (INSTALL_CREATED, INSTALL_UPDATED):
+        return gstat
     if local == INSTALL_SKIPPED:
-        return _install_cursor(server_url, global_=True)
+        return gstat
     return local
 
 

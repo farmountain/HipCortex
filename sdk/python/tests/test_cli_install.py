@@ -1691,10 +1691,11 @@ def test_install_cursor_prefer_local_refuses_corrupt_no_global_fallback(tmp_path
     # Global would be under home if we incorrectly fall through
     if platform.system() == "Windows":
         monkeypatch.setenv("APPDATA", str(home / "AppData" / "Roaming"))
-        global_mcp = home / "AppData" / "Roaming" / "Cursor" / "User" / "mcp.json"
+        global_mcp = home / "AppData" / "Roaming" / "Cursor" / "mcp.json"
     else:
         monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
         global_mcp = home / ".config" / "Cursor" / "mcp.json"
+    global_mcp.parent.mkdir(parents=True)
 
     with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import INSTALL_REFUSED, _install_cursor_prefer_local
@@ -1704,4 +1705,110 @@ def test_install_cursor_prefer_local_refuses_corrupt_no_global_fallback(tmp_path
     assert status == INSTALL_REFUSED
     assert local.read_bytes() == original
     assert not global_mcp.exists(), "must not fall through to global on corrupt local"
+
+
+def test_cursor_global_path_win_includes_cursor_segment(tmp_path, monkeypatch):
+    """Windows global Cursor path ends with Cursor/mcp.json (not bare APPDATA)."""
+    home = tmp_path / "home"
+    home.mkdir()
+    appdata = home / "AppData" / "Roaming"
+    appdata.mkdir(parents=True)
+    monkeypatch.setenv("APPDATA", str(appdata))
+    with patch("hipcortex.install_hosts.platform.system", return_value="Windows"), patch(
+        "hipcortex.install_hosts.Path.home", return_value=home
+    ), patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import _cursor_mcp_path
+
+        path = _cursor_mcp_path(global_=True)
+    # Cross-platform path compare: ends with Cursor/mcp.json
+    parts = path.parts
+    assert parts[-2] == "Cursor"
+    assert parts[-1] == "mcp.json"
+    assert path == appdata / "Cursor" / "mcp.json"
+
+
+def test_grok_config_path_default_under_dot_grok(tmp_path, monkeypatch):
+    """Default Grok path is ~/.grok/config.toml (not alternative roots)."""
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.delenv("GROK_CONFIG_PATH", raising=False)
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch(
+        "hipcortex.cli.Path.home", return_value=home
+    ):
+        from hipcortex.cli import _grok_config_path
+
+        path = _grok_config_path()
+    assert path == home / ".grok" / "config.toml"
+    # ends with .grok/config.toml regardless of separator
+    assert path.parts[-2:] == (".grok", "config.toml")
+
+
+def test_install_cursor_prefer_local_mirrors_global_when_dir_exists(tmp_path, monkeypatch):
+    """Local created + global Cursor dir exists → global also has hipcortex."""
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.chdir(tmp_path)
+
+    if platform.system() == "Windows":
+        appdata = home / "AppData" / "Roaming"
+        monkeypatch.setenv("APPDATA", str(appdata))
+        global_dir = appdata / "Cursor"
+    elif platform.system() == "Darwin":
+        global_dir = home / "Library" / "Application Support" / "Cursor"
+    else:
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
+        global_dir = home / ".config" / "Cursor"
+    global_dir.mkdir(parents=True)
+
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch(
+        "hipcortex.cli.Path.home", return_value=home
+    ), patch("hipcortex.install_hosts.Path.cwd", return_value=tmp_path), patch(
+        "hipcortex.cli.Path.cwd", return_value=tmp_path
+    ):
+        from hipcortex.cli import INSTALL_CREATED, _install_cursor_prefer_local
+
+        status = _install_cursor_prefer_local("http://127.0.0.1:3030")
+
+    assert status == INSTALL_CREATED
+    local = tmp_path / ".cursor" / "mcp.json"
+    global_mcp = global_dir / "mcp.json"
+    assert local.is_file()
+    assert global_mcp.is_file()
+    local_cfg = json.loads(local.read_text(encoding="utf-8"))
+    global_cfg = json.loads(global_mcp.read_text(encoding="utf-8"))
+    assert "hipcortex" in local_cfg.get("mcpServers", {})
+    assert "hipcortex" in global_cfg.get("mcpServers", {})
+
+
+def test_install_cursor_prefer_local_no_global_dir_only_local(tmp_path, monkeypatch):
+    """No global Cursor dir → only local; do not invent product config dir."""
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.chdir(tmp_path)
+
+    if platform.system() == "Windows":
+        appdata = home / "AppData" / "Roaming"
+        appdata.mkdir(parents=True)
+        monkeypatch.setenv("APPDATA", str(appdata))
+        global_mcp = appdata / "Cursor" / "mcp.json"
+    elif platform.system() == "Darwin":
+        global_mcp = home / "Library" / "Application Support" / "Cursor" / "mcp.json"
+    else:
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
+        (home / ".config").mkdir(parents=True)
+        global_mcp = home / ".config" / "Cursor" / "mcp.json"
+
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch(
+        "hipcortex.cli.Path.home", return_value=home
+    ), patch("hipcortex.install_hosts.Path.cwd", return_value=tmp_path), patch(
+        "hipcortex.cli.Path.cwd", return_value=tmp_path
+    ):
+        from hipcortex.cli import INSTALL_CREATED, _install_cursor_prefer_local
+
+        status = _install_cursor_prefer_local("http://127.0.0.1:3030")
+
+    assert status == INSTALL_CREATED
+    assert (tmp_path / ".cursor" / "mcp.json").is_file()
+    assert not global_mcp.exists()
+    assert not global_mcp.parent.exists()
 
