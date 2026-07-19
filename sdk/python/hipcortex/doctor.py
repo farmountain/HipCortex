@@ -15,13 +15,112 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
 import requests
 
 from .config import DEFAULT_URL, load_settings
 
 OFFLINE_ENV = "HIPCORTEX_DOCTOR_OFFLINE"
+
+# Case-sensitive harness markers required in proactive SKILL.md
+SKILL_HARNESS_MARKERS = ("MUST", "live_beliefs")
+
+PathLike = Union[str, Path]
+
+
+def package_skill_path() -> Path:
+    """Bundled SKILL.md template shipped with the package (unit of truth)."""
+    return Path(__file__).resolve().parent / "install" / "SKILL.md"
+
+
+def installed_skill_path() -> Path:
+    """Claude Code skill path: ~/.claude/skills/hipcortex/SKILL.md."""
+    return Path.home() / ".claude" / "skills" / "hipcortex" / "SKILL.md"
+
+
+def skill_missing_markers(text: str) -> List[str]:
+    """Return harness markers missing from skill text (case-sensitive)."""
+    return [m for m in SKILL_HARNESS_MARKERS if m not in text]
+
+
+def check_skill_file(
+    report: DoctorReport,
+    name: str,
+    path: Path,
+    *,
+    missing_status: str = "warn",
+    incomplete_status: str = "fail",
+) -> CheckResult:
+    """Verify a SKILL.md path contains MUST + live_beliefs harness language.
+
+    Args:
+        report: DoctorReport to append to.
+        name: Check name (e.g. skill_package, skill_installed).
+        path: Filesystem path to SKILL.md.
+        missing_status: Status when file absent (package: fail; installed: warn).
+        incomplete_status: Status when file present but markers missing.
+    """
+    if not path.is_file():
+        return report.add(
+            name,
+            missing_status,
+            f"SKILL.md not found at {path}",
+            detail={"path": str(path)},
+        )
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as e:
+        return report.add(
+            name,
+            "fail",
+            f"cannot read SKILL.md at {path}: {e}",
+            detail={"path": str(path)},
+        )
+    missing = skill_missing_markers(text)
+    if missing:
+        return report.add(
+            name,
+            incomplete_status,
+            f"SKILL.md missing harness language: {', '.join(missing)}",
+            detail={"path": str(path), "missing": missing},
+        )
+    return report.add(
+        name,
+        "ok",
+        f"SKILL.md has MUST + live_beliefs ({path})",
+        detail={"path": str(path)},
+    )
+
+
+def add_skill_checks(
+    report: DoctorReport,
+    *,
+    package_path: Optional[PathLike] = None,
+    installed_path: Optional[PathLike] = None,
+) -> None:
+    """Always-on file checks for package template + optional installed skill.
+
+    Offline-safe (no network). Package template is unit of truth (fail if bad).
+    Installed Claude skill: warn if missing; fail if present but incomplete.
+    """
+    pkg = Path(package_path) if package_path is not None else package_skill_path()
+    inst = Path(installed_path) if installed_path is not None else installed_skill_path()
+    check_skill_file(
+        report,
+        "skill_package",
+        pkg,
+        missing_status="fail",
+        incomplete_status="fail",
+    )
+    check_skill_file(
+        report,
+        "skill_installed",
+        inst,
+        missing_status="warn",
+        incomplete_status="fail",
+    )
 
 
 @dataclass
@@ -90,6 +189,9 @@ def run_doctor(
     probe: bool = False,
     timeout: float = 5.0,
     session: Optional[requests.Session] = None,
+    *,
+    package_skill: Optional[PathLike] = None,
+    installed_skill: Optional[PathLike] = None,
 ) -> DoctorReport:
     """Run post-install checks against a HipCortex server.
 
@@ -98,13 +200,26 @@ def run_doctor(
         probe: If True and online, POST /memory/add + /memory/search roundtrip.
         timeout: Per-request timeout seconds.
         session: Optional requests.Session (for tests / injection).
+        package_skill: Override path to package install/SKILL.md (tests).
+        installed_skill: Override path to ~/.claude/.../SKILL.md (tests).
 
     Returns:
         DoctorReport with structured checks (ok/fail/warn/skip).
+
+    Note:
+        Proactive SKILL harness checks (MUST + live_beliefs) always run,
+        including offline mode — pure filesystem, no network.
     """
     settings = load_settings()
     base = url.rstrip("/") if url else settings.url.rstrip("/")
     report = DoctorReport(url=base)
+
+    # ── proactive SKILL harness (always; offline-safe) ───────────────────
+    add_skill_checks(
+        report,
+        package_path=package_skill,
+        installed_path=installed_skill,
+    )
 
     if is_offline():
         report.add(
