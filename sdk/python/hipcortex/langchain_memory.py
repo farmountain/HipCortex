@@ -46,6 +46,8 @@ class HipCortexMemory(BaseMemory):
         human_prefix: Label prepended to human turns in the history string.
         ai_prefix:    Label prepended to AI turns in the history string.
         max_records:  Max records fetched per ``load_memory_variables`` call.
+        use_live_beliefs: When True, prepend live_beliefs summary once on first
+                    ``load_memory_variables`` call (token-saving substrate bootstrap).
     """
 
     # Not using pydantic model here to stay LangChain version-agnostic
@@ -58,6 +60,7 @@ class HipCortexMemory(BaseMemory):
         human_prefix: str = "Human",
         ai_prefix: str = "AI",
         max_records: int = 50,
+        use_live_beliefs: bool = False,
     ) -> None:
         self.client = client
         self.session_id = session_id
@@ -65,6 +68,35 @@ class HipCortexMemory(BaseMemory):
         self.human_prefix = human_prefix
         self.ai_prefix = ai_prefix
         self.max_records = max_records
+        self.use_live_beliefs = use_live_beliefs
+        self._live_beliefs_injected = False
+
+    @classmethod
+    def from_settings(
+        cls,
+        session_id: str | None = None,
+        use_live_beliefs: bool = False,
+        **kw: Any,
+    ) -> "HipCortexMemory":
+        """Build memory from project/user config (URL + default actor).
+
+        Args:
+            session_id: Actor scope; defaults to :func:`default_session_id`.
+            use_live_beliefs: Prepend live_beliefs once on first load.
+            **kw: Forwarded to constructor (``memory_key``, ``max_records``,
+                optional ``client`` override, etc.).
+        """
+        from .adapters.common import client_from_settings, default_session_id
+
+        client = kw.pop("client", None) or client_from_settings()
+        if session_id is None:
+            session_id = default_session_id()
+        return cls(
+            client=client,
+            session_id=session_id,
+            use_live_beliefs=use_live_beliefs,
+            **kw,
+        )
 
     # Required by BaseMemory -------------------------------------------------
 
@@ -89,7 +121,19 @@ class HipCortexMemory(BaseMemory):
             elif action == "ai_message":
                 lines.append(f"{self.ai_prefix}: {target}")
 
-        return {self.memory_key: "\n".join(lines)}
+        history = "\n".join(lines)
+
+        if self.use_live_beliefs and not self._live_beliefs_injected:
+            from .adapters.common import bootstrap_live_beliefs
+
+            beliefs = bootstrap_live_beliefs(
+                self.client, actor=self.session_id, limit=5
+            )
+            self._live_beliefs_injected = True
+            if beliefs:
+                history = beliefs + ("\n" + history if history else "")
+
+        return {self.memory_key: history}
 
     def save_context(self, inputs: Dict[str, Any], outputs: Dict[str, Any]) -> None:
         """Persist a human→AI exchange to HipCortex."""

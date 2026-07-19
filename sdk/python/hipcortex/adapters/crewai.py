@@ -6,19 +6,13 @@ so agents can store and retrieve memories as tool calls during task execution.
 Usage::
 
     from crewai import Agent, Task, Crew
-    from hipcortex import HipCortexClient
-    from hipcortex.adapters.crewai import (
-        HipCortexRememberTool,
-        HipCortexRecallTool,
-        HipCortexForgetTool,
-    )
+    from hipcortex.adapters.crewai import make_memory_tools
 
-    client = HipCortexClient(base_url="http://127.0.0.1:3030")
-    tools = [
-        HipCortexRememberTool(client=client, agent_id="researcher"),
-        HipCortexRecallTool(client=client, agent_id="researcher"),
-        HipCortexForgetTool(client=client, agent_id="researcher"),
-    ]
+    # Package-first: client + agent_id from hipcortex config
+    tools = make_memory_tools()
+
+    # Or explicit:
+    # tools = make_memory_tools(client=client, agent_id="researcher")
 
     researcher = Agent(
         role="Senior Researcher",
@@ -30,7 +24,7 @@ Usage::
 
 from __future__ import annotations
 
-from typing import Any, Optional, Type
+from typing import Any, List, Optional, Type
 
 from ..client import HipCortexClient
 
@@ -151,3 +145,29 @@ class HipCortexForgetTool(BaseTool):  # type: ignore[misc]
         result = self._client.forget(self._agent_id)
         deleted = result.get("records_deleted", 0)
         return f"Deleted {deleted} memory records for agent '{self._agent_id}'."
+
+
+def make_memory_tools(
+    client: Optional[HipCortexClient] = None,
+    agent_id: Optional[str] = None,
+) -> List[Any]:
+    """Factory: remember / recall / forget tools with settings defaults.
+
+    Args:
+        client: Optional client; defaults to :func:`client_from_settings`.
+        agent_id: Optional actor; defaults to :func:`default_session_id`.
+
+    Returns:
+        List of three CrewAI-compatible tools sharing the same client/actor.
+    """
+    from .common import client_from_settings, default_session_id
+
+    if client is None:
+        client = client_from_settings()
+    if agent_id is None:
+        agent_id = default_session_id()
+    return [
+        HipCortexRememberTool(client=client, agent_id=agent_id),
+        HipCortexRecallTool(client=client, agent_id=agent_id),
+        HipCortexForgetTool(client=client, agent_id=agent_id),
+    ]

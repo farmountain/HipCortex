@@ -4,11 +4,9 @@ AutoGen 0.4 changed from register_hook() to the Memory protocol.
 
 Usage (AutoGen 0.4+):
     from autogen_agentchat.agents import AssistantAgent
-    from hipcortex import HipCortexClient
     from hipcortex.adapters.autogen import HipCortexAutoGenMemory
 
-    client = HipCortexClient(base_url="http://127.0.0.1:3030")
-    memory = HipCortexAutoGenMemory(client=client, agent_id="researcher")
+    memory = HipCortexAutoGenMemory.from_settings()  # config URL + default actor
     agent = AssistantAgent(name="researcher", model_client=..., memory=[memory])
 
 Usage (AutoGen 0.3 — legacy):
@@ -46,6 +44,27 @@ class HipCortexAutoGenMemory(Memory):  # type: ignore[misc]
         self._client = client
         self._agent_id = agent_id
         self._top_k = top_k
+
+    @classmethod
+    def from_settings(
+        cls,
+        agent_id: Optional[str] = None,
+        top_k: int = 10,
+        **kw: Any,
+    ) -> "HipCortexAutoGenMemory":
+        """Build memory from project/user config (URL + default actor).
+
+        Args:
+            agent_id: Actor scope; defaults to :func:`default_session_id`.
+            top_k: Max results for query/update_context.
+            **kw: Optional ``client`` override and unused extras ignored.
+        """
+        from .common import client_from_settings, default_session_id
+
+        client = kw.pop("client", None) or client_from_settings()
+        if agent_id is None:
+            agent_id = default_session_id()
+        return cls(client=client, agent_id=agent_id, top_k=top_k)
 
     # AutoGen 0.4 Memory protocol -------------------------------------------
 
