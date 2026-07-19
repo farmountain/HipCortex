@@ -34,6 +34,16 @@ HIPCORTEX_URL = os.getenv("HIPCORTEX_URL", "http://localhost:3030").rstrip("/")
 API_KEY       = os.getenv("HIPCORTEX_API_KEY", "")
 TIMEOUT       = int(os.getenv("HIPCORTEX_TIMEOUT", "10"))
 
+# Session harness state (one MCP process lifetime). Soft substrate-first nudge:
+# prefer get_live_beliefs / reflect before search_memory. Never hard-blocks.
+# Disable: HIPCORTEX_HARNESS_SOFT=0
+_live_beliefs_seen = False
+
+_HARNESS_SEARCH_WARN = (
+    "[harness] Prefer get_live_beliefs FIRST before search (substrate-first). "
+    "Continuing with search..."
+)
+
 # ---------------------------------------------------------------------------
 # HTTP helpers
 # ---------------------------------------------------------------------------
@@ -497,6 +507,7 @@ def handle_predict(args: dict) -> str:
 
 
 def dispatch_tool(name: str, args: dict) -> str:
+    global _live_beliefs_seen
     handlers = {
         "add_memory":       handle_add_memory,
         "search_memory":    handle_search_memory,
@@ -515,7 +526,14 @@ def dispatch_tool(name: str, args: dict) -> str:
     handler = handlers.get(name)
     if handler is None:
         raise ValueError(f"Unknown tool: {name}")
-    return handler(args)
+    result = handler(args)
+    if name in ("get_live_beliefs", "reflect"):
+        _live_beliefs_seen = True
+    elif name == "search_memory":
+        soft_on = os.getenv("HIPCORTEX_HARNESS_SOFT", "1") != "0"
+        if soft_on and not _live_beliefs_seen:
+            result = _HARNESS_SEARCH_WARN + "\n" + result
+    return result
 
 # ---------------------------------------------------------------------------
 # JSON-RPC 2.0 transport

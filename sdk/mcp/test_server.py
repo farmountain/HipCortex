@@ -2,7 +2,6 @@
 Requires: pip install requests pytest
 """
 import json
-import sys
 import io
 from unittest.mock import patch, MagicMock
 import importlib.util
@@ -182,3 +181,119 @@ def test_tools_call_predict():
     args, kwargs = mock_post.call_args
     assert args[0].endswith("/worldmodel/predict")
     assert kwargs.get("json") == {"state": "degraded", "action": "scale_out"}
+
+
+# ---------------------------------------------------------------------------
+# Soft harness: warn when search_memory runs before get_live_beliefs / reflect
+# ---------------------------------------------------------------------------
+
+_HARNESS_SNIPPET = "[harness] Prefer get_live_beliefs FIRST before search"
+
+
+def _mock_search_empty():
+    """POST /memory/search empty + GET /memory/query empty → 'No memories found.'"""
+    post = MagicMock()
+    post.json.return_value = {"results": []}
+    post.raise_for_status = MagicMock()
+    get = MagicMock()
+    get.json.return_value = {"records": []}
+    get.raise_for_status = MagicMock()
+    return post, get
+
+
+def test_harness_warn_search_without_live_beliefs():
+    """search_memory alone → soft harness warning prepended (HIPCORTEX_HARNESS_SOFT default on)."""
+    mod = _load_server()
+    mod._live_beliefs_seen = False
+    post, get = _mock_search_empty()
+    original_getenv = mod.os.getenv
+
+    def getenv_side(key, default=None):
+        if key == "HIPCORTEX_HARNESS_SOFT":
+            return "1"
+        return original_getenv(key, default)
+
+    with patch.object(mod.requests, "post", return_value=post), \
+         patch.object(mod.requests, "get", return_value=get), \
+         patch.object(mod.os, "getenv", side_effect=getenv_side):
+        text = mod.dispatch_tool("search_memory", {"query": "auth"})
+    assert _HARNESS_SNIPPET in text
+    assert "No memories found." in text
+    # Must not hard-block — search still runs
+    assert text.startswith(_HARNESS_SNIPPET)
+
+
+def test_harness_no_warn_after_live_beliefs():
+    """get_live_beliefs first → later search_memory has no harness warning."""
+    mod = _load_server()
+    mod._live_beliefs_seen = False
+    beliefs = MagicMock()
+    beliefs.json.return_value = {
+        "beliefs": [{"actor": "p", "action": "decided", "target": "JWT"}],
+        "total": 1,
+    }
+    beliefs.raise_for_status = MagicMock()
+    post, get_empty = _mock_search_empty()
+
+    def get_side_effect(url, **kwargs):
+        if "live_beliefs" in url:
+            return beliefs
+        return get_empty
+
+    with patch.object(mod.requests, "get", side_effect=get_side_effect), \
+         patch.object(mod.requests, "post", return_value=post):
+        live = mod.dispatch_tool("get_live_beliefs", {})
+        assert "JWT" in live
+        assert mod._live_beliefs_seen is True
+        text = mod.dispatch_tool("search_memory", {"query": "auth"})
+    assert _HARNESS_SNIPPET not in text
+    assert "No memories found." in text
+
+
+def test_harness_no_warn_after_reflect():
+    """reflect also sets live_beliefs_seen (substrate-first CoT path)."""
+    mod = _load_server()
+    mod._live_beliefs_seen = False
+    reflect_resp = MagicMock()
+    reflect_resp.json.return_value = {
+        "hypothesis": "use JWT",
+        "confidence": 0.5,
+        "evidence": [],
+        "loops_run": 1,
+        "llm_available": False,
+        "is_fallback": True,
+    }
+    reflect_resp.raise_for_status = MagicMock()
+    post_search, get_empty = _mock_search_empty()
+
+    def post_side(url, **kwargs):
+        if str(url).endswith("/memory/reflect"):
+            return reflect_resp
+        return post_search
+
+    with patch.object(mod.requests, "post", side_effect=post_side), \
+         patch.object(mod.requests, "get", return_value=get_empty):
+        mod.dispatch_tool("reflect", {"query": "auth"})
+        assert mod._live_beliefs_seen is True
+        text = mod.dispatch_tool("search_memory", {"query": "auth"})
+    assert _HARNESS_SNIPPET not in text
+
+
+def test_harness_soft_off_no_warn():
+    """HIPCORTEX_HARNESS_SOFT=0 disables soft warning entirely."""
+    mod = _load_server()
+    mod._live_beliefs_seen = False
+    post, get = _mock_search_empty()
+    original_getenv = mod.os.getenv
+
+    def getenv_side(key, default=None):
+        if key == "HIPCORTEX_HARNESS_SOFT":
+            return "0"
+        return original_getenv(key, default)
+
+    with patch.object(mod.requests, "post", return_value=post), \
+         patch.object(mod.requests, "get", return_value=get), \
+         patch.object(mod.os, "getenv", side_effect=getenv_side):
+        text = mod.dispatch_tool("search_memory", {"query": "auth"})
+    assert _HARNESS_SNIPPET not in text
+    assert "No memories found." in text
