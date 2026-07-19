@@ -190,8 +190,194 @@ from .framework_scaffold import (  # noqa: F401, E402
 )
 
 
+# Core hosts shown when no product dirs are detected on the machine.
+_CORE_DEFAULT_HOSTS = frozenset({"claude-code", "cursor", "vscode", "grok-build"})
+
+
+def _enable_windows_vt() -> bool:
+    """Enable VT processing on Windows stdout. True if ANSI clear/redraw is safe."""
+    if platform.system() != "Windows":
+        return True
+    try:
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+        # STD_OUTPUT_HANDLE = -11
+        handle = kernel32.GetStdHandle(-11)
+        mode = ctypes.c_uint32()
+        if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+            return False
+        enable_vt = 0x0004  # ENABLE_VIRTUAL_TERMINAL_PROCESSING
+        if not kernel32.SetConsoleMode(handle, mode.value | enable_vt):
+            return False
+        return True
+    except Exception:
+        return False
+
+
+def _detect_host_presence() -> set[str]:
+    """Return set of agent ids whose install config dirs / product dirs exist."""
+    present: set[str] = set()
+    home = Path.home()
+    cwd = Path.cwd()
+
+    if (home / ".claude").exists():
+        present.add("claude-code")
+
+    if (cwd / ".cursor").exists():
+        present.add("cursor")
+    else:
+        try:
+            global_mcp = _cursor_mcp_path(True)
+            if global_mcp is not None and global_mcp.parent.exists():
+                present.add("cursor")
+        except Exception:
+            pass
+
+    try:
+        if _windsurf_base().exists():
+            present.add("windsurf")
+    except Exception:
+        pass
+
+    try:
+        if _vscode_settings_path().parent.exists():
+            present.add("vscode")
+    except Exception:
+        pass
+
+    if (cwd / ".cline").exists():
+        present.add("cline")
+    if (cwd / ".roo").exists():
+        present.add("roocode")
+    if (home / ".gemini" / "antigravity").exists():
+        present.add("antigravity")
+    if (home / ".hermes").exists():
+        present.add("hermes")
+    if (home / ".openclaw").exists():
+        present.add("openclaw")
+    if (home / ".grok").exists():
+        present.add("grok-build")
+
+    return present
+
+
+def _filter_agents_for_install(
+    agents: list,
+    *,
+    show_all: bool = False,
+    scaffold: bool = False,
+) -> list:
+    """Slim install list: drop guides; frameworks only if scaffold; presence filter.
+
+    - Drop type==guide always (callers print guide footer separately).
+    - Drop type==framework unless scaffold=True.
+    - If not show_all: keep native/mcp only if id in presence (empty presence →
+      core defaults: claude-code, cursor, vscode, grok-build).
+    - Keep type==section only when following non-section rows remain.
+    - If show_all: all native/mcp (+ frameworks if scaffold).
+    """
+    presence = _detect_host_presence()
+    if not presence:
+        presence = set(_CORE_DEFAULT_HOSTS)
+
+    provisional: list = []
+    for a in agents:
+        t = a.get("type")
+        if t == "guide":
+            continue
+        if t == "framework":
+            if scaffold:
+                provisional.append(a)
+            continue
+        if t == "section":
+            provisional.append(a)
+            continue
+        if t in ("native", "mcp"):
+            if show_all or a.get("id") in presence:
+                provisional.append(a)
+            continue
+
+    # Drop section headers with no following non-section rows before next section
+    out: list = []
+    for i, a in enumerate(provisional):
+        if a.get("type") == "section":
+            has_follow = False
+            for b in provisional[i + 1 :]:
+                if b.get("type") == "section":
+                    break
+                has_follow = True
+                break
+            if has_follow:
+                out.append(a)
+        else:
+            out.append(a)
+    return out
+
+
+def _wizard_frame_text(
+    agents: list,
+    selected: set,
+    cursor: int,
+    *,
+    hint: str = "(Space toggle · Enter confirm · a show all · q quit)",
+) -> tuple[str, int]:
+    """Build one wizard frame. Returns (text ending with newline, line_count)."""
+    import re as _re
+
+    selectable = [i for i, a in enumerate(agents) if a["type"] != "section"]
+    cur_real = selectable[cursor] if selectable and 0 <= cursor < len(selectable) else -1
+
+    def _display_name(a: dict) -> str:
+        return _re.sub(r"\033\[[^m]*m", "", a["name"])
+
+    lines: list[str] = []
+    lines.append(
+        f"  {_BOLD}Select what to configure:{_RESET} {_GRAY}{hint}{_RESET}"
+    )
+    lines.append("")
+    for i, agent in enumerate(agents):
+        if agent["type"] == "section":
+            lines.append(f"  {_DIM}{agent['name']}{_RESET}")
+            continue
+        is_sel = i in selected
+        is_cur = i == cur_real
+        bullet = f"{_CYAN}●{_RESET}" if is_sel else f"{_GRAY}○{_RESET}"
+        raw_name = _display_name(agent)
+        name_str = f"{_BOLD}{agent['name']}{_RESET}" if is_cur else agent["name"]
+        desc = f"{_DIM}{agent['desc']}{_RESET}"
+        if agent["type"] == "guide":
+            tag = f" {_CYAN}[guide]{_RESET}"
+        elif agent["type"] == "framework":
+            tag = f" {_CYAN}[starter file]{_RESET}"
+        else:
+            tag = ""
+        prefix = "  ›" if is_cur else "   "
+        pad = max(1, 20 - len(raw_name))
+        lines.append(f"{prefix} {bullet} {name_str}{' ' * pad}{desc}{tag}")
+    count = len(selected)
+    lines.append("")
+    if count:
+        lines.append(f"  {_GREEN}{count} selected{_RESET}")
+    else:
+        lines.append(f"  {_GRAY}none selected{_RESET}")
+    text = "\n".join(lines) + "\n"
+    return text, len(lines)
+
+
+def _wizard_clear_previous(frame_lines: int) -> None:
+    """Move cursor up frame_lines and erase to end of screen (ANSI VT)."""
+    if frame_lines <= 0:
+        return
+    sys.stdout.write(f"\033[{frame_lines}A\033[J")
+    sys.stdout.flush()
+
+
 def _getch() -> str:
-    """Read a single raw keypress. Returns: 'up' | 'down' | 'space' | 'enter' | 'quit'."""
+    """Read a single raw keypress.
+
+    Returns: 'up' | 'down' | 'space' | 'enter' | 'quit' | 'all' | ''.
+    """
     if platform.system() == "Windows":
         import msvcrt
         ch = msvcrt.getch()
@@ -204,6 +390,8 @@ def _getch() -> str:
             return "space"
         if ch in (b"q", b"Q", b"\x03"):
             return "quit"
+        if ch in (b"a", b"A"):
+            return "all"
         return ""
     else:
         import tty, termios
@@ -224,97 +412,131 @@ def _getch() -> str:
                 return "space"
             if ch in ("q", "Q", "\x03"):
                 return "quit"
+            if ch in ("a", "A"):
+                return "all"
             return ""
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
 
-def _run_wizard(agents: list) -> list:
-    """Interactive multi-select. Skips section headers. Returns selected agent dicts."""
+def _run_wizard(
+    agents: list,
+    *,
+    full_agents: Optional[list] = None,
+    scaffold: bool = False,
+    show_all: bool = False,
+) -> list:
+    """Interactive multi-select. Skips section headers. Returns selected agent dicts.
+
+    Uses VT cursor-up + erase redraw (Unix + Windows when VT enabled).
+    On Windows when VT enable fails: print list once + number input fallback.
+    Key ``a`` toggles show-all when *full_agents* is provided.
+    """
     import re as _re
-    selectable = [i for i, a in enumerate(agents) if a["type"] != "section"]
-    n_all = len(agents)
-    selected: set = set()
+
+    full = full_agents if full_agents is not None else agents
+    show_all_state = show_all
+    current: list = list(agents)
+    selected_ids: set = set()
     sel_cursor = 0
+    frame_lines = 0
+    first_draw = True
 
-    def _display_name(a: dict) -> str:
-        return _re.sub(r'\033\[[^m]*m', '', a["name"])
+    use_live = _enable_windows_vt() if platform.system() == "Windows" else True
 
-    # On Windows, cursor-up ANSI codes corrupt the display.
-    # Use cls-style redraw: print a blank separator then full list.
-    _is_windows = platform.system() == "Windows"
+    def _selectable(lst: list) -> list:
+        return [i for i, a in enumerate(lst) if a["type"] != "section"]
 
-    def render():
-        cur_real = selectable[sel_cursor] if selectable else -1
-        if _is_windows:
-            # Windows: no cursor-up — just reprint with blank line separator
-            print()
-        else:
-            # Unix: move cursor up to overwrite previous render
-            print(f"\033[{n_all + 3}A", end="")
-        print(f"  {_BOLD}Select what to configure:{_RESET} {_GRAY}(Space toggle · Enter confirm · q quit){_RESET}")
+    def _selected_indices(lst: list) -> set:
+        return {
+            i
+            for i, a in enumerate(lst)
+            if a.get("id") in selected_ids and a["type"] != "section"
+        }
+
+    def _refilter() -> None:
+        nonlocal current, sel_cursor
+        current = _filter_agents_for_install(
+            full, show_all=show_all_state, scaffold=scaffold
+        )
+        sel_cursor = 0
+
+    if not use_live:
+        # Non-stacking fallback: one static list + number selection
+        selectable = _selectable(current)
+        print(
+            f"  {_BOLD}Select what to configure:{_RESET} "
+            f"{_GRAY}(enter space-separated numbers 1-based; empty=none){_RESET}"
+        )
         print()
-        for i, agent in enumerate(agents):
-            if agent["type"] == "section":
-                print(f"  {_DIM}{agent['name']}{_RESET}")
+        for n, idx in enumerate(selectable, 1):
+            a = current[idx]
+            raw = _re.sub(r"\033\[[^m]*m", "", a["name"])
+            print(f"  {n}. {raw}  {_DIM}{a.get('desc', '')}{_RESET}")
+        print()
+        try:
+            raw_in = input("  Numbers: ").strip()
+        except EOFError:
+            raw_in = ""
+        if not raw_in:
+            return []
+        chosen: list = []
+        for part in raw_in.replace(",", " ").split():
+            try:
+                n = int(part)
+            except ValueError:
                 continue
-            is_sel = i in selected
-            is_cur = i == cur_real
-            bullet  = f"{_CYAN}●{_RESET}" if is_sel else f"{_GRAY}○{_RESET}"
-            raw_name = _display_name(agent)
-            name_str = f"{_BOLD}{agent['name']}{_RESET}" if is_cur else agent["name"]
-            desc    = f"{_DIM}{agent['desc']}{_RESET}"
-            if agent["type"] == "guide":
-                tag = f" {_CYAN}[guide]{_RESET}"
-            elif agent["type"] == "framework":
-                tag = f" {_CYAN}[starter file]{_RESET}"
-            else:
-                tag = ""
-            prefix = "  ›" if is_cur else "   "
-            pad = max(1, 20 - len(raw_name))
-            print(f"{prefix} {bullet} {name_str}{' ' * pad}{desc}{tag}")
-        count = len(selected)
-        print(f"\n  {_GREEN}{count} selected{_RESET}" if count else f"\n  {_GRAY}none selected{_RESET}")
-
-    # Initial draw
-    if not _is_windows:
-        # Reserve lines for cursor-up redraw on Unix
-        print(f"  {_BOLD}Select what to configure:{_RESET}")
-        print()
-        for agent in agents:
-            if agent["type"] == "section":
-                print(f"  {_DIM}{agent['name']}{_RESET}")
-            else:
-                print(f"   ○ {_display_name(agent):<20} {_DIM}{agent['desc']}{_RESET}")
-        print()
-
-    render()
+            if 1 <= n <= len(selectable):
+                chosen.append(current[selectable[n - 1]])
+        return chosen
 
     while True:
+        selectable = _selectable(current)
+        if selectable:
+            sel_cursor = sel_cursor % len(selectable)
+        else:
+            sel_cursor = 0
+        text, n_lines = _wizard_frame_text(
+            current, _selected_indices(current), sel_cursor
+        )
+        if not first_draw:
+            _wizard_clear_previous(frame_lines)
+        first_draw = False
+        sys.stdout.write(text)
+        sys.stdout.flush()
+        frame_lines = n_lines
+
         try:
             key = _getch()
         except Exception:
             break
 
         if key == "quit":
+            selected_ids.clear()
             break
-        elif key == "up":
+        elif key == "up" and selectable:
             sel_cursor = (sel_cursor - 1) % len(selectable)
-        elif key == "down":
+        elif key == "down" and selectable:
             sel_cursor = (sel_cursor + 1) % len(selectable)
-        elif key == "space":
+        elif key == "space" and selectable:
             real_i = selectable[sel_cursor]
-            if real_i in selected:
-                selected.discard(real_i)
+            aid = current[real_i].get("id")
+            if aid in selected_ids:
+                selected_ids.discard(aid)
             else:
-                selected.add(real_i)
+                selected_ids.add(aid)
+        elif key == "all" and full_agents is not None:
+            show_all_state = not show_all_state
+            _refilter()
         elif key == "enter":
             break
 
-        render()
-
     print()
-    return [agents[i] for i in sorted(selected)]
+    # Resolve selected agents from full registry by id (stable across refilter)
+    if not selected_ids:
+        return []
+    by_id = {a.get("id"): a for a in full if a.get("type") != "section"}
+    return [by_id[i] for i in sorted(selected_ids) if i in by_id]
 
 
 # ─── Install: optional codebase index bootstrap ──────────────────────────────
@@ -493,13 +715,34 @@ def cmd_install(args: argparse.Namespace) -> None:
 
     yes_all = getattr(args, "yes", False) is True
     if yes_all:
-        # Non-interactive: configure all auto-configurable agents
-        # Framework starters only materialize when --scaffold (still listed if scaffold)
-        chosen = [a for a in agents if a["type"] != "guide"]
+        # Non-interactive: all native/mcp; frameworks only with --scaffold; never guides
+        chosen = [
+            a
+            for a in agents
+            if a["type"] in ("native", "mcp")
+            or (scaffold and a["type"] == "framework")
+        ]
         print(f"  --yes: configuring all {len(chosen)} supported agents\n")
     else:
+        display = _filter_agents_for_install(
+            agents, show_all=False, scaffold=scaffold
+        )
+        if not any(a.get("type") in ("native", "mcp", "framework") for a in display):
+            # Should not happen with core defaults; fall back to show-all hosts
+            display = _filter_agents_for_install(
+                agents, show_all=True, scaffold=scaffold
+            )
+        n_hosts = sum(
+            1 for a in display if a.get("type") in ("native", "mcp", "framework")
+        )
+        print(
+            f"  Showing {n_hosts} detected hosts "
+            f"(a=show all in wizard / re-run with broader list)\n"
+        )
         print(f"  {_BOLD}Which AI coding assistants do you use?{_RESET}\n")
-        chosen = _run_wizard(agents)
+        chosen = _run_wizard(
+            display, full_agents=agents, scaffold=scaffold, show_all=False
+        )
 
     if not chosen:
         print(f"  {_GRAY}Nothing selected. Run 'hipcortex install' again anytime.{_RESET}\n")
@@ -507,7 +750,6 @@ def cmd_install(args: argparse.Namespace) -> None:
 
     # ── 4. Configure chosen agents ────────────────────────────────────────────
     print(f"\n  {_BOLD}{'Would configure' if dry_run else 'Configuring'}:{_RESET}\n")
-    guide_items = []
 
     import re as _re
     framework_files = []
@@ -529,8 +771,7 @@ def cmd_install(args: argparse.Namespace) -> None:
             continue
         name = _re.sub(r'\033\[[^m]*m', '', agent["name"])  # strip ANSI for display width
         if agent["type"] == "guide":
-            guide_items.append(agent)
-            print(f"  {_CYAN}ℹ{_RESET} {name:<22} {agent['guide']}")
+            # Guides are not selectable; skip if present in chosen
             continue
         if agent["type"] == "framework":
             fname = agent.get("file", "starter.py")
@@ -728,11 +969,14 @@ def cmd_install(args: argparse.Namespace) -> None:
             f"\n  {_DIM}Framework starters skipped (default). "
             f"Re-run with --scaffold to write hipcortex_*.py to cwd.{_RESET}"
         )
+    # Guides never selectable — always print compact footer from full registry
+    guide_items = [a for a in agents if a.get("type") == "guide"]
     if guide_items:
         print(f"\n  {_DIM}Setup guides:{_RESET}")
         for a in guide_items:
             raw = _re.sub(r'\033\[[^m]*m', '', a["name"])
-            print(f"    {raw}: {a['guide']}")
+            guide_url = a.get("guide", "")
+            print(f"    {raw}: {guide_url}")
     print(f"\n  Docs: {_CYAN}https://github.com/farmountain/HipCortex{_RESET}\n")
 
     # Auto-start the server if binary was downloaded and server isn't already running

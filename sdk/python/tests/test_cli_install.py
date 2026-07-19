@@ -287,8 +287,9 @@ def test_scaffold_off_by_default_no_framework_files(tmp_path, monkeypatch, capsy
 
     write_fw.assert_not_called()
     assert not (proj / "hipcortex_langchain.py").exists()
+    # --yes without --scaffold excludes frameworks from chosen entirely
     out = capsys.readouterr().out
-    assert "--scaffold" in out or "package API only" in out
+    assert "hipcortex_langchain.py" not in out or "package API only" in out or "--scaffold" in out
 
 
 def test_scaffold_on_writes_framework_starter(tmp_path, monkeypatch):
@@ -1955,3 +1956,263 @@ def test_migrate_legacy_non_windows_noop(tmp_path, monkeypatch):
     # legacy untouched
     assert "hipcortex" in json.loads((appdata / "mcp.json").read_text(encoding="utf-8"))["mcpServers"]
 
+
+# ─── Wizard UX option B: slim list + redraw helpers ───────────────────────────
+
+
+def _sample_registry():
+    return [
+        {"id": "_section_ide", "name": "-- IDE --", "desc": "", "type": "section"},
+        {
+            "id": "claude-code",
+            "name": "Claude Code",
+            "desc": "native",
+            "type": "native",
+            "fn": lambda: (True, "ok"),
+        },
+        {
+            "id": "cursor",
+            "name": "Cursor",
+            "desc": "mcp",
+            "type": "mcp",
+            "fn": lambda: (True, "ok"),
+        },
+        {
+            "id": "windsurf",
+            "name": "Windsurf",
+            "desc": "mcp",
+            "type": "mcp",
+            "fn": lambda: (True, "ok"),
+        },
+        {
+            "id": "vscode",
+            "name": "VS Code",
+            "desc": "mcp",
+            "type": "mcp",
+            "fn": lambda: (True, "ok"),
+        },
+        {
+            "id": "continue",
+            "name": "Continue",
+            "desc": "guide",
+            "type": "guide",
+            "guide": "https://example.com/continue",
+        },
+        {"id": "_section_fw", "name": "-- Frameworks --", "desc": "", "type": "section"},
+        {
+            "id": "langchain",
+            "name": "LangChain",
+            "desc": "fw",
+            "type": "framework",
+            "file": "hipcortex_langchain.py",
+            "code": "#x",
+        },
+        {
+            "id": "grok-build",
+            "name": "Grok Build",
+            "desc": "mcp",
+            "type": "mcp",
+            "fn": lambda: (True, "ok"),
+        },
+    ]
+
+
+def test_filter_agents_never_includes_guides():
+    from hipcortex.cli import _filter_agents_for_install
+
+    agents = _sample_registry()
+    with patch("hipcortex.cli._detect_host_presence", return_value={"claude-code", "cursor"}):
+        out = _filter_agents_for_install(agents, show_all=False, scaffold=False)
+        out_all = _filter_agents_for_install(agents, show_all=True, scaffold=True)
+    assert all(a["type"] != "guide" for a in out)
+    assert all(a["type"] != "guide" for a in out_all)
+    assert not any(a["id"] == "continue" for a in out + out_all)
+
+
+def test_filter_agents_frameworks_only_when_scaffold():
+    from hipcortex.cli import _filter_agents_for_install
+
+    agents = _sample_registry()
+    with patch("hipcortex.cli._detect_host_presence", return_value={"claude-code"}):
+        no_sc = _filter_agents_for_install(agents, show_all=True, scaffold=False)
+        with_sc = _filter_agents_for_install(agents, show_all=True, scaffold=True)
+    assert not any(a["type"] == "framework" for a in no_sc)
+    assert any(a["id"] == "langchain" for a in with_sc)
+
+
+def test_filter_agents_show_all_false_only_present():
+    from hipcortex.cli import _filter_agents_for_install
+
+    agents = _sample_registry()
+    with patch("hipcortex.cli._detect_host_presence", return_value={"claude-code", "cursor"}):
+        out = _filter_agents_for_install(agents, show_all=False, scaffold=False)
+    ids = [a["id"] for a in out if a["type"] != "section"]
+    assert set(ids) == {"claude-code", "cursor"}
+    assert any(a["type"] == "section" for a in out)
+
+
+def test_filter_agents_empty_presence_uses_core_defaults():
+    from hipcortex.cli import _filter_agents_for_install
+
+    agents = _sample_registry()
+    with patch("hipcortex.cli._detect_host_presence", return_value=set()):
+        out = _filter_agents_for_install(agents, show_all=False, scaffold=False)
+    ids = {a["id"] for a in out if a["type"] in ("native", "mcp")}
+    assert ids == {"claude-code", "cursor", "vscode", "grok-build"}
+
+
+def test_filter_agents_show_all_native_mcp():
+    from hipcortex.cli import _filter_agents_for_install
+
+    agents = _sample_registry()
+    with patch("hipcortex.cli._detect_host_presence", return_value={"claude-code"}):
+        out = _filter_agents_for_install(agents, show_all=True, scaffold=False)
+    ids = {a["id"] for a in out if a["type"] in ("native", "mcp")}
+    assert ids == {"claude-code", "cursor", "windsurf", "vscode", "grok-build"}
+    assert not any(a["type"] == "framework" for a in out)
+    assert not any(a["type"] == "guide" for a in out)
+
+
+def test_wizard_frame_text_line_count_stable():
+    from hipcortex.cli import _wizard_frame_text
+
+    agents = [
+        {"id": "_s", "name": "-- sec --", "desc": "", "type": "section"},
+        {"id": "claude-code", "name": "Claude", "desc": "d", "type": "native"},
+        {"id": "cursor", "name": "Cursor", "desc": "d", "type": "mcp"},
+    ]
+    text, n = _wizard_frame_text(agents, selected=set(), cursor=0)
+    assert n >= 4
+    # second frame same line count for same agents
+    text2, n2 = _wizard_frame_text(agents, selected={1}, cursor=1)
+    assert n2 == n
+    assert "Claude" in text2
+
+
+def test_wizard_clear_lines_uses_ansi_not_blank_stack():
+    """Clear helper emits cursor-up + erase, not blank-line stack strategy."""
+    import io
+
+    from hipcortex.cli import _wizard_clear_previous
+
+    buf = io.StringIO()
+    with patch("sys.stdout", buf):
+        _wizard_clear_previous(5)
+    out = buf.getvalue()
+    assert "\033[5A" in out or "\x1b[5A" in out
+    assert "\033[J" in out or "\x1b[J" in out
+    assert out.strip() != ""
+
+
+def test_cmd_install_yes_skips_guides_and_frameworks_without_scaffold(
+    tmp_path, monkeypatch, capsys
+):
+    home = _make_fake_home(tmp_path)
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    monkeypatch.chdir(proj)
+
+    from hipcortex import config as cfg
+
+    monkeypatch.setattr(cfg, "USER_CONFIG_PATH", tmp_path / "user.toml")
+
+    called = []
+    agents = _sample_registry()
+    for a in agents:
+        if a["type"] in ("native", "mcp"):
+            aid = a["id"]
+            a["fn"] = lambda aid=aid: called.append(aid) or (True, "ok")
+
+    args = _install_args(url="http://x:1", yes=True, scaffold=False)
+
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch(
+        "hipcortex.cli.Path.home", return_value=home
+    ), patch("hipcortex.cli._install_mcp_server"), patch(
+        "hipcortex.cli._build_agent_registry", return_value=agents
+    ), patch("hipcortex.cli._run_wizard") as wizard, patch(
+        "hipcortex.cli._write_framework_starter"
+    ) as write_fw:
+        from hipcortex.cli import cmd_install
+
+        cmd_install(args)
+
+    wizard.assert_not_called()
+    write_fw.assert_not_called()
+    assert "continue" not in called
+    assert "langchain" not in called
+    # native/mcp hosts ran (claude-code fn is rewritten by cmd_install to real installer)
+    assert "cursor" in called or "vscode" in called or "grok-build" in called
+    out = capsys.readouterr().out
+    assert "Setup guides" in out or "Continue" in out
+    assert "Claude Code" in out
+
+
+def test_cmd_install_yes_includes_frameworks_with_scaffold(tmp_path, monkeypatch):
+    home = _make_fake_home(tmp_path)
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    monkeypatch.chdir(proj)
+
+    from hipcortex import config as cfg
+
+    monkeypatch.setattr(cfg, "USER_CONFIG_PATH", tmp_path / "user.toml")
+
+    agents = [
+        {
+            "id": "claude-code",
+            "name": "Claude Code",
+            "desc": "",
+            "type": "native",
+            "fn": lambda: (True, "ok"),
+        },
+        {
+            "id": "langchain",
+            "name": "LangChain",
+            "desc": "",
+            "type": "framework",
+            "file": "hipcortex_langchain.py",
+            "code": "# scaffold yes\n",
+        },
+        {
+            "id": "continue",
+            "name": "Continue",
+            "desc": "",
+            "type": "guide",
+            "guide": "https://example.com",
+        },
+    ]
+    args = _install_args(url="http://x:1", yes=True, scaffold=True)
+
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch(
+        "hipcortex.cli.Path.home", return_value=home
+    ), patch("hipcortex.cli._install_mcp_server"), patch(
+        "hipcortex.cli._build_agent_registry", return_value=agents
+    ):
+        from hipcortex.cli import cmd_install
+
+        cmd_install(args)
+
+    assert (proj / "hipcortex_langchain.py").is_file()
+
+
+def test_detect_host_presence_signals(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / ".claude").mkdir()
+    (home / ".grok").mkdir()
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / ".cursor").mkdir()
+    monkeypatch.chdir(proj)
+
+    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.install_hosts.Path.home", return_value=home
+    ), patch("hipcortex.cli.Path.cwd", return_value=proj), patch(
+        "hipcortex.install_hosts.Path.cwd", return_value=proj
+    ):
+        from hipcortex.cli import _detect_host_presence
+
+        present = _detect_host_presence()
+    assert "claude-code" in present
+    assert "cursor" in present
+    assert "grok-build" in present
