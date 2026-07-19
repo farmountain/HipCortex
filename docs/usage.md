@@ -97,7 +97,7 @@ See the implementations and comments in:
 
 ### Claude Agent Harness & Substrate-First Loop
 
-When configured in `proactive` mode (via `hipcortex install --mode proactive`), Claude Code or other agents adopt a **substrate-first** cognitive loop:
+When configured in `proactive` mode (via `hipcortex install --mode proactive`), Claude Code or other agents adopt a **substrate-first** cognitive loop. Soft MCP harness may **warn** (`HIPCORTEX_HARNESS_SOFT`, default on) if search runs before `get_live_beliefs`; it does **not** hard-block tools:
 
 1. **Perceive**: Agent reads the user query.
 2. **Substrate Query (MUST)**: Before any frontier reasoning tokens, call `GET /memory/live_beliefs` (aggregates symbolic graph, current hypotheses, world predictions, self-health) to load persistent context.

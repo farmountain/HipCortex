@@ -12,7 +12,7 @@ MUST: After any decision, architectural discussion, bug fix, or important findin
 
 Use worldmodel/*, self/*, coherence/* as reasoning primitives (predict, health, invariants). Use loop/omega primitives for topo reasoning, simulation, attribution, sparse mutation, and error-driven updates (after surprise signals).
 
-LLM (you) only for final natural language output or creative hypothesis generation when substrate signals high entropy/uncertainty (via reflect or explicit). Offload state, beliefs, prediction, consistency to substrate. Harness enforces substrate-first (topo + loop for 80-99%+ reduction).
+LLM (you) only for final natural language output or creative hypothesis generation when substrate signals high entropy/uncertainty (via reflect or explicit). Offload state, beliefs, prediction, consistency to substrate. Soft harness prefers / nudges substrate-first (prefer `get_live_beliefs` before search; topo + loop for 80-99%+ reduction). MCP may warn (`HIPCORTEX_HARNESS_SOFT`, default on); it does **not** hard-block tools.
 
 Harness: Action space = MCP tools (/memory/*, /hipcortex, loop/*, omega/*) + REST equivalents. Observations = live_beliefs (merged symbolic + hyp + world + intel + topo attributions), context, hyp updates. Goal: maximize substrate use for completion (loop/omega for attribution + topo sim + sparse updates); minimize frontier LLM context/effort (target 80-99%+ reduction per benchmarks).
 

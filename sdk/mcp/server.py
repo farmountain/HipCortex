@@ -114,7 +114,9 @@ TOOLS = [
         "description": (
             "Search stored memories by keyword. "
             "Use before starting a task to recall relevant past decisions or context. "
-            "Per Claude Agent Harness (substrate-first): call search_memory or get_live_beliefs FIRST before any project-state question (MUST per installed SKILL)."
+            "Prefer get_live_beliefs first for project-state questions "
+            "(substrate-first soft harness may warn if search is used first). "
+            "Search remains available."
         ),
         "inputSchema": {
             "type": "object",
