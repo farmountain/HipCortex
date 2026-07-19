@@ -364,7 +364,8 @@ def run_doctor(
         probe: If True and online, POST /memory/add + /memory/search roundtrip.
             Local URLs only by default; set HIPCORTEX_DOCTOR_PROBE_REMOTE=1 for remote.
             Fails unless search returns a hit matching the unique probe target.
-            On success, best-effort DELETE /memory/{id} (detail ``cleanup`` status).
+            On success (and on search fail/miss after add), best-effort
+            DELETE /memory/{id} (detail ``cleanup`` status) to avoid orphan records.
         timeout: Per-request timeout seconds.
         session: Optional requests.Session (for tests / injection).
         package_skill: Override path to package install/SKILL.md (tests).
@@ -506,6 +507,8 @@ def run_doctor(
         report.add("probe", "fail", f"POST /memory/add failed: {e}")
         return report
 
+    record_id = _extract_probe_record_id(add_body)
+
     try:
         search_resp = _session_post(
             sess,
@@ -516,17 +519,23 @@ def run_doctor(
         search_resp.raise_for_status()
         search_body = search_resp.json() if search_resp.content else {}
     except (requests.RequestException, ValueError) as e:
+        cleanup_status = _probe_cleanup(sess, base, record_id, timeout)
         report.add(
             "probe",
             "fail",
             f"POST /memory/search failed after add: {e}",
-            detail={"add": add_body if isinstance(add_body, dict) else None},
+            detail={
+                "add": add_body if isinstance(add_body, dict) else None,
+                "cleanup": cleanup_status,
+                "record_id": record_id,
+            },
         )
         return report
 
     results = search_body.get("results", []) if isinstance(search_body, dict) else []
     if not results or not probe_result_matches_target(results, target):
         n = len(results) if isinstance(results, list) else 0
+        cleanup_status = _probe_cleanup(sess, base, record_id, timeout)
         report.add(
             "probe",
             "fail",
@@ -535,11 +544,12 @@ def run_doctor(
                 "add": add_body if isinstance(add_body, dict) else None,
                 "search_count": n,
                 "target": target,
+                "cleanup": cleanup_status,
+                "record_id": record_id,
             },
         )
         return report
 
-    record_id = _extract_probe_record_id(add_body)
     cleanup_status = _probe_cleanup(sess, base, record_id, timeout)
 
     remote_note = " (remote allowed)" if remote_probe else ""

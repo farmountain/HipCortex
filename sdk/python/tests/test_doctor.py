@@ -393,6 +393,7 @@ def test_doctor_probe_empty_search_fails(tmp_path, monkeypatch):
     add_r = _health_resp(200, {"success": True, "record_id": "abc"})
     search_r = _health_resp(200, {"results": []})
     sess.post.side_effect = [add_r, search_r]
+    sess.delete.return_value = _health_resp(200, {"success": True})
 
     report = run_doctor(
         url="http://127.0.0.1:3030",
@@ -406,6 +407,10 @@ def test_doctor_probe_empty_search_fails(tmp_path, monkeypatch):
     assert "0 result" in by_name["probe"].message.lower() or "no hit" in by_name[
         "probe"
     ].message.lower() or "no match" in by_name["probe"].message.lower()
+    # Orphan cleanup after miss
+    assert by_name["probe"].detail["cleanup"] == "ok"
+    sess.delete.assert_called_once()
+    assert sess.delete.call_args[0][0].endswith("/memory/abc")
 
 
 def test_doctor_probe_success(tmp_path, monkeypatch):
@@ -648,6 +653,80 @@ def test_doctor_probe_cleanup_skipped_no_id(tmp_path, monkeypatch):
     assert by_name["probe"].status == "ok"
     assert by_name["probe"].detail["cleanup"] == "skipped_no_id"
     sess.delete.assert_not_called()
+
+
+def test_doctor_probe_search_fail_cleans_up(tmp_path, monkeypatch):
+    """Search HTTP error after successful add → DELETE probe record; probe fail."""
+    monkeypatch.delenv("HIPCORTEX_DOCTOR_OFFLINE", raising=False)
+    import requests
+    from hipcortex.doctor import run_doctor
+
+    sess = MagicMock()
+    sess.get.return_value = _health_resp(
+        200, {"service": "hipcortex", "version": "0.5.0", "status": "ok"}
+    )
+    add_r = _health_resp(200, {"success": True, "record_id": "orphan-1"})
+
+    def _post_side_effect(url, json=None, timeout=None, **kwargs):
+        if url.endswith("/memory/add"):
+            return add_r
+        raise requests.ConnectionError("search down")
+
+    sess.post.side_effect = _post_side_effect
+    sess.delete.return_value = _health_resp(200, {"success": True})
+
+    report = run_doctor(
+        url="http://127.0.0.1:3030",
+        probe=True,
+        session=sess,
+        **_skill_kw(tmp_path),
+    )
+    assert report.ok is False
+    by_name = {c.name: c for c in report.checks}
+    assert by_name["probe"].status == "fail"
+    assert "search" in by_name["probe"].message.lower()
+    assert by_name["probe"].detail["cleanup"] == "ok"
+    assert by_name["probe"].detail["record_id"] == "orphan-1"
+    sess.delete.assert_called_once()
+    assert sess.delete.call_args[0][0].endswith("/memory/orphan-1")
+
+
+def test_doctor_probe_no_match_cleans_up(tmp_path, monkeypatch):
+    """Search returns results that miss probe target → DELETE; probe fail."""
+    monkeypatch.delenv("HIPCORTEX_DOCTOR_OFFLINE", raising=False)
+    from hipcortex.doctor import run_doctor
+
+    sess = MagicMock()
+    sess.get.return_value = _health_resp(
+        200, {"service": "hipcortex", "version": "0.5.0", "status": "ok"}
+    )
+    add_r = _health_resp(200, {"success": True, "record_id": "miss-id"})
+    search_r = _health_resp(
+        200,
+        {
+            "results": [
+                {"score": 0.1, "record": {"target": "unrelated", "action": "other"}}
+            ]
+        },
+    )
+    sess.post.side_effect = [add_r, search_r]
+    sess.delete.return_value = _health_resp(200, {"success": True})
+
+    report = run_doctor(
+        url="http://127.0.0.1:3030",
+        probe=True,
+        session=sess,
+        **_skill_kw(tmp_path),
+    )
+    assert report.ok is False
+    by_name = {c.name: c for c in report.checks}
+    assert by_name["probe"].status == "fail"
+    assert "no match" in by_name["probe"].message.lower() or "missed" in by_name[
+        "probe"
+    ].message.lower()
+    assert by_name["probe"].detail["cleanup"] == "ok"
+    sess.delete.assert_called_once()
+    assert sess.delete.call_args[0][0].endswith("/memory/miss-id")
 
 
 # ── CLI wire ─────────────────────────────────────────────────────────────────
