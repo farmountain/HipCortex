@@ -51,10 +51,54 @@ Plan: docs/superpowers/plans/2026-07-11-e2e-user-testing-harness-plan.md
 
 - Task 6: complete (commit d4b1a9a, Phase 4 VS Code Extension Suite & Phase 5 Persistence & Merkle Audit Suite, full 10-test harness passing cleanly across all phases)
 
+## Cognitive OS Executable Reality Engine Gaps Plan
+Started: 2026-07-12
+Plan: docs/superpowers/plans/2026-07-12-cognitive-os-executable-reality-gaps.md
+
+- Task 1: complete (commit f12f903, first-class Policy struct + softmax action sampling + temperature scaling, 1 test passing, review clean)
+- Task 2: complete (commit 28120e3, ConstraintEngine + HardTermination / SoftPenalty boundary evaluation, 1 test passing, review clean)
+- Task 3: complete (commit b5318b5, MetaLawEngine + domain-independent InvariantType verification, 1 test passing, review clean)
+- Task 4: complete (commit 8721cf3, SimulationHarness + headroom/caveman topological token pruning check, 1 test passing, review clean)
+- Task 5: complete (automated surprise-driven Bayesian System-ID & Coherence Gate reflexion in Omega Loop, 2 tests passing, review clean)
 
 
 
 
 
+## Semantic Tag Auto-Capture
+Started: 2026-07-17
+Plan: docs/superpowers/plans/2026-07-17-semantic-tag-auto-capture.md
 
+- Task 1: complete (commit ca1d30a, extractSemanticTags + 10 tests, 43 pass, review pending)
+
+- Task 1: complete (ca1d30a + fix 800f87e Important path/timeout/timer/has-errors)
+- Task 2: complete (b6efc27 onSave tags: autoTags, 43 tests)
+
+- Task 3: complete (30432fa palette tags merge)
+- Task 4: complete (375fb95 v0.5.2 VSIX, auto-capture in bundle, 43 tests)
+- Branch ahead of origin (no push yet)
+
+
+## Option A QuickPick Tags Display
+Started: 2026-07-17
+Plan: docs/superpowers/plans/2026-07-17-quickpick-tags-display-option-a.md
+
+- Task 1: complete (f3720ea formatters, 49 tests, review APPROVED)
+- Task 2: complete (24662ad queryMemory wire, 49 tests)
+
+- Task 3: complete (c7510f4 0.5.3 VSIX, bundle PASS auto-capture/Keywords/Tags/tags:)
+
+- Task 4: complete (push 2f0beea..c7510f4 main, API write smoke + VSIX proof)
+
+
+## Server Lifecycle Option A
+Started: 2026-07-17
+Plan: docs/superpowers/plans/2026-07-17-server-lifecycle-option-a.md
+
+- Task 1: complete (d45e8eb helpers, 60 tests, review APPROVED)
+- Task 2: complete (adc8df9 killProcess + doAutoStartServer, 60 tests)
+
+- Task 3: complete (69e9ee6 deactivate kill child, 60 tests)
+
+- Task 4: complete (e133d44 0.5.4 VSIX, 60 tests, push after subagent stuck)
 

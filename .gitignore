@@ -94,6 +94,14 @@ graphify-out/
 mcps/
 $null
 
+# Local agent skill install noise (do not ship)
+.claude/skills/
+skills-lock.json
+CLAUDE.gitnexus.md
+build.bat
+.github/prompts/
+.github/skills/
+
 # Local runtime / media (not release artifacts)
 worldmodel.json
 *.mp4
