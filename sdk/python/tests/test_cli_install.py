@@ -1401,3 +1401,138 @@ def test_install_grok_respects_GROK_CONFIG_PATH(tmp_path, monkeypatch):
     assert "[mcp_servers.hipcortex]" in text
     assert not (home / ".grok").exists()
 
+
+# ─── P0 host config safety ───────────────────────────────────────────────────
+
+
+def test_write_mcp_servers_corrupt_json_does_not_wipe(tmp_path, capsys):
+    """Corrupt MCP JSON must not be overwritten; original bytes preserved + sidecar."""
+    mcp = tmp_path / "mcp.json"
+    corrupt = (
+        '{\n  // comment\n  "mcpServers": {"other": {"command": "x", "args": []}}\n}\n'
+    )
+    mcp.write_text(corrupt, encoding="utf-8")
+    original = mcp.read_bytes()
+
+    from hipcortex.cli import INSTALL_SKIPPED, _write_mcp_servers
+
+    status = _write_mcp_servers(mcp, "http://localhost:3030")
+    assert status == INSTALL_SKIPPED
+    assert mcp.read_bytes() == original, "primary MCP file must not be wiped"
+    # Must not become hipcortex-only valid JSON
+    assert b"hipcortex" not in mcp.read_bytes()
+
+    sidecar = tmp_path / "mcp.hipcortex.mcp.json"
+    assert sidecar.is_file()
+    side = json.loads(sidecar.read_text(encoding="utf-8"))
+    assert "hipcortex" in side["mcpServers"]
+    out = capsys.readouterr().out
+    assert "corrupt" in out.lower() or "not" in out.lower()
+
+
+def test_write_mcp_servers_mcpservers_not_dict_skips(tmp_path):
+    """mcpServers present but not a dict → SKIP, file unchanged."""
+    mcp = tmp_path / "mcp.json"
+    payload = json.dumps({"mcpServers": ["not", "a", "dict"], "keep": True})
+    mcp.write_text(payload, encoding="utf-8")
+    original = mcp.read_bytes()
+
+    from hipcortex.cli import INSTALL_SKIPPED, _write_mcp_servers
+
+    status = _write_mcp_servers(mcp, "http://localhost:3030")
+    assert status == INSTALL_SKIPPED
+    assert mcp.read_bytes() == original
+
+
+def test_write_mcp_servers_happy_path_merge_and_create(tmp_path):
+    """Happy path: create, merge other servers, unchanged when same entry."""
+    mcp = tmp_path / "mcp.json"
+    existing = {
+        "mcpServers": {"other-tool": {"command": "python", "args": ["other.py"]}}
+    }
+    mcp.write_text(json.dumps(existing), encoding="utf-8")
+
+    from hipcortex.cli import (
+        INSTALL_CREATED,
+        INSTALL_UNCHANGED,
+        INSTALL_UPDATED,
+        _desired_mcp_entry,
+        _write_mcp_servers,
+    )
+
+    url = "http://localhost:3030"
+    status = _write_mcp_servers(mcp, url)
+    assert status == INSTALL_CREATED
+    data = json.loads(mcp.read_text(encoding="utf-8"))
+    assert "other-tool" in data["mcpServers"]
+    assert data["mcpServers"]["hipcortex"] == _desired_mcp_entry(url)
+
+    status2 = _write_mcp_servers(mcp, url)
+    assert status2 == INSTALL_UNCHANGED
+
+    status3 = _write_mcp_servers(mcp, "http://localhost:4040")
+    assert status3 == INSTALL_UPDATED
+    data3 = json.loads(mcp.read_text(encoding="utf-8"))
+    assert data3["mcpServers"]["hipcortex"]["env"]["HIPCORTEX_URL"] == (
+        "http://localhost:4040"
+    )
+    assert "other-tool" in data3["mcpServers"]
+
+
+def test_uninstall_claude_preserves_trailing_content(tmp_path):
+    """Uninstall removes hipcortex block but keeps other sections after it."""
+    home = _make_fake_home(tmp_path)
+    skill_dir = home / ".claude" / "skills" / "hipcortex"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("x", encoding="utf-8")
+
+    from hipcortex.cli import _CLAUDE_REGISTRATION, _uninstall_claude_code
+
+    claude_md = home / ".claude" / "CLAUDE.md"
+    claude_md.write_text(
+        "# existing\n\nfoo\n"
+        + _CLAUDE_REGISTRATION
+        + "\n# other section\nbar keeps going\n",
+        encoding="utf-8",
+    )
+
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        assert _uninstall_claude_code() is True
+
+    content = claude_md.read_text(encoding="utf-8")
+    assert "existing" in content
+    assert "foo" in content
+    assert "# other section" in content
+    assert "bar keeps going" in content
+    assert "# hipcortex" not in content
+    assert not skill_dir.exists()
+
+
+def test_uninstall_claude_no_next_h1_no_tail_wipe(tmp_path):
+    """No next H1 after hipcortex must not wipe trailing prose to EOF."""
+    home = _make_fake_home(tmp_path)
+
+    from hipcortex.cli import _CLAUDE_REGISTRATION, _uninstall_claude_code
+
+    claude_md = home / ".claude" / "CLAUDE.md"
+    trailing = (
+        "\n## notes (H2 not H1)\n"
+        "Keep this prose after hipcortex with no next H1.\n"
+        "Important trail content.\n"
+    )
+    claude_md.write_text(
+        "# preamble\nstuff\n" + _CLAUDE_REGISTRATION + trailing,
+        encoding="utf-8",
+    )
+
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        assert _uninstall_claude_code() is True
+
+    content = claude_md.read_text(encoding="utf-8")
+    assert "preamble" in content
+    assert "stuff" in content
+    assert "Important trail content" in content
+    assert "Keep this prose" in content
+    assert "## notes" in content
+    assert "# hipcortex" not in content
+

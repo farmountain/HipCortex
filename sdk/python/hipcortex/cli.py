@@ -149,15 +149,58 @@ def _desired_mcp_entry(server_url: str) -> dict:
     }
 
 
-def _write_mcp_servers(mcp_path: Path, server_url: str) -> str:
-    """Merge hipcortex into mcpServers JSON. Returns created|updated|unchanged."""
-    entry = _desired_mcp_entry(server_url)
-    existing: dict = {}
-    if mcp_path.exists():
+def _atomic_write_text(path: Path, content: str) -> None:
+    """Write text via temp file + os.replace (same-dir atomic swap)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.parent / f".{path.name}.{os.getpid()}.tmp"
+    try:
+        tmp.write_text(content, encoding="utf-8")
+        os.replace(tmp, path)
+    except Exception:
         try:
-            existing = json.loads(mcp_path.read_text(encoding="utf-8"))
+            if tmp.exists():
+                tmp.unlink()
+        except OSError:
+            pass
+        raise
+
+
+def _write_mcp_servers(mcp_path: Path, server_url: str) -> str:
+    """Merge hipcortex into mcpServers JSON.
+
+    Returns created|updated|unchanged|skipped.
+    On corrupt JSON or non-dict root/mcpServers: never overwrite primary;
+    write sidecar ``{stem}.hipcortex.mcp.json`` and return INSTALL_SKIPPED.
+    """
+    entry = _desired_mcp_entry(server_url)
+
+    def _skip_corrupt(reason: str) -> str:
+        sidecar = mcp_path.parent / f"{mcp_path.stem}.hipcortex.mcp.json"
+        mcp_path.parent.mkdir(parents=True, exist_ok=True)
+        sidecar.write_text(
+            json.dumps({"mcpServers": {"hipcortex": entry}}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print(
+            f"  {_GRAY}MCP config {mcp_path.name} is corrupt ({reason}); "
+            f"original not overwritten. Wrote sidecar {sidecar.name}.{_RESET}"
+        )
+        return INSTALL_SKIPPED
+
+    existing: dict
+    if mcp_path.exists():
+        raw = mcp_path.read_text(encoding="utf-8")
+        try:
+            parsed = json.loads(raw)
         except json.JSONDecodeError:
-            existing = {}
+            return _skip_corrupt("invalid JSON")
+        if not isinstance(parsed, dict):
+            return _skip_corrupt("root is not an object")
+        if "mcpServers" in parsed and not isinstance(parsed["mcpServers"], dict):
+            return _skip_corrupt("mcpServers is not an object")
+        existing = parsed
+    else:
+        existing = {}
 
     mcp_servers = existing.setdefault("mcpServers", {})
     prev = mcp_servers.get("hipcortex")
@@ -166,8 +209,7 @@ def _write_mcp_servers(mcp_path: Path, server_url: str) -> str:
 
     had_entry = prev is not None
     mcp_servers["hipcortex"] = entry
-    mcp_path.parent.mkdir(parents=True, exist_ok=True)
-    mcp_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+    _atomic_write_text(mcp_path, json.dumps(existing, indent=2))
     return INSTALL_UPDATED if had_entry else INSTALL_CREATED
 
 
@@ -254,6 +296,80 @@ def _install_claude_code(server_url: str, mode: str = "conservative", actor: str
     return status
 
 
+def _proactive_claude_registration() -> str:
+    """Registration block used when install mode is proactive."""
+    return _CLAUDE_REGISTRATION.replace(
+        "Persistent memory for AI agents",
+        "Proactive substrate-first memory (Claude Agent Harness) for AI agents. "
+        "MUST search/get_live_beliefs first; use substrate for state/hyp/pred; "
+        "LLM only final or creative hyp",
+    )
+
+
+def _strip_claude_hipcortex_block(text: str) -> tuple[str, bool]:
+    """Remove hipcortex registration from CLAUDE.md body.
+
+    Returns (new_text, removed). Prefer exact install-shaped substring.
+    Fallback bounds the block to next H1 or heading+paragraph (never EOF wipe).
+    """
+    # Exact install registration (proactive variant first — longer / more specific)
+    for reg in (_proactive_claude_registration(), _CLAUDE_REGISTRATION):
+        if reg in text:
+            return text.replace(reg, "", 1), True
+        body = reg.lstrip("\n")
+        if body and text.startswith(body):
+            return text[len(body) :], True
+        if body and body in text:
+            return text.replace(body, "", 1), True
+
+    # Fallback: locate heading marker
+    marker = "\n# hipcortex"
+    if marker in text:
+        idx = text.index(marker)
+    elif text.startswith("# hipcortex"):
+        idx = 0
+    else:
+        stripped = text.lstrip()
+        if stripped.startswith("# hipcortex"):
+            idx = len(text) - len(stripped)
+        else:
+            return text, False
+
+    next_h1 = text.find("\n# ", idx + 1)
+    if next_h1 != -1:
+        end = next_h1
+    else:
+        # No next H1: strip heading + contiguous non-empty body lines only
+        # (max 10 body lines). Never delete to EOF blindly.
+        rest = text[idx:]
+        lines = rest.splitlines(keepends=True)
+        end_rel = 0
+        i = 0
+        body_lines = 0
+        # optional leading newline from "\n# hipcortex"
+        if lines and lines[0] == "\n":
+            end_rel += len(lines[0])
+            i = 1
+        # heading line
+        if i < len(lines):
+            end_rel += len(lines[i])
+            i += 1
+        while i < len(lines) and body_lines < 10:
+            line = lines[i]
+            if line.strip() == "":
+                end_rel += len(line)
+                break
+            # stop before another heading-like line
+            if line.startswith("# "):
+                break
+            end_rel += len(line)
+            i += 1
+            body_lines += 1
+        end = idx + end_rel
+
+    return text[:idx] + text[end:], True
+
+
 def _uninstall_claude_code() -> bool:
     """Remove HipCortex skill from Claude Code. True if anything removed."""
     removed = False
@@ -264,19 +380,9 @@ def _uninstall_claude_code() -> bool:
     claude_md = Path.home() / ".claude" / "CLAUDE.md"
     if claude_md.exists():
         text = claude_md.read_text(encoding="utf-8")
-        marker = "\n# hipcortex"
-        if marker in text:
-            idx = text.index(marker)
-            end = text.find("\n# ", idx + 1)
-            claude_md.write_text(
-                text[:idx] + (text[end:] if end != -1 else ""),
-                encoding="utf-8",
-            )
-            removed = True
-        elif text.lstrip().startswith("# hipcortex"):
-            # Block at start of file
-            end = text.find("\n# ", 1)
-            claude_md.write_text(text[end:] if end != -1 else "", encoding="utf-8")
+        new_text, block_removed = _strip_claude_hipcortex_block(text)
+        if block_removed:
+            claude_md.write_text(new_text, encoding="utf-8")
             removed = True
     return removed
 
