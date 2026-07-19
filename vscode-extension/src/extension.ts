@@ -435,11 +435,8 @@ export class HipCortexAPI {
             if (res.status !== 200 || !data || typeof data !== 'object') {
                 return false;
             }
-            if (data.status !== 'ok') {
-                return false;
-            }
-            // Prefer explicit service identity when present (foreign 200 ≠ HipCortex).
-            if (data.service !== undefined && data.service !== 'hipcortex') {
+            // Require both status=ok and service=hipcortex (match Python daemon AlreadyRunning).
+            if (data.status !== 'ok' || data.service !== 'hipcortex') {
                 return false;
             }
             return true;
@@ -484,17 +481,17 @@ export class HipCortexAPI {
         try {
             const healthRes = await axios.get(`${this.baseUrl}/health`, { timeout: 2000 });
             const data = healthRes.data;
-            if (healthRes.status === 200 && data && data.status === 'ok') {
-                // Prefer service===hipcortex when field present; missing service still ok for attach.
-                if (data.service !== undefined && data.service !== 'hipcortex') {
-                    healthy = false;
-                    hipcortexService = false;
-                } else {
-                    healthy = true;
-                    hipcortexService = data.service === 'hipcortex';
-                    if (typeof data.version === 'string') {
-                        serverVersion = data.version;
-                    }
+            // Require status=ok AND service=hipcortex; missing service ≠ healthy attach.
+            if (
+                healthRes.status === 200 &&
+                data &&
+                data.status === 'ok' &&
+                data.service === 'hipcortex'
+            ) {
+                healthy = true;
+                hipcortexService = true;
+                if (typeof data.version === 'string') {
+                    serverVersion = data.version;
                 }
             }
         } catch {

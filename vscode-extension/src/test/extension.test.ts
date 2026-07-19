@@ -88,6 +88,14 @@ describe('HipCortex Extension Unit Tests', () => {
             expect(await api.healthCheck()).toBe(false);
         });
 
+        test('health check rejects status ok without service field', async () => {
+            mockedAxios.get.mockResolvedValueOnce({
+                status: 200,
+                data: { status: 'ok', version: '0.5.0' },
+            });
+            expect(await api.healthCheck()).toBe(false);
+        });
+
         test('health check requires status ok', async () => {
             mockedAxios.get.mockResolvedValueOnce({
                 status: 200,
