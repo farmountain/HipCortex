@@ -1268,9 +1268,10 @@ def test_known_uninstall_channels_phase6a():
 # ─── Grok Build (Phase 6c) ───────────────────────────────────────────────────
 
 
-def test_install_grok_skips_without_dir(tmp_path):
+def test_install_grok_skips_without_dir(tmp_path, monkeypatch):
     home = tmp_path / "home"
     home.mkdir()
+    monkeypatch.delenv("GROK_CONFIG_PATH", raising=False)
     with patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import INSTALL_SKIPPED, _install_grok
 

@@ -698,21 +698,26 @@ def _grok_entry_matches(text: str, entry: dict) -> bool:
             data = tomllib.loads(text)
         except Exception:
             data = None
-        if isinstance(data, dict):
+        else:
+            # Successful parse: trust structured match only (no substring fallthrough).
+            if not isinstance(data, dict):
+                return False
             servers = data.get("mcp_servers")
-            if isinstance(servers, dict):
-                srv = servers.get("hipcortex")
-                if isinstance(srv, dict):
-                    args = srv.get("args") or []
-                    env = srv.get("env") or {}
-                    if not isinstance(env, dict):
-                        env = {}
-                    return (
-                        srv.get("command") == entry["command"]
-                        and (args[0] if args else None) == entry["args"][0]
-                        and env.get("HIPCORTEX_URL") == entry["env"]["HIPCORTEX_URL"]
-                    )
-    # Fallback: JSON-escaped string forms (matches how we write the block)
+            if not isinstance(servers, dict):
+                return False
+            srv = servers.get("hipcortex")
+            if not isinstance(srv, dict):
+                return False
+            args = srv.get("args") or []
+            env = srv.get("env") or {}
+            if not isinstance(env, dict):
+                env = {}
+            return (
+                srv.get("command") == entry["command"]
+                and (args[0] if args else None) == entry["args"][0]
+                and env.get("HIPCORTEX_URL") == entry["env"]["HIPCORTEX_URL"]
+            )
+    # Fallback (no tomllib or parse failure): JSON-escaped string forms
     return (
         json.dumps(entry["command"]) in text
         and json.dumps(entry["args"][0]) in text
