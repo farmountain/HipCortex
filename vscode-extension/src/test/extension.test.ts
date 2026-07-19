@@ -20,6 +20,10 @@ import {
     sharedDataDir,
     sharedInstallDir,
     sharedPidPath,
+    sharedLockPath,
+    parseLockPid,
+    shouldStealStaleLock,
+    netstatLineMatchesListenPort,
 } from '../extension';
 import { TokenTracker } from '../token-tracker';
 
@@ -62,7 +66,10 @@ describe('HipCortex Extension Unit Tests', () => {
         });
 
         test('should perform health check successfully', async () => {
-            mockedAxios.get.mockResolvedValueOnce({ data: 'ok' });
+            mockedAxios.get.mockResolvedValueOnce({
+                status: 200,
+                data: { status: 'ok', service: 'hipcortex', version: '0.5.0' },
+            });
             
             const result = await api.healthCheck();
             
@@ -71,6 +78,22 @@ describe('HipCortex Extension Unit Tests', () => {
                 'http://localhost:3030/health',
                 { timeout: 3000 }
             );
+        });
+
+        test('health check rejects foreign service on HTTP 200', async () => {
+            mockedAxios.get.mockResolvedValueOnce({
+                status: 200,
+                data: { status: 'ok', service: 'other-app' },
+            });
+            expect(await api.healthCheck()).toBe(false);
+        });
+
+        test('health check requires status ok', async () => {
+            mockedAxios.get.mockResolvedValueOnce({
+                status: 200,
+                data: { service: 'hipcortex' },
+            });
+            expect(await api.healthCheck()).toBe(false);
         });
 
         test('should handle health check failure', async () => {
@@ -687,5 +710,46 @@ describe('server lifecycle helpers', () => {
         expect(sharedDataDir()).toBe(path.join(os.homedir(), '.hipcortex', 'data'));
         expect(sharedPidPath()).toBe(path.join(os.homedir(), '.hipcortex', 'hipcortex.pid'));
         expect(sharedDataDir()).not.toContain('hipcortex-vscode');
+    });
+
+    test('sharedLockPath: ~/.hipcortex/server.lock (CLI-aligned)', () => {
+        expect(sharedLockPath()).toBe(path.join(os.homedir(), '.hipcortex', 'server.lock'));
+    });
+
+    test('parseLockPid: plain / pid= / invalid', () => {
+        expect(parseLockPid('1234\n')).toBe(1234);
+        expect(parseLockPid('pid=99')).toBe(99);
+        expect(parseLockPid('  42  extra')).toBe(42);
+        expect(parseLockPid('')).toBeNull();
+        expect(parseLockPid('not-a-pid')).toBeNull();
+        expect(parseLockPid('0')).toBeNull();
+    });
+
+    test('shouldStealStaleLock: only when holder dead', () => {
+        expect(shouldStealStaleLock(true)).toBe(false);
+        expect(shouldStealStaleLock(false)).toBe(true);
+    });
+
+    test('netstatLineMatchesListenPort: anchors local :port', () => {
+        expect(netstatLineMatchesListenPort(
+            '  TCP    127.0.0.1:3030         0.0.0.0:0              LISTENING       1234',
+            3030,
+        )).toBe(true);
+        expect(netstatLineMatchesListenPort(
+            '  TCP    0.0.0.0:3030           0.0.0.0:0              LISTENING       99',
+            3030,
+        )).toBe(true);
+        expect(netstatLineMatchesListenPort(
+            '  TCP    127.0.0.1:30301        0.0.0.0:0              LISTENING       1',
+            3030,
+        )).toBe(false);
+        expect(netstatLineMatchesListenPort(
+            '  TCP    127.0.0.1:13030        0.0.0.0:0              LISTENING       1',
+            3030,
+        )).toBe(false);
+        expect(netstatLineMatchesListenPort(
+            '  TCP    127.0.0.1:3030         127.0.0.1:9            ESTABLISHED     1',
+            3030,
+        )).toBe(false);
     });
 });

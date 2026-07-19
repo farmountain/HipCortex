@@ -34,20 +34,227 @@ export function sharedPidPath(): string {
     return path.join(sharedInstallDir(), 'hipcortex.pid');
 }
 
+/** Shared exclusive lock path (`~/.hipcortex/server.lock`) — same as Python daemon. */
+export function sharedLockPath(): string {
+    return path.join(sharedInstallDir(), 'server.lock');
+}
+
+/** Parse PID from lock/pid file content (`"123"`, `"pid=123"`, first token). */
+export function parseLockPid(content: string): number | null {
+    let text = (content || '').trim();
+    if (!text) {
+        return null;
+    }
+    if (text.startsWith('pid=')) {
+        text = text.slice(4).trim();
+    }
+    const token = text.split(/\s+/)[0];
+    const n = parseInt(token, 10);
+    if (!Number.isFinite(n) || n <= 0) {
+        return null;
+    }
+    return n;
+}
+
+/** Steal lock only when holder is known dead. */
+export function shouldStealStaleLock(lockPidAlive: boolean): boolean {
+    return !lockPidAlive;
+}
+
+/** True if netstat line is LISTENING and local address ends with `:{port}`. */
+export function netstatLineMatchesListenPort(line: string, port: number): boolean {
+    const parts = line.trim().split(/\s+/);
+    if (parts.length < 4) {
+        return false;
+    }
+    if (!parts.some(p => p.toUpperCase() === 'LISTENING')) {
+        return false;
+    }
+    return parts[1].endsWith(`:${port}`);
+}
+
+function ensureSharedInstallDir(): void {
+    const installDir = sharedInstallDir();
+    if (!fs.existsSync(installDir)) {
+        fs.mkdirSync(installDir, { recursive: true });
+    }
+}
+
 /** Best-effort write of server PID for CLI `hipcortex stop`. */
 function writeSharedPidBestEffort(pid: number | undefined, log: (msg: string) => void): void {
     if (pid === undefined || !Number.isFinite(pid) || pid <= 0) {
         return;
     }
     try {
-        const installDir = sharedInstallDir();
-        if (!fs.existsSync(installDir)) {
-            fs.mkdirSync(installDir, { recursive: true });
-        }
+        ensureSharedInstallDir();
         fs.writeFileSync(sharedPidPath(), String(pid), 'utf8');
         log(`Wrote shared PID ${pid} → ${sharedPidPath()}`);
     } catch (err) {
         log(`Could not write shared PID file: ${err instanceof Error ? err.message : String(err)}`);
+    }
+}
+
+/** Write hipcortex.pid + server.lock with server child pid (shared with CLI daemon). */
+function writeSharedPidAndLock(pid: number | undefined, log: (msg: string) => void): void {
+    writeSharedPidBestEffort(pid, log);
+    if (pid === undefined || !Number.isFinite(pid) || pid <= 0) {
+        return;
+    }
+    try {
+        ensureSharedInstallDir();
+        fs.writeFileSync(sharedLockPath(), `${pid}\n`, 'utf8');
+        log(`Wrote shared lock ${pid} → ${sharedLockPath()}`);
+    } catch (err) {
+        log(`Could not write shared lock: ${err instanceof Error ? err.message : String(err)}`);
+    }
+}
+
+/** Best-effort: is *pid* still alive? null = unknown (e.g. Windows). */
+function isPidAliveBestEffort(pid: number): boolean | null {
+    if (pid <= 0) {
+        return false;
+    }
+    if (os.platform() === 'win32') {
+        // Windows: process.kill(pid, 0) is not a reliable no-op probe here.
+        return null;
+    }
+    try {
+        process.kill(pid, 0);
+        return true;
+    } catch (err: unknown) {
+        const code = err && typeof err === 'object' && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined;
+        if (code === 'ESRCH') {
+            return false;
+        }
+        // EPERM etc. — process exists but not signalable
+        return true;
+    }
+}
+
+/**
+ * Exclusive server.lock (O_EXCL / 'wx'). Stale cleanup when holder known dead.
+ * Returns 'acquired' | 'held' | 'failed'.
+ */
+function tryAcquireServerLock(log: (msg: string) => void): 'acquired' | 'held' | 'failed' {
+    try {
+        ensureSharedInstallDir();
+    } catch (err) {
+        log(`Could not create install dir: ${err instanceof Error ? err.message : String(err)}`);
+        return 'failed';
+    }
+
+    const lockPath = sharedLockPath();
+    const writeExclusive = (): boolean => {
+        try {
+            fs.writeFileSync(lockPath, `${process.pid}\n`, { flag: 'wx' });
+            return true;
+        } catch (err: unknown) {
+            const code = err && typeof err === 'object' && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined;
+            if (code === 'EEXIST') {
+                return false;
+            }
+            throw err;
+        }
+    };
+
+    try {
+        if (writeExclusive()) {
+            return 'acquired';
+        }
+    } catch (err) {
+        log(`Lock acquire failed: ${err instanceof Error ? err.message : String(err)}`);
+        return 'failed';
+    }
+
+    let lockPid: number | null = null;
+    try {
+        lockPid = parseLockPid(fs.readFileSync(lockPath, 'utf8'));
+    } catch {
+        lockPid = null;
+    }
+
+    const alive = lockPid !== null ? isPidAliveBestEffort(lockPid) : false;
+    // Steal when unreadable/dead; on Windows (alive===null) do not steal.
+    const canSteal =
+        lockPid === null || (alive === false && shouldStealStaleLock(false));
+
+    if (canSteal) {
+        try {
+            fs.unlinkSync(lockPath);
+        } catch {
+            /* race */
+        }
+        try {
+            if (writeExclusive()) {
+                return 'acquired';
+            }
+        } catch (err) {
+            log(`Lock re-acquire failed: ${err instanceof Error ? err.message : String(err)}`);
+            return 'failed';
+        }
+    }
+
+    return 'held';
+}
+
+/** Read known HipCortex PID from shared pid file, else lock file. */
+function readKnownHipcortexPid(): number | null {
+    try {
+        if (fs.existsSync(sharedPidPath())) {
+            const n = parseLockPid(fs.readFileSync(sharedPidPath(), 'utf8'));
+            if (n !== null) {
+                return n;
+            }
+        }
+    } catch {
+        /* ignore */
+    }
+    try {
+        if (fs.existsSync(sharedLockPath())) {
+            return parseLockPid(fs.readFileSync(sharedLockPath(), 'utf8'));
+        }
+    } catch {
+        /* ignore */
+    }
+    return null;
+}
+
+function killPidBestEffort(pid: number): Promise<void> {
+    return new Promise(resolve => {
+        if (os.platform() === 'win32') {
+            cp.exec(`taskkill /F /PID ${pid}`, () => resolve());
+        } else {
+            cp.exec(`kill -9 ${pid}`, () => resolve());
+        }
+    });
+}
+
+/**
+ * Kill only a known HipCortex PID (shared pid file or lock file).
+ * Never kills arbitrary port listeners.
+ */
+async function killKnownHipcortexPid(_port: number, log?: (msg: string) => void): Promise<void> {
+    const pid = readKnownHipcortexPid();
+    if (pid === null) {
+        log?.('No known HipCortex PID in shared pid/lock — skip kill');
+        return;
+    }
+    log?.(`Stopping known HipCortex PID ${pid} (shared pid/lock only)`);
+    await killPidBestEffort(pid);
+    // Clear stale metadata after kill attempt
+    try {
+        if (fs.existsSync(sharedPidPath())) {
+            fs.unlinkSync(sharedPidPath());
+        }
+    } catch {
+        /* ignore */
+    }
+    try {
+        if (fs.existsSync(sharedLockPath())) {
+            fs.unlinkSync(sharedLockPath());
+        }
+    } catch {
+        /* ignore */
     }
 }
 
@@ -83,67 +290,6 @@ export function isValidServerBinary(filePath: string): boolean {
     } catch {
         return false;
     }
-}
-
-async function killProcessOnPort(port: number): Promise<void> {
-    const platform = os.platform();
-    if (platform === 'win32') {
-        return new Promise<void>((resolve) => {
-            cp.exec(`netstat -ano | findstr :${port}`, (err, stdout) => {
-                if (err || !stdout) {
-                    resolve();
-                    return;
-                }
-                const pids = new Set<string>();
-                for (const line of stdout.split('\n')) {
-                    const parts = line.trim().split(/\s+/);
-                    if (parts.length >= 5 && parts[1].endsWith(`:${port}`) && parts[3] === 'LISTENING') {
-                        const pid = parts[4];
-                        if (pid && /^\d+$/.test(pid) && pid !== '0') {
-                            pids.add(pid);
-                        }
-                    }
-                }
-                if (pids.size === 0) {
-                    resolve();
-                    return;
-                }
-                Promise.all(
-                    Array.from(pids).map(
-                        pid =>
-                            new Promise<void>(res => {
-                                cp.exec(`taskkill /F /PID ${pid}`, () => res());
-                            })
-                    )
-                ).then(() => resolve());
-            });
-        });
-    }
-    return new Promise<void>((resolve) => {
-        cp.exec(`lsof -t -i:${port}`, (err, stdout) => {
-            if (err || !stdout) {
-                cp.exec(`fuser -k ${port}/tcp`, () => resolve());
-                return;
-            }
-            const pids = stdout
-                .trim()
-                .split('\n')
-                .map(p => p.trim())
-                .filter(p => /^\d+$/.test(p));
-            if (pids.length === 0) {
-                resolve();
-                return;
-            }
-            Promise.all(
-                pids.map(
-                    pid =>
-                        new Promise<void>(res => {
-                            cp.exec(`kill -9 ${pid}`, () => res());
-                        })
-                )
-            ).then(() => resolve());
-        });
-    });
 }
 
 /** Proactive harness descriptions — substrate-first policy for LM tools. */
@@ -284,7 +430,18 @@ export class HipCortexAPI {
 
     async healthCheck(): Promise<boolean> {
         try {
-            await axios.get(`${this.baseUrl}/health`, { timeout: 3000 });
+            const res = await axios.get(`${this.baseUrl}/health`, { timeout: 3000 });
+            const data = res.data;
+            if (res.status !== 200 || !data || typeof data !== 'object') {
+                return false;
+            }
+            if (data.status !== 'ok') {
+                return false;
+            }
+            // Prefer explicit service identity when present (foreign 200 ≠ HipCortex).
+            if (data.service !== undefined && data.service !== 'hipcortex') {
+                return false;
+            }
             return true;
         } catch {
             return false;
@@ -322,13 +479,22 @@ export class HipCortexAPI {
         const strict = config.get<boolean>('strictServerVersion', false);
 
         let healthy = false;
+        let hipcortexService = false;
         let serverVersion: string | undefined;
         try {
             const healthRes = await axios.get(`${this.baseUrl}/health`, { timeout: 2000 });
-            if (healthRes.status === 200 && healthRes.data && healthRes.data.status === 'ok') {
-                healthy = true;
-                if (typeof healthRes.data.version === 'string') {
-                    serverVersion = healthRes.data.version;
+            const data = healthRes.data;
+            if (healthRes.status === 200 && data && data.status === 'ok') {
+                // Prefer service===hipcortex when field present; missing service still ok for attach.
+                if (data.service !== undefined && data.service !== 'hipcortex') {
+                    healthy = false;
+                    hipcortexService = false;
+                } else {
+                    healthy = true;
+                    hipcortexService = data.service === 'hipcortex';
+                    if (typeof data.version === 'string') {
+                        serverVersion = data.version;
+                    }
                 }
             }
         } catch {
@@ -343,7 +509,7 @@ export class HipCortexAPI {
                 strict,
             })
         ) {
-            // Attach-first: never killProcessOnPort when reusing a healthy acceptable server.
+            // Attach-first: never kill/spawn when reusing a healthy acceptable server.
             log(
                 `Reusing active HipCortex server on port ${portStr}` +
                     (serverVersion ? ` (version ${serverVersion})` : ' (version unknown)')
@@ -352,17 +518,39 @@ export class HipCortexAPI {
         }
 
         if (healthy) {
+            // Version/policy reject: kill known HipCortex pid/lock only (not all listeners).
             log(
                 `Server on port ${portStr} not acceptable for policy ` +
-                    `(version=${serverVersion ?? 'n/a'}, expected crate ${EXPECTED_SERVER_VERSION}, strict=${strict}). Restarting...`
+                    `(version=${serverVersion ?? 'n/a'}, expected crate ${EXPECTED_SERVER_VERSION}, strict=${strict}` +
+                    (hipcortexService ? ', service=hipcortex' : '') +
+                    `). Restarting known PID only...`
             );
+        } else if (fs.existsSync(sharedLockPath()) && hipcortexService) {
+            // Defensive: lock + hipcortex identity without reuse → attach, no dual spawn.
+            log(`server.lock present and service=hipcortex; attach-only (no spawn)`);
+            return true;
         } else {
-            log(`No healthy server on ${this.baseUrl}. Clearing port ${portStr} if occupied, then starting...`);
+            log(`No healthy HipCortex on ${this.baseUrl}. Reclaiming known pid/lock only, then starting...`);
         }
 
         try {
-            // Only reached when not reusing; free the port before spawn.
-            await killProcessOnPort(port);
+            // Kill only known HipCortex PIDs — never all netstat listeners on the port.
+            await killKnownHipcortexPid(port, log);
+
+            const lockStatus = tryAcquireServerLock(log);
+            if (lockStatus === 'held') {
+                // Another client holds lock; re-check health then attach-wait.
+                if (await this.healthCheck()) {
+                    log('server.lock held by another process and server healthy; attaching');
+                    return true;
+                }
+                log('server.lock held by another process; attach-wait (no spawn to avoid dual writers)');
+                return false;
+            }
+            if (lockStatus === 'failed') {
+                log('Could not acquire server.lock; aborting spawn');
+                return false;
+            }
 
             log('Starting HipCortex server...');
             const binaryPath = await this.ensureServerBinary(outputChannel);
@@ -411,10 +599,14 @@ export class HipCortexAPI {
                 log(`[stderr] ${data.toString().trim()}`);
             });
 
+            // Stamp lock with child pid (replace parent-held lock content).
+            writeSharedPidAndLock(globalServerProcess?.pid, log);
+
             for (let i = 0; i < SERVER_START_TIMEOUT_SEC; i++) {
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 if (await this.healthCheck()) {
-                    writeSharedPidBestEffort(globalServerProcess?.pid, log);
+                    // Re-stamp in case pid only became available later
+                    writeSharedPidAndLock(globalServerProcess?.pid, log);
                     log(`Server ready on ${this.baseUrl} (DATA_DIR=${dataDir})`);
                     return true;
                 }
