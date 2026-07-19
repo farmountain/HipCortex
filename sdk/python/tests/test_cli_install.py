@@ -1,6 +1,7 @@
 """Tests for hipcortex install CLI — run: pytest sdk/python/tests/test_cli_install.py -v"""
 import argparse
 import json
+import platform
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -1414,10 +1415,10 @@ def test_write_mcp_servers_corrupt_json_does_not_wipe(tmp_path, capsys):
     mcp.write_text(corrupt, encoding="utf-8")
     original = mcp.read_bytes()
 
-    from hipcortex.cli import INSTALL_SKIPPED, _write_mcp_servers
+    from hipcortex.cli import INSTALL_REFUSED, _write_mcp_servers
 
     status = _write_mcp_servers(mcp, "http://localhost:3030")
-    assert status == INSTALL_SKIPPED
+    assert status == INSTALL_REFUSED
     assert mcp.read_bytes() == original, "primary MCP file must not be wiped"
     # Must not become hipcortex-only valid JSON
     assert b"hipcortex" not in mcp.read_bytes()
@@ -1431,16 +1432,16 @@ def test_write_mcp_servers_corrupt_json_does_not_wipe(tmp_path, capsys):
 
 
 def test_write_mcp_servers_mcpservers_not_dict_skips(tmp_path):
-    """mcpServers present but not a dict → SKIP, file unchanged."""
+    """mcpServers present but not a dict → REFUSED, file unchanged."""
     mcp = tmp_path / "mcp.json"
     payload = json.dumps({"mcpServers": ["not", "a", "dict"], "keep": True})
     mcp.write_text(payload, encoding="utf-8")
     original = mcp.read_bytes()
 
-    from hipcortex.cli import INSTALL_SKIPPED, _write_mcp_servers
+    from hipcortex.cli import INSTALL_REFUSED, _write_mcp_servers
 
     status = _write_mcp_servers(mcp, "http://localhost:3030")
-    assert status == INSTALL_SKIPPED
+    assert status == INSTALL_REFUSED
     assert mcp.read_bytes() == original
 
 
@@ -1535,4 +1536,32 @@ def test_uninstall_claude_no_next_h1_no_tail_wipe(tmp_path):
     assert "Keep this prose" in content
     assert "## notes" in content
     assert "# hipcortex" not in content
+
+
+def test_install_cursor_prefer_local_refuses_corrupt_no_global_fallback(tmp_path, monkeypatch):
+    """Corrupt project mcp.json returns REFUSED; must not silently write global."""
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.chdir(tmp_path)
+    local = tmp_path / ".cursor" / "mcp.json"
+    local.parent.mkdir(parents=True)
+    local.write_text("{ not valid json", encoding="utf-8")
+    original = local.read_bytes()
+
+    # Global would be under home if we incorrectly fall through
+    if platform.system() == "Windows":
+        monkeypatch.setenv("APPDATA", str(home / "AppData" / "Roaming"))
+        global_mcp = home / "AppData" / "Roaming" / "Cursor" / "User" / "mcp.json"
+    else:
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
+        global_mcp = home / ".config" / "Cursor" / "mcp.json"
+
+    with patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import INSTALL_REFUSED, _install_cursor_prefer_local
+
+        status = _install_cursor_prefer_local("http://127.0.0.1:3030")
+
+    assert status == INSTALL_REFUSED
+    assert local.read_bytes() == original
+    assert not global_mcp.exists(), "must not fall through to global on corrupt local"
 

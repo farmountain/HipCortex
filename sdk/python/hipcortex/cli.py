@@ -52,6 +52,7 @@ INSTALL_CREATED = "created"
 INSTALL_UPDATED = "updated"
 INSTALL_UNCHANGED = "unchanged"
 INSTALL_SKIPPED = "skipped"
+INSTALL_REFUSED = "refused"  # host config corrupt; primary not overwritten
 INSTALL_DRY_RUN = "dry-run"
 
 # Uninstallable MCP / native channels
@@ -168,9 +169,9 @@ def _atomic_write_text(path: Path, content: str) -> None:
 def _write_mcp_servers(mcp_path: Path, server_url: str) -> str:
     """Merge hipcortex into mcpServers JSON.
 
-    Returns created|updated|unchanged|skipped.
+    Returns created|updated|unchanged|skipped|refused.
     On corrupt JSON or non-dict root/mcpServers: never overwrite primary;
-    write sidecar ``{stem}.hipcortex.mcp.json`` and return INSTALL_SKIPPED.
+    write sidecar ``{stem}.hipcortex.mcp.json`` and return INSTALL_REFUSED.
     """
     entry = _desired_mcp_entry(server_url)
 
@@ -185,7 +186,7 @@ def _write_mcp_servers(mcp_path: Path, server_url: str) -> str:
             f"  {_GRAY}MCP config {mcp_path.name} is corrupt ({reason}); "
             f"original not overwritten. Wrote sidecar {sidecar.name}.{_RESET}"
         )
-        return INSTALL_SKIPPED
+        return INSTALL_REFUSED
 
     existing: dict
     if mcp_path.exists():
@@ -275,12 +276,11 @@ def _install_claude_code(server_url: str, mode: str = "conservative", actor: str
     existing = claude_md.read_text(encoding="utf-8") if claude_md.exists() else ""
     reg_added = False
     if "hipcortex" not in existing:
-        reg = _CLAUDE_REGISTRATION
-        if mode == "proactive":
-            reg = reg.replace(
-                "Persistent memory for AI agents",
-                "Proactive substrate-first memory (Claude Agent Harness) for AI agents. MUST search/get_live_beliefs first; use substrate for state/hyp/pred; LLM only final or creative hyp",
-            )
+        reg = (
+            _proactive_claude_registration()
+            if mode == "proactive"
+            else _CLAUDE_REGISTRATION
+        )
         with claude_md.open("a", encoding="utf-8") as f:
             f.write(reg)
         reg_added = True
@@ -496,12 +496,15 @@ def _install_mcp_generic(server_url: str, mcp_path: Path) -> str:
 
 
 def _install_cursor_prefer_local(server_url: str) -> str:
-    """Install Cursor MCP: prefer project .cursor/mcp.json, else global."""
+    """Install Cursor MCP: prefer project .cursor/mcp.json, else global.
+
+    Fall through to global only when local is SKIPPED (path unavailable).
+    REFUSED (corrupt local mcp.json) must not install global silently.
+    """
     local = _install_cursor(server_url, global_=False)
-    # Local always can create parent dirs → never skipped. Keep fallback for safety.
-    if local != INSTALL_SKIPPED:
-        return local
-    return _install_cursor(server_url, global_=True)
+    if local == INSTALL_SKIPPED:
+        return _install_cursor(server_url, global_=True)
+    return local
 
 
 def _uninstall_cursor() -> bool:
@@ -1618,6 +1621,7 @@ def cmd_install(args: argparse.Namespace) -> None:
         INSTALL_UPDATED: 0,
         INSTALL_UNCHANGED: 0,
         INSTALL_SKIPPED: 0,
+        INSTALL_REFUSED: 0,
         INSTALL_DRY_RUN: 0,
         "error": 0,
     }
@@ -1678,6 +1682,11 @@ def cmd_install(args: argparse.Namespace) -> None:
                 print(
                     f"  {_GRAY}–{_RESET} {name:<22} "
                     f"{_DIM}{status:<10} not found (install first){_RESET}"
+                )
+            elif status == INSTALL_REFUSED:
+                print(
+                    f"  {_GRAY}–{_RESET} {name:<22} "
+                    f"{_DIM}{status:<10} corrupt config (primary not overwritten){_RESET}"
                 )
             elif status == INSTALL_UNCHANGED:
                 print(
