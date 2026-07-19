@@ -73,6 +73,7 @@ from .install_hosts import (  # noqa: F401
     _install_mcp_server,
     _install_openclaw,
     _install_vscode,
+    _openclaw_refuse,
     _install_windsurf,
     _openclaw_config_path,
     _proactive_claude_registration,

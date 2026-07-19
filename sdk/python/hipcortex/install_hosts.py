@@ -341,7 +341,8 @@ def _install_cursor(server_url: str, global_: bool = False) -> str:
 
 def _vscode_settings_path() -> Path:
     if platform.system() == "Windows":
-        return Path(os.environ.get("APPDATA", "")) / "Code" / "User" / "settings.json"
+        appdata = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
+        return Path(appdata) / "Code" / "User" / "settings.json"
     if platform.system() == "Darwin":
         return Path.home() / "Library" / "Application Support" / "Code" / "User" / "settings.json"
     return (
@@ -353,17 +354,44 @@ def _vscode_settings_path() -> Path:
 
 
 def _install_vscode(server_url: str) -> str:
-    """Write mcpServers to VS Code settings.json. Returns install status."""
+    """Write mcpServers to VS Code settings.json. Returns install status.
+
+    Missing settings.json → SKIPPED. Corrupt / non-dict root / non-dict
+    mcpServers → REFUSED + sidecar; primary never wiped.
+    """
     settings_path = _vscode_settings_path()
     if not settings_path.exists():
         return INSTALL_SKIPPED  # VS Code not installed
 
+    entry = _desired_mcp_entry(server_url)
+
+    def _refuse(reason: str) -> str:
+        sidecar = settings_path.parent / "settings.hipcortex.mcp.json"
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        sidecar.write_text(
+            json.dumps({"mcpServers": {"hipcortex": entry}}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print(
+            f"  {_GRAY}VS Code settings.json is corrupt ({reason}); "
+            f"original not overwritten. Wrote sidecar {sidecar.name}.{_RESET}"
+        )
+        return INSTALL_REFUSED
+
     try:
-        settings: dict = json.loads(settings_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, PermissionError):
+        raw = settings_path.read_text(encoding="utf-8")
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return _refuse("invalid JSON")
+    except PermissionError:
         return INSTALL_SKIPPED
 
-    entry = _desired_mcp_entry(server_url)
+    if not isinstance(parsed, dict):
+        return _refuse("root is not an object")
+    if "mcpServers" in parsed and not isinstance(parsed["mcpServers"], dict):
+        return _refuse("mcpServers is not an object")
+
+    settings = parsed
     mcp_servers = settings.setdefault("mcpServers", {})
     prev = mcp_servers.get("hipcortex")
     if prev == entry:
@@ -371,7 +399,7 @@ def _install_vscode(server_url: str) -> str:
 
     had_entry = prev is not None
     mcp_servers["hipcortex"] = entry
-    settings_path.write_text(json.dumps(settings, indent=2), encoding="utf-8")
+    _atomic_write_text(settings_path, json.dumps(settings, indent=2))
     return INSTALL_UPDATED if had_entry else INSTALL_CREATED
 
 # ─── MCP server script installer ─────────────────────────────────────────────
@@ -589,11 +617,35 @@ def _openclaw_config_path() -> Path:
     return Path.home() / ".openclaw" / "openclaw.json"
 
 
+def _openclaw_refuse(path: Path, oc_entry: dict, reason: str) -> str:
+    """Write openclaw sidecar only; never touch primary. Returns INSTALL_REFUSED."""
+    sidecar = path.parent / "openclaw.hipcortex.mcp.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    sidecar.write_text(
+        json.dumps({"hipcortex": oc_entry}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    arg0 = oc_entry["args"][0]
+    url = oc_entry["env"]["HIPCORTEX_URL"]
+    cmd = oc_entry["command"]
+    print(
+        f"  {_GRAY}OpenClaw config refuse ({reason}); "
+        f"original not overwritten. Wrote sidecar {sidecar.name}. "
+        f"Merge manually or run:{_RESET}"
+    )
+    print(
+        f"  openclaw mcp add hipcortex --command {cmd} "
+        f"--arg {arg0} --env HIPCORTEX_URL={url}"
+    )
+    return INSTALL_REFUSED
+
+
 def _install_openclaw(server_url: str) -> str:
     """Merge mcp.servers.hipcortex into ~/.openclaw/openclaw.json.
 
     Skips if ~/.openclaw missing (unless OPENCLAW_CONFIG_PATH is set).
-    On JSON5/parse failure: write sidecar + print `openclaw mcp add` hint.
+    On JSON5/parse failure or non-dict mcp/servers: REFUSED + sidecar;
+    primary never wiped.
     """
     path = _openclaw_config_path()
     custom = bool(os.environ.get("OPENCLAW_CONFIG_PATH"))
@@ -611,38 +663,27 @@ def _install_openclaw(server_url: str) -> str:
     if path.exists():
         raw = path.read_text(encoding="utf-8")
         try:
-            data = json.loads(raw)
+            parsed = json.loads(raw)
         except json.JSONDecodeError:
-            # JSON5 / comments — cannot merge safely
-            sidecar = path.parent / "openclaw.hipcortex.mcp.json"
-            path.parent.mkdir(parents=True, exist_ok=True)
-            sidecar.write_text(
-                json.dumps({"hipcortex": oc_entry}, indent=2) + "\n",
-                encoding="utf-8",
-            )
-            arg0 = oc_entry["args"][0]
-            url = oc_entry["env"]["HIPCORTEX_URL"]
-            cmd = oc_entry["command"]
-            print(
-                f"  {_GRAY}OpenClaw config is not plain JSON (JSON5?). "
-                f"Wrote sidecar {sidecar.name}. Merge manually or run:{_RESET}"
-            )
-            print(
-                f"  openclaw mcp add hipcortex --command {cmd} "
-                f"--arg {arg0} --env HIPCORTEX_URL={url}"
-            )
-            return INSTALL_CREATED
+            # JSON5 / comments — cannot merge safely; do not pretend create
+            return _openclaw_refuse(path, oc_entry, "invalid JSON / JSON5")
+        if not isinstance(parsed, dict):
+            return _openclaw_refuse(path, oc_entry, "root is not an object")
+        data = parsed
+        if "mcp" in data and not isinstance(data["mcp"], dict):
+            return _openclaw_refuse(path, oc_entry, "mcp is not an object")
+        mcp_existing = data.get("mcp")
+        if isinstance(mcp_existing, dict) and "servers" in mcp_existing:
+            if not isinstance(mcp_existing["servers"], dict):
+                return _openclaw_refuse(path, oc_entry, "mcp.servers is not an object")
 
-    if not isinstance(data, dict):
-        data = {}
     mcp = data.setdefault("mcp", {})
     if not isinstance(mcp, dict):
-        mcp = {}
-        data["mcp"] = mcp
+        # unreachable when path existed (refused above); for missing file
+        return _openclaw_refuse(path, oc_entry, "mcp is not an object")
     servers = mcp.setdefault("servers", {})
     if not isinstance(servers, dict):
-        servers = {}
-        mcp["servers"] = servers
+        return _openclaw_refuse(path, oc_entry, "mcp.servers is not an object")
 
     prev = servers.get("hipcortex")
     if prev == oc_entry:
@@ -650,8 +691,7 @@ def _install_openclaw(server_url: str) -> str:
 
     had = prev is not None
     servers["hipcortex"] = oc_entry
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    _atomic_write_text(path, json.dumps(data, indent=2) + "\n")
     return INSTALL_UPDATED if had else INSTALL_CREATED
 
 

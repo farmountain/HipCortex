@@ -1195,26 +1195,166 @@ def test_install_openclaw_merges_mcp_servers(tmp_path, monkeypatch):
 
 
 def test_install_openclaw_json5_fallback_sidecar(tmp_path, monkeypatch, capsys):
-    """Non-JSON openclaw.json → sidecar + openclaw mcp add hint."""
+    """Non-JSON openclaw.json → REFUSED + sidecar; primary bytes unchanged."""
     home = tmp_path / "home"
     oc = home / ".openclaw"
     oc.mkdir(parents=True)
-    (oc / "openclaw.json").write_text(
-        '{\n  // comment\n  "mcp": {}\n}\n',
-        encoding="utf-8",
-    )
+    primary = oc / "openclaw.json"
+    primary_bytes = b'{\n  // comment\n  "mcp": {}\n}\n'
+    primary.write_bytes(primary_bytes)
     monkeypatch.delenv("OPENCLAW_CONFIG_PATH", raising=False)
     with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
-        from hipcortex.cli import INSTALL_CREATED, _install_openclaw
+        from hipcortex.cli import INSTALL_REFUSED, _install_openclaw
 
         status = _install_openclaw("http://127.0.0.1:3030")
 
-    assert status == INSTALL_CREATED
+    assert status == INSTALL_REFUSED
+    assert primary.read_bytes() == primary_bytes
     sidecar = oc / "openclaw.hipcortex.mcp.json"
     assert sidecar.is_file()
     out = capsys.readouterr().out
     assert "openclaw mcp add hipcortex" in out
     assert "HIPCORTEX_URL=" in out
+
+
+def test_install_openclaw_root_not_dict_refused(tmp_path, monkeypatch):
+    """Root list/string → REFUSED, primary unchanged, sidecar written."""
+    home = tmp_path / "home"
+    oc = home / ".openclaw"
+    oc.mkdir(parents=True)
+    primary = oc / "openclaw.json"
+    primary_bytes = json.dumps(["not", "an", "object"]).encode("utf-8")
+    primary.write_bytes(primary_bytes)
+    monkeypatch.delenv("OPENCLAW_CONFIG_PATH", raising=False)
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import INSTALL_REFUSED, _install_openclaw
+
+        status = _install_openclaw("http://127.0.0.1:3030")
+
+    assert status == INSTALL_REFUSED
+    assert primary.read_bytes() == primary_bytes
+    assert (oc / "openclaw.hipcortex.mcp.json").is_file()
+
+
+def test_install_openclaw_mcp_not_dict_refused(tmp_path, monkeypatch):
+    """mcp or mcp.servers not dict → REFUSED, primary unchanged."""
+    home = tmp_path / "home"
+    oc = home / ".openclaw"
+    oc.mkdir(parents=True)
+    primary = oc / "openclaw.json"
+    monkeypatch.delenv("OPENCLAW_CONFIG_PATH", raising=False)
+
+    for payload in ({"mcp": []}, {"mcp": {"servers": []}}):
+        primary_bytes = json.dumps(payload).encode("utf-8")
+        primary.write_bytes(primary_bytes)
+        with patch("hipcortex.install_hosts.Path.home", return_value=home), patch(
+            "hipcortex.cli.Path.home", return_value=home
+        ):
+            from hipcortex.cli import INSTALL_REFUSED, _install_openclaw
+
+            status = _install_openclaw("http://127.0.0.1:3030")
+        assert status == INSTALL_REFUSED, payload
+        assert primary.read_bytes() == primary_bytes
+        assert (oc / "openclaw.hipcortex.mcp.json").is_file()
+
+
+def test_vscode_settings_path_empty_appdata_not_cwd(tmp_path, monkeypatch):
+    """Empty/missing APPDATA → path under home AppData, not relative to cwd."""
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.delenv("APPDATA", raising=False)
+    monkeypatch.setenv("APPDATA", "")
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch(
+        "hipcortex.cli.Path.home", return_value=home
+    ), patch("hipcortex.install_hosts.platform.system", return_value="Windows"), patch(
+        "hipcortex.cli.platform.system", return_value="Windows"
+    ):
+        from hipcortex.cli import _vscode_settings_path
+
+        path = _vscode_settings_path()
+    assert path.is_absolute()
+    assert path == home / "AppData" / "Roaming" / "Code" / "User" / "settings.json"
+    assert not str(path).startswith("Code")  # not cwd-relative empty APPDATA
+
+
+def test_install_vscode_corrupt_refused(tmp_path, monkeypatch):
+    """Corrupt settings.json → REFUSED, original unchanged, sidecar written."""
+    home = tmp_path / "home"
+    settings = home / "AppData" / "Roaming" / "Code" / "User" / "settings.json"
+    settings.parent.mkdir(parents=True)
+    primary_bytes = b"{ not valid json //\n"
+    settings.write_bytes(primary_bytes)
+    monkeypatch.setenv("APPDATA", str(home / "AppData" / "Roaming"))
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch(
+        "hipcortex.cli.Path.home", return_value=home
+    ), patch("hipcortex.install_hosts.platform.system", return_value="Windows"), patch(
+        "hipcortex.cli.platform.system", return_value="Windows"
+    ):
+        from hipcortex.cli import INSTALL_REFUSED, _install_vscode
+
+        status = _install_vscode("http://127.0.0.1:3030")
+
+    assert status == INSTALL_REFUSED
+    assert settings.read_bytes() == primary_bytes
+    assert (settings.parent / "settings.hipcortex.mcp.json").is_file()
+
+
+def test_install_vscode_mcpservers_not_dict_refused(tmp_path, monkeypatch):
+    """mcpServers as list → REFUSED, primary unchanged."""
+    home = tmp_path / "home"
+    settings = home / "AppData" / "Roaming" / "Code" / "User" / "settings.json"
+    settings.parent.mkdir(parents=True)
+    primary_bytes = json.dumps({"mcpServers": ["nope"], "editor.fontSize": 14}).encode(
+        "utf-8"
+    )
+    settings.write_bytes(primary_bytes)
+    monkeypatch.setenv("APPDATA", str(home / "AppData" / "Roaming"))
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch(
+        "hipcortex.cli.Path.home", return_value=home
+    ), patch("hipcortex.install_hosts.platform.system", return_value="Windows"), patch(
+        "hipcortex.cli.platform.system", return_value="Windows"
+    ):
+        from hipcortex.cli import INSTALL_REFUSED, _install_vscode
+
+        status = _install_vscode("http://127.0.0.1:3030")
+
+    assert status == INSTALL_REFUSED
+    assert settings.read_bytes() == primary_bytes
+
+
+def test_install_vscode_happy_preserves_other_keys(tmp_path, monkeypatch):
+    """Happy merge preserves unrelated settings keys; CREATED then UNCHANGED."""
+    home = tmp_path / "home"
+    settings = home / "AppData" / "Roaming" / "Code" / "User" / "settings.json"
+    settings.parent.mkdir(parents=True)
+    settings.write_text(
+        json.dumps({"editor.fontSize": 14, "mcpServers": {"other": {"command": "x"}}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("APPDATA", str(home / "AppData" / "Roaming"))
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch(
+        "hipcortex.cli.Path.home", return_value=home
+    ), patch("hipcortex.install_hosts.platform.system", return_value="Windows"), patch(
+        "hipcortex.cli.platform.system", return_value="Windows"
+    ):
+        from hipcortex.cli import (
+            INSTALL_CREATED,
+            INSTALL_UNCHANGED,
+            _desired_mcp_entry,
+            _install_vscode,
+        )
+
+        url = "http://127.0.0.1:3030"
+        first = _install_vscode(url)
+        second = _install_vscode(url)
+        expected = _desired_mcp_entry(url)
+
+    assert first == INSTALL_CREATED
+    assert second == INSTALL_UNCHANGED
+    data = json.loads(settings.read_text(encoding="utf-8"))
+    assert data["editor.fontSize"] == 14
+    assert data["mcpServers"]["other"] == {"command": "x"}
+    assert data["mcpServers"]["hipcortex"] == expected
 
 
 def test_uninstall_openclaw_removes_server(tmp_path, monkeypatch):
