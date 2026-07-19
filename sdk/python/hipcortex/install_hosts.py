@@ -332,8 +332,83 @@ def _cursor_mcp_path(global_: bool = False) -> Optional[Path]:
         return Path.cwd() / ".cursor" / "mcp.json"
 
 
+def _cursor_legacy_global_mcp_path() -> Optional[Path]:
+    """Windows-only legacy path written before Cursor/ segment fix: %APPDATA%/mcp.json."""
+    if platform.system() != "Windows":
+        return None
+    appdata = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
+    return Path(appdata) / "mcp.json"
+
+
+def _migrate_legacy_win_cursor_global() -> bool:
+    """If legacy %APPDATA%/mcp.json has mcpServers.hipcortex, merge into
+    %APPDATA%/Cursor/mcp.json and remove hipcortex from legacy.
+
+    Rules:
+    - No-op if not Windows, legacy missing, or no hipcortex key.
+    - Corrupt legacy: do not wipe; leave alone (return False).
+    - If new path already has hipcortex entry: only remove from legacy (avoid overwrite with older).
+    - If new path missing: create parent, write hipcortex-only mcpServers.
+    - If new path valid without hipcortex: merge hipcortex entry.
+    - If new path corrupt: leave new alone; do not strip legacy (return False).
+    - Return True if any migration/removal happened.
+    """
+    legacy = _cursor_legacy_global_mcp_path()
+    if legacy is None or not legacy.exists():
+        return False
+
+    try:
+        data = json.loads(legacy.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+        return False
+
+    if not isinstance(data, dict):
+        return False
+
+    servers = data.get("mcpServers")
+    if not isinstance(servers, dict) or "hipcortex" not in servers:
+        return False
+
+    hip_entry = servers["hipcortex"]
+    new_path = _cursor_mcp_path(global_=True)
+    if new_path is None:
+        return False
+
+    if new_path.exists():
+        try:
+            new_data = json.loads(new_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+            # Corrupt target: do not wipe; leave legacy intact
+            return False
+        if not isinstance(new_data, dict):
+            return False
+        if "mcpServers" in new_data and not isinstance(new_data["mcpServers"], dict):
+            return False
+
+        new_servers = new_data.setdefault("mcpServers", {})
+        if "hipcortex" not in new_servers:
+            new_servers["hipcortex"] = hip_entry
+            new_data["mcpServers"] = new_servers
+            _atomic_write_text(new_path, json.dumps(new_data, indent=2))
+        # else: new already has hipcortex — only strip legacy (no overwrite)
+    else:
+        payload = {"mcpServers": {"hipcortex": hip_entry}}
+        _atomic_write_text(new_path, json.dumps(payload, indent=2))
+
+    del servers["hipcortex"]
+    data["mcpServers"] = servers
+    _atomic_write_text(legacy, json.dumps(data, indent=2))
+    print(
+        f"  {_GRAY}Migrated Cursor MCP hipcortex from %APPDATA%/mcp.json "
+        f"→ Cursor/mcp.json{_RESET}"
+    )
+    return True
+
+
 def _install_cursor(server_url: str, global_: bool = False) -> str:
     """Write/update .cursor/mcp.json. Returns created|updated|unchanged|skipped."""
+    if global_:
+        _migrate_legacy_win_cursor_global()
     mcp_path = _cursor_mcp_path(global_=global_)
     if mcp_path is None:
         return INSTALL_SKIPPED
@@ -456,15 +531,19 @@ def _install_cursor_prefer_local(server_url: str) -> str:
 
     Also mirror to global when Cursor user config dir already exists
     (do not invent APPDATA/Cursor for a missing product install).
+    Legacy Win %APPDATA%/mcp.json is migrated first so Cursor/ can appear.
     """
     local = _install_cursor(server_url, global_=False)
     if local == INSTALL_REFUSED:
         return local
 
+    # Move legacy hipcortex into Cursor/ before parent-dir gate
+    _migrate_legacy_win_cursor_global()
+
     global_path = _cursor_mcp_path(global_=True)
     if global_path is None:
         return local
-    # Only touch global if parent exists (Cursor installed)
+    # Only touch global if parent exists (Cursor installed or just migrated)
     if not global_path.parent.is_dir():
         return local
 
@@ -482,13 +561,16 @@ def _install_cursor_prefer_local(server_url: str) -> str:
 
 
 def _uninstall_cursor() -> bool:
-    """Remove hipcortex from project + global Cursor mcp.json."""
+    """Remove hipcortex from project + global Cursor mcp.json (+ Win legacy)."""
     removed = False
     local = _cursor_mcp_path(global_=False)
     if local and _remove_mcp_entry(local):
         removed = True
     global_path = _cursor_mcp_path(global_=True)
     if global_path and _remove_mcp_entry(global_path):
+        removed = True
+    legacy = _cursor_legacy_global_mcp_path()
+    if legacy and _remove_mcp_entry(legacy):
         removed = True
     return removed
 

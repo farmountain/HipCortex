@@ -3,6 +3,8 @@
 HipCortex MCP / wizard targets beyond Claude / Cursor / Windsurf.  
 **Registry:** [docs/channels.yaml](../channels.yaml) · table [docs/channels.md](../channels.md) · CLI `hipcortex channels`.
 
+**Cursor (Windows global):** correct path is `%APPDATA%/Cursor/mcp.json`. Install migrates hipcortex from legacy `%APPDATA%/mcp.json` into `Cursor/`; uninstall also strips that legacy key.
+
 ```bash
 pip install hipcortex
 hipcortex install          # interactive — pick Antigravity / Hermes / OpenClaw / Grok

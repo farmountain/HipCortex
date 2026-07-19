@@ -1812,3 +1812,146 @@ def test_install_cursor_prefer_local_no_global_dir_only_local(tmp_path, monkeypa
     assert not global_mcp.exists()
     assert not global_mcp.parent.exists()
 
+
+def test_migrate_legacy_win_cursor_moves_hipcortex(tmp_path, monkeypatch, capsys):
+    """Legacy APPDATA/mcp.json hipcortex → Cursor/mcp.json; other servers stay on legacy."""
+    home = tmp_path / "home"
+    home.mkdir()
+    appdata = home / "AppData" / "Roaming"
+    appdata.mkdir(parents=True)
+    monkeypatch.setenv("APPDATA", str(appdata))
+
+    legacy = appdata / "mcp.json"
+    legacy.write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "hipcortex": {
+                        "command": "python",
+                        "args": ["old-server.py"],
+                        "env": {"HIPCORTEX_URL": "http://old:3030"},
+                    },
+                    "other": {"command": "npx", "args": ["other-mcp"]},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with patch("hipcortex.install_hosts.platform.system", return_value="Windows"), patch(
+        "hipcortex.install_hosts.Path.home", return_value=home
+    ), patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import _migrate_legacy_win_cursor_global
+
+        assert _migrate_legacy_win_cursor_global() is True
+
+    new_mcp = appdata / "Cursor" / "mcp.json"
+    assert new_mcp.is_file()
+    new_cfg = json.loads(new_mcp.read_text(encoding="utf-8"))
+    assert "hipcortex" in new_cfg["mcpServers"]
+    assert new_cfg["mcpServers"]["hipcortex"]["args"] == ["old-server.py"]
+
+    legacy_cfg = json.loads(legacy.read_text(encoding="utf-8"))
+    assert "hipcortex" not in legacy_cfg.get("mcpServers", {})
+    assert "other" in legacy_cfg["mcpServers"]
+
+    out = capsys.readouterr().out
+    assert "Migrated" in out or "mcp.json" in out
+
+
+def test_migrate_legacy_skips_when_no_hipcortex(tmp_path, monkeypatch):
+    """Legacy has only other servers → no Cursor file / no migration."""
+    home = tmp_path / "home"
+    home.mkdir()
+    appdata = home / "AppData" / "Roaming"
+    appdata.mkdir(parents=True)
+    monkeypatch.setenv("APPDATA", str(appdata))
+
+    legacy = appdata / "mcp.json"
+    legacy.write_text(
+        json.dumps({"mcpServers": {"other": {"command": "npx", "args": ["x"]}}}),
+        encoding="utf-8",
+    )
+
+    with patch("hipcortex.install_hosts.platform.system", return_value="Windows"), patch(
+        "hipcortex.install_hosts.Path.home", return_value=home
+    ), patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import _migrate_legacy_win_cursor_global
+
+        assert _migrate_legacy_win_cursor_global() is False
+
+    assert not (appdata / "Cursor" / "mcp.json").exists()
+    assert not (appdata / "Cursor").exists()
+    legacy_cfg = json.loads(legacy.read_text(encoding="utf-8"))
+    assert "other" in legacy_cfg["mcpServers"]
+
+
+def test_uninstall_cursor_removes_legacy(tmp_path, monkeypatch):
+    """hipcortex on both new + legacy → uninstall removes both."""
+    home = tmp_path / "home"
+    home.mkdir()
+    appdata = home / "AppData" / "Roaming"
+    cursor_dir = appdata / "Cursor"
+    cursor_dir.mkdir(parents=True)
+    monkeypatch.setenv("APPDATA", str(appdata))
+    monkeypatch.chdir(tmp_path)
+
+    entry = {
+        "command": "python",
+        "args": ["s.py"],
+        "env": {"HIPCORTEX_URL": "http://localhost:3030"},
+    }
+    (cursor_dir / "mcp.json").write_text(
+        json.dumps({"mcpServers": {"hipcortex": entry, "keep": {"command": "x"}}}),
+        encoding="utf-8",
+    )
+    (appdata / "mcp.json").write_text(
+        json.dumps({"mcpServers": {"hipcortex": entry, "other": {"command": "y"}}}),
+        encoding="utf-8",
+    )
+
+    with patch("hipcortex.install_hosts.platform.system", return_value="Windows"), patch(
+        "hipcortex.install_hosts.Path.home", return_value=home
+    ), patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.install_hosts.Path.cwd", return_value=tmp_path
+    ), patch("hipcortex.cli.Path.cwd", return_value=tmp_path):
+        from hipcortex.cli import _uninstall_cursor
+
+        assert _uninstall_cursor() is True
+
+    new_cfg = json.loads((cursor_dir / "mcp.json").read_text(encoding="utf-8"))
+    assert "hipcortex" not in new_cfg.get("mcpServers", {})
+    assert "keep" in new_cfg["mcpServers"]
+
+    legacy_cfg = json.loads((appdata / "mcp.json").read_text(encoding="utf-8"))
+    assert "hipcortex" not in legacy_cfg.get("mcpServers", {})
+    assert "other" in legacy_cfg["mcpServers"]
+
+
+def test_migrate_legacy_non_windows_noop(tmp_path, monkeypatch):
+    """Non-Windows: migrate returns False / no-op."""
+    home = tmp_path / "home"
+    home.mkdir()
+    appdata = home / "AppData" / "Roaming"
+    appdata.mkdir(parents=True)
+    monkeypatch.setenv("APPDATA", str(appdata))
+    (appdata / "mcp.json").write_text(
+        json.dumps({"mcpServers": {"hipcortex": {"command": "x"}}}),
+        encoding="utf-8",
+    )
+
+    with patch("hipcortex.install_hosts.platform.system", return_value="Linux"), patch(
+        "hipcortex.install_hosts.Path.home", return_value=home
+    ), patch("hipcortex.cli.Path.home", return_value=home):
+        from hipcortex.cli import (
+            _cursor_legacy_global_mcp_path,
+            _migrate_legacy_win_cursor_global,
+        )
+
+        assert _cursor_legacy_global_mcp_path() is None
+        assert _migrate_legacy_win_cursor_global() is False
+
+    assert not (appdata / "Cursor" / "mcp.json").exists()
+    # legacy untouched
+    assert "hipcortex" in json.loads((appdata / "mcp.json").read_text(encoding="utf-8"))["mcpServers"]
+
