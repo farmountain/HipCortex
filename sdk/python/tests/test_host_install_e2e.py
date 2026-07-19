@@ -50,7 +50,7 @@ def test_all_hosts_install_idempotent_uninstall(tmp_path, monkeypatch):
         _uninstall_openclaw,
     )
 
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         # ── first install ──────────────────────────────────────────────
         results = {
             "antigravity": _install_antigravity(URL),
@@ -138,7 +138,7 @@ def test_hosts_skip_when_root_missing(tmp_path, monkeypatch):
         _install_grok,
     )
 
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         # antigravity creates parent dirs (no skip) — hermes/openclaw/grok skip
         assert _install_hermes(URL) == INSTALL_SKIPPED
         assert _install_openclaw(URL) == INSTALL_SKIPPED

@@ -17,7 +17,7 @@ def _make_fake_home(tmp_path: Path) -> Path:
 def test_install_claude_code_writes_skill_md(tmp_path):
     """install_claude_code writes SKILL.md to ~/.claude/skills/hipcortex/."""
     home = _make_fake_home(tmp_path)
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import INSTALL_CREATED, _install_claude_code
         result = _install_claude_code("http://localhost:3030")
 
@@ -35,7 +35,7 @@ def test_install_claude_code_appends_registration(tmp_path):
     claude_md = home / ".claude" / "CLAUDE.md"
     claude_md.write_text("# existing content\n")
 
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import _install_claude_code
         _install_claude_code("http://localhost:3030")
 
@@ -47,7 +47,7 @@ def test_install_claude_code_appends_registration(tmp_path):
 def test_install_claude_code_no_duplicate(tmp_path):
     """Running install twice does not duplicate the registration entry."""
     home = _make_fake_home(tmp_path)
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import _install_claude_code
         _install_claude_code("http://localhost:3030")
         _install_claude_code("http://localhost:3030")  # second call
@@ -62,7 +62,7 @@ def test_install_claude_code_not_installed_returns_skipped(tmp_path):
     """Returns skipped when ~/.claude/ does not exist (Claude Code not installed)."""
     home = tmp_path / "home_no_claude"
     home.mkdir()
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import INSTALL_SKIPPED, _install_claude_code
         result = _install_claude_code("http://localhost:3030")
     assert result == INSTALL_SKIPPED
@@ -74,8 +74,8 @@ def test_install_cursor_writes_mcp_json(tmp_path):
     project_dir.mkdir()
 
     home = _make_fake_home(tmp_path)
-    with patch("hipcortex.cli.Path.home", return_value=home), \
-         patch("hipcortex.cli.Path.cwd", return_value=project_dir):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home), \
+         patch("hipcortex.install_hosts.Path.cwd", return_value=project_dir), patch("hipcortex.cli.Path.cwd", return_value=project_dir):
         from hipcortex.cli import INSTALL_CREATED, _install_cursor
         result = _install_cursor("http://localhost:3030", global_=False)
 
@@ -90,7 +90,7 @@ def test_install_cursor_writes_mcp_json(tmp_path):
 def test_install_claude_code_proactive_mode_writes_harness(tmp_path):
     """--mode proactive writes substrate-first SKILL with MUST + Harness and updates CLAUDE reg."""
     home = _make_fake_home(tmp_path)
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import INSTALL_CREATED, _install_claude_code
         result = _install_claude_code("http://localhost:3030", mode="proactive")
 
@@ -116,8 +116,8 @@ def test_install_cursor_merges_existing_config(tmp_path):
     (cursor_dir / "mcp.json").write_text(json.dumps(existing))
 
     home = _make_fake_home(tmp_path)
-    with patch("hipcortex.cli.Path.home", return_value=home), \
-         patch("hipcortex.cli.Path.cwd", return_value=project_dir):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home), \
+         patch("hipcortex.install_hosts.Path.cwd", return_value=project_dir), patch("hipcortex.cli.Path.cwd", return_value=project_dir):
         from hipcortex.cli import _install_cursor
         _install_cursor("http://localhost:3030", global_=False)
 
@@ -133,7 +133,7 @@ def test_uninstall_removes_skill_dir(tmp_path):
     skill_dir.mkdir(parents=True)
     (skill_dir / "SKILL.md").write_text("content")
 
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import _uninstall_claude_code
         _uninstall_claude_code()
 
@@ -162,7 +162,7 @@ def test_binary_url_format():
 def test_install_claude_code_actor_configuration(tmp_path):
     """install_claude_code overrides default actor description in SKILL.md when actor is provided."""
     home = _make_fake_home(tmp_path)
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import INSTALL_CREATED, _install_claude_code
         result = _install_claude_code("http://localhost:3030", actor="developer_alice")
 
@@ -211,7 +211,7 @@ def test_cmd_install_writes_project_config(tmp_path, monkeypatch):
     args.dry_run = False
     args.scaffold = False
 
-    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home), patch(
         "hipcortex.cli._install_mcp_server"
     ), patch("hipcortex.cli._build_agent_registry", return_value=agents):
         from hipcortex.cli import cmd_install
@@ -276,7 +276,7 @@ def test_scaffold_off_by_default_no_framework_files(tmp_path, monkeypatch, capsy
     ]
     args = _install_args(url="http://x:1", scaffold=False)
 
-    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home), patch(
         "hipcortex.cli._install_mcp_server"
     ), patch("hipcortex.cli._build_agent_registry", return_value=agents), patch(
         "hipcortex.cli._write_framework_starter"
@@ -314,7 +314,7 @@ def test_scaffold_on_writes_framework_starter(tmp_path, monkeypatch):
     ]
     args = _install_args(url="http://x:1", scaffold=True)
 
-    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home), patch(
         "hipcortex.cli._install_mcp_server"
     ), patch("hipcortex.cli._build_agent_registry", return_value=agents):
         from hipcortex.cli import cmd_install
@@ -357,7 +357,7 @@ def test_dry_run_no_writes(tmp_path, monkeypatch, capsys):
     ]
     args = _install_args(url="http://x:1", dry_run=True, scaffold=True)
 
-    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home), patch(
         "hipcortex.cli._install_mcp_server"
     ) as mcp, patch(
         "hipcortex.cli._build_agent_registry", return_value=agents
@@ -404,7 +404,7 @@ def test_dry_run_would_download_when_no_url(tmp_path, monkeypatch, capsys):
     args = _install_args(url=None, dry_run=True, force=True)
 
     fake_bin = tmp_path / "bin" / "hipcortex"
-    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home), patch(
         "hipcortex.cli._install_mcp_server"
     ), patch("hipcortex.cli._build_agent_registry", return_value=agents), patch(
         "hipcortex.cli._detect_platform", return_value=("linux", "amd64")
@@ -444,7 +444,7 @@ def test_non_tty_auto_enables_yes(tmp_path, monkeypatch, capsys):
     ]
     args = _install_args(url="http://x:1", yes=False)
 
-    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home), patch(
         "hipcortex.cli._install_mcp_server"
     ), patch("hipcortex.cli._build_agent_registry", return_value=agents), patch(
         "hipcortex.cli.sys.stdin.isatty", return_value=False
@@ -547,7 +547,7 @@ def test_proactive_install_calls_index_bootstrap(tmp_path, monkeypatch):
 
     args = _install_args(url="http://idx:3030", mode="proactive", index=None)
 
-    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home), patch(
         "hipcortex.cli._install_mcp_server"
     ), patch(
         "hipcortex.cli._build_agent_registry", return_value=_minimal_install_agents()
@@ -574,7 +574,7 @@ def test_proactive_no_index_skips_bootstrap(tmp_path, monkeypatch):
 
     args = _install_args(url="http://x:1", mode="proactive", index=False)
 
-    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home), patch(
         "hipcortex.cli._install_mcp_server"
     ), patch(
         "hipcortex.cli._build_agent_registry", return_value=_minimal_install_agents()
@@ -599,7 +599,7 @@ def test_conservative_default_skips_index(tmp_path, monkeypatch):
 
     args = _install_args(url="http://x:1", mode="conservative", index=None)
 
-    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home), patch(
         "hipcortex.cli._install_mcp_server"
     ), patch(
         "hipcortex.cli._build_agent_registry", return_value=_minimal_install_agents()
@@ -624,7 +624,7 @@ def test_conservative_with_index_calls_bootstrap(tmp_path, monkeypatch):
 
     args = _install_args(url="http://x:1", mode="conservative", index=True)
 
-    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home), patch(
         "hipcortex.cli._install_mcp_server"
     ), patch(
         "hipcortex.cli._build_agent_registry", return_value=_minimal_install_agents()
@@ -649,7 +649,7 @@ def test_dry_run_skips_index_even_proactive(tmp_path, monkeypatch, capsys):
 
     args = _install_args(url="http://x:1", mode="proactive", dry_run=True, index=None)
 
-    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home), patch(
         "hipcortex.cli._install_mcp_server"
     ), patch(
         "hipcortex.cli._build_agent_registry", return_value=_minimal_install_agents()
@@ -678,7 +678,7 @@ def test_index_bootstrap_failure_does_not_fail_install(tmp_path, monkeypatch, ca
 
     args = _install_args(url="http://dead:9", mode="proactive", index=True)
 
-    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home), patch(
         "hipcortex.cli._install_mcp_server"
     ), patch(
         "hipcortex.cli._build_agent_registry", return_value=_minimal_install_agents()
@@ -799,7 +799,7 @@ def test_scaffold_uses_package_template_content(tmp_path, monkeypatch):
     # Real registry (not mocked) so package templates apply
     args = _install_args(url="http://scaffold-url:1", scaffold=True)
     # Restrict to framework agents only via patched yes path that already selects all
-    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home), patch(
         "hipcortex.cli._install_mcp_server"
     ), patch("hipcortex.cli._install_claude_code", return_value="created"), patch(
         "hipcortex.cli._install_cursor_prefer_local", return_value="created"
@@ -841,7 +841,7 @@ def test_scaffold_uses_package_template_content(tmp_path, monkeypatch):
 def test_double_skill_install_second_unchanged(tmp_path):
     """Second identical skill install returns unchanged (no rewrite needed)."""
     home = _make_fake_home(tmp_path)
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import (
             INSTALL_CREATED,
             INSTALL_UNCHANGED,
@@ -862,9 +862,9 @@ def test_double_cursor_install_second_unchanged(tmp_path):
     project_dir = tmp_path / "proj"
     project_dir.mkdir()
     home = _make_fake_home(tmp_path)
-    with patch("hipcortex.cli.Path.home", return_value=home), patch(
-        "hipcortex.cli.Path.cwd", return_value=project_dir
-    ):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.install_hosts.Path.cwd", return_value=project_dir
+    ), patch("hipcortex.cli.Path.cwd", return_value=project_dir):
         from hipcortex.cli import (
             INSTALL_CREATED,
             INSTALL_UNCHANGED,
@@ -883,9 +883,9 @@ def test_cursor_install_updated_when_url_changes(tmp_path):
     project_dir = tmp_path / "proj"
     project_dir.mkdir()
     home = _make_fake_home(tmp_path)
-    with patch("hipcortex.cli.Path.home", return_value=home), patch(
-        "hipcortex.cli.Path.cwd", return_value=project_dir
-    ):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home), patch(
+        "hipcortex.install_hosts.Path.cwd", return_value=project_dir
+    ), patch("hipcortex.cli.Path.cwd", return_value=project_dir):
         from hipcortex.cli import INSTALL_CREATED, INSTALL_UPDATED, _install_cursor
 
         first = _install_cursor("http://localhost:3030", global_=False)
@@ -925,7 +925,7 @@ def test_uninstall_channel_claude_code_only(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(proj)
 
     args = argparse.Namespace(channel=["claude-code"], all=False, purge=False)
-    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home), patch(
         "hipcortex.cli.INSTALL_DIR", home / ".hipcortex"
     ):
         from hipcortex.cli import cmd_uninstall
@@ -960,7 +960,7 @@ def test_uninstall_channel_cursor_removes_mcp_entry(tmp_path, monkeypatch):
     monkeypatch.chdir(proj)
 
     args = argparse.Namespace(channel=["cursor"], all=False, purge=False)
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import cmd_uninstall
 
         cmd_uninstall(args)
@@ -981,7 +981,7 @@ def test_uninstall_default_all_channels(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(proj)
 
     args = argparse.Namespace(channel=None, all=False, purge=False)
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import cmd_uninstall
 
         cmd_uninstall(args)
@@ -1040,7 +1040,7 @@ def test_cmd_install_prints_summary_counts(tmp_path, monkeypatch, capsys):
     ]
     args = _install_args(url="http://x:1")
 
-    with patch("hipcortex.cli.Path.home", return_value=home), patch(
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home), patch(
         "hipcortex.cli._install_mcp_server"
     ), patch("hipcortex.cli._build_agent_registry", return_value=agents):
         from hipcortex.cli import cmd_install
@@ -1060,7 +1060,7 @@ def test_install_antigravity_writes_mcp_config(tmp_path):
     """Antigravity creates ~/.gemini/antigravity/mcp_config.json with mcpServers."""
     home = tmp_path / "home"
     home.mkdir()
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import INSTALL_CREATED, INSTALL_UNCHANGED, _desired_mcp_entry, _install_antigravity
 
         first = _install_antigravity("http://127.0.0.1:3030")
@@ -1090,7 +1090,7 @@ def test_uninstall_antigravity_removes_entry(tmp_path):
         ),
         encoding="utf-8",
     )
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import _uninstall_antigravity
 
         assert _uninstall_antigravity() is True
@@ -1103,7 +1103,7 @@ def test_uninstall_antigravity_removes_entry(tmp_path):
 def test_install_hermes_skips_without_dir(tmp_path):
     home = tmp_path / "home"
     home.mkdir()
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import INSTALL_SKIPPED, _install_hermes
 
         assert _install_hermes("http://127.0.0.1:3030") == INSTALL_SKIPPED
@@ -1117,7 +1117,7 @@ def test_install_hermes_merges_config_yaml(tmp_path):
         "model: gpt\nmcp_servers:\n  other:\n    command: echo\n",
         encoding="utf-8",
     )
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import (
             INSTALL_CREATED,
             INSTALL_UNCHANGED,
@@ -1147,7 +1147,7 @@ def test_uninstall_hermes_removes_block(tmp_path):
         "mcp_servers:\n  hipcortex:\n    command: python\n    args: [x]\n  keep:\n    command: y\n",
         encoding="utf-8",
     )
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import _uninstall_hermes
 
         assert _uninstall_hermes() is True
@@ -1160,7 +1160,7 @@ def test_uninstall_hermes_removes_block(tmp_path):
 def test_install_openclaw_skips_without_dir(tmp_path):
     home = tmp_path / "home"
     home.mkdir()
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import INSTALL_SKIPPED, _install_openclaw
 
         assert _install_openclaw("http://127.0.0.1:3030") == INSTALL_SKIPPED
@@ -1175,7 +1175,7 @@ def test_install_openclaw_merges_mcp_servers(tmp_path, monkeypatch):
         encoding="utf-8",
     )
     monkeypatch.delenv("OPENCLAW_CONFIG_PATH", raising=False)
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import (
             INSTALL_CREATED,
             INSTALL_UNCHANGED,
@@ -1204,7 +1204,7 @@ def test_install_openclaw_json5_fallback_sidecar(tmp_path, monkeypatch, capsys):
         encoding="utf-8",
     )
     monkeypatch.delenv("OPENCLAW_CONFIG_PATH", raising=False)
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import INSTALL_CREATED, _install_openclaw
 
         status = _install_openclaw("http://127.0.0.1:3030")
@@ -1235,7 +1235,7 @@ def test_uninstall_openclaw_removes_server(tmp_path, monkeypatch):
         encoding="utf-8",
     )
     monkeypatch.delenv("OPENCLAW_CONFIG_PATH", raising=False)
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import _uninstall_openclaw
 
         assert _uninstall_openclaw() is True
@@ -1273,7 +1273,7 @@ def test_install_grok_skips_without_dir(tmp_path, monkeypatch):
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.delenv("GROK_CONFIG_PATH", raising=False)
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import INSTALL_SKIPPED, _install_grok
 
         assert _install_grok("http://127.0.0.1:3030") == INSTALL_SKIPPED
@@ -1284,7 +1284,7 @@ def test_install_grok_writes_config_toml(tmp_path, monkeypatch):
     grok = home / ".grok"
     grok.mkdir(parents=True)
     monkeypatch.delenv("GROK_CONFIG_PATH", raising=False)
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import (
             INSTALL_CREATED,
             INSTALL_UNCHANGED,
@@ -1323,7 +1323,7 @@ def test_install_grok_preserves_other_servers(tmp_path, monkeypatch):
         encoding="utf-8",
     )
     monkeypatch.delenv("GROK_CONFIG_PATH", raising=False)
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import INSTALL_CREATED, _install_grok
 
         status = _install_grok("http://127.0.0.1:3030")
@@ -1342,7 +1342,7 @@ def test_install_grok_updates_url(tmp_path, monkeypatch):
     grok = home / ".grok"
     grok.mkdir(parents=True)
     monkeypatch.delenv("GROK_CONFIG_PATH", raising=False)
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import INSTALL_CREATED, INSTALL_UPDATED, _install_grok
 
         first = _install_grok("http://127.0.0.1:3030")
@@ -1371,7 +1371,7 @@ def test_uninstall_grok_removes_table(tmp_path, monkeypatch):
         encoding="utf-8",
     )
     monkeypatch.delenv("GROK_CONFIG_PATH", raising=False)
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import _uninstall_grok
 
         assert _uninstall_grok() is True
@@ -1389,7 +1389,7 @@ def test_install_grok_respects_GROK_CONFIG_PATH(tmp_path, monkeypatch):
     custom = tmp_path / "custom" / "my-grok.toml"
     custom.parent.mkdir(parents=True)
     monkeypatch.setenv("GROK_CONFIG_PATH", str(custom))
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import INSTALL_CREATED, INSTALL_UNCHANGED, _install_grok
 
         first = _install_grok("http://127.0.0.1:3030")
@@ -1497,7 +1497,7 @@ def test_uninstall_claude_preserves_trailing_content(tmp_path):
         encoding="utf-8",
     )
 
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         assert _uninstall_claude_code() is True
 
     content = claude_md.read_text(encoding="utf-8")
@@ -1526,7 +1526,7 @@ def test_uninstall_claude_no_next_h1_no_tail_wipe(tmp_path):
         encoding="utf-8",
     )
 
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         assert _uninstall_claude_code() is True
 
     content = claude_md.read_text(encoding="utf-8")
@@ -1556,7 +1556,7 @@ def test_install_cursor_prefer_local_refuses_corrupt_no_global_fallback(tmp_path
         monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
         global_mcp = home / ".config" / "Cursor" / "mcp.json"
 
-    with patch("hipcortex.cli.Path.home", return_value=home):
+    with patch("hipcortex.install_hosts.Path.home", return_value=home), patch("hipcortex.cli.Path.home", return_value=home):
         from hipcortex.cli import INSTALL_REFUSED, _install_cursor_prefer_local
 
         status = _install_cursor_prefer_local("http://127.0.0.1:3030")
