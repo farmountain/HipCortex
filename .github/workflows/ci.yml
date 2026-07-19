@@ -190,8 +190,12 @@ jobs:
   # Antigravity / Hermes / OpenClaw / Grok installers + unit coverage
   # ------------------------------------------------------------------
   host-install-e2e:
-    name: Host install E2E smoke
-    runs-on: ubuntu-latest
+    name: Host install E2E smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 
