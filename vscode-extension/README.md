@@ -7,7 +7,7 @@
 
 **Give your AI coding assistant (VS Code Copilot & Antigravity IDE) persistent, cross-session causal memory, world-model prediction/rollout, and topological graph tools.**
 
-Product server / pip / npm remain **0.5.0**; this extension package is **0.5.7** (10 LM tools, dual `/health`, multi-OS bundled webserver). See [docs/channels.md](../docs/channels.md).
+Product server / pip / npm are **0.5.1**; this extension package is **0.5.7** (10 LM tools, dual `/health`, multi-OS bundled webserver). See [docs/channels.md](../docs/channels.md).
 
 ---
 

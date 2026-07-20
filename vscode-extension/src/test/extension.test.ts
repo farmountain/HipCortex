@@ -81,7 +81,7 @@ describe('HipCortex Extension Unit Tests', () => {
         test('should perform health check successfully', async () => {
             mockedAxios.get.mockResolvedValueOnce({
                 status: 200,
-                data: { status: 'ok', service: 'hipcortex', version: '0.5.0' },
+                data: { status: 'ok', service: 'hipcortex', version: '0.5.1' },
             });
             
             const result = await api.healthCheck();
@@ -104,7 +104,7 @@ describe('HipCortex Extension Unit Tests', () => {
         test('health check rejects status ok without service field', async () => {
             mockedAxios.get.mockResolvedValueOnce({
                 status: 200,
-                data: { status: 'ok', version: '0.5.0' },
+                data: { status: 'ok', version: '0.5.1' },
             });
             expect(await api.healthCheck()).toBe(false);
         });
@@ -136,7 +136,7 @@ describe('HipCortex Extension Unit Tests', () => {
         test('health check accepts JSON-encoded string body', async () => {
             mockedAxios.get.mockResolvedValueOnce({
                 status: 200,
-                data: '{"status":"ok","service":"hipcortex","version":"0.5.0"}',
+                data: '{"status":"ok","service":"hipcortex","version":"0.5.1"}',
             });
             expect(await api.healthCheck()).toBe(true);
         });
@@ -280,7 +280,7 @@ describe('HipCortex Extension Unit Tests', () => {
 
         // vscode-extension/src/test/extension.test.ts
         test('should create HipCortex Server OutputChannel on activate', async () => {
-            // activate() fires autoStartServer without await — mock to avoid open handles
+            // activate() fires autoStartServer without await �?mock to avoid open handles
             jest.spyOn(HipCortexAPI.prototype, 'autoStartServer').mockResolvedValue(false);
             const createSpy = jest.spyOn(vscode.window, 'createOutputChannel');
             const registerToolSpy = jest.spyOn((vscode as any).lm, 'registerTool');
@@ -369,8 +369,8 @@ describe('HipCortex Extension Unit Tests', () => {
         test('end-to-end verification: install .vsix + auto-capture flows (checklist in comments)', () => {
             // Exact checklist from plan:
             // 1. Install produced .vsix in fresh VSCode (no prior HipCortex).
-            // 2. Open folder, edit + save file → status shows active, record in query.
-            // 3. Copilot chat asks about previous decision → calls tool, gets live_beliefs, savings in footer.
+            // 2. Open folder, edit + save file �?status shows active, record in query.
+            // 3. Copilot chat asks about previous decision �?calls tool, gets live_beliefs, savings in footer.
             // 4. @hipcortex health works, server channel has logs.
             // 5. No cargo, no manual start.
             expect(true).toBe(true); // placeholder for e2e; passes after package + manual
@@ -379,8 +379,8 @@ describe('HipCortex Extension Unit Tests', () => {
         // Task 9 Step 4: Manual clean-machine verification checklist (added to test file as comments)
         // Describe execution of the 5 points (executed conceptually on packaged state; full manual requires separate clean VSCode instance):
         // 1. Install produced .vsix in fresh VSCode (no prior HipCortex). -> Execution: use `code --install-extension hipcortex-memory-0.3.2.vsix` (or latest) in a clean profile VSCode with no prior extension or ~/.hipcortex-vscode data; verify extension activates via Output panel.
-        // 2. Open folder, edit + save file → status shows active, record in query. -> Execution: open a workspace folder, create/edit a .ts file, save; verify status bar updates (HipCortex: ...), then use @hipcortex query or /memory/query to see the auto-captured record with metadata (source, line_count).
-        // 3. Copilot chat asks about previous decision → calls tool, gets live_beliefs, savings in footer. -> Execution: in Copilot chat, ask question relying on prior edit context (e.g. "what did I edit last"); confirm it invokes hipcortex_search (which uses live_beliefs internally), rich response, and token savings shown.
+        // 2. Open folder, edit + save file �?status shows active, record in query. -> Execution: open a workspace folder, create/edit a .ts file, save; verify status bar updates (HipCortex: ...), then use @hipcortex query or /memory/query to see the auto-captured record with metadata (source, line_count).
+        // 3. Copilot chat asks about previous decision �?calls tool, gets live_beliefs, savings in footer. -> Execution: in Copilot chat, ask question relying on prior edit context (e.g. "what did I edit last"); confirm it invokes hipcortex_search (which uses live_beliefs internally), rich response, and token savings shown.
         // 4. @hipcortex health works, server channel has logs. -> Execution: type @hipcortex health in chat; confirm success response + HipCortex Server OutputChannel populated with start/ready logs and no errors.
         // 5. No cargo, no manual start. -> Execution: confirm no terminal cargo commands or manual server launch were needed; all via auto ensure on activate/onSave + bundled or fetched binary.
     });
@@ -651,7 +651,7 @@ describe('memory display formatters', () => {
     test('QuickPick label includes bracketed tags', () => {
         const item = formatMemoryQuickPickItem(baseRecord);
         expect(item.label).toBe(
-            'vscode-user → edited [typescript, ts, auto-capture, core]'
+            'vscode-user �?edited [typescript, ts, auto-capture, core]'
         );
         expect(item.description).toBe(baseRecord.target);
         expect(item.record).toBe(baseRecord);
@@ -659,20 +659,20 @@ describe('memory display formatters', () => {
 
     test('QuickPick label omits brackets when tags empty', () => {
         const item = formatMemoryQuickPickItem({ ...baseRecord, tags: [] });
-        expect(item.label).toBe('vscode-user → edited');
+        expect(item.label).toBe('vscode-user �?edited');
         expect(item.label).not.toContain('[');
     });
 
     test('QuickPick label omits brackets when tags undefined', () => {
         const { tags, ...rest } = baseRecord;
         const item = formatMemoryQuickPickItem(rest as any);
-        expect(item.label).toBe('vscode-user → edited');
+        expect(item.label).toBe('vscode-user �?edited');
     });
 
     test('QuickPick detail includes timestamp and workspace snippet', () => {
         const item = formatMemoryQuickPickItem(baseRecord);
         expect(item.detail).toContain('workspace: HipCortex');
-        // timestamp locale-dependent — just require non-empty detail
+        // timestamp locale-dependent �?just require non-empty detail
         expect(item.detail.length).toBeGreaterThan(0);
     });
 
@@ -723,12 +723,12 @@ describe('server lifecycle helpers', () => {
             const r = parseHealthPayload(200, {
                 status: 'ok',
                 service: 'hipcortex',
-                version: '0.5.0',
+                version: '0.5.1',
             });
             expect(r).toEqual({
                 healthy: true,
                 service: 'hipcortex',
-                version: '0.5.0',
+                version: '0.5.1',
             });
         });
 
@@ -745,11 +745,11 @@ describe('server lifecycle helpers', () => {
         test('JSON string body parsed', () => {
             const r = parseHealthPayload(
                 200,
-                '{"status":"ok","service":"hipcortex","version":"0.5.0"}'
+                '{"status":"ok","service":"hipcortex","version":"0.5.1"}'
             );
             expect(r.healthy).toBe(true);
             expect(r.service).toBe('hipcortex');
-            expect(r.version).toBe('0.5.0');
+            expect(r.version).toBe('0.5.1');
         });
 
         test('non-200 rejected', () => {
@@ -771,7 +771,7 @@ describe('server lifecycle helpers', () => {
     });
 
     test('isServerVersionAcceptable: same major.minor different patch ok when not strict', () => {
-        // e.g. server 0.5.0 vs expected 0.5.1 — acceptable in default mode
+        // e.g. server 0.5.0 vs expected 0.5.1 �?acceptable in default mode
         expect(isServerVersionAcceptable('0.5.0', '0.5.1', false)).toBe(true);
         expect(isServerVersionAcceptable('0.5.0', '0.5.1', true)).toBe(false);
     });

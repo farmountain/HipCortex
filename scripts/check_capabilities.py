@@ -23,7 +23,15 @@ MCP_SERVER = ROOT / "sdk" / "mcp" / "server.py"
 CAPABILITIES = ROOT / "docs" / "capabilities.md"
 PY_CLIENT = ROOT / "sdk" / "python" / "hipcortex" / "client.py"
 TS_CLIENT = ROOT / "sdk" / "typescript" / "src" / "client.ts"
-EXPECTED_MCP_VERSION = "0.5.0"
+VERSION_FILE = ROOT / "VERSION"
+
+
+def expected_mcp_version() -> str:
+    """Product version from VERSION file (stamped into MCP serverInfo)."""
+    if not VERSION_FILE.is_file():
+        return "0.0.0"
+    line = VERSION_FILE.read_text(encoding="utf-8").splitlines()[0].split("#", 1)[0].strip()
+    return line or "0.0.0"
 
 
 def extract_mcp_tools(source: str) -> list[str]:
@@ -123,9 +131,10 @@ def main() -> int:
         if not tools:
             print("ERROR: TOOLS list empty", file=sys.stderr)
             return 1
-        if version != EXPECTED_MCP_VERSION:
+        want = expected_mcp_version()
+        if version != want:
             print(
-                f"ERROR: expected MCP version {EXPECTED_MCP_VERSION}, got {version!r}",
+                f"ERROR: expected MCP version {want}, got {version!r}",
                 file=sys.stderr,
             )
             return 1
@@ -139,9 +148,10 @@ def main() -> int:
     if not tools:
         print("ERROR: no MCP TOOLS names parsed from server.py", file=sys.stderr)
         return 1
-    if version != EXPECTED_MCP_VERSION:
+    want = expected_mcp_version()
+    if version != want:
         print(
-            f"ERROR: expected MCP version {EXPECTED_MCP_VERSION} in server.py, got {version!r}",
+            f"ERROR: expected MCP version {want} in server.py, got {version!r}",
             file=sys.stderr,
         )
         return 1

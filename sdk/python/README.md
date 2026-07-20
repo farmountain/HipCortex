@@ -1,4 +1,4 @@
-# HipCortex Python SDK (`v0.5.0`)
+# HipCortex Python SDK (`v0.5.1`)
 
 **Persistent causal topological memory, recursive Bayesian world-model prediction (`/worldmodel/rollout`), and automatic FSM skill compilation for autonomous AI agents.**
 
@@ -15,7 +15,7 @@ hipcortex install  # wizard: MCP hosts + copies ~/.hipcortex-mcp/server.py (18 t
 hipcortex channels # honesty matrix (native / mcp / framework / guide)
 ```
 
-**Version matrix:** product pip/Cargo/MCP `serverInfo` = **0.5.0**; VS Code VSIX = **0.5.7** ([release](https://github.com/farmountain/HipCortex/releases/download/v0.5.7/hipcortex-memory-0.5.7.vsix)). See [docs/channels.md](../../docs/channels.md).
+**Version matrix:** product pip/Cargo/MCP `serverInfo` = **0.5.1**; VS Code VSIX = **0.5.7** ([release](https://github.com/farmountain/HipCortex/releases/download/v0.5.7/hipcortex-memory-0.5.7.vsix)). See [docs/channels.md](../../docs/channels.md).
 
 ---
 

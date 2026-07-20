@@ -137,4 +137,4 @@ We ship faster when users tell us what broke or what you love.
 | [DEPLOY.md](DEPLOY.md) | Self-host / Fly / Docker |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Build from source |
 
-**License:** [Apache-2.0](LICENSE) · **Version:** product `0.5.0` · extension VSIX `0.5.7`
+**License:** [Apache-2.0](LICENSE) · **Version:** product `0.5.1` · extension VSIX `0.5.7`
