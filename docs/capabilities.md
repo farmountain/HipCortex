@@ -1,6 +1,6 @@
 # HipCortex capability matrix
 
-Honest surface coverage as of **product v0.5.2 / VSIX v0.5.7** (code-grounded, not aspirational).
+Honest surface coverage as of **product v0.5.2 / VSIX v0.5.8** (code-grounded, not aspirational).
 
 Legend:
 
