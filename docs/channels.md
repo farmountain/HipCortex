@@ -29,7 +29,7 @@
 | Docker | native | `docker run -p 3030:3030 …` | Image may lag releases |
 | Managed tier (Fly) | native | `hipcortex install --url https://hipcortex.fly.dev` | Remote HTTP |
 | MCP server (Python stdio) | mcp | `hipcortex install` → `~/.hipcortex-mcp/` | Banner **0.5.0**; same on Win/macOS/Linux |
-| VS Code / Antigravity VSIX | native | `code --install-extension hipcortex-memory-0.5.6.vsix` | Ext **0.5.6**; bundled server **0.5.0** multi-OS; dual `/health` (JSON + plain `ok`) |
+| VS Code / Antigravity VSIX | native | `code --install-extension hipcortex-memory-0.5.7.vsix` | Ext **0.5.7**; topo LM tools + dual health; bundled server **0.5.0** multi-OS |
 
 ---
 
@@ -84,7 +84,7 @@
 | Surface | Version |
 |---------|---------|
 | Cargo / pip / npm (product) | 0.5.0 |
-| VS Code extension (VSIX) | 0.5.6 |
+| VS Code extension (VSIX) | 0.5.7 |
 | MCP `serverInfo.version` | 0.5.0 (stamped from VERSION) |
 
 See also: [host install notes](hosts/README.md), [cross-channel UX plan](superpowers/plans/2026-07-18-cross-channel-ux-enhancement-plan.md), [problem catalog](superpowers/specs/2026-07-18-cross-channel-ux-problem-catalog.md).

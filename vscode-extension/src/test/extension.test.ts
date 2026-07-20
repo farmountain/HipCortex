@@ -287,7 +287,7 @@ describe('HipCortex Extension Unit Tests', () => {
             const mockContext: any = { subscriptions: [], asAbsolutePath: (p: string) => p };
             activate(mockContext);
             expect(createSpy).toHaveBeenCalledWith('HipCortex Server');
-            expect(registerToolSpy).toHaveBeenCalledTimes(6);
+            expect(registerToolSpy).toHaveBeenCalledTimes(10);
             // Drain microtask queue so autoStartServer .then settles under mock
             await Promise.resolve();
             for (const sub of mockContext.subscriptions) {

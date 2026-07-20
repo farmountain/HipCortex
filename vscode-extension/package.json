@@ -2,7 +2,7 @@
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
     "description": "Persistent causal topological memory, world model prediction (/worldmodel/rollout), and Headroom token optimization (59-88% savings) for Copilot & Antigravity IDE.",
-    "version": "0.5.6",
+    "version": "0.5.7",
     "publisher": "farmountain",
   "repository": {
     "type": "git",
@@ -166,6 +166,79 @@
                         }
                     },
                     "required": ["seed_id"]
+                }
+            },
+            {
+                "name": "hipcortex_topo_ppr",
+                "displayName": "HipCortex Topo PPR",
+                "description": "Personalized PageRank over the live CausalTopoGraph substrate (symbolic node ids).",
+                "modelDescription": "Use after link/deconstruct for topology-first exploration of graph nodes.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "seed": { "type": "string", "description": "Optional seed symbolic_id" },
+                        "limit": { "type": "number", "description": "Max results (default 10)" }
+                    }
+                }
+            },
+            {
+                "name": "hipcortex_deconstruct",
+                "displayName": "HipCortex Deconstruct Hypothesis",
+                "description": "Parse free text into causal nodes/edges; optionally apply to live topo graph.",
+                "modelDescription": "Parse hypothesis text into causal edges. Set apply=true to write into topo.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "text": { "type": "string", "description": "Hypothesis text" },
+                        "llm_json": { "type": "string", "description": "Optional LLM JSON edges payload" },
+                        "apply": { "type": "boolean", "description": "Apply to live topo graph" }
+                    },
+                    "required": ["text"]
+                }
+            },
+            {
+                "name": "hipcortex_check_edge",
+                "displayName": "HipCortex Check Topo Edge",
+                "description": "Check if adding a causal edge would contradict the topo graph.",
+                "modelDescription": "Check whether from→to would create a cycle or reverse-causal contradiction.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "from": { "type": "string" },
+                        "to": { "type": "string" }
+                    },
+                    "required": ["from", "to"]
+                }
+            },
+            {
+                "name": "hipcortex_can_execute",
+                "displayName": "HipCortex Can Execute",
+                "description": "SelfModel gate: whether an operation should execute.",
+                "modelDescription": "Query SelfModel should_execute for an operation name.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "operation": { "type": "string", "description": "e.g. add_memory, rollout, predict" }
+                    },
+                    "required": ["operation"]
+                }
+            },
+            {
+                "name": "hipcortex_rollout",
+                "displayName": "HipCortex WorldModel Rollout",
+                "description": "Multi-step Dirichlet or goal-shaped MCTS world-model rollout.",
+                "modelDescription": "Multi-step world-model rollout. Prefer mode=dirichlet after observe; mode=mcts with goal_state for goal-shaped search.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "initial_state": { "type": "string" },
+                        "actions": { "type": "array", "items": { "type": "string" } },
+                        "mode": { "type": "string", "enum": ["dirichlet", "mcts", "ensemble"] },
+                        "goal_state": { "type": "string" },
+                        "iterations": { "type": "number" },
+                        "max_depth": { "type": "number" }
+                    },
+                    "required": ["initial_state"]
                 }
             }
         ],

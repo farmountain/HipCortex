@@ -297,6 +297,11 @@ export const HARNESS_TOOL_DESCRIPTIONS = {
     search: 'Use this FIRST for any recall... returns unified live_beliefs (memory + world model + hypotheses + coherence). Call before asking user.',
     health: 'Use this FIRST for any health/status before other actions. Returns substrate health + world model coherence. Call before asking user.',
     predict: 'Use this FIRST for world model predictions. Call substrate predict before deciding actions. Returns WM + uncertainty.',
+    rollout: 'Multi-step world-model rollout. Prefer mode=dirichlet after observe; mode=mcts with goal_state for goal-shaped UCB1 search.',
+    topoPpr: 'Personalized PageRank over live CausalTopoGraph substrate nodes. Use after link/deconstruct.',
+    deconstruct: 'Parse hypothesis text into causal nodes/edges (rules + optional llm_json). Set apply=true to write into topo.',
+    checkEdge: 'Check if adding causal edge from→to would contradict the topo graph (cycle/reverse).',
+    canExecute: 'SelfModel gate: should the agent execute this operation?',
 } as const;
 
 interface MemoryRecord {
@@ -1610,11 +1615,15 @@ export function activate(context: vscode.ExtensionContext) {
         });
 
         const rolloutTool = (vscode.lm as any).registerTool('hipcortex_rollout', {
-            modelDescription: 'Predict state after a sequence of N actions using WorldModelEnhanced multi-step rollout. Provide initial_state and actions (array of strings).',
+            modelDescription: HARNESS_TOOL_DESCRIPTIONS.rollout,
             invoke: async (options: any, _token: vscode.CancellationToken) => {
                 const api = new HipCortexAPI();
                 const initial_state: string = options?.input?.initial_state || '';
                 const actions: string[] = options?.input?.actions || [];
+                const mode: string = options?.input?.mode || (actions.length ? 'dirichlet' : 'mcts');
+                const goal_state: string | undefined = options?.input?.goal_state;
+                const iterations: number = options?.input?.iterations ?? 50;
+                const max_depth: number = options?.input?.max_depth ?? 3;
                 const baseUrl = (api as any).baseUrl;
                 const headers: any = { 'Content-Type': 'application/json' };
                 if ((api as any).apiKey) { headers['Authorization'] = `Bearer ${(api as any).apiKey}`; }
@@ -1623,7 +1632,10 @@ export function activate(context: vscode.ExtensionContext) {
                     if (!gate) {
                         return { content: [{ type: 'text', value: 'Substrate uncertain: confidence too low. Self-Model health gating check failed.' }] };
                     }
-                    const response = await axios.post(`${baseUrl}/worldmodel/rollout`, { initial_state, actions }, { headers });
+                    const body: any = { initial_state, mode, iterations, max_depth };
+                    if (actions.length) { body.actions = actions; }
+                    if (goal_state) { body.goal_state = goal_state; }
+                    const response = await axios.post(`${baseUrl}/worldmodel/rollout`, body, { headers });
                     return { content: [{ type: 'text', value: JSON.stringify(response.data) }] };
                 } catch (err) {
                     return { content: [{ type: 'text', value: `hipcortex_rollout failed: ${err instanceof Error ? err.message : String(err)}` }] };
@@ -1681,8 +1693,95 @@ export function activate(context: vscode.ExtensionContext) {
             }
         });
 
-        context.subscriptions.push(tool, healthTool, predictTool, rolloutTool, graphSearchTool, causalTool);
-        console.log('✅ HipCortex LM Tools registered: hipcortex_search, hipcortex_health, hipcortex_predict, hipcortex_rollout, hipcortex_graph_search, hipcortex_causal');
+        const topoPprTool = (vscode.lm as any).registerTool('hipcortex_topo_ppr', {
+            modelDescription: HARNESS_TOOL_DESCRIPTIONS.topoPpr,
+            invoke: async (options: any) => {
+                const api = new HipCortexAPI();
+                const seed: string = (options?.input?.seed as string | undefined)?.trim() || '';
+                const limit: number = options?.input?.limit ?? 10;
+                const baseUrl = (api as any).baseUrl;
+                const headers: any = {};
+                if ((api as any).apiKey) { headers['Authorization'] = `Bearer ${(api as any).apiKey}`; }
+                try {
+                    const qs = new URLSearchParams({ limit: String(limit) });
+                    if (seed) { qs.set('seed', seed); }
+                    const res = await axios.get(`${baseUrl}/topo/ppr?${qs}`, { headers });
+                    return { content: [{ type: 'text', value: JSON.stringify(res.data, null, 2) }] };
+                } catch (err) {
+                    return { content: [{ type: 'text', value: `hipcortex_topo_ppr failed: ${err instanceof Error ? err.message : String(err)}` }] };
+                }
+            }
+        });
+
+        const deconstructTool = (vscode.lm as any).registerTool('hipcortex_deconstruct', {
+            modelDescription: HARNESS_TOOL_DESCRIPTIONS.deconstruct,
+            invoke: async (options: any) => {
+                const api = new HipCortexAPI();
+                const text: string = (options?.input?.text as string | undefined)?.trim() || '';
+                const llm_json: string | undefined = options?.input?.llm_json;
+                const apply: boolean = Boolean(options?.input?.apply);
+                if (!text) {
+                    return { content: [{ type: 'text', value: 'hipcortex_deconstruct requires text' }] };
+                }
+                const baseUrl = (api as any).baseUrl;
+                const headers: any = { 'Content-Type': 'application/json' };
+                if ((api as any).apiKey) { headers['Authorization'] = `Bearer ${(api as any).apiKey}`; }
+                try {
+                    const body: any = { text };
+                    if (llm_json) { body.llm_json = llm_json; }
+                    const path = apply ? '/topo/apply-hyp' : '/topo/deconstruct';
+                    const res = await axios.post(`${baseUrl}${path}`, body, { headers });
+                    return { content: [{ type: 'text', value: JSON.stringify(res.data, null, 2) }] };
+                } catch (err) {
+                    return { content: [{ type: 'text', value: `hipcortex_deconstruct failed: ${err instanceof Error ? err.message : String(err)}` }] };
+                }
+            }
+        });
+
+        const checkEdgeTool = (vscode.lm as any).registerTool('hipcortex_check_edge', {
+            modelDescription: HARNESS_TOOL_DESCRIPTIONS.checkEdge,
+            invoke: async (options: any) => {
+                const api = new HipCortexAPI();
+                const from: string = options?.input?.from || '';
+                const to: string = options?.input?.to || '';
+                if (!from || !to) {
+                    return { content: [{ type: 'text', value: 'hipcortex_check_edge requires from and to' }] };
+                }
+                const baseUrl = (api as any).baseUrl;
+                const headers: any = { 'Content-Type': 'application/json' };
+                if ((api as any).apiKey) { headers['Authorization'] = `Bearer ${(api as any).apiKey}`; }
+                try {
+                    const res = await axios.post(`${baseUrl}/topo/check-edge`, { from, to }, { headers });
+                    return { content: [{ type: 'text', value: JSON.stringify(res.data, null, 2) }] };
+                } catch (err) {
+                    return { content: [{ type: 'text', value: `hipcortex_check_edge failed: ${err instanceof Error ? err.message : String(err)}` }] };
+                }
+            }
+        });
+
+        const canExecuteTool = (vscode.lm as any).registerTool('hipcortex_can_execute', {
+            modelDescription: HARNESS_TOOL_DESCRIPTIONS.canExecute,
+            invoke: async (options: any) => {
+                const operation: string = options?.input?.operation || 'add_memory';
+                try {
+                    const api = new HipCortexAPI();
+                    const ok = await api.canExecute(operation as any);
+                    return { content: [{ type: 'text', value: `can_execute(${operation}) = ${ok}` }] };
+                } catch (err) {
+                    return { content: [{ type: 'text', value: `hipcortex_can_execute failed: ${err instanceof Error ? err.message : String(err)}` }] };
+                }
+            }
+        });
+
+        context.subscriptions.push(
+            tool, healthTool, predictTool, rolloutTool, graphSearchTool, causalTool,
+            topoPprTool, deconstructTool, checkEdgeTool, canExecuteTool
+        );
+        console.log(
+            '✅ HipCortex LM Tools registered: hipcortex_search, hipcortex_health, hipcortex_predict, ' +
+            'hipcortex_rollout, hipcortex_graph_search, hipcortex_causal, hipcortex_topo_ppr, ' +
+            'hipcortex_deconstruct, hipcortex_check_edge, hipcortex_can_execute'
+        );
     } else {
         console.log('ℹ️ VS Code < 1.90 — LM Tools not available');
     }
