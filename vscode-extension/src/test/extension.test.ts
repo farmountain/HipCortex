@@ -81,7 +81,7 @@ describe('HipCortex Extension Unit Tests', () => {
         test('should perform health check successfully', async () => {
             mockedAxios.get.mockResolvedValueOnce({
                 status: 200,
-                data: { status: 'ok', service: 'hipcortex', version: '0.5.1' },
+                data: { status: 'ok', service: 'hipcortex', version: '0.5.2' },
             });
             
             const result = await api.healthCheck();
@@ -104,7 +104,7 @@ describe('HipCortex Extension Unit Tests', () => {
         test('health check rejects status ok without service field', async () => {
             mockedAxios.get.mockResolvedValueOnce({
                 status: 200,
-                data: { status: 'ok', version: '0.5.1' },
+                data: { status: 'ok', version: '0.5.2' },
             });
             expect(await api.healthCheck()).toBe(false);
         });
@@ -136,7 +136,7 @@ describe('HipCortex Extension Unit Tests', () => {
         test('health check accepts JSON-encoded string body', async () => {
             mockedAxios.get.mockResolvedValueOnce({
                 status: 200,
-                data: '{"status":"ok","service":"hipcortex","version":"0.5.1"}',
+                data: '{"status":"ok","service":"hipcortex","version":"0.5.2"}',
             });
             expect(await api.healthCheck()).toBe(true);
         });
@@ -723,12 +723,12 @@ describe('server lifecycle helpers', () => {
             const r = parseHealthPayload(200, {
                 status: 'ok',
                 service: 'hipcortex',
-                version: '0.5.1',
+                version: '0.5.2',
             });
             expect(r).toEqual({
                 healthy: true,
                 service: 'hipcortex',
-                version: '0.5.1',
+                version: '0.5.2',
             });
         });
 
@@ -745,11 +745,11 @@ describe('server lifecycle helpers', () => {
         test('JSON string body parsed', () => {
             const r = parseHealthPayload(
                 200,
-                '{"status":"ok","service":"hipcortex","version":"0.5.1"}'
+                '{"status":"ok","service":"hipcortex","version":"0.5.2"}'
             );
             expect(r.healthy).toBe(true);
             expect(r.service).toBe('hipcortex');
-            expect(r.version).toBe('0.5.1');
+            expect(r.version).toBe('0.5.2');
         });
 
         test('non-200 rejected', () => {

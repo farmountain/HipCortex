@@ -21,14 +21,14 @@ channels:
     category: distribution
     status: native
     install: "cargo build / GitHub Releases"
-    notes: "Crate version 0.5.1; CLI + webserver"
+    notes: "Crate version 0.5.2; CLI + webserver"
 
   - id: pip
     name: pip (Python SDK + CLI)
     category: distribution
     status: native
     install: "pip install hipcortex && hipcortex install"
-    notes: "Wizard + SDK; package 0.5.1"
+    notes: "Wizard + SDK; package 0.5.2"
 
   - id: npm
     name: npm (TypeScript SDK)
@@ -56,14 +56,14 @@ channels:
     category: distribution
     status: mcp
     install: "hipcortex install (copies ~/.hipcortex-mcp/server.py; PyPI ships hipcortex/install/mcp_server.py)"
-    notes: "serverInfo 0.5.1; 18 tools incl. topo/rollout/can_execute; stamped from VERSION"
+    notes: "serverInfo 0.5.2; 18 tools incl. topo/rollout/can_execute; stamped from VERSION"
 
   - id: vscode-extension
     name: VS Code / Antigravity VSIX
     category: distribution
     status: native
     install: "code --install-extension hipcortex-memory-0.5.7.vsix"
-    notes: "Extension 0.5.7; topo LM tools + dual health; expects server 0.5.1 (same major.minor OK); bundled multi-OS binaries; Antigravity = VS Code-compatible host"
+    notes: "Extension 0.5.7; topo LM tools + dual health; expects server 0.5.2 (same major.minor OK); bundled multi-OS binaries; Antigravity = VS Code-compatible host"
 
   # ── Coding assistants (install registry) ───────────────────────────────
   - id: claude-code
