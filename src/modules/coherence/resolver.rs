@@ -339,18 +339,47 @@ impl ConflictResolver {
     // Helper Methods
     // ========================================================================
 
-    /// Get candidate values from modules (placeholder - real impl would query modules)
+    /// Build candidates from the inconsistency report (affected entities + metadata).
     fn get_candidate_values(
         &self,
-        _inconsistency: &InconsistencyReport,
+        inconsistency: &InconsistencyReport,
     ) -> Result<Vec<CandidateValue>, String> {
-        // In real implementation, this would:
-        // 1. Query temporal indexer, symbolic store, procedural cache, world-model
-        // 2. Extract conflicting values with timestamps and confidence
-        // 3. Return as CandidateValue vec
-        
-        // For now, return empty (will be populated during integration)
-        Ok(Vec::new())
+        let mut candidates = Vec::new();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        for (i, entity) in inconsistency.affected_entities.iter().enumerate() {
+            // Higher index slightly lower confidence; first entity preferred as recency proxy
+            let confidence = (0.85 - 0.05 * (i as f64)).clamp(0.1, 0.95);
+            candidates.push(CandidateValue {
+                value: serde_json::json!(entity),
+                source: format!("affected[{}]", i),
+                confidence,
+                timestamp: now.saturating_sub(i as u64 * 1000),
+            });
+        }
+
+        // Metadata values as secondary candidates
+        for (k, v) in &inconsistency.metadata {
+            candidates.push(CandidateValue {
+                value: v.clone(),
+                source: format!("metadata:{}", k),
+                confidence: 0.6,
+                timestamp: now,
+            });
+        }
+
+        if candidates.is_empty() {
+            candidates.push(CandidateValue {
+                value: serde_json::json!(inconsistency.description),
+                source: "description".into(),
+                confidence: 0.4,
+                timestamp: now,
+            });
+        }
+        Ok(candidates)
     }
 
     /// Create successful resolution result
