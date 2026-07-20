@@ -1,6 +1,6 @@
 # HipCortex capability matrix
 
-Honest surface coverage as of **v0.5.0** (code-grounded, not aspirational).
+Honest surface coverage as of **product v0.5.2 / VSIX v0.5.7** (code-grounded, not aspirational).
 
 Legend:
 
@@ -42,9 +42,11 @@ Columns:
 | health | Y | N | Y | Y | Y | Y | N | N | MCP gap; VS Code LM: `hipcortex_health` |
 | reflect | Y | Y | Y | Y | partial | N | N | N | REST `POST /memory/reflect`. MCP/Python/TS: `reflect`. VS Code API client has `reflect()` used internally |
 | predict | Y | Y | Y | Y | Y | Y | N | N | REST `POST/GET /worldmodel/predict`. MCP/Python/TS: `predict` (state+action). VS Code LM: `hipcortex_predict` |
-| rollout | Y | N | Y | Y | Y | N | N | N | REST `POST /worldmodel/rollout`; VS Code LM: `hipcortex_rollout` |
+| rollout | Y | Y | Y | Y | Y | N | N | N | REST `POST /worldmodel/rollout`; MCP: `rollout` (dirichlet/mcts/ensemble + goal_state); VS Code LM: `hipcortex_rollout` |
 | purge | bg | Y | N | N | N | N | N | N | REST: background TTL eviction only (no dedicated route). MCP: `purge_expired` |
 | search_code | Y | Y | N | N | N | N | N | N | REST `GET /graph/search`; MCP: `search_code` |
+| graph_ppr / topo | Y | Y | N | N | Y | N | N | N | REST `/topo/*`; MCP: `graph_ppr`, `deconstruct_hypothesis`, `check_topo_edge`; LM: `hipcortex_topo_ppr`, `hipcortex_deconstruct`, `hipcortex_check_edge` |
+| can_execute | Y | Y | partial | N | Y | N | N | N | REST self/health gate; MCP + LM: `can_execute` / `hipcortex_can_execute` |
 
 ## MCP tools inventory (must stay in sync)
 
@@ -65,17 +67,22 @@ Checker `scripts/check_capabilities.py` greps these names from `TOOLS` and requi
 | `purge_expired` | purge | Y |
 | `reflect` | reflect | Y |
 | `predict` | predict | Y |
+| `graph_ppr` | graph_ppr / topo | Y |
+| `deconstruct_hypothesis` | graph_ppr / topo | Y |
+| `check_topo_edge` | graph_ppr / topo | Y |
+| `rollout` | rollout | Y |
+| `can_execute` | can_execute | Y |
 
-**Not in MCP `TOOLS` today (honest gaps):** `rollout`, `health`, dedicated `query` tool.
+**Not in MCP `TOOLS` today (honest gaps):** dedicated `health` tool (use REST `/health` or VS Code LM `hipcortex_health`), dedicated `query` tool (use `search_memory` / `get_live_beliefs`).
 
-MCP serverInfo version in `sdk/mcp/server.py`: **0.5.0**.
+MCP serverInfo version in `sdk/mcp/server.py`: **0.5.2**. VS Code extension package: **0.5.7** (10 LM tools).
 
 ## Known surface gaps (priority)
 
-1. **MCP health / rollout** — available on REST + SDKs + VS Code LM (rollout/health) but not MCP.
-2. **Python/TS SDK** — `live_beliefs` / `reflect` / `predict` parity done (v0.5.0+); adapters still lack graph/WM/intelligence ops.
+1. **MCP health** — REST + VS Code LM have first-class health; MCP uses `get_stats` only.
+2. **Python/TS SDK** — `live_beliefs` / `reflect` / `predict` / `rollout` parity present; topo (`graph_ppr` / deconstruct / check_edge) still MCP/REST-first.
 3. **LangChain / CrewAI** — memory chat adapters only (add/query/forget style); no graph/WM/intelligence ops.
-4. **VS Code LM** — strong on search/health/predict/rollout/graph; no first-class add/forget/delete LM tools (commands cover add/query).
+4. **VS Code LM** — 10 tools (search/health/predict/rollout/graph/causal/topo suite/can_execute); no first-class add/forget/delete LM tools (commands cover add/query).
 
 ## How to re-check
 

@@ -340,6 +340,28 @@ impl CausalGraph {
         self.distributions.entry(condition_key).or_default().insert(outcome_key, prob);
     }
 
+    /// True if any empirical distribution is keyed under exact `var=value`.
+    pub fn has_empirical_key(&self, var: &str, value: &str) -> bool {
+        let key = format!("{}={}", var, value);
+        self.distributions.contains_key(&key)
+    }
+
+    /// True if a conditional outcome key is present under the intervention condition.
+    pub fn has_empirical_outcome(
+        &self,
+        intervention_var: &str,
+        intervention_value: &str,
+        outcome_var: &str,
+        outcome_value: &str,
+    ) -> bool {
+        let x_key = format!("{}={}", intervention_var, intervention_value);
+        let y_key = format!("{}={}", outcome_var, outcome_value);
+        self.distributions
+            .get(&x_key)
+            .map(|d| d.contains_key(&y_key))
+            .unwrap_or(false)
+    }
+
     /// Exact Backdoor Adjustment: P(Y | do(X = x)) = sum_z P(Y | X = x, Z = z) * P(Z = z)
     /// where Z is the set of parents (sufficient adjustment set) of X.
     pub fn compute_empirical_intervention(

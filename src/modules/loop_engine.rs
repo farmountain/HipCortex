@@ -223,13 +223,43 @@ impl LoopEngine {
         Ok(true)
     }
 
-    /// Step 3 stub: detect gaps using topo capabilities (PPR etc in future).
-    /// Returns dummy strata for now.
+    /// Detect coverage gaps via topo PPR mass concentration.
+    /// Empty graph → full gap. Low entropy ranks / isolated nodes → partial gap.
     pub fn detect_coverage_gap(&self) -> Option<StrataTrajectory> {
-        if self.topo.node_count() == 0 {
+        let n = self.topo.node_count();
+        if n == 0 {
             return Some(StrataTrajectory {
                 layers: vec!["root::perception".to_string(), "root::action".to_string()],
                 coverage_score: 0.0,
+            });
+        }
+        let ranks = self.topo.personalized_pagerank(&[], 0.85, 10);
+        if ranks.is_empty() {
+            return Some(StrataTrajectory {
+                layers: vec!["unranked".into()],
+                coverage_score: 0.1,
+            });
+        }
+        // Coverage = 1 - Gini-ish concentration of rank mass on top node
+        let mut vals: Vec<f32> = ranks.values().copied().collect();
+        vals.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+        let total: f32 = vals.iter().sum::<f32>().max(1e-6);
+        let top_share = vals[0] / total;
+        let coverage = (1.0 - top_share).clamp(0.0, 1.0);
+        // Gap if coverage weak or very few nodes
+        if coverage < 0.35 || n < 3 {
+            let mut layers: Vec<String> = vals
+                .iter()
+                .zip(ranks.keys())
+                .take(3)
+                .map(|(_, k)| k.clone())
+                .collect();
+            if layers.is_empty() {
+                layers.push("sparse_topology".into());
+            }
+            return Some(StrataTrajectory {
+                layers,
+                coverage_score: coverage,
             });
         }
         None
@@ -301,7 +331,6 @@ impl LoopEngine {
                 // simplistic: just node add increases topo; connection via add_edge would be in full
             }
             self.metrics.mutations += 1;
-            // stub uncertainty propagation on topo (in real would adjust edge conf)
             let _ = self.propagate_uncertainty(attr.resolved_error);
         }
 
@@ -311,41 +340,81 @@ impl LoopEngine {
         Ok(())
     }
 
-    /// Stub: propagate uncertainty after tentative topo mutation.
+    /// Decay edge confidence on the serializable topo graph after high surprise.
     fn propagate_uncertainty(&mut self, resolved_err: f32) {
-        // Would update edge.conf / WM uncertainty; for MVP just log via metrics intent
-        if resolved_err > 0.2 {
-            self.metrics.mutations = self.metrics.mutations; // no-op placeholder
+        if resolved_err <= 0.05 {
+            return;
+        }
+        let decay = (1.0 - resolved_err.clamp(0.0, 0.9) * 0.25) as f32;
+        let mut ser = self.topo.to_serializable();
+        let mut touched = 0usize;
+        for e in ser.edges.iter_mut() {
+            let before = e.confidence;
+            e.confidence = (e.confidence * decay).clamp(0.01, 1.0);
+            if (before - e.confidence).abs() > 1e-6 {
+                touched += 1;
+            }
+        }
+        if touched > 0 {
+            if let Ok(new_topo) = CausalTopoGraph::from_serializable(ser) {
+                self.topo = new_topo;
+            }
+            let _ = self.audit.append(
+                "loop_engine",
+                "propagate_uncertainty",
+                &format!("decay={:.3} edges={}", decay, touched),
+            );
         }
     }
 
-    /// Simulate strategy-conditioned rollouts on localized topo subgraph using WM predict/transitions.
-    /// Returns vec of (predicted_state, prob) for the strata layers.
-    pub fn simulate_rollouts(&self, localized: &CausalTopoGraph, _strata: &StrataTrajectory) -> Vec<(String, f64)> {
+    /// Simulate rollouts: try WM predict on localized topo node ids as states.
+    pub fn simulate_rollouts(&self, localized: &CausalTopoGraph, strata: &StrataTrajectory) -> Vec<(String, f64)> {
         let mut out = vec![];
-        // Use WM transitions if possible; for seeds in localized use predict
-        // simplistic: try predict on any node names we can infer (empty if no WM data)
-        // For test we use WM seeded data
-        if localized.node_count() > 0 {
-            // Heuristic: predict "move" or default action on first possible state
-            // Since topo has no direct state names exposed easily for all, use WM generic predict if seeded
-            if let Ok(pred) = self.wm.predict_next_state("stateA", "move") {
-                for (s, p) in &pred.probabilities {
-                    out.push((s.clone(), *p));
+        let ranks = localized.personalized_pagerank(&[], 0.85, 5);
+        let mut seeds: Vec<String> = ranks
+            .into_iter()
+            .map(|(k, _)| k)
+            .chain(strata.layers.iter().cloned())
+            .collect();
+        seeds.sort();
+        seeds.dedup();
+
+        let actions = ["move", "act", "start", "default"];
+        for seed in seeds.iter().take(8) {
+            for action in &actions {
+                if let Ok(pred) = self.wm.predict_next_state(seed, action) {
+                    for (s, p) in pred.probabilities {
+                        if p > 0.05 {
+                            out.push((s, p));
+                        }
+                    }
+                    if !out.is_empty() {
+                        break;
+                    }
                 }
-            } else if let Ok(pred2) = self.wm.predict_next_state("root", "act") {
-                for (s, p) in &pred2.probabilities {
-                    out.push((s.clone(), *p));
-                }
-            } else {
-                // fallback rollout prediction
-                out.push(("sim_fallback_next".into(), 0.7));
             }
-        } else {
-            out.push(("empty_sim".into(), 0.0));
+            if !out.is_empty() {
+                break;
+            }
+        }
+
+        if out.is_empty() {
+            if let Ok(pred) = self.wm.rollout_dirichlet(
+                seeds.first().cloned().unwrap_or_else(|| "idle".into()),
+                vec!["start".into()],
+            ) {
+                out.push((pred.predicted_state, pred.confidence as f64));
+            }
         }
         if out.is_empty() {
-            out.push(("default_rollout".into(), 0.5));
+            out.push((
+                if localized.node_count() == 0 {
+                    "empty_sim".into()
+                } else {
+                    "sim_fallback_next".into()
+                },
+                if localized.node_count() == 0 { 0.0 } else { 0.5 },
+            ));
         }
         out
     }
@@ -370,11 +439,12 @@ impl LoopEngine {
         }
     }
 
-    /// Update meta beliefs (κs) after attribution/mutation (stub, can tie to WM belief later).
+    /// Update meta beliefs (κs) after attribution/mutation.
     pub fn update_meta_beliefs(&mut self, attr: &AttributionMap) {
-        // For MVP, fold resolved error into state beliefs
-        let key = "kappa_topo".to_string();
-        *self.state.beliefs.entry(key).or_insert(0.0) = attr.topology_fault_weight;
+        *self.state.beliefs.entry("kappa_topo".into()).or_insert(0.0) = attr.topology_fault_weight;
+        *self.state.beliefs.entry("kappa_policy".into()).or_insert(0.0) = attr.policy_fault_weight;
+        *self.state.beliefs.entry("kappa_utility".into()).or_insert(0.0) = attr.utility_fault_weight;
+        *self.state.beliefs.entry("kappa_resolved".into()).or_insert(0.0) = attr.resolved_error;
     }
 
     /// Distills the current cycle: prunes topological edges whose strength or confidence

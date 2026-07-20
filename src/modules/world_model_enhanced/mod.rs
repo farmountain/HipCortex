@@ -83,6 +83,15 @@ use crate::topological_memory::{CausalTopoGraph, EdgeType};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
+/// Stable string for empirical dist keys (1.0 → "1.0", not "1").
+fn format_empirical_value(v: f64) -> String {
+    if (v.fract()).abs() < 1e-12 {
+        format!("{:.1}", v)
+    } else {
+        format!("{}", v)
+    }
+}
+
 /// Central World-Model coordinator integrating all predictive capabilities
 pub struct WorldModelEnhanced {
     /// State transition model (Dirichlet-Multinomial)
@@ -304,18 +313,55 @@ impl WorldModelEnhanced {
         graph.has_path(from, to)
     }
 
-    /// Perform causal intervention P(Y|do(X=x))
+    /// Perform causal intervention P(Y|do(X=x)).
+    /// Prefers exact empirical backdoor adjustment when distributions exist; else heuristic.
     pub fn causal_intervention(
         &self,
         query: InterventionQuery,
     ) -> Result<HashMap<String, f64>, String> {
-        let graph = self.causal_graph.read()
+        let mut graph = self.causal_graph.write()
             .map_err(|e| format!("Failed to acquire causal graph lock: {}", e))?;
-        
+
+        // Normalize float keys: 1.0 → "1.0" (fixed) so record/query match.
+        let x_val = format_empirical_value(query.intervention_value);
+        let y_candidates = [
+            "1.0".to_string(),
+            "0.0".to_string(),
+            "1".to_string(),
+            "0".to_string(),
+            x_val.clone(),
+        ];
+        let mut result = HashMap::new();
+        if graph.has_empirical_key(&query.intervention_var, &x_val) {
+            for y_val in &y_candidates {
+                let y_key = format!("{}={}", query.outcome, y_val);
+                // Only insert if a real conditional entry exists (not the 0.5 default hole).
+                if graph.has_empirical_outcome(&query.intervention_var, &x_val, &query.outcome, y_val) {
+                    if let Ok(p) = graph.compute_empirical_intervention(
+                        &query.intervention_var,
+                        &x_val,
+                        &query.outcome,
+                        y_val,
+                    ) {
+                        result.insert(y_key, p);
+                    }
+                }
+            }
+            if !result.is_empty() {
+                if let Some((_, &p)) = result
+                    .iter()
+                    .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
+                {
+                    result.insert(query.outcome.clone(), p);
+                }
+                return Ok(result);
+            }
+        }
+
         graph.compute_intervention(&query)
     }
 
-    /// Compute counterfactual "what if X had been x instead of x'?"
+    /// Counterfactual via Pearl SCM (abduction-action-prediction); falls back to heuristic.
     pub fn counterfactual(
         &self,
         actual_state: HashMap<String, f64>,
@@ -324,8 +370,11 @@ impl WorldModelEnhanced {
     ) -> Result<HashMap<String, f64>, String> {
         let graph = self.causal_graph.read()
             .map_err(|e| format!("Failed to acquire causal graph lock: {}", e))?;
-        
-        graph.compute_counterfactual(actual_state, intervention_var, intervention_value)
+
+        match graph.compute_scm_counterfactual(&actual_state, &intervention_var, intervention_value) {
+            Ok(cf) => Ok(cf),
+            Err(_) => graph.compute_counterfactual(actual_state, intervention_var, intervention_value),
+        }
     }
 
     // ========================================================================
@@ -374,6 +423,150 @@ impl WorldModelEnhanced {
 
         // Average predictions
         PredictionResult::ensemble_average(ensemble_predictions)
+    }
+
+    /// Multi-step MAP rollout using Dirichlet transition counts (no trained predictor required).
+    /// Returns trajectory of MAP next-states + joint confidence (product of max probs).
+    pub fn rollout_dirichlet(
+        &self,
+        initial_state: String,
+        actions: Vec<String>,
+    ) -> Result<PredictionResult, String> {
+        if actions.is_empty() {
+            return Err("actions must be non-empty".to_string());
+        }
+        let transitions = self.transitions.read()
+            .map_err(|e| format!("Failed to acquire transitions lock: {}", e))?;
+
+        let mut state = initial_state;
+        let mut joint_conf = 1.0_f64;
+        let mut last_dist = HashMap::new();
+        let steps = actions.len();
+
+        for action in &actions {
+            let pred = transitions.predict(&state, action)?;
+            let (next, p) = pred
+                .probabilities
+                .iter()
+                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
+                .map(|(k, v)| (k.clone(), *v))
+                .ok_or_else(|| format!("empty distribution for state '{}' action '{}'", state, action))?;
+            joint_conf *= p;
+            last_dist = pred.probabilities;
+            state = next;
+        }
+
+        Ok(PredictionResult {
+            predicted_state: state,
+            distribution: last_dist,
+            confidence: joint_conf.clamp(0.0, 1.0),
+            steps,
+        })
+    }
+
+    /// Goal-shaped state reward for MCTS: high if state matches goal, medium if substring,
+    /// else small baseline. Prefer certain (low entropy) transitions when no goal.
+    pub fn mcts_state_reward(state: &str, goal_state: Option<&str>) -> f64 {
+        if let Some(g) = goal_state {
+            if state == g {
+                return 10.0;
+            }
+            if !g.is_empty() && (state.contains(g) || g.contains(state)) {
+                return 3.0;
+            }
+            return 0.05;
+        }
+        1.0
+    }
+
+    /// MCTS (UCB1) best first action over TransitionModel.
+    /// `available_actions` empty → actions observed from root_state only.
+    /// `goal_state` shapes leaf/rollout reward (prefer reaching goal).
+    pub fn mcts_best_action(
+        &self,
+        root_state: &str,
+        available_actions: &[String],
+        iterations: usize,
+        max_depth: usize,
+        exploration_constant: f64,
+    ) -> Result<String, String> {
+        self.mcts_best_action_goal(
+            root_state,
+            available_actions,
+            iterations,
+            max_depth,
+            exploration_constant,
+            None,
+        )
+    }
+
+    pub fn mcts_best_action_goal(
+        &self,
+        root_state: &str,
+        available_actions: &[String],
+        iterations: usize,
+        max_depth: usize,
+        exploration_constant: f64,
+        goal_state: Option<&str>,
+    ) -> Result<String, String> {
+        let transitions = self.transitions.read()
+            .map_err(|e| format!("Failed to acquire transitions lock: {}", e))?;
+        let actions: Vec<String> = if available_actions.is_empty() {
+            transitions
+                .get_actions()
+                .into_iter()
+                .filter(|a| transitions.totals.contains_key(&(root_state.to_string(), a.clone())))
+                .collect()
+        } else {
+            available_actions
+                .iter()
+                .filter(|a| transitions.totals.contains_key(&(root_state.to_string(), (*a).clone())))
+                .cloned()
+                .collect()
+        };
+        if actions.is_empty() {
+            return Err("No actions available for MCTS (observe transitions first)".to_string());
+        }
+        let goal = goal_state.map(|s| s.to_string());
+        let mut sim = MctsSimulator::new(root_state.to_string(), exploration_constant);
+        sim.search(
+            &transitions,
+            &actions,
+            iterations.max(1),
+            max_depth.max(1),
+            move |s| Self::mcts_state_reward(s, goal.as_deref()),
+        )
+    }
+
+    /// MCTS search for best first action, then one-step Dirichlet MAP along that action.
+    pub fn rollout_mcts(
+        &self,
+        initial_state: String,
+        available_actions: Vec<String>,
+        iterations: usize,
+        max_depth: usize,
+    ) -> Result<(String, PredictionResult), String> {
+        self.rollout_mcts_goal(initial_state, available_actions, iterations, max_depth, None)
+    }
+
+    pub fn rollout_mcts_goal(
+        &self,
+        initial_state: String,
+        available_actions: Vec<String>,
+        iterations: usize,
+        max_depth: usize,
+        goal_state: Option<String>,
+    ) -> Result<(String, PredictionResult), String> {
+        let best = self.mcts_best_action_goal(
+            &initial_state,
+            &available_actions,
+            iterations,
+            max_depth,
+            1.414,
+            goal_state.as_deref(),
+        )?;
+        let pred = self.rollout_dirichlet(initial_state, vec![best.clone()])?;
+        Ok((best, pred))
     }
 
     // ========================================================================
@@ -649,6 +842,94 @@ mod tests {
         let p_s2 = pred.probabilities.get("S2").unwrap_or(&0.0);
         let p_s3 = pred.probabilities.get("S3").unwrap_or(&0.0);
         assert!(p_s2 > p_s3);
+    }
+
+    #[test]
+    fn test_rollout_dirichlet_multi_step() {
+        let wm = WorldModelEnhanced::new();
+        wm.observe_transition("idle".into(), "start".into(), "run".into()).unwrap();
+        wm.observe_transition("run".into(), "stop".into(), "idle".into()).unwrap();
+        let pred = wm
+            .rollout_dirichlet("idle".into(), vec!["start".into(), "stop".into()])
+            .unwrap();
+        assert_eq!(pred.predicted_state, "idle");
+        assert_eq!(pred.steps, 2);
+        assert!(pred.confidence > 0.0);
+    }
+
+    #[test]
+    fn test_mcts_best_action_after_observe() {
+        let wm = WorldModelEnhanced::new();
+        wm.observe_transition("S".into(), "go".into(), "T".into()).unwrap();
+        wm.observe_transition("S".into(), "wait".into(), "S".into()).unwrap();
+        let best = wm.mcts_best_action("S", &[], 30, 2, 1.414).unwrap();
+        assert!(best == "go" || best == "wait", "got {}", best);
+    }
+
+    #[test]
+    fn test_mcts_goal_prefers_path_to_goal() {
+        let wm = WorldModelEnhanced::new();
+        // go → Goal, wait → stay
+        for _ in 0..5 {
+            wm.observe_transition("S".into(), "go".into(), "Goal".into()).unwrap();
+            wm.observe_transition("S".into(), "wait".into(), "S".into()).unwrap();
+        }
+        let best = wm
+            .mcts_best_action_goal("S", &[], 80, 2, 1.414, Some("Goal"))
+            .unwrap();
+        assert_eq!(best, "go", "goal-shaped MCTS should prefer go → Goal");
+    }
+
+    #[test]
+    fn test_empirical_intervention_parentless() {
+        let mut g = CausalGraph::new();
+        g.add_node("X".into()).unwrap();
+        g.add_node("Y".into()).unwrap();
+        g.add_edge("X".into(), "Y".into()).unwrap();
+        g.record_empirical_distribution("X=1.0".into(), "Y=1".into(), 0.8);
+        let p = g
+            .compute_empirical_intervention("X", "1.0", "Y", "1")
+            .unwrap();
+        assert!((p - 0.8).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_wm_causal_intervention_uses_empirical_float_keys() {
+        let wm = WorldModelEnhanced::new();
+        {
+            let mut g = wm.causal_graph.write().unwrap();
+            g.add_node("X".into()).unwrap();
+            g.add_node("Y".into()).unwrap();
+            g.add_edge("X".into(), "Y".into()).unwrap();
+            g.record_empirical_distribution("X=1.0".into(), "Y=1.0".into(), 0.9);
+        }
+        let q = InterventionQuery {
+            outcome: "Y".into(),
+            intervention_var: "X".into(),
+            intervention_value: 1.0,
+            conditioned_on: HashMap::new(),
+        };
+        let res = wm.causal_intervention(q).unwrap();
+        assert!(
+            (res.get("Y").copied().unwrap_or(0.0) - 0.9).abs() < 1e-9,
+            "got {:?}",
+            res
+        );
+    }
+
+    #[test]
+    fn test_scm_counterfactual_linear() {
+        let mut g = CausalGraph::new();
+        g.add_node("X".into()).unwrap();
+        g.add_node("Y".into()).unwrap();
+        g.add_edge("X".into(), "Y".into()).unwrap();
+        // edge weight default 1.0: Y = X + U_y; observe X=0.5, Y=0.7 → U_y=0.2
+        let mut obs = HashMap::new();
+        obs.insert("X".into(), 0.5);
+        obs.insert("Y".into(), 0.7);
+        let cf = g.compute_scm_counterfactual(&obs, "X", 1.0).unwrap();
+        assert!((cf["X"] - 1.0).abs() < 1e-9);
+        assert!((cf["Y"] - 1.2).abs() < 1e-9); // 1.0*1.0 + 0.2
     }
 
     #[test]

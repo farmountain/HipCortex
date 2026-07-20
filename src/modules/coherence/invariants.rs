@@ -163,33 +163,30 @@ impl SystemInvariants {
     ///
     /// Validates: ∀ entity e, temporal_count(e) = symbolic_count(e) = world_model_count(e)
     fn check_memory_consistency(&self) -> Result<Option<InvariantViolation>, String> {
-        // In real implementation, query actual modules
-        // For now, provide structure
-        
-        // Pseudo-code:
-        // let entities = get_all_entity_ids();
-        // for entity_id in entities {
-        //     let temporal_count = temporal_indexer.count_references(&entity_id);
-        //     let symbolic_count = symbolic_store.count_references(&entity_id);
-        //     let world_model_count = world_model.count_references(&entity_id);
-        //     
-        //     if temporal_count != symbolic_count || symbolic_count != world_model_count {
-        //         return Ok(Some(InvariantViolation::new(
-        //             InvariantType::MemoryConsistency,
-        //             format!(
-        //                 "Entity {} has inconsistent counts: temporal={}, symbolic={}, world_model={}",
-        //                 entity_id, temporal_count, symbolic_count, world_model_count
-        //             ),
-        //             vec![entity_id.clone()],
-        //             true, // Critical - memory corruption
-        //         )
-        //         .with_diagnostic("temporal_count".to_string(), temporal_count.into())
-        //         .with_diagnostic("symbolic_count".to_string(), symbolic_count.into())
-        //         .with_diagnostic("world_model_count".to_string(), world_model_count.into())));
-        //     }
-        // }
-        
-        Ok(None) // No violation detected (placeholder)
+        // Use recorded activation / lifecycle maps as proxy entity registry.
+        for (entity_id, history) in &self.activation_history {
+            if history.is_empty() {
+                continue;
+            }
+            if let Some((created, deleted)) = self.entity_lifecycle.get(entity_id) {
+                if *deleted > *created {
+                    return Ok(Some(
+                        InvariantViolation::new(
+                            InvariantType::MemoryConsistency,
+                            format!(
+                                "Entity {} lifecycle inconsistent: created={}, deleted={}",
+                                entity_id, created, deleted
+                            ),
+                            vec![entity_id.clone()],
+                            true,
+                        )
+                        .with_diagnostic("created".into(), serde_json::json!(created))
+                        .with_diagnostic("deleted".into(), serde_json::json!(deleted)),
+                    ));
+                }
+            }
+        }
+        Ok(None)
     }
 
     /// Check decay monotonicity invariant

@@ -95,7 +95,7 @@ pub struct ResolutionHistory {
     pub manual_override_by: Option<String>,
 }
 
-/// Conflict resolver with pluggable strategies
+/// Conflict resolver with pluggable strategies + optional live module sources.
 pub struct ConflictResolver {
     /// Resolution history (for audit)
     history: Vec<ResolutionHistory>,
@@ -105,6 +105,13 @@ pub struct ConflictResolver {
     
     /// Consensus threshold (fraction of modules that must agree)
     consensus_threshold: f64,
+
+    /// Optional symbolic store for label/entity candidates
+    symbolic: Option<std::sync::Arc<std::sync::Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>>,
+    /// Optional world model for tracked entity candidates
+    world_model: Option<std::sync::Arc<crate::world_model_enhanced::WorldModelEnhanced>>,
+    /// Optional temporal indexer (UUID-keyed traces) for recency candidates
+    temporal: Option<std::sync::Arc<std::sync::Mutex<crate::temporal_indexer::TemporalIndexer<uuid::Uuid>>>>,
 }
 
 impl ConflictResolver {
@@ -114,6 +121,9 @@ impl ConflictResolver {
             history: Vec::new(),
             manual_overrides: HashMap::new(),
             consensus_threshold: 0.5, // Simple majority
+            symbolic: None,
+            world_model: None,
+            temporal: None,
         }
     }
 
@@ -123,7 +133,52 @@ impl ConflictResolver {
             history: Vec::new(),
             manual_overrides: HashMap::new(),
             consensus_threshold: threshold,
+            symbolic: None,
+            world_model: None,
+            temporal: None,
         }
+    }
+
+    pub fn with_symbolic(
+        mut self,
+        store: std::sync::Arc<std::sync::Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>,
+    ) -> Self {
+        self.symbolic = Some(store);
+        self
+    }
+
+    pub fn with_world_model(
+        mut self,
+        wm: std::sync::Arc<crate::world_model_enhanced::WorldModelEnhanced>,
+    ) -> Self {
+        self.world_model = Some(wm);
+        self
+    }
+
+    pub fn with_temporal(
+        mut self,
+        ti: std::sync::Arc<std::sync::Mutex<crate::temporal_indexer::TemporalIndexer<uuid::Uuid>>>,
+    ) -> Self {
+        self.temporal = Some(ti);
+        self
+    }
+
+    pub fn set_symbolic(
+        &mut self,
+        store: std::sync::Arc<std::sync::Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>,
+    ) {
+        self.symbolic = Some(store);
+    }
+
+    pub fn set_world_model(&mut self, wm: std::sync::Arc<crate::world_model_enhanced::WorldModelEnhanced>) {
+        self.world_model = Some(wm);
+    }
+
+    pub fn set_temporal(
+        &mut self,
+        ti: std::sync::Arc<std::sync::Mutex<crate::temporal_indexer::TemporalIndexer<uuid::Uuid>>>,
+    ) {
+        self.temporal = Some(ti);
     }
 
     // ========================================================================
@@ -339,18 +394,124 @@ impl ConflictResolver {
     // Helper Methods
     // ========================================================================
 
-    /// Get candidate values from modules (placeholder - real impl would query modules)
-    fn get_candidate_values(
+    /// Build candidates from report + optional symbolic / world-model / temporal modules.
+    pub(crate) fn get_candidate_values(
         &self,
-        _inconsistency: &InconsistencyReport,
+        inconsistency: &InconsistencyReport,
     ) -> Result<Vec<CandidateValue>, String> {
-        // In real implementation, this would:
-        // 1. Query temporal indexer, symbolic store, procedural cache, world-model
-        // 2. Extract conflicting values with timestamps and confidence
-        // 3. Return as CandidateValue vec
-        
-        // For now, return empty (will be populated during integration)
-        Ok(Vec::new())
+        let mut candidates = Vec::new();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+
+        for (i, entity) in inconsistency.affected_entities.iter().enumerate() {
+            let confidence = (0.85 - 0.05 * (i as f64)).clamp(0.1, 0.95);
+            candidates.push(CandidateValue {
+                value: serde_json::json!(entity),
+                source: format!("affected[{}]", i),
+                confidence,
+                timestamp: now.saturating_sub(i as u64 * 1000),
+            });
+
+            // Live symbolic labels
+            if let Some(ref store) = self.symbolic {
+                if let Ok(mut s) = store.lock() {
+                    let hits = s.find_by_label(entity);
+                    for (j, node) in hits.into_iter().take(3).enumerate() {
+                        candidates.push(CandidateValue {
+                            value: serde_json::json!({
+                                "id": node.id.to_string(),
+                                "label": node.label,
+                                "properties": node.properties,
+                            }),
+                            source: format!("symbolic[{}]", j),
+                            confidence: 0.8,
+                            timestamp: now,
+                        });
+                    }
+                }
+            }
+
+            // World-model entity presence
+            if let Some(ref wm) = self.world_model {
+                if let Ok(ids) = wm.list_entities() {
+                    if ids.iter().any(|id| id == entity) {
+                        candidates.push(CandidateValue {
+                            value: serde_json::json!({"entity_id": entity, "tracked": true}),
+                            source: "world_model".into(),
+                            confidence: 0.75,
+                            timestamp: now,
+                        });
+                    }
+                }
+            }
+
+            // Temporal indexer: direct UUID hit + recent traces that reference entity
+            if let Some(ref ti) = self.temporal {
+                if let Ok(idx) = ti.lock() {
+                    if let Ok(uid) = uuid::Uuid::parse_str(entity) {
+                        if let Some(tr) = idx.get_trace(uid) {
+                            let ts = tr
+                                .timestamp
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .map(|d| d.as_millis() as u64)
+                                .unwrap_or(now);
+                            candidates.push(CandidateValue {
+                                value: serde_json::json!({
+                                    "trace_id": tr.id.to_string(),
+                                    "data": tr.data.to_string(),
+                                    "relevance": tr.relevance,
+                                }),
+                                source: "temporal_direct".into(),
+                                confidence: (tr.relevance as f64).clamp(0.2, 0.95),
+                                timestamp: ts,
+                            });
+                        }
+                    }
+                    for tr in idx.get_recent(40) {
+                        let id_s = tr.id.to_string();
+                        let data_s = tr.data.to_string();
+                        if id_s.contains(entity) || data_s.contains(entity) || entity.contains(&id_s) {
+                            let ts = tr
+                                .timestamp
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .map(|d| d.as_millis() as u64)
+                                .unwrap_or(now);
+                            candidates.push(CandidateValue {
+                                value: serde_json::json!({
+                                    "trace_id": id_s,
+                                    "data": data_s,
+                                    "relevance": tr.relevance,
+                                }),
+                                source: "temporal_recent".into(),
+                                confidence: (0.55 + tr.relevance as f64 * 0.3).clamp(0.2, 0.9),
+                                timestamp: ts,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        for (k, v) in &inconsistency.metadata {
+            candidates.push(CandidateValue {
+                value: v.clone(),
+                source: format!("metadata:{}", k),
+                confidence: 0.6,
+                timestamp: now,
+            });
+        }
+
+        if candidates.is_empty() {
+            candidates.push(CandidateValue {
+                value: serde_json::json!(inconsistency.description),
+                source: "description".into(),
+                confidence: 0.4,
+                timestamp: now,
+            });
+        }
+        Ok(candidates)
     }
 
     /// Create successful resolution result
@@ -472,6 +633,42 @@ mod tests {
         let resolver = ConflictResolver::new();
         assert_eq!(resolver.consensus_threshold, 0.5);
         assert_eq!(resolver.history.len(), 0);
+    }
+
+    #[test]
+    fn test_get_candidates_with_temporal_source() {
+        use crate::temporal_indexer::{TemporalIndexer, TemporalTrace};
+        use crate::decay::DecayType;
+        use std::sync::{Arc, Mutex};
+        use std::time::{Duration, SystemTime};
+
+        let mut idx = TemporalIndexer::<uuid::Uuid>::new(32, 3600);
+        let data = uuid::Uuid::new_v4();
+        let id = uuid::Uuid::new_v4();
+        idx.insert(TemporalTrace {
+            id,
+            timestamp: SystemTime::now(),
+            data,
+            relevance: 0.9,
+            decay_factor: 1.0,
+            last_access: SystemTime::now(),
+            decay_type: DecayType::Exponential {
+                half_life: Duration::from_secs(3600),
+            },
+        });
+        let resolver = ConflictResolver::new().with_temporal(Arc::new(Mutex::new(idx)));
+        let report = InconsistencyReport::new(
+            InconsistencyType::TemporalSymbolicMismatch,
+            vec![id.to_string()],
+            "test temporal".into(),
+            5,
+        );
+        let cands = resolver.get_candidate_values(&report).unwrap();
+        assert!(
+            cands.iter().any(|c| c.source.starts_with("temporal")),
+            "expected temporal candidates, got {:?}",
+            cands.iter().map(|c| &c.source).collect::<Vec<_>>()
+        );
     }
 
     #[test]

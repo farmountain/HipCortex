@@ -1,6 +1,6 @@
 [package]
 name = "hipcortex"
-version = "0.5.0"
+version = "0.5.2"
 edition = "2021"
 description = "A modular, agentic AI memory engine for reasoning, edge, and multi-agent workflows"
 repository = "https://github.com/farmountain/HipCortex"
@@ -111,6 +111,14 @@ required-features = ["web-server"]
 name = "webserver"
 path = "src/bin/webserver.rs"
 required-features = ["web-server"]
+
+[[bin]]
+name = "migrate"
+path = "scripts/migrate.rs"
+
+[[bin]]
+name = "import_trace"
+path = "scripts/import_trace.rs"
 
 [features]
 # Core features - start with petgraph_backend for minimal setup

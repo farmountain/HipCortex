@@ -279,7 +279,13 @@ pub struct MemoryLinkRequest {
     pub from_id:  String,  // MemoryRecord UUID
     #[serde(alias = "target_id")]
     pub to_id:    String,  // MemoryRecord UUID
+    #[serde(default = "default_link_relation")]
     pub relation: String,
+}
+
+#[cfg(feature = "web-server")]
+fn default_link_relation() -> String {
+    "related".to_string()
 }
 
 #[cfg(feature = "web-server")]
@@ -846,6 +852,30 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         .route("/memory/link",            memory_link_route)
         .route("/memory/neighbors/:id",   memory_neighbors_route)
         .route("/memory/search/related",  memory_search_related_route)
+        // Topological substrate APIs (search / contradiction / deconstructor)
+        .route("/topo/ppr", {
+            let tg = topo_arc.clone();
+            get(move |Query(p): Query<TopoPprParams>| async move {
+                handle_topo_ppr(tg, Query(p)).await
+            })
+        })
+        .route("/topo/check-edge", {
+            let tg = topo_arc.clone();
+            post(move |Json(req): Json<serde_json::Value>| async move {
+                handle_topo_check_edge(tg, Json(req)).await
+            })
+        })
+        .route("/topo/deconstruct", {
+            post(move |Json(req): Json<serde_json::Value>| async move {
+                handle_topo_deconstruct(Json(req)).await
+            })
+        })
+        .route("/topo/apply-hyp", {
+            let tg = topo_arc.clone();
+            post(move |Json(req): Json<serde_json::Value>| async move {
+                handle_topo_apply_hyp(tg, Json(req)).await
+            })
+        })
         .route("/memory/ingest", ingest_route)
         .route("/memory/quarantine/:id", quarantine_route)
         .route("/memory/restore/:id", restore_route)
@@ -2015,6 +2045,18 @@ async fn handle_memory_link<B: MemoryBackend + Send + Sync + 'static>(
     topo: Arc<Mutex<crate::topological_memory::CausalTopoGraph>>,
     req: MemoryLinkRequest,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    {
+        let ctx = format!("link {} --[{}]--> {}", req.from_id, req.relation, req.to_id);
+        if let Ok(mut guard) = crate::safety_guardrail::SAFETY_GUARDRAIL.lock() {
+            if let Err(reason) = guard.check_precondition(&ctx) {
+                return Err((
+                    StatusCode::FORBIDDEN,
+                    Json(serde_json::json!({"success": false, "error": reason})),
+                ));
+            }
+        }
+    }
+
     let from_uuid = uuid::Uuid::parse_str(&req.from_id).map_err(|_| (
         StatusCode::BAD_REQUEST,
         Json(serde_json::json!({"success": false, "error": "invalid from_id UUID"})),
@@ -2974,6 +3016,24 @@ async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
     world_model: Arc<RwLock<WorldModelEnhanced>>,
     req: AddMemoryRequest,
 ) -> Result<Json<AddMemoryResponse>, (StatusCode, Json<AddMemoryResponse>)> {
+    // Safety: classify free-text target/action before mutation
+    {
+        let ctx = format!("{} {} {}", req.actor, req.action, req.target);
+        if let Ok(mut guard) = crate::safety_guardrail::SAFETY_GUARDRAIL.lock() {
+            if let Err(reason) = guard.check_precondition(&ctx) {
+                return Err((
+                    StatusCode::FORBIDDEN,
+                    Json(AddMemoryResponse {
+                        success: false,
+                        record_id: None,
+                        error: Some(reason),
+                        warning: None,
+                    }),
+                ));
+            }
+        }
+    }
+
     let record_type = parse_record_type_alias(req.record_type.as_deref());
 
     let actor_name = req.actor.clone();
@@ -3766,17 +3826,29 @@ async fn handle_wm_uncertainty(
 
 // ── G6: WorldModel REST handlers ─────────────────────────────────────────────
 
-/// POST /worldmodel/observe — feed {from, action, to} into Dirichlet transition model
+/// POST /worldmodel/observe — feed transition into Dirichlet model.
+/// Accepts canonical `{from, action, to}` and aliases `{state, action, next_state}`.
 #[cfg(feature = "web-server")]
 async fn handle_wm_observe(
     world_model: Arc<RwLock<WorldModelEnhanced>>,
     Json(req): Json<serde_json::Value>,
 ) -> Json<serde_json::Value> {
-    let from   = req["from"].as_str().unwrap_or("").to_string();
+    let from = req["from"]
+        .as_str()
+        .or_else(|| req["state"].as_str())
+        .unwrap_or("")
+        .to_string();
     let action = req["action"].as_str().unwrap_or("").to_string();
-    let to     = req["to"].as_str().unwrap_or("").to_string();
+    let to = req["to"]
+        .as_str()
+        .or_else(|| req["next_state"].as_str())
+        .unwrap_or("")
+        .to_string();
     if from.is_empty() || action.is_empty() || to.is_empty() {
-        return Json(serde_json::json!({"success": false, "error": "from, action, to required"}));
+        return Json(serde_json::json!({
+            "success": false,
+            "error": "from|state, action, to|next_state required"
+        }));
     }
     match world_model.write() {
         Ok(mut wm) => match wm.observe_transition(from, action, to) {
@@ -3835,7 +3907,21 @@ async fn handle_wm_predict_post(
 #[derive(Deserialize)]
 struct WmRolloutRequest {
     initial_state: String,
+    /// Fixed action sequence (Dirichlet MAP multi-step). Optional when mode=mcts.
+    #[serde(default)]
     actions: Vec<String>,
+    /// "dirichlet" (default) | "mcts" | "ensemble"
+    #[serde(default)]
+    mode: Option<String>,
+    /// MCTS iterations (default 50)
+    #[serde(default)]
+    iterations: Option<usize>,
+    /// MCTS / rollout depth (default 3)
+    #[serde(default)]
+    max_depth: Option<usize>,
+    /// Goal state for goal-shaped MCTS reward
+    #[serde(default)]
+    goal_state: Option<String>,
 }
 
 #[cfg(feature = "web-server")]
@@ -3843,22 +3929,230 @@ async fn handle_wm_rollout(
     world_model: Arc<RwLock<WorldModelEnhanced>>,
     Json(req): Json<WmRolloutRequest>,
 ) -> Json<serde_json::Value> {
-    if req.actions.is_empty() {
-        return Json(serde_json::json!({"error": "actions must be non-empty"}));
-    }
+    let mode = req
+        .mode
+        .as_deref()
+        .unwrap_or(if req.actions.is_empty() { "mcts" } else { "dirichlet" })
+        .to_lowercase();
+    let iterations = req.iterations.unwrap_or(50);
+    let max_depth = req.max_depth.unwrap_or(3);
+
     match world_model.read() {
-        Ok(wm) => match wm.predict_multi_step(req.initial_state.clone(), req.actions.clone()) {
-            Ok(pred) => Json(serde_json::json!({
-                "initial_state":   req.initial_state,
-                "actions":         req.actions,
-                "predicted_state": pred.predicted_state,
-                "distribution":    pred.distribution,
-                "confidence":      pred.confidence,
-                "steps":           pred.steps,
-            })),
-            Err(e) => Json(serde_json::json!({"error": e})),
-        },
+        Ok(wm) => {
+            if mode == "mcts" {
+                match wm.rollout_mcts_goal(
+                    req.initial_state.clone(),
+                    req.actions.clone(),
+                    iterations,
+                    max_depth,
+                    req.goal_state.clone(),
+                ) {
+                    Ok((best_action, pred)) => {
+                        return Json(serde_json::json!({
+                            "mode": "mcts",
+                            "initial_state": req.initial_state,
+                            "goal_state": req.goal_state,
+                            "best_action": best_action,
+                            "predicted_state": pred.predicted_state,
+                            "distribution": pred.distribution,
+                            "confidence": pred.confidence,
+                            "steps": pred.steps,
+                            "iterations": iterations,
+                            "max_depth": max_depth,
+                        }));
+                    }
+                    Err(e) => return Json(serde_json::json!({"error": e, "mode": "mcts"})),
+                }
+            }
+
+            if req.actions.is_empty() {
+                return Json(serde_json::json!({
+                    "error": "actions must be non-empty (or set mode=mcts)"
+                }));
+            }
+
+            // Prefer Dirichlet transition multi-step (works after observe; no 100-obs train).
+            if mode != "ensemble" {
+                if let Ok(pred) = wm.rollout_dirichlet(req.initial_state.clone(), req.actions.clone()) {
+                    return Json(serde_json::json!({
+                        "mode": "dirichlet",
+                        "initial_state": req.initial_state,
+                        "actions": req.actions,
+                        "predicted_state": pred.predicted_state,
+                        "distribution": pred.distribution,
+                        "confidence": pred.confidence,
+                        "steps": pred.steps,
+                    }));
+                }
+            }
+
+            // Ensemble fallback (trained predictors)
+            match wm.predict_multi_step(req.initial_state.clone(), req.actions.clone()) {
+                Ok(pred) => Json(serde_json::json!({
+                    "mode": "ensemble",
+                    "initial_state": req.initial_state,
+                    "actions": req.actions,
+                    "predicted_state": pred.predicted_state,
+                    "distribution": pred.distribution,
+                    "confidence": pred.confidence,
+                    "steps": pred.steps,
+                })),
+                Err(e) => Json(serde_json::json!({"error": e})),
+            }
+        }
         Err(e) => Json(serde_json::json!({"error": format!("lock: {}", e)})),
+    }
+}
+
+// ── Topological substrate HTTP handlers ─────────────────────────────────────
+
+#[cfg(feature = "web-server")]
+#[derive(Deserialize)]
+struct TopoPprParams {
+    seed: Option<String>,
+    limit: Option<usize>,
+    damping: Option<f32>,
+}
+
+#[cfg(feature = "web-server")]
+async fn handle_topo_ppr(
+    topo: Arc<Mutex<crate::topological_memory::CausalTopoGraph>>,
+    Query(params): Query<TopoPprParams>,
+) -> Json<serde_json::Value> {
+    let limit = params.limit.unwrap_or(10).min(50);
+    let damping = params.damping.unwrap_or(0.85);
+    match topo.lock() {
+        Ok(g) => {
+            let results: Vec<(String, f64)> = match params.seed.as_deref() {
+                Some(seed) if !seed.is_empty() => {
+                    let weighted = crate::topological_memory::ppr_weighted(&g, seed, limit);
+                    if weighted.is_empty() {
+                        crate::topological_memory::ppr_search(
+                            &g,
+                            &[seed.to_string()],
+                            limit,
+                            damping,
+                            15,
+                        )
+                        .into_iter()
+                        .map(|(id, s)| (id, s as f64))
+                        .collect()
+                    } else {
+                        weighted
+                    }
+                }
+                _ => crate::topological_memory::ppr_search(&g, &[], limit, damping, 15)
+                    .into_iter()
+                    .map(|(id, s)| (id, s as f64))
+                    .collect(),
+            };
+            let arr: Vec<serde_json::Value> = results
+                .into_iter()
+                .map(|(id, score)| serde_json::json!({"id": id, "score": score}))
+                .collect();
+            Json(serde_json::json!({"results": arr, "total": arr.len()}))
+        }
+        Err(e) => Json(serde_json::json!({"error": format!("lock: {}", e), "results": []})),
+    }
+}
+
+#[cfg(feature = "web-server")]
+async fn handle_topo_check_edge(
+    topo: Arc<Mutex<crate::topological_memory::CausalTopoGraph>>,
+    Json(req): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    let from = req["from"].as_str().unwrap_or("").to_string();
+    let to = req["to"].as_str().unwrap_or("").to_string();
+    if from.is_empty() || to.is_empty() {
+        return Json(serde_json::json!({"success": false, "error": "from and to required"}));
+    }
+    use crate::topological_memory::{analyze_proposed_edge, would_contradict, EdgeType};
+    match topo.lock() {
+        Ok(g) => {
+            let contradicts = would_contradict(&g, &from, &to, EdgeType::Causal);
+            let report = analyze_proposed_edge(&g, &from, &to, EdgeType::Causal);
+            Json(serde_json::json!({
+                "success": true,
+                "would_contradict": contradicts,
+                "report": report,
+            }))
+        }
+        Err(e) => Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
+    }
+}
+
+#[cfg(feature = "web-server")]
+async fn handle_topo_deconstruct(
+    Json(req): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    let text = req["text"].as_str().unwrap_or("").to_string();
+    if text.trim().is_empty() {
+        return Json(serde_json::json!({"success": false, "error": "text required"}));
+    }
+    let llm_hint = req["llm_json"].as_str();
+    let hyp = crate::topological_memory::deconstruct_with_llm_hint(&text, llm_hint);
+    Json(serde_json::json!({
+        "success": true,
+        "nodes": hyp.nodes,
+        "edges": hyp.edges,
+        "raw": hyp.raw,
+    }))
+}
+
+/// Deconstruct text and apply edges onto the live CausalTopoGraph (best-effort).
+#[cfg(feature = "web-server")]
+async fn handle_topo_apply_hyp(
+    topo: Arc<Mutex<crate::topological_memory::CausalTopoGraph>>,
+    Json(req): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    let text = req["text"].as_str().unwrap_or("").to_string();
+    if text.trim().is_empty() {
+        return Json(serde_json::json!({"success": false, "error": "text required"}));
+    }
+    {
+        if let Ok(mut guard) = crate::safety_guardrail::SAFETY_GUARDRAIL.lock() {
+            if let Err(reason) = guard.check_precondition(&text) {
+                return Json(serde_json::json!({"success": false, "error": reason}));
+            }
+        }
+    }
+    let hyp = crate::topological_memory::deconstruct_with_llm_hint(
+        &text,
+        req["llm_json"].as_str(),
+    );
+    match topo.lock() {
+        Ok(mut g) => {
+            let mut added_nodes = 0usize;
+            let mut added_edges = 0usize;
+            let mut skipped = Vec::new();
+            for n in &hyp.nodes {
+                let props = crate::topological_memory::hyp_to_props(&hyp);
+                match g.add_node(n.clone(), [0.05; 128], props) {
+                    Ok(_) => added_nodes += 1,
+                    Err(_) => {} // exists
+                }
+            }
+            for e in &hyp.edges {
+                match g.add_edge(
+                    e.from.clone(),
+                    e.to.clone(),
+                    crate::topological_memory::EdgeType::Causal,
+                    e.confidence,
+                    e.confidence,
+                ) {
+                    Ok(_) => added_edges += 1,
+                    Err(err) => skipped.push(format!("{}->{}: {}", e.from, e.to, err)),
+                }
+            }
+            Json(serde_json::json!({
+                "success": true,
+                "added_nodes": added_nodes,
+                "added_edges": added_edges,
+                "skipped": skipped,
+                "hypothesis": hyp,
+            }))
+        }
+        Err(e) => Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
     }
 }
 
@@ -4117,10 +4411,13 @@ async fn handle_worldmodel_status(
         "tracked_entities": entity_count,
         "endpoints": {
             "observe": "POST /worldmodel/observe",
-            "predict": "GET /worldmodel/predict?state=&action=",
+            "predict": "POST /worldmodel/predict {state,action} (also GET ?state=&action=)",
+            "rollout": "POST /worldmodel/rollout {initial_state,actions}",
             "entities": "GET /worldmodel/entities",
             "entity": "POST /worldmodel/entity",
-            "causal": "GET /worldmodel/causal"
+            "causal": "GET /worldmodel/causal",
+            "self_health": "GET /self/health",
+            "can_execute": "GET /self/can-execute?operation="
         }
     }))
 }

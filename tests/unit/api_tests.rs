@@ -32,7 +32,11 @@ mod api_tests {
         let response = server.get("/health").await;
         
         assert_eq!(response.status_code(), StatusCode::OK);
-        assert_eq!(response.text(), "ok");
+        // Dual contract: canonical body is JSON (not legacy plain "ok").
+        let body: serde_json::Value = response.json();
+        assert_eq!(body["status"], "ok");
+        assert_eq!(body["service"], "hipcortex");
+        assert!(body["version"].as_str().is_some());
     }
 
     #[tokio::test]

@@ -423,59 +423,99 @@ impl ConsistencyChecker {
     /// Report permanence violation (topo tracks but symbolic not cross-checked here).
     fn check_entity_permanence(&mut self) -> Result<Vec<InconsistencyReport>, String> {
         let mut inconsistencies = Vec::new();
-        
+
         if let Some(ref topo) = self.topo {
-            // Use ppr (seeds empty) to obtain all symbolic ids present in topo substrate (as world model)
             let ranks = topo.personalized_pagerank(&[], 0.85, 1);
             for (entity_id, _rank) in ranks {
-                inconsistencies.push(InconsistencyReport::new(
-                    InconsistencyType::EntityPermanenceViolation,
-                    vec![entity_id.clone()],
-                    format!(
-                        "Entity {} exists in topological world substrate (CausalTopoGraph nodes) but missing from symbolic store (cross-check stub)",
-                        entity_id
-                    ),
-                    8,
-                ).with_metadata("source".to_string(), serde_json::json!("topo_ppr_nodes")));
+                // With symbolic store: real cross-check. Without it, topo nodes alone
+                // count as "tracked in substrate but not symbolically grounded".
+                let missing_in_symbolic = if let Some(ref store) = self.symbolic_store {
+                    match store.lock() {
+                        Ok(mut s) => s.find_by_label(&entity_id).is_empty(),
+                        Err(_) => true,
+                    }
+                } else {
+                    true
+                };
+                if missing_in_symbolic {
+                    inconsistencies.push(
+                        InconsistencyReport::new(
+                            InconsistencyType::EntityPermanenceViolation,
+                            vec![entity_id.clone()],
+                            format!(
+                                "Entity {} tracked in topo/world substrate but missing from symbolic store",
+                                entity_id
+                            ),
+                            8,
+                        )
+                        .with_metadata("source".into(), serde_json::json!("topo_symbolic_crosscheck")),
+                    );
+                }
             }
-        } else {
-            // keep original placeholder empty when no topo (no real modules wired)
         }
-        
+
         Ok(inconsistencies)
     }
 
-    /// Check for graph inconsistencies
-    ///
-    /// Detects: Symbolic DAG contradicts world-model causal graph (edit distance > threshold)
+    /// Check for graph inconsistencies: world-model causal edges vs optional symbolic edge set.
     fn check_graph_consistency(&mut self) -> Result<Vec<InconsistencyReport>, String> {
         let mut inconsistencies = Vec::new();
-        
-        // Pseudo-code:
-        // 1. Get symbolic DAG from symbolic store
-        // 2. Get causal graph from world-model
-        // 3. Compute graph edit distance between them
-        // 4. If distance > threshold, report inconsistency
-        
-        // Example detection (placeholder):
-        // let symbolic_edges = symbolic_store.get_graph_edges()?;
-        // let causal_edges = world_model.get_causal_edges()?;
-        // 
-        // let edit_distance = self.compute_graph_edit_distance(&symbolic_edges, &causal_edges);
-        // 
-        // if edit_distance > self.graph_edit_distance_threshold {
-        //     inconsistencies.push(InconsistencyReport::new(
-        //         InconsistencyType::GraphInconsistency,
-        //         vec![],
-        //         format!(
-        //             "Symbolic DAG and causal graph have edit distance {} (threshold={})",
-        //             edit_distance, self.graph_edit_distance_threshold
-        //         ),
-        //         6,
-        //     ).with_metadata("edit_distance".to_string(), edit_distance.into())
-        //      .with_metadata("threshold".to_string(), self.graph_edit_distance_threshold.into()));
-        // }
-        
+
+        let causal_edges: Vec<(String, String)> = if let Some(ref wm) = self.world_model {
+            wm.get_causal_edges()
+                .into_iter()
+                .map(|e| (e.from, e.to))
+                .collect()
+        } else if let Some(ref topo) = self.topo {
+            // Approximate causal edges from topo serializable
+            topo.to_serializable()
+                .edges
+                .into_iter()
+                .filter(|e| matches!(e.edge_type, EdgeType::Causal))
+                .map(|e| (e.from, e.to))
+                .collect()
+        } else {
+            return Ok(inconsistencies);
+        };
+
+        // Build undirected set for edit-distance-lite: count WM edges with no reverse topo path
+        let mut missing_reverse = 0usize;
+        if let Some(ref topo) = self.topo {
+            for (from, to) in &causal_edges {
+                if topo.detect_contradiction(from.clone(), to.clone(), EdgeType::Causal) {
+                    missing_reverse += 1;
+                    inconsistencies.push(
+                        InconsistencyReport::new(
+                            InconsistencyType::GraphInconsistency,
+                            vec![from.clone(), to.clone()],
+                            format!(
+                                "World-model causal edge {}→{} conflicts with topological substrate",
+                                from, to
+                            ),
+                            6,
+                        )
+                        .with_metadata("wm_edge".into(), serde_json::json!([from, to])),
+                    );
+                }
+            }
+        }
+
+        if missing_reverse > self.graph_edit_distance_threshold {
+            inconsistencies.push(
+                InconsistencyReport::new(
+                    InconsistencyType::GraphInconsistency,
+                    vec![],
+                    format!(
+                        "Symbolic/topo vs causal graph conflict count {} exceeds threshold {}",
+                        missing_reverse, self.graph_edit_distance_threshold
+                    ),
+                    7,
+                )
+                .with_metadata("conflict_count".into(), missing_reverse.into())
+                .with_metadata("threshold".into(), self.graph_edit_distance_threshold.into()),
+            );
+        }
+
         Ok(inconsistencies)
     }
 

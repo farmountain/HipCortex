@@ -1,8 +1,9 @@
 // vscode-extension/scripts/fetch-bins.js
+// Download platform server binaries into vscode-extension/server/.
+// FORCE_FETCH_BINS=1 (or --force) always re-downloads so VSIX never ships stale bins.
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
 
 const PLATFORMS = [
   { name: 'linux', arch: 'amd64', asset: 'hipcortex-linux-amd64' },
@@ -13,8 +14,12 @@ const PLATFORMS = [
 ];
 
 const BASE_DIR = path.join(__dirname, '..', 'server');
-
 const MIN_BYTES = 1_000_000;
+// Pin to release that matches EXPECTED_SERVER_VERSION / crate 0.5.0 public ships.
+const RELEASE_TAG = process.env.HIPCORTEX_RELEASE_TAG || 'v0.5.0';
+const FORCE =
+  process.env.FORCE_FETCH_BINS === '1' ||
+  process.argv.includes('--force');
 
 async function download(url, dest, redirects = 0) {
   if (redirects > 8) throw new Error('Too many redirects');
@@ -56,13 +61,16 @@ async function main() {
     const dir = path.join(BASE_DIR, p.name);
     fs.mkdirSync(dir, { recursive: true });
     const dest = path.join(dir, p.asset);
-    if (isValidBinary(dest)) {
-      console.log(`Skip ${p.asset} (valid)`);
+    if (!FORCE && isValidBinary(dest)) {
+      console.log(`Skip ${p.asset} (valid; set FORCE_FETCH_BINS=1 to refresh)`);
       continue;
     }
-    if (fs.existsSync(dest)) fs.unlinkSync(dest);
-    const url = `https://github.com/farmountain/HipCortex/releases/latest/download/${p.asset}`;
-    console.log(`Downloading ${p.asset}...`);
+    if (fs.existsSync(dest)) {
+      fs.unlinkSync(dest);
+      if (FORCE) console.log(`Force-refresh ${p.asset}`);
+    }
+    const url = `https://github.com/farmountain/HipCortex/releases/download/${RELEASE_TAG}/${p.asset}`;
+    console.log(`Downloading ${p.asset} from ${RELEASE_TAG}...`);
     await download(url, dest);
     if (!isValidBinary(dest)) {
       if (fs.existsSync(dest)) fs.unlinkSync(dest);
@@ -71,9 +79,12 @@ async function main() {
     if (p.name !== 'win32') {
       fs.chmodSync(dest, 0o755);
     }
-    console.log(`  -> ${dest}`);
+    console.log(`  -> ${dest} (${fs.statSync(dest).size} bytes)`);
   }
   console.log('Done. Now run `npm run package` for a vsix that includes everything.');
 }
 
-main().catch(console.error);
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
