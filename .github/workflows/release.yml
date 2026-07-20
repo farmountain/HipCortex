@@ -12,28 +12,34 @@ jobs:
     permissions:
       contents: write
     strategy:
+      fail-fast: false
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             binary: webserver
             asset_name: hipcortex-linux-amd64
+            platform_dir: linux
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
             binary: webserver
             asset_name: hipcortex-linux-arm64
+            platform_dir: linux
           - target: x86_64-apple-darwin
             os: macos-latest
             binary: webserver
             asset_name: hipcortex-macos-amd64
+            platform_dir: darwin
           - target: aarch64-apple-darwin
             os: macos-latest
             binary: webserver
             asset_name: hipcortex-macos-arm64
+            platform_dir: darwin
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             binary: webserver.exe
             asset_name: hipcortex-windows-amd64.exe
+            platform_dir: win32
 
     steps:
       - uses: actions/checkout@v4
@@ -56,14 +62,14 @@ jobs:
 
       - name: Build (native)
         if: matrix.target != 'aarch64-unknown-linux-gnu'
-        shell: bash  # use bash on all platforms — PowerShell doesn't support \ continuation
+        shell: bash
         run: |
           cargo build --release --bin webserver \
             --no-default-features --features "web-server,petgraph_backend" \
             --target ${{ matrix.target }}
 
       - name: Rename binary
-        shell: bash  # git-bash on Windows, bash on Linux/macOS
+        shell: bash
         run: |
           cp target/${{ matrix.target }}/release/${{ matrix.binary }} \
              ${{ matrix.asset_name }}
@@ -74,10 +80,69 @@ jobs:
         with:
           files: ${{ matrix.asset_name }}
 
-      - name: Save binary as artifact (workflow_dispatch testing)
-        if: github.event_name == 'workflow_dispatch'
+      # Always upload artifacts so package-vsix can assemble multi-OS server/
+      - name: Save binary as artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset_name }}
           path: ${{ matrix.asset_name }}
-          retention-days: 3
+          retention-days: 7
+
+  package-vsix:
+    name: Package VSIX with release binaries
+    needs: build-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all server binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: _bins
+
+      - name: Stage binaries into vscode-extension/server
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p vscode-extension/server/{linux,darwin,win32}
+          # Artifact layout: _bins/<asset_name>/<asset_name>
+          cp _bins/hipcortex-linux-amd64/hipcortex-linux-amd64 \
+             vscode-extension/server/linux/hipcortex-linux-amd64
+          cp _bins/hipcortex-linux-arm64/hipcortex-linux-arm64 \
+             vscode-extension/server/linux/hipcortex-linux-arm64
+          cp _bins/hipcortex-macos-amd64/hipcortex-macos-amd64 \
+             vscode-extension/server/darwin/hipcortex-macos-amd64
+          cp _bins/hipcortex-macos-arm64/hipcortex-macos-arm64 \
+             vscode-extension/server/darwin/hipcortex-macos-arm64
+          cp _bins/hipcortex-windows-amd64.exe/hipcortex-windows-amd64.exe \
+             vscode-extension/server/win32/hipcortex-windows-amd64.exe
+          chmod +x vscode-extension/server/linux/* vscode-extension/server/darwin/*
+          ls -la vscode-extension/server/*/*
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build extension + VSIX
+        working-directory: vscode-extension
+        run: |
+          npm ci || npm install
+          npm run package
+          npx --yes @vscode/vsce package --no-dependencies
+          ls -la *.vsix
+
+      - name: Upload VSIX to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: vscode-extension/*.vsix
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hipcortex-vsix
+          path: vscode-extension/*.vsix
+          retention-days: 14
