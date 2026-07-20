@@ -15,7 +15,7 @@ hipcortex install  # wizard: MCP hosts + copies ~/.hipcortex-mcp/server.py (18 t
 hipcortex channels # honesty matrix (native / mcp / framework / guide)
 ```
 
-**Version matrix:** product pip/Cargo/MCP `serverInfo` = **0.5.2**; VS Code VSIX = **0.5.7** ([release](https://github.com/farmountain/HipCortex/releases/download/v0.5.7/hipcortex-memory-0.5.7.vsix)). See [docs/channels.md](../../docs/channels.md).
+**Version matrix:** product pip/Cargo/MCP `serverInfo` = **0.5.2**; VS Code VSIX = **0.5.8**. See [docs/channels.md](../../docs/channels.md).
 
 ---
 

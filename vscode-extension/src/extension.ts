@@ -292,6 +292,60 @@ export function isValidServerBinary(filePath: string): boolean {
     }
 }
 
+/**
+ * Ensure a non-Windows server binary is executable before spawn.
+ *
+ * VSIX packaging often leaves bundled darwin/linux bins at 0644 (no +x).
+ * Historically chmod only ran after network download — Mac/Linux then got
+ * spawn EACCES and never reached /health (ECONNREFUSED on :3030).
+ *
+ * Returns the path to use (original, or a chmod'd copy under ~/.hipcortex-vscode/bin
+ * when the install tree is read-only).
+ */
+export function ensureUnixExecutable(
+    binPath: string,
+    log?: (msg: string) => void
+): string {
+    if (os.platform() === 'win32') {
+        return binPath;
+    }
+    try {
+        // Already user-executable?
+        try {
+            fs.accessSync(binPath, fs.constants.X_OK);
+            return binPath;
+        } catch {
+            // need chmod or copy
+        }
+        try {
+            fs.chmodSync(binPath, 0o755);
+            fs.accessSync(binPath, fs.constants.X_OK);
+            log?.(`chmod 0755 applied: ${binPath}`);
+            return binPath;
+        } catch (chmodErr) {
+            // Extension dir may be read-only — copy into user-writable cache
+            const binDir = path.join(os.homedir(), '.hipcortex-vscode', 'bin');
+            if (!fs.existsSync(binDir)) {
+                fs.mkdirSync(binDir, { recursive: true });
+            }
+            const dest = path.join(binDir, path.basename(binPath));
+            fs.copyFileSync(binPath, dest);
+            fs.chmodSync(dest, 0o755);
+            fs.accessSync(dest, fs.constants.X_OK);
+            log?.(
+                `chmod failed on install path (${chmodErr instanceof Error ? chmodErr.message : String(chmodErr)}); ` +
+                    `copied + chmod 0755 → ${dest}`
+            );
+            return dest;
+        }
+    } catch (err) {
+        log?.(
+            `ensureUnixExecutable warning for ${binPath}: ${err instanceof Error ? err.message : String(err)}`
+        );
+        return binPath;
+    }
+}
+
 /** Proactive harness descriptions — substrate-first policy for LM tools. */
 export const HARNESS_TOOL_DESCRIPTIONS = {
     search: 'Use this FIRST for any recall... returns unified live_beliefs (memory + world model + hypotheses + coherence). Call before asking user.',
@@ -681,16 +735,18 @@ export class HipCortexAPI {
         for (const root of roots) {
             const bundledPath = path.join(root, 'server', platform, binaryName);
             if (isValidServerBinary(bundledPath)) {
-                log(`Using bundled server binary: ${bundledPath}`);
-                return bundledPath;
+                const ready = ensureUnixExecutable(bundledPath, log);
+                log(`Using bundled server binary: ${ready}`);
+                return ready;
             }
         }
 
         // 2. CLI install dir (~/.hipcortex/hipcortex-*) — prefer over download
         const cliBinaryPath = path.join(sharedInstallDir(), binaryName);
         if (isValidServerBinary(cliBinaryPath)) {
-            log(`Using CLI-installed server binary: ${cliBinaryPath}`);
-            return cliBinaryPath;
+            const ready = ensureUnixExecutable(cliBinaryPath, log);
+            log(`Using CLI-installed server binary: ${ready}`);
+            return ready;
         }
 
         // 3. User cache — re-download if corrupt
@@ -700,8 +756,9 @@ export class HipCortexAPI {
         }
         const cachedPath = path.join(binDir, binaryName);
         if (isValidServerBinary(cachedPath)) {
-            log(`Using cached server binary: ${cachedPath}`);
-            return cachedPath;
+            const ready = ensureUnixExecutable(cachedPath, log);
+            log(`Using cached server binary: ${ready}`);
+            return ready;
         }
         if (fs.existsSync(cachedPath)) {
             fs.unlinkSync(cachedPath);
@@ -713,10 +770,6 @@ export class HipCortexAPI {
         log(`Downloading ${binaryName} from GitHub releases...`);
         await this.downloadFile(downloadUrl, cachedPath);
 
-        if (platform !== 'win32') {
-            fs.chmodSync(cachedPath, 0o755);
-        }
-
         if (!isValidServerBinary(cachedPath)) {
             if (fs.existsSync(cachedPath)) {
                 fs.unlinkSync(cachedPath);
@@ -727,8 +780,9 @@ export class HipCortexAPI {
             );
         }
 
-        log(`Downloaded server binary: ${cachedPath}`);
-        return cachedPath;
+        const ready = ensureUnixExecutable(cachedPath, log);
+        log(`Downloaded server binary: ${ready}`);
+        return ready;
     }
 
     private async downloadFile(url: string, dest: string): Promise<void> {

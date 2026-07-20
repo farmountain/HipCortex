@@ -12,7 +12,7 @@
 # Print: hipcortex channels
 
 version: 1
-updated: "2026-07-20"  # Cohesion: VSIX 0.5.7 + topo MCP + 10 LM tools + dual health
+updated: "2026-07-20"  # VSIX 0.5.8: chmod bundled bins + display not v0.5.0
 
 channels:
   # ── Distribution surfaces ──────────────────────────────────────────────
@@ -62,8 +62,8 @@ channels:
     name: VS Code / Antigravity VSIX
     category: distribution
     status: native
-    install: "code --install-extension hipcortex-memory-0.5.7.vsix"
-    notes: "Extension 0.5.7; topo LM tools + dual health; expects server 0.5.2 (same major.minor OK); bundled multi-OS binaries; Antigravity = VS Code-compatible host"
+    install: "code --install-extension hipcortex-memory-0.5.8.vsix"
+    notes: "Extension 0.5.8; chmod +x bundled Mac/Linux bins; 10 LM tools + dual health; expects server 0.5.2 (same major.minor OK); Antigravity = VS Code-compatible host"
 
   # ── Coding assistants (install registry) ───────────────────────────────
   - id: claude-code

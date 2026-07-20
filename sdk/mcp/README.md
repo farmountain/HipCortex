@@ -24,7 +24,7 @@ Not every host below has a **wizard installer**. Official matrix: [docs/channels
 | Claude Code, Cursor, Windsurf, VS Code MCP, Cline, RooCode | **native / mcp** (wizard) |
 | Continue, Copilot, Codex, Aider, Gemini, Amazon Q, Flowise | **guide** |
 | Antigravity, Hermes, OpenClaw, Grok Code / Grok Build | **mcp** — `hipcortex install` ([docs/hosts/README.md](../../docs/hosts/README.md)) |
-| VS Code / Antigravity VSIX | **native** — `hipcortex-memory-0.5.7.vsix` ([release](https://github.com/farmountain/HipCortex/releases/download/v0.5.7/hipcortex-memory-0.5.7.vsix)) |
+| VS Code / Antigravity VSIX | **native** — `hipcortex-memory-0.5.8.vsix` (chmod +x bundled Mac/Linux bins) |
 
 ---
 
@@ -148,7 +148,7 @@ aider --mcp-server "python -m hipcortex.mcp.server --mode headroom"
 ```
 
 ### 10. Gemini CLI & Antigravity IDE — **guide / mcp**
-> **Gemini CLI:** guide-only (manual MCP). **Antigravity:** **mcp** — `hipcortex install` writes `~/.gemini/antigravity/mcp_config.json`. Also VSIX (`hipcortex-memory-0.5.7.vsix`) if VS Code–compatible. See [docs/hosts/README.md](../../docs/hosts/README.md).
+> **Gemini CLI:** guide-only (manual MCP). **Antigravity:** **mcp** — `hipcortex install` writes `~/.gemini/antigravity/mcp_config.json`. Also VSIX (`hipcortex-memory-0.5.8.vsix`) if VS Code–compatible. See [docs/hosts/README.md](../../docs/hosts/README.md).
 
 Example MCP fragment (`mcpServers` shape):
 ```json

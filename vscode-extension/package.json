@@ -1,8 +1,8 @@
 {
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
-    "description": "Persistent causal topological memory, world model prediction (/worldmodel/rollout), and Headroom token optimization (59-88% savings) for Copilot & Antigravity IDE.",
-    "version": "0.5.7",
+    "description": "HipCortex v0.5.8 — persistent causal topological memory, world-model rollout, 10 LM tools, dual /health. Headroom/Caveman token optimization (59-88%) for Copilot & Antigravity IDE. Bundled multi-OS server (product crate 0.5.2).",
+    "version": "0.5.8",
     "publisher": "farmountain",
   "repository": {
     "type": "git",
