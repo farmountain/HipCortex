@@ -1,6 +1,6 @@
 # HipCortex capability matrix
 
-Honest surface coverage as of **product v0.5.2 / VSIX v0.5.7** (code-grounded, not aspirational).
+Honest surface coverage as of **product v0.5.2 / VSIX v0.5.8** (code-grounded, not aspirational).
 
 Legend:
 
@@ -75,7 +75,7 @@ Checker `scripts/check_capabilities.py` greps these names from `TOOLS` and requi
 
 **Not in MCP `TOOLS` today (honest gaps):** dedicated `health` tool (use REST `/health` or VS Code LM `hipcortex_health`), dedicated `query` tool (use `search_memory` / `get_live_beliefs`).
 
-MCP serverInfo version in `sdk/mcp/server.py`: **0.5.2**. VS Code extension package: **0.5.7** (10 LM tools).
+MCP serverInfo version in `sdk/mcp/server.py`: **0.5.2**. VS Code extension package: **0.5.8** (10 LM tools; bundled bin chmod).
 
 ## Known surface gaps (priority)
 

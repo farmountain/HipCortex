@@ -8,6 +8,7 @@ import {
     buildPublishedBinaryName,
     HARNESS_TOOL_DESCRIPTIONS,
     isValidServerBinary,
+    ensureUnixExecutable,
     activate,
     AddMemoryRequest,
     extractSemanticTags,
@@ -269,6 +270,40 @@ describe('HipCortex Extension Unit Tests', () => {
             const winAsset = path.join(__dirname, '..', '..', 'server', 'win32', 'hipcortex-windows-amd64.exe');
             expect(fs.existsSync(winAsset)).toBe(true);
             expect(isValidServerBinary(winAsset)).toBe(true);
+        });
+
+        test('ensureUnixExecutable no-ops on win32 path shape', () => {
+            const fake = path.join(os.tmpdir(), `hc-bin-win-${Date.now()}.exe`);
+            fs.writeFileSync(fake, Buffer.alloc(100));
+            try {
+                if (os.platform() === 'win32') {
+                    expect(ensureUnixExecutable(fake)).toBe(fake);
+                } else {
+                    // On non-win, tiny file may still chmod; just ensure returns a string path
+                    const out = ensureUnixExecutable(fake);
+                    expect(typeof out).toBe('string');
+                    expect(out.length).toBeGreaterThan(0);
+                }
+            } finally {
+                try { fs.unlinkSync(fake); } catch { /* ignore */ }
+            }
+        });
+
+        test('ensureUnixExecutable makes non-exec file executable (posix)', () => {
+            if (os.platform() === 'win32') {
+                return;
+            }
+            const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hc-chmod-'));
+            const bin = path.join(dir, 'hipcortex-test-bin');
+            fs.writeFileSync(bin, '#!/bin/sh\necho ok\n', { mode: 0o644 });
+            try {
+                const ready = ensureUnixExecutable(bin);
+                expect(ready).toBe(bin);
+                fs.accessSync(ready, fs.constants.X_OK);
+            } finally {
+                try { fs.unlinkSync(bin); } catch { /* ignore */ }
+                try { fs.rmdirSync(dir); } catch { /* ignore */ }
+            }
         });
 
         test('isValidServerBinary rejects tiny placeholder files', () => {
@@ -651,7 +686,7 @@ describe('memory display formatters', () => {
     test('QuickPick label includes bracketed tags', () => {
         const item = formatMemoryQuickPickItem(baseRecord);
         expect(item.label).toBe(
-            'vscode-user �?edited [typescript, ts, auto-capture, core]'
+            'vscode-user → edited [typescript, ts, auto-capture, core]'
         );
         expect(item.description).toBe(baseRecord.target);
         expect(item.record).toBe(baseRecord);
@@ -659,14 +694,14 @@ describe('memory display formatters', () => {
 
     test('QuickPick label omits brackets when tags empty', () => {
         const item = formatMemoryQuickPickItem({ ...baseRecord, tags: [] });
-        expect(item.label).toBe('vscode-user �?edited');
+        expect(item.label).toBe('vscode-user → edited');
         expect(item.label).not.toContain('[');
     });
 
     test('QuickPick label omits brackets when tags undefined', () => {
         const { tags, ...rest } = baseRecord;
         const item = formatMemoryQuickPickItem(rest as any);
-        expect(item.label).toBe('vscode-user �?edited');
+        expect(item.label).toBe('vscode-user → edited');
     });
 
     test('QuickPick detail includes timestamp and workspace snippet', () => {

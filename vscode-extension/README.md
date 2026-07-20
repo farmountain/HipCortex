@@ -1,13 +1,13 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v0.5.7`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v0.5.8`)
 
-[![Version](https://img.shields.io/badge/version-v0.5.7-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v0.5.8-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
 **Give your AI coding assistant (VS Code Copilot & Antigravity IDE) persistent, cross-session causal memory, world-model prediction/rollout, and topological graph tools.**
 
-Product server / pip / npm are **0.5.2**; this extension package is **0.5.7** (10 LM tools, dual `/health`, multi-OS bundled webserver). See [docs/channels.md](../docs/channels.md).
+Product server / pip / npm are **0.5.2**; this extension package is **0.5.8** (10 LM tools, dual `/health`, multi-OS bundled webserver, **chmod +x on bundled Mac/Linux binaries**). See [docs/channels.md](../docs/channels.md).
 
 ---
 
@@ -18,11 +18,12 @@ Install from Marketplace / Open VSX / GitHub release VSIX. Extension **starts a 
 - **Zero external DB / Docker** for default petgraph path
 - **Local-first** storage under `~/.hipcortex-vscode/storage`
 - **Dual `/health`**: accepts plain `ok` **and** JSON `{status,service}` (macOS-friendly ready poll)
+- **Executable bundled bins**: `ensureUnixExecutable` applies `chmod 0755` on darwin/linux for bundled, CLI, cache, and download paths (fixes spawn `EACCES` on fresh Mac install)
 - **Auto-recovery**: restarts server before queries when down
-- **Release install**: [hipcortex-memory-0.5.7.vsix](https://github.com/farmountain/HipCortex/releases/download/v0.5.7/hipcortex-memory-0.5.7.vsix)
+- **Release install**: build/package `hipcortex-memory-0.5.8.vsix` (or latest GitHub Release VSIX)
 
 ```bash
-code --install-extension hipcortex-memory-0.5.7.vsix
+code --install-extension hipcortex-memory-0.5.8.vsix
 ```
 
 ---
@@ -89,9 +90,9 @@ npm test
 npx @vscode/vsce package --allow-missing-repository
 ```
 
-Produces `hipcortex-memory-0.5.7.vsix` (version from `package.json`).
+Produces `hipcortex-memory-0.5.8.vsix` (version from `package.json`).
 
-CI release workflow also packages multi-OS VSIX after matrix binary builds (tag `v0.5.7`).
+CI release workflow packages multi-OS VSIX after matrix binary builds.
 
 ---
 
