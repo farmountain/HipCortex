@@ -83,6 +83,15 @@ use crate::topological_memory::{CausalTopoGraph, EdgeType};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
+/// Stable string for empirical dist keys (1.0 → "1.0", not "1").
+fn format_empirical_value(v: f64) -> String {
+    if (v.fract()).abs() < 1e-12 {
+        format!("{:.1}", v)
+    } else {
+        format!("{}", v)
+    }
+}
+
 /// Central World-Model coordinator integrating all predictive capabilities
 pub struct WorldModelEnhanced {
     /// State transition model (Dirichlet-Multinomial)
@@ -313,38 +322,40 @@ impl WorldModelEnhanced {
         let mut graph = self.causal_graph.write()
             .map_err(|e| format!("Failed to acquire causal graph lock: {}", e))?;
 
-        let x_val = query.intervention_value.to_string();
-        // Probe binary-ish outcome labels + raw value string
+        // Normalize float keys: 1.0 → "1.0" (fixed) so record/query match.
+        let x_val = format_empirical_value(query.intervention_value);
         let y_candidates = [
+            "1.0".to_string(),
+            "0.0".to_string(),
             "1".to_string(),
             "0".to_string(),
-            "true".to_string(),
-            "false".to_string(),
-            query.intervention_value.to_string(),
+            x_val.clone(),
         ];
         let mut result = HashMap::new();
-        let mut any_empirical = false;
-        for y_val in &y_candidates {
-            if let Ok(p) = graph.compute_empirical_intervention(
-                &query.intervention_var,
-                &x_val,
-                &query.outcome,
-                y_val,
-            ) {
-                // Only treat as empirical signal if distributions had structure
-                // (method returns 0.5 default when empty — skip pure defaults for multi-key)
-                if (p - 0.5).abs() > 1e-9 || graph.has_empirical_key(&query.intervention_var, &x_val) {
-                    result.insert(format!("{}={}", query.outcome, y_val), p);
-                    any_empirical = true;
+        if graph.has_empirical_key(&query.intervention_var, &x_val) {
+            for y_val in &y_candidates {
+                let y_key = format!("{}={}", query.outcome, y_val);
+                // Only insert if a real conditional entry exists (not the 0.5 default hole).
+                if graph.has_empirical_outcome(&query.intervention_var, &x_val, &query.outcome, y_val) {
+                    if let Ok(p) = graph.compute_empirical_intervention(
+                        &query.intervention_var,
+                        &x_val,
+                        &query.outcome,
+                        y_val,
+                    ) {
+                        result.insert(y_key, p);
+                    }
                 }
             }
-        }
-        if any_empirical {
-            // Also expose outcome aggregate under outcome name (max / primary)
-            if let Some((_, &p)) = result.iter().max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal)) {
-                result.insert(query.outcome.clone(), p);
+            if !result.is_empty() {
+                if let Some((_, &p)) = result
+                    .iter()
+                    .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
+                {
+                    result.insert(query.outcome.clone(), p);
+                }
+                return Ok(result);
             }
-            return Ok(result);
         }
 
         graph.compute_intervention(&query)
@@ -466,9 +477,18 @@ impl WorldModelEnhanced {
         let transitions = self.transitions.read()
             .map_err(|e| format!("Failed to acquire transitions lock: {}", e))?;
         let actions: Vec<String> = if available_actions.is_empty() {
-            transitions.get_actions()
+            // Only actions that have at least one observation from root_state.
+            transitions
+                .get_actions()
+                .into_iter()
+                .filter(|a| transitions.totals.contains_key(&(root_state.to_string(), a.clone())))
+                .collect()
         } else {
-            available_actions.to_vec()
+            available_actions
+                .iter()
+                .filter(|a| transitions.totals.contains_key(&(root_state.to_string(), (*a).clone())))
+                .cloned()
+                .collect()
         };
         if actions.is_empty() {
             return Err("No actions available for MCTS (observe transitions first)".to_string());
@@ -805,6 +825,30 @@ mod tests {
             .compute_empirical_intervention("X", "1.0", "Y", "1")
             .unwrap();
         assert!((p - 0.8).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_wm_causal_intervention_uses_empirical_float_keys() {
+        let wm = WorldModelEnhanced::new();
+        {
+            let mut g = wm.causal_graph.write().unwrap();
+            g.add_node("X".into()).unwrap();
+            g.add_node("Y".into()).unwrap();
+            g.add_edge("X".into(), "Y".into()).unwrap();
+            g.record_empirical_distribution("X=1.0".into(), "Y=1.0".into(), 0.9);
+        }
+        let q = InterventionQuery {
+            outcome: "Y".into(),
+            intervention_var: "X".into(),
+            intervention_value: 1.0,
+            conditioned_on: HashMap::new(),
+        };
+        let res = wm.causal_intervention(q).unwrap();
+        assert!(
+            (res.get("Y").copied().unwrap_or(0.0) - 0.9).abs() < 1e-9,
+            "got {:?}",
+            res
+        );
     }
 
     #[test]
