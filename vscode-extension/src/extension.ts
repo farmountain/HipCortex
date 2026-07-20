@@ -383,6 +383,48 @@ function parseSemverMajorMinor(v: string): { major: number; minor: number } | nu
  * - strict: exact string match required; missing → false
  * - non-strict: missing → true; same major.minor → true; different major → false
  */
+/**
+ * Dual health contract:
+ * - JSON: { status: "ok", service: "hipcortex", version?: string }
+ * - Legacy plain body: "ok" (text/plain binaries still in old VSIX)
+ * - JSON-as-string when Content-Type mis-set
+ */
+export type HealthParseResult = {
+    healthy: boolean;
+    service?: string;
+    version?: string;
+    legacyPlainOk?: boolean;
+};
+
+export function parseHealthPayload(statusCode: number, data: unknown): HealthParseResult {
+    if (statusCode !== 200 || data == null) {
+        return { healthy: false };
+    }
+    if (typeof data === 'string') {
+        const trimmed = data.trim();
+        if (trimmed.toLowerCase() === 'ok') {
+            return { healthy: true, legacyPlainOk: true };
+        }
+        try {
+            return parseHealthPayload(200, JSON.parse(trimmed));
+        } catch {
+            return { healthy: false };
+        }
+    }
+    if (typeof data === 'object' && !Array.isArray(data)) {
+        const obj = data as Record<string, unknown>;
+        if (obj.status === 'ok' && obj.service === 'hipcortex') {
+            return {
+                healthy: true,
+                service: 'hipcortex',
+                version: typeof obj.version === 'string' ? obj.version : undefined,
+            };
+        }
+        return { healthy: false };
+    }
+    return { healthy: false };
+}
+
 export function isServerVersionAcceptable(
     serverVersion: string | undefined,
     expected: string,
@@ -431,15 +473,7 @@ export class HipCortexAPI {
     async healthCheck(): Promise<boolean> {
         try {
             const res = await axios.get(`${this.baseUrl}/health`, { timeout: 3000 });
-            const data = res.data;
-            if (res.status !== 200 || !data || typeof data !== 'object') {
-                return false;
-            }
-            // Require both status=ok and service=hipcortex (match Python daemon AlreadyRunning).
-            if (data.status !== 'ok' || data.service !== 'hipcortex') {
-                return false;
-            }
-            return true;
+            return parseHealthPayload(res.status, res.data).healthy;
         } catch {
             return false;
         }
@@ -480,19 +514,16 @@ export class HipCortexAPI {
         let serverVersion: string | undefined;
         try {
             const healthRes = await axios.get(`${this.baseUrl}/health`, { timeout: 2000 });
-            const data = healthRes.data;
-            // Require status=ok AND service=hipcortex; missing service ≠ healthy attach.
-            if (
-                healthRes.status === 200 &&
-                data &&
-                data.status === 'ok' &&
-                data.service === 'hipcortex'
-            ) {
-                healthy = true;
+            const parsed = parseHealthPayload(healthRes.status, healthRes.data);
+            healthy = parsed.healthy;
+            hipcortexService = parsed.service === 'hipcortex';
+            serverVersion = parsed.version;
+            // Legacy plain-ok: treat as hipcortex for attach (daemon parity).
+            if (parsed.legacyPlainOk) {
                 hipcortexService = true;
-                if (typeof data.version === 'string') {
-                    serverVersion = data.version;
-                }
+                log(
+                    'Health: legacy plain-ok body (upgrade server binary recommended)'
+                );
             }
         } catch {
             healthy = false;

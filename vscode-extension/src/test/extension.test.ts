@@ -17,6 +17,7 @@ import {
     extractPortFromBaseUrl,
     isServerVersionAcceptable,
     shouldReuseRunningServer,
+    parseHealthPayload,
     sharedDataDir,
     sharedInstallDir,
     sharedPidPath,
@@ -122,6 +123,22 @@ describe('HipCortex Extension Unit Tests', () => {
             const result = await api.healthCheck();
             
             expect(result).toBe(false);
+        });
+
+        test('health check accepts legacy plain text ok body', async () => {
+            mockedAxios.get.mockResolvedValueOnce({
+                status: 200,
+                data: 'ok',
+            });
+            expect(await api.healthCheck()).toBe(true);
+        });
+
+        test('health check accepts JSON-encoded string body', async () => {
+            mockedAxios.get.mockResolvedValueOnce({
+                status: 200,
+                data: '{"status":"ok","service":"hipcortex","version":"0.5.0"}',
+            });
+            expect(await api.healthCheck()).toBe(true);
         });
 
         test('should add memory record successfully', async () => {
@@ -688,6 +705,56 @@ describe('server lifecycle helpers', () => {
     test('isServerVersionAcceptable: missing version is ok when not strict', () => {
         expect(isServerVersionAcceptable(undefined, EXPECTED_SERVER_VERSION, false)).toBe(true);
         expect(isServerVersionAcceptable('', EXPECTED_SERVER_VERSION, false)).toBe(true);
+    });
+
+    describe('parseHealthPayload', () => {
+        test('plain ok string is healthy (legacy binary)', () => {
+            const r = parseHealthPayload(200, 'ok');
+            expect(r.healthy).toBe(true);
+            expect(r.legacyPlainOk).toBe(true);
+            expect(r.service).toBeUndefined();
+        });
+
+        test('plain OK with whitespace', () => {
+            expect(parseHealthPayload(200, '  OK\n').healthy).toBe(true);
+        });
+
+        test('JSON full shape', () => {
+            const r = parseHealthPayload(200, {
+                status: 'ok',
+                service: 'hipcortex',
+                version: '0.5.0',
+            });
+            expect(r).toEqual({
+                healthy: true,
+                service: 'hipcortex',
+                version: '0.5.0',
+            });
+        });
+
+        test('foreign service rejected', () => {
+            expect(
+                parseHealthPayload(200, { status: 'ok', service: 'other' }).healthy
+            ).toBe(false);
+        });
+
+        test('status ok without service rejected', () => {
+            expect(parseHealthPayload(200, { status: 'ok' }).healthy).toBe(false);
+        });
+
+        test('JSON string body parsed', () => {
+            const r = parseHealthPayload(
+                200,
+                '{"status":"ok","service":"hipcortex","version":"0.5.0"}'
+            );
+            expect(r.healthy).toBe(true);
+            expect(r.service).toBe('hipcortex');
+            expect(r.version).toBe('0.5.0');
+        });
+
+        test('non-200 rejected', () => {
+            expect(parseHealthPayload(503, 'ok').healthy).toBe(false);
+        });
     });
 
     test('isServerVersionAcceptable: missing version fails strict', () => {

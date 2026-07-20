@@ -62,8 +62,8 @@ channels:
     name: VS Code / Antigravity VSIX
     category: distribution
     status: native
-    install: "code --install-extension hipcortex-memory-0.5.5.vsix"
-    notes: "Extension 0.5.5; expects server 0.5.0; bundled multi-OS binaries; Antigravity = VS Code-compatible host"
+    install: "code --install-extension hipcortex-memory-0.5.6.vsix"
+    notes: "Extension 0.5.6; dual /health body (JSON + plain ok); expects server 0.5.0; bundled multi-OS binaries; Antigravity = VS Code-compatible host"
 
   # ── Coding assistants (install registry) ───────────────────────────────
   - id: claude-code

@@ -40,7 +40,9 @@ async fn mcp_server_handles_grpc_and_http() {
     assert_eq!(resp.records.len(), 1);
 
     let resp = reqwest::get("http://127.0.0.1:3141/health").await.unwrap();
-    assert_eq!(resp.text().await.unwrap(), "ok");
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["status"], "ok");
+    assert_eq!(body["service"], "hipcortex");
 
     srv.abort();
     std::fs::remove_file(path).unwrap();
