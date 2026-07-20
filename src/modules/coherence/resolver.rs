@@ -95,7 +95,7 @@ pub struct ResolutionHistory {
     pub manual_override_by: Option<String>,
 }
 
-/// Conflict resolver with pluggable strategies
+/// Conflict resolver with pluggable strategies + optional live module sources.
 pub struct ConflictResolver {
     /// Resolution history (for audit)
     history: Vec<ResolutionHistory>,
@@ -105,6 +105,11 @@ pub struct ConflictResolver {
     
     /// Consensus threshold (fraction of modules that must agree)
     consensus_threshold: f64,
+
+    /// Optional symbolic store for label/entity candidates
+    symbolic: Option<std::sync::Arc<std::sync::Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>>,
+    /// Optional world model for tracked entity candidates
+    world_model: Option<std::sync::Arc<crate::world_model_enhanced::WorldModelEnhanced>>,
 }
 
 impl ConflictResolver {
@@ -114,6 +119,8 @@ impl ConflictResolver {
             history: Vec::new(),
             manual_overrides: HashMap::new(),
             consensus_threshold: 0.5, // Simple majority
+            symbolic: None,
+            world_model: None,
         }
     }
 
@@ -123,7 +130,36 @@ impl ConflictResolver {
             history: Vec::new(),
             manual_overrides: HashMap::new(),
             consensus_threshold: threshold,
+            symbolic: None,
+            world_model: None,
         }
+    }
+
+    pub fn with_symbolic(
+        mut self,
+        store: std::sync::Arc<std::sync::Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>,
+    ) -> Self {
+        self.symbolic = Some(store);
+        self
+    }
+
+    pub fn with_world_model(
+        mut self,
+        wm: std::sync::Arc<crate::world_model_enhanced::WorldModelEnhanced>,
+    ) -> Self {
+        self.world_model = Some(wm);
+        self
+    }
+
+    pub fn set_symbolic(
+        &mut self,
+        store: std::sync::Arc<std::sync::Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>,
+    ) {
+        self.symbolic = Some(store);
+    }
+
+    pub fn set_world_model(&mut self, wm: std::sync::Arc<crate::world_model_enhanced::WorldModelEnhanced>) {
+        self.world_model = Some(wm);
     }
 
     // ========================================================================
@@ -339,7 +375,7 @@ impl ConflictResolver {
     // Helper Methods
     // ========================================================================
 
-    /// Build candidates from the inconsistency report (affected entities + metadata).
+    /// Build candidates from report + optional symbolic / world-model modules.
     fn get_candidate_values(
         &self,
         inconsistency: &InconsistencyReport,
@@ -351,7 +387,6 @@ impl ConflictResolver {
             .as_millis() as u64;
 
         for (i, entity) in inconsistency.affected_entities.iter().enumerate() {
-            // Higher index slightly lower confidence; first entity preferred as recency proxy
             let confidence = (0.85 - 0.05 * (i as f64)).clamp(0.1, 0.95);
             candidates.push(CandidateValue {
                 value: serde_json::json!(entity),
@@ -359,9 +394,41 @@ impl ConflictResolver {
                 confidence,
                 timestamp: now.saturating_sub(i as u64 * 1000),
             });
+
+            // Live symbolic labels
+            if let Some(ref store) = self.symbolic {
+                if let Ok(mut s) = store.lock() {
+                    let hits = s.find_by_label(entity);
+                    for (j, node) in hits.into_iter().take(3).enumerate() {
+                        candidates.push(CandidateValue {
+                            value: serde_json::json!({
+                                "id": node.id.to_string(),
+                                "label": node.label,
+                                "properties": node.properties,
+                            }),
+                            source: format!("symbolic[{}]", j),
+                            confidence: 0.8,
+                            timestamp: now,
+                        });
+                    }
+                }
+            }
+
+            // World-model entity presence
+            if let Some(ref wm) = self.world_model {
+                if let Ok(ids) = wm.list_entities() {
+                    if ids.iter().any(|id| id == entity) {
+                        candidates.push(CandidateValue {
+                            value: serde_json::json!({"entity_id": entity, "tracked": true}),
+                            source: "world_model".into(),
+                            confidence: 0.75,
+                            timestamp: now,
+                        });
+                    }
+                }
+            }
         }
 
-        // Metadata values as secondary candidates
         for (k, v) in &inconsistency.metadata {
             candidates.push(CandidateValue {
                 value: v.clone(),

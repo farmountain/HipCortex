@@ -21,7 +21,57 @@ pub struct DeconstructedHypothesis {
 
 /// Parse free-text hypothesis into nodes + directed edges using cue patterns.
 /// Patterns: "A causes B", "A → B", "A leads to B", "A because B" (B→A).
+///
+/// Optional `llm_json` may be a JSON object `{"edges":[{"from","to","relation"?}]}`
+/// from an LLM; when valid, it is preferred over pure regex rules (merged with raw).
 pub fn deconstruct(text: &str) -> DeconstructedHypothesis {
+    deconstruct_with_llm_hint(text, None)
+}
+
+pub fn deconstruct_with_llm_hint(text: &str, llm_json: Option<&str>) -> DeconstructedHypothesis {
+    if let Some(raw_json) = llm_json {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(raw_json) {
+            if let Some(arr) = v.get("edges").and_then(|e| e.as_array()) {
+                let mut edges = Vec::new();
+                let mut nodes = Vec::new();
+                for e in arr {
+                    let from = e.get("from").and_then(|x| x.as_str()).unwrap_or("").trim();
+                    let to = e.get("to").and_then(|x| x.as_str()).unwrap_or("").trim();
+                    if from.is_empty() || to.is_empty() {
+                        continue;
+                    }
+                    let relation = e
+                        .get("relation")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("causes")
+                        .to_string();
+                    if !nodes.iter().any(|n| n == from) {
+                        nodes.push(from.to_string());
+                    }
+                    if !nodes.iter().any(|n| n == to) {
+                        nodes.push(to.to_string());
+                    }
+                    edges.push(HypEdge {
+                        from: from.to_string(),
+                        to: to.to_string(),
+                        relation,
+                        confidence: 0.85,
+                    });
+                }
+                if !edges.is_empty() {
+                    return DeconstructedHypothesis {
+                        nodes,
+                        edges,
+                        raw: text.trim().to_string(),
+                    };
+                }
+            }
+        }
+    }
+    deconstruct_rules(text)
+}
+
+fn deconstruct_rules(text: &str) -> DeconstructedHypothesis {
     let raw = text.trim().to_string();
     let lower = raw.to_lowercase();
     let mut edges = Vec::new();
@@ -119,5 +169,17 @@ mod tests {
         let h = deconstruct("X -> Y");
         assert_eq!(h.edges[0].from, "X");
         assert_eq!(h.edges[0].to, "Y");
+    }
+
+    #[test]
+    fn llm_hint_preferred() {
+        let h = deconstruct_with_llm_hint(
+            "maybe rain and floods",
+            Some(r#"{"edges":[{"from":"rain","to":"floods","relation":"causes"}]}"#),
+        );
+        assert_eq!(h.edges.len(), 1);
+        assert_eq!(h.edges[0].from, "rain");
+        assert_eq!(h.edges[0].to, "floods");
+        assert!((h.edges[0].confidence - 0.85).abs() < 1e-6);
     }
 }

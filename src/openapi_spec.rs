@@ -225,7 +225,8 @@ pub const OPENAPI_SPEC: &str = r##"{
                   "actions": { "type": "array", "items": { "type": "string" }, "description": "Required unless mode=mcts" },
                   "mode": { "type": "string", "enum": ["dirichlet", "mcts", "ensemble"], "default": "dirichlet" },
                   "iterations": { "type": "integer", "default": 50, "description": "MCTS iterations" },
-                  "max_depth": { "type": "integer", "default": 3, "description": "MCTS / trajectory depth" }
+                  "max_depth": { "type": "integer", "default": 3, "description": "MCTS / trajectory depth" },
+                  "goal_state": { "type": "string", "description": "Goal-shaped MCTS reward target state" }
                 }
               }
             }
@@ -391,6 +392,38 @@ pub const OPENAPI_SPEC: &str = r##"{
         "summary": "List current hypotheses",
         "security": [],
         "responses": { "200": { "description": "Hypothesis list" } }
+      }
+    },
+    "/topo/ppr": {
+      "get": {
+        "operationId": "topoPpr",
+        "summary": "Personalized PageRank over CausalTopoGraph",
+        "parameters": [
+          { "name": "seed", "in": "query", "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": { "200": { "description": "{ results: [{id, score}] }" } }
+      }
+    },
+    "/topo/check-edge": {
+      "post": {
+        "operationId": "topoCheckEdge",
+        "summary": "Would causal edge from→to contradict topo?",
+        "responses": { "200": { "description": "{ would_contradict, report }" } }
+      }
+    },
+    "/topo/deconstruct": {
+      "post": {
+        "operationId": "topoDeconstruct",
+        "summary": "Parse hypothesis text into nodes/edges (rules + optional llm_json)",
+        "responses": { "200": { "description": "DeconstructedHypothesis" } }
+      }
+    },
+    "/topo/apply-hyp": {
+      "post": {
+        "operationId": "topoApplyHyp",
+        "summary": "Deconstruct text and apply causal edges to live topo graph",
+        "responses": { "200": { "description": "Apply result" } }
       }
     }
   }

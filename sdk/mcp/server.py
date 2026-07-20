@@ -205,6 +205,101 @@ TOOLS = [
         },
     },
     {
+        "name": "graph_ppr",
+        "description": (
+            "Personalized PageRank over the live CausalTopoGraph substrate. "
+            "Use for topology-first exploration of symbolic graph nodes (not only memory UUIDs). "
+            "Prefer after link_memories or deconstruct_hypothesis."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "seed": {"type": "string", "description": "Optional seed node symbolic_id"},
+                "limit": {"type": "integer", "default": 10},
+            },
+        },
+    },
+    {
+        "name": "deconstruct_hypothesis",
+        "description": (
+            "Parse free text into candidate causal nodes/edges (rule-based; optional llm_json). "
+            "Use before applying structure to the topo graph via apply_hypothesis."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "required": ["text"],
+            "properties": {
+                "text": {"type": "string", "description": "Hypothesis text, e.g. 'rain causes floods'"},
+                "llm_json": {
+                    "type": "string",
+                    "description": "Optional LLM JSON: {\"edges\":[{\"from\",\"to\",\"relation\"?}]}",
+                },
+                "apply": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "If true, also apply edges to live topo graph (POST /topo/apply-hyp)",
+                },
+            },
+        },
+    },
+    {
+        "name": "check_topo_edge",
+        "description": (
+            "Check whether adding a causal edge from→to would contradict the CausalTopoGraph "
+            "(cycle or high-strength reverse)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "required": ["from", "to"],
+            "properties": {
+                "from": {"type": "string"},
+                "to": {"type": "string"},
+            },
+        },
+    },
+    {
+        "name": "rollout",
+        "description": (
+            "World-model multi-step rollout. Default Dirichlet MAP after observe; "
+            "mode=mcts uses goal-shaped UCB1 search. Requires prior worldmodel observations "
+            "or mode=mcts with observed transitions."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "required": ["initial_state"],
+            "properties": {
+                "initial_state": {"type": "string"},
+                "actions": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Required unless mode=mcts",
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["dirichlet", "mcts", "ensemble"],
+                    "default": "dirichlet",
+                },
+                "goal_state": {"type": "string", "description": "Goal for MCTS reward shaping"},
+                "iterations": {"type": "integer", "default": 50},
+                "max_depth": {"type": "integer", "default": 3},
+            },
+        },
+    },
+    {
+        "name": "can_execute",
+        "description": "Query SelfModel gate: should the agent execute this operation?",
+        "inputSchema": {
+            "type": "object",
+            "required": ["operation"],
+            "properties": {
+                "operation": {
+                    "type": "string",
+                    "description": "Operation name (e.g. add_memory, rollout, search_memory)",
+                },
+            },
+        },
+    },
+    {
         "name": "delete_memory",
         "description": "Delete a single memory record by UUID. Use for targeted removal without forgetting an entire actor.",
         "inputSchema": {
@@ -508,6 +603,103 @@ def handle_predict(args: dict) -> str:
     return "\n".join(lines)
 
 
+def handle_graph_ppr(args: dict) -> str:
+    params: dict = {"limit": args.get("limit", 10)}
+    if args.get("seed"):
+        params["seed"] = args["seed"]
+    qs = urllib.parse.urlencode(params)
+    result = _get(f"/topo/ppr?{qs}")
+    results = result.get("results", [])
+    if not results:
+        return f"No PPR results (seed={args.get('seed')}). Link nodes or apply a hypothesis first."
+    lines = [f"• {r.get('id')} (score: {r.get('score', 0):.4f})" for r in results]
+    return f"Topo PPR ({len(lines)}):\n" + "\n".join(lines)
+
+
+def handle_deconstruct_hypothesis(args: dict) -> str:
+    body: dict = {"text": args["text"]}
+    if args.get("llm_json"):
+        body["llm_json"] = args["llm_json"]
+    apply = bool(args.get("apply", False))
+    path = "/topo/apply-hyp" if apply else "/topo/deconstruct"
+    result = _post(path, body)
+    if not result.get("success", True) and result.get("error"):
+        return f"✗ Deconstruct failed: {result.get('error')}"
+    edges = result.get("edges") or result.get("hypothesis", {}).get("edges") or []
+    nodes = result.get("nodes") or result.get("hypothesis", {}).get("nodes") or []
+    lines = [f"Nodes: {', '.join(nodes) if nodes else '(none)'}"]
+    if edges:
+        lines.append("Edges:")
+        for e in edges:
+            if isinstance(e, dict):
+                lines.append(
+                    f"  • {e.get('from')} --[{e.get('relation', '?')}]--> {e.get('to')} "
+                    f"(conf={e.get('confidence', '?')})"
+                )
+            else:
+                lines.append(f"  • {e}")
+    if apply:
+        lines.append(
+            f"Applied: nodes+={result.get('added_nodes', 0)} edges+={result.get('added_edges', 0)}"
+        )
+        if result.get("skipped"):
+            lines.append(f"Skipped: {result.get('skipped')}")
+    return "\n".join(lines)
+
+
+def handle_check_topo_edge(args: dict) -> str:
+    result = _post("/topo/check-edge", {"from": args["from"], "to": args["to"]})
+    if result.get("error") and not result.get("success", True):
+        return f"✗ check failed: {result.get('error')}"
+    bad = result.get("would_contradict", False)
+    report = result.get("report")
+    if bad:
+        reason = (report or {}).get("reason", "contradiction") if isinstance(report, dict) else "contradiction"
+        return f"Would contradict: {args['from']} → {args['to']} ({reason})"
+    return f"OK to add: {args['from']} → {args['to']} (no contradiction detected)"
+
+
+def handle_rollout(args: dict) -> str:
+    body: dict = {
+        "initial_state": args["initial_state"],
+        "mode": args.get("mode", "dirichlet"),
+    }
+    if "actions" in args:
+        body["actions"] = args["actions"]
+    if "goal_state" in args:
+        body["goal_state"] = args["goal_state"]
+    if "iterations" in args:
+        body["iterations"] = args["iterations"]
+    if "max_depth" in args:
+        body["max_depth"] = args["max_depth"]
+    result = _post("/worldmodel/rollout", body)
+    if result.get("error") and "predicted_state" not in result:
+        return f"✗ Rollout failed: {result.get('error')}"
+    lines = [
+        f"Rollout mode={result.get('mode', body.get('mode'))}",
+        f"  initial: {result.get('initial_state', args['initial_state'])}",
+        f"  predicted: {result.get('predicted_state', '?')}",
+        f"  confidence: {result.get('confidence', '?')}",
+    ]
+    if result.get("best_action"):
+        lines.append(f"  best_action: {result.get('best_action')}")
+    if result.get("goal_state"):
+        lines.append(f"  goal: {result.get('goal_state')}")
+    return "\n".join(lines)
+
+
+def handle_can_execute(args: dict) -> str:
+    op = args["operation"]
+    qs = urllib.parse.urlencode({"operation": op})
+    result = _get(f"/self/can-execute?{qs}")
+    if result.get("error") and "should_execute" not in result:
+        return f"✗ can_execute failed: {result.get('error')}"
+    ok = result.get("should_execute")
+    conf = result.get("confidence", "?")
+    rat = result.get("rationale", "")
+    return f"can_execute({op}) = {ok} (confidence={conf})\n  {rat}".rstrip()
+
+
 def dispatch_tool(name: str, args: dict) -> str:
     global _live_beliefs_seen
     handlers = {
@@ -519,6 +711,11 @@ def dispatch_tool(name: str, args: dict) -> str:
         "link_memories":    handle_link_memories,
         "get_neighbors":    handle_get_neighbors,
         "search_related":   handle_search_related,
+        "graph_ppr":        handle_graph_ppr,
+        "deconstruct_hypothesis": handle_deconstruct_hypothesis,
+        "check_topo_edge":  handle_check_topo_edge,
+        "rollout":          handle_rollout,
+        "can_execute":      handle_can_execute,
         "delete_memory":    handle_delete_memory,
         "get_live_beliefs": handle_get_live_beliefs,
         "purge_expired":    handle_purge_expired,

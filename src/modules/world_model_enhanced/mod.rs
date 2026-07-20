@@ -464,8 +464,24 @@ impl WorldModelEnhanced {
         })
     }
 
+    /// Goal-shaped state reward for MCTS: high if state matches goal, medium if substring,
+    /// else small baseline. Prefer certain (low entropy) transitions when no goal.
+    pub fn mcts_state_reward(state: &str, goal_state: Option<&str>) -> f64 {
+        if let Some(g) = goal_state {
+            if state == g {
+                return 10.0;
+            }
+            if !g.is_empty() && (state.contains(g) || g.contains(state)) {
+                return 3.0;
+            }
+            return 0.05;
+        }
+        1.0
+    }
+
     /// MCTS (UCB1) best first action over TransitionModel.
-    /// `available_actions` empty → use all observed actions.
+    /// `available_actions` empty → actions observed from root_state only.
+    /// `goal_state` shapes leaf/rollout reward (prefer reaching goal).
     pub fn mcts_best_action(
         &self,
         root_state: &str,
@@ -474,10 +490,28 @@ impl WorldModelEnhanced {
         max_depth: usize,
         exploration_constant: f64,
     ) -> Result<String, String> {
+        self.mcts_best_action_goal(
+            root_state,
+            available_actions,
+            iterations,
+            max_depth,
+            exploration_constant,
+            None,
+        )
+    }
+
+    pub fn mcts_best_action_goal(
+        &self,
+        root_state: &str,
+        available_actions: &[String],
+        iterations: usize,
+        max_depth: usize,
+        exploration_constant: f64,
+        goal_state: Option<&str>,
+    ) -> Result<String, String> {
         let transitions = self.transitions.read()
             .map_err(|e| format!("Failed to acquire transitions lock: {}", e))?;
         let actions: Vec<String> = if available_actions.is_empty() {
-            // Only actions that have at least one observation from root_state.
             transitions
                 .get_actions()
                 .into_iter()
@@ -493,12 +527,18 @@ impl WorldModelEnhanced {
         if actions.is_empty() {
             return Err("No actions available for MCTS (observe transitions first)".to_string());
         }
+        let goal = goal_state.map(|s| s.to_string());
         let mut sim = MctsSimulator::new(root_state.to_string(), exploration_constant);
-        sim.search(&transitions, &actions, iterations.max(1), max_depth.max(1), |_s| 1.0)
+        sim.search(
+            &transitions,
+            &actions,
+            iterations.max(1),
+            max_depth.max(1),
+            move |s| Self::mcts_state_reward(s, goal.as_deref()),
+        )
     }
 
     /// MCTS search for best first action, then one-step Dirichlet MAP along that action.
-    /// (Does not replay best_action for full depth — next states may not support it.)
     pub fn rollout_mcts(
         &self,
         initial_state: String,
@@ -506,12 +546,24 @@ impl WorldModelEnhanced {
         iterations: usize,
         max_depth: usize,
     ) -> Result<(String, PredictionResult), String> {
-        let best = self.mcts_best_action(
+        self.rollout_mcts_goal(initial_state, available_actions, iterations, max_depth, None)
+    }
+
+    pub fn rollout_mcts_goal(
+        &self,
+        initial_state: String,
+        available_actions: Vec<String>,
+        iterations: usize,
+        max_depth: usize,
+        goal_state: Option<String>,
+    ) -> Result<(String, PredictionResult), String> {
+        let best = self.mcts_best_action_goal(
             &initial_state,
             &available_actions,
             iterations,
             max_depth,
             1.414,
+            goal_state.as_deref(),
         )?;
         let pred = self.rollout_dirichlet(initial_state, vec![best.clone()])?;
         Ok((best, pred))
@@ -812,6 +864,20 @@ mod tests {
         wm.observe_transition("S".into(), "wait".into(), "S".into()).unwrap();
         let best = wm.mcts_best_action("S", &[], 30, 2, 1.414).unwrap();
         assert!(best == "go" || best == "wait", "got {}", best);
+    }
+
+    #[test]
+    fn test_mcts_goal_prefers_path_to_goal() {
+        let wm = WorldModelEnhanced::new();
+        // go → Goal, wait → stay
+        for _ in 0..5 {
+            wm.observe_transition("S".into(), "go".into(), "Goal".into()).unwrap();
+            wm.observe_transition("S".into(), "wait".into(), "S".into()).unwrap();
+        }
+        let best = wm
+            .mcts_best_action_goal("S", &[], 80, 2, 1.414, Some("Goal"))
+            .unwrap();
+        assert_eq!(best, "go", "goal-shaped MCTS should prefer go → Goal");
     }
 
     #[test]

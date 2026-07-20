@@ -112,6 +112,14 @@ name = "webserver"
 path = "src/bin/webserver.rs"
 required-features = ["web-server"]
 
+[[bin]]
+name = "migrate"
+path = "scripts/migrate.rs"
+
+[[bin]]
+name = "import_trace"
+path = "scripts/import_trace.rs"
+
 [features]
 # Core features - start with petgraph_backend for minimal setup
 default = ["petgraph_backend"]
