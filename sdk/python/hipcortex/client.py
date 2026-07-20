@@ -567,8 +567,23 @@ class HipCortexClient:
         return (time.perf_counter() - t0) * 1000
 
     def can_execute(self, action: str = "rollout") -> bool:
-        """Evaluate capability gates and self-model execution readiness."""
+        """Query SelfModel gate: GET /self/can-execute?operation=...
+
+        Falls back to /health ok only if self endpoint is unavailable.
+        """
         try:
+            resp = self._session.get(
+                f"{self.base_url}/self/can-execute",
+                params={"operation": action},
+                timeout=self.timeout,
+            )
+            if resp.status_code == 200:
+                body = resp.json()
+                if "should_execute" in body:
+                    return bool(body["should_execute"])
+                if body.get("error"):
+                    return False
+            # Fallback: server without self routes
             status = self.health()
             return status.get("status") == "ok"
         except Exception:

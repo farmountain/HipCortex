@@ -44,6 +44,8 @@ mod safety_guardrail_sit;
 mod web_server_gaps_sit;
 #[cfg(feature = "web-server")]
 mod intelligence_wiring_sit;
+#[cfg(feature = "web-server")]
+mod worldmodel_self_http_sit;
 mod intelligence_uat;
 
 mod topological_substrate_tests;

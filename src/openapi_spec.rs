@@ -6,7 +6,7 @@ pub const OPENAPI_SPEC: &str = r##"{
   "info": {
     "title": "HipCortex Memory Engine",
     "description": "Persistent causal memory for AI agents. Sub-millisecond writes, temporal decay, causal world model, GDPR-compliant.",
-    "version": "0.2.0",
+    "version": "0.5.0",
     "license": { "name": "Apache 2.0", "url": "https://opensource.org/licenses/Apache-2.0" },
     "contact": { "url": "https://github.com/farmountain/HipCortex" }
   },
@@ -240,6 +240,154 @@ pub const OPENAPI_SPEC: &str = r##"{
           { "name": "operation", "in": "query", "required": true, "schema": { "type": "string" } }
         ],
         "responses": { "200": { "description": "Decision approval/rejection" } }
+      }
+    },
+    "/self/health": {
+      "get": {
+        "operationId": "selfHealth",
+        "summary": "SelfModel overall health score",
+        "security": [],
+        "responses": { "200": { "description": "{ healthy, overall }" } }
+      }
+    },
+    "/self/capabilities": {
+      "get": {
+        "operationId": "listSelfCapabilities",
+        "summary": "List registered SelfModel capabilities",
+        "security": [],
+        "responses": { "200": { "description": "Capability descriptors" } }
+      },
+      "post": {
+        "operationId": "registerSelfCapability",
+        "summary": "Register a capability at runtime",
+        "requestBody": { "required": true, "content": { "application/json": {
+          "schema": { "type": "object", "required": ["name"], "properties": {
+            "name": { "type": "string" },
+            "description": { "type": "string" },
+            "required_cpu_percent": { "type": "number" },
+            "required_memory_mb": { "type": "number" }
+          } } } } },
+        "responses": { "200": { "description": "Registration result" } }
+      }
+    },
+    "/worldmodel/status": {
+      "get": {
+        "operationId": "worldModelStatus",
+        "summary": "World model availability and transition/entity counts",
+        "security": [],
+        "responses": { "200": { "description": "Status JSON" } }
+      }
+    },
+    "/worldmodel/observe": {
+      "post": {
+        "operationId": "worldModelObserve",
+        "summary": "Observe a state transition (Dirichlet counts). Body: from|state, action, to|next_state",
+        "security": [],
+        "requestBody": { "required": true, "content": { "application/json": {
+          "schema": { "type": "object", "required": ["action"], "properties": {
+            "from": { "type": "string" },
+            "state": { "type": "string", "description": "Alias for from" },
+            "action": { "type": "string" },
+            "to": { "type": "string" },
+            "next_state": { "type": "string", "description": "Alias for to" }
+          } } } } },
+        "responses": { "200": { "description": "{ success, total_transitions }" } }
+      }
+    },
+    "/worldmodel/entities": {
+      "get": {
+        "operationId": "listWorldModelEntities",
+        "summary": "List Kalman-tracked entity IDs",
+        "security": [],
+        "responses": { "200": { "description": "{ entities, total }" } }
+      }
+    },
+    "/worldmodel/entity": {
+      "post": {
+        "operationId": "registerWorldModelEntity",
+        "summary": "Register entity with initial Kalman state",
+        "security": [],
+        "requestBody": { "required": true, "content": { "application/json": {
+          "schema": { "type": "object", "required": ["id"], "properties": {
+            "id": { "type": "string" },
+            "dimensions": { "type": "integer", "default": 3 },
+            "initial_values": { "type": "array", "items": { "type": "number" } }
+          } } } } },
+        "responses": { "200": { "description": "Registration result" } }
+      }
+    },
+    "/worldmodel/causal": {
+      "get": {
+        "operationId": "getCausalGraph",
+        "summary": "Dump causal graph edges",
+        "security": [],
+        "responses": { "200": { "description": "Causal graph" } }
+      }
+    },
+    "/worldmodel/causal/edge": {
+      "post": {
+        "operationId": "addCausalEdge",
+        "summary": "Add causal edge",
+        "security": [],
+        "responses": { "200": { "description": "Edge result" } }
+      }
+    },
+    "/worldmodel/causal/intervention": {
+      "post": {
+        "operationId": "causalIntervention",
+        "summary": "do-calculus intervention query",
+        "security": [],
+        "responses": { "200": { "description": "Intervention result" } }
+      }
+    },
+    "/worldmodel/causal/counterfactual": {
+      "post": {
+        "operationId": "causalCounterfactual",
+        "summary": "Structural counterfactual query",
+        "security": [],
+        "responses": { "200": { "description": "Counterfactual result" } }
+      }
+    },
+    "/memory/live_beliefs": {
+      "get": {
+        "operationId": "getLiveBeliefs",
+        "summary": "Unified live beliefs (symbolic + hypotheses + world + self/coherence)",
+        "security": [],
+        "parameters": [
+          { "name": "actor", "in": "query", "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 5 } }
+        ],
+        "responses": { "200": { "description": "Merged beliefs surface" } }
+      }
+    },
+    "/memory/link": {
+      "post": {
+        "operationId": "linkMemories",
+        "summary": "Create directed graph edge between two memory records",
+        "security": [],
+        "requestBody": { "required": true, "content": { "application/json": {
+          "schema": { "type": "object", "properties": {
+            "source_id": { "type": "string", "format": "uuid" },
+            "target_id": { "type": "string", "format": "uuid" },
+            "relation": { "type": "string", "default": "related" }
+          } } } } },
+        "responses": { "200": { "description": "Link result" } }
+      }
+    },
+    "/memory/reflect": {
+      "post": {
+        "operationId": "memoryReflect",
+        "summary": "CoT / hypothesis sampling via AureusBridge",
+        "security": [],
+        "responses": { "200": { "description": "Hypotheses" } }
+      }
+    },
+    "/memory/hypotheses": {
+      "get": {
+        "operationId": "listHypotheses",
+        "summary": "List current hypotheses",
+        "security": [],
+        "responses": { "200": { "description": "Hypothesis list" } }
       }
     }
   }

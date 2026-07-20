@@ -3766,17 +3766,29 @@ async fn handle_wm_uncertainty(
 
 // ── G6: WorldModel REST handlers ─────────────────────────────────────────────
 
-/// POST /worldmodel/observe — feed {from, action, to} into Dirichlet transition model
+/// POST /worldmodel/observe — feed transition into Dirichlet model.
+/// Accepts canonical `{from, action, to}` and aliases `{state, action, next_state}`.
 #[cfg(feature = "web-server")]
 async fn handle_wm_observe(
     world_model: Arc<RwLock<WorldModelEnhanced>>,
     Json(req): Json<serde_json::Value>,
 ) -> Json<serde_json::Value> {
-    let from   = req["from"].as_str().unwrap_or("").to_string();
+    let from = req["from"]
+        .as_str()
+        .or_else(|| req["state"].as_str())
+        .unwrap_or("")
+        .to_string();
     let action = req["action"].as_str().unwrap_or("").to_string();
-    let to     = req["to"].as_str().unwrap_or("").to_string();
+    let to = req["to"]
+        .as_str()
+        .or_else(|| req["next_state"].as_str())
+        .unwrap_or("")
+        .to_string();
     if from.is_empty() || action.is_empty() || to.is_empty() {
-        return Json(serde_json::json!({"success": false, "error": "from, action, to required"}));
+        return Json(serde_json::json!({
+            "success": false,
+            "error": "from|state, action, to|next_state required"
+        }));
     }
     match world_model.write() {
         Ok(mut wm) => match wm.observe_transition(from, action, to) {
@@ -4117,10 +4129,13 @@ async fn handle_worldmodel_status(
         "tracked_entities": entity_count,
         "endpoints": {
             "observe": "POST /worldmodel/observe",
-            "predict": "GET /worldmodel/predict?state=&action=",
+            "predict": "POST /worldmodel/predict {state,action} (also GET ?state=&action=)",
+            "rollout": "POST /worldmodel/rollout {initial_state,actions}",
             "entities": "GET /worldmodel/entities",
             "entity": "POST /worldmodel/entity",
-            "causal": "GET /worldmodel/causal"
+            "causal": "GET /worldmodel/causal",
+            "self_health": "GET /self/health",
+            "can_execute": "GET /self/can-execute?operation="
         }
     }))
 }
