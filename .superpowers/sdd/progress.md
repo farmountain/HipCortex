@@ -1,8 +1,15 @@
-# Progress — health body-shape dual contract (C)
+# Channel cohesion update (docs + install surfaces)
 
-Branch: `fix/health-body-shape-0.5.6`
-Plan: `docs/superpowers/plans/2026-07-20-health-body-shape-dual-contract.md`
+**Done** (2026-07-20)
 
-- Task 1: complete — `parseHealthPayload` + healthCheck/doAutoStart wire + Jest (77 pass)
-- Task 2: complete — fetch-bins `--force` / FORCE_FETCH_BINS, pin `v0.5.0`, package 0.5.6, package:vsix
-- Task 3: complete — Rust health assertions (api_tests still cfg-commented; mcp sit/uat updated)
+- T1 README VSIX URL → `/releases/download/v0.5.7/`
+- T2 vscode-extension/README → 0.5.7, 10 LM tools, dual health
+- T3 sdk/mcp/README → 18 tools, Grok mcp, VSIX 0.5.7
+- T4 docs/hosts, channels.yaml/md, capabilities.md
+- T5 cli `_fallback_channels` VSIX 0.5.7
+- T6 stale 0.5.4/0.5.5 user-facing refs fixed
+- T7 Bundle `hipcortex/install/mcp_server.py` for PyPI wizard; stamp_versions `--mcp` syncs it
+
+**Version policy kept:** product 0.5.0 / VSIX 0.5.7
+
+**Not done (needs credentials + version bump):** live `pip publish` / `npm publish` of 0.5.0 (immutable on registries — needs 0.5.1+ or re-release plan)

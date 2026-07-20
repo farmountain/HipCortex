@@ -28,8 +28,8 @@
 | npm (TypeScript SDK) | native | `npm install hipcortex` | Client only; no wizard |
 | Docker | native | `docker run -p 3030:3030 …` | Image may lag releases |
 | Managed tier (Fly) | native | `hipcortex install --url https://hipcortex.fly.dev` | Remote HTTP |
-| MCP server (Python stdio) | mcp | `hipcortex install` → `~/.hipcortex-mcp/` | Banner **0.5.0**; same on Win/macOS/Linux |
-| VS Code / Antigravity VSIX | native | `code --install-extension hipcortex-memory-0.5.7.vsix` | Ext **0.5.7**; topo LM tools + dual health; bundled server **0.5.0** multi-OS |
+| MCP server (Python stdio) | mcp | `hipcortex install` → `~/.hipcortex-mcp/` | Banner **0.5.0**; **18 tools** (topo PPR, deconstruct, check_edge, rollout MCTS, can_execute, …) |
+| VS Code / Antigravity VSIX | native | [release `v0.5.7`](https://github.com/farmountain/HipCortex/releases/download/v0.5.7/hipcortex-memory-0.5.7.vsix) | Ext **0.5.7**; **10 LM tools** + dual `/health`; bundled multi-OS webserver |
 
 ---
 

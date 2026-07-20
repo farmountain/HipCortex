@@ -14,6 +14,8 @@ npm install hipcortex
 
 > **Installer note:** **Python is the canonical installer** (`pip install hipcortex` → `hipcortex install`).  
 > This npm package is a **TypeScript/Node HTTP client only** — no framework scaffold wizard, no binary download, no IDE MCP registration. Use the Python CLI for install/scaffold; use this package for Node apps that talk to an existing HipCortex server.
+>
+> **Version matrix:** npm client **0.5.0** talks to server **0.5.0** (includes `/worldmodel/rollout`, live_beliefs, predict). VS Code extension is **0.5.7** with 10 LM tools — [docs/channels.md](../../docs/channels.md).
 
 ---
 

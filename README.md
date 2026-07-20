@@ -49,8 +49,8 @@ hipcortex install --url https://hipcortex.fly.dev   # optional managed endpoint
 npm install hipcortex
 ```
 
-**VS Code / Antigravity VSIX** (multi-OS server binaries bundled):  
-[hipcortex-memory-0.5.7.vsix](https://github.com/farmountain/HipCortex/releases/download/v0.5.0/hipcortex-memory-0.5.7.vsix)
+**VS Code / Antigravity VSIX** (multi-OS server binaries bundled; release tag **v0.5.7**):  
+[hipcortex-memory-0.5.7.vsix](https://github.com/farmountain/HipCortex/releases/download/v0.5.7/hipcortex-memory-0.5.7.vsix)
 
 ```bash
 code --install-extension hipcortex-memory-0.5.7.vsix

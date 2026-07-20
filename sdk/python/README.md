@@ -11,7 +11,11 @@ Runs against the standalone local Rust binary (`http://127.0.0.1:3030`) with `0.
 ```bash
 pip install hipcortex
 hipcortex doctor   # verify server health + version after install
+hipcortex install  # wizard: MCP hosts + copies ~/.hipcortex-mcp/server.py (18 tools)
+hipcortex channels # honesty matrix (native / mcp / framework / guide)
 ```
+
+**Version matrix:** product pip/Cargo/MCP `serverInfo` = **0.5.0**; VS Code VSIX = **0.5.7** ([release](https://github.com/farmountain/HipCortex/releases/download/v0.5.7/hipcortex-memory-0.5.7.vsix)). See [docs/channels.md](../../docs/channels.md).
 
 ---
 

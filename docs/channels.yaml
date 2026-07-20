@@ -12,7 +12,7 @@
 # Print: hipcortex channels
 
 version: 1
-updated: "2026-07-19"  # Phase 6c: grok → mcp (~/.grok/config.toml)
+updated: "2026-07-20"  # Cohesion: VSIX 0.5.7 + topo MCP + 10 LM tools + dual health
 
 channels:
   # ── Distribution surfaces ──────────────────────────────────────────────
@@ -55,8 +55,8 @@ channels:
     name: MCP server (Python stdio)
     category: distribution
     status: mcp
-    install: "hipcortex install (copies ~/.hipcortex-mcp/server.py)"
-    notes: "serverInfo.version may lag product (Phase 1 stamps)"
+    install: "hipcortex install (copies ~/.hipcortex-mcp/server.py; PyPI ships hipcortex/install/mcp_server.py)"
+    notes: "serverInfo 0.5.0; 18 tools incl. topo/rollout/can_execute; stamped from VERSION"
 
   - id: vscode-extension
     name: VS Code / Antigravity VSIX
