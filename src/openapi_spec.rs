@@ -211,7 +211,7 @@ pub const OPENAPI_SPEC: &str = r##"{
     "/worldmodel/rollout": {
       "post": {
         "operationId": "worldModelRollout",
-        "summary": "Multi-step ensemble rollout sequence",
+        "summary": "Multi-step rollout: dirichlet MAP (default), MCTS (mode=mcts), or ensemble predictors",
         "security": [],
         "requestBody": {
           "required": true,
@@ -219,10 +219,13 @@ pub const OPENAPI_SPEC: &str = r##"{
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["initial_state", "actions"],
+                "required": ["initial_state"],
                 "properties": {
                   "initial_state": { "type": "string" },
-                  "actions": { "type": "array", "items": { "type": "string" } }
+                  "actions": { "type": "array", "items": { "type": "string" }, "description": "Required unless mode=mcts" },
+                  "mode": { "type": "string", "enum": ["dirichlet", "mcts", "ensemble"], "default": "dirichlet" },
+                  "iterations": { "type": "integer", "default": 50, "description": "MCTS iterations" },
+                  "max_depth": { "type": "integer", "default": 3, "description": "MCTS / trajectory depth" }
                 }
               }
             }

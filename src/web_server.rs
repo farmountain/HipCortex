@@ -3853,7 +3853,18 @@ async fn handle_wm_predict_post(
 #[derive(Deserialize)]
 struct WmRolloutRequest {
     initial_state: String,
+    /// Fixed action sequence (Dirichlet MAP multi-step). Optional when mode=mcts.
+    #[serde(default)]
     actions: Vec<String>,
+    /// "dirichlet" (default) | "mcts" | "ensemble"
+    #[serde(default)]
+    mode: Option<String>,
+    /// MCTS iterations (default 50)
+    #[serde(default)]
+    iterations: Option<usize>,
+    /// MCTS / rollout depth (default 3)
+    #[serde(default)]
+    max_depth: Option<usize>,
 }
 
 #[cfg(feature = "web-server")]
@@ -3861,21 +3872,75 @@ async fn handle_wm_rollout(
     world_model: Arc<RwLock<WorldModelEnhanced>>,
     Json(req): Json<WmRolloutRequest>,
 ) -> Json<serde_json::Value> {
-    if req.actions.is_empty() {
-        return Json(serde_json::json!({"error": "actions must be non-empty"}));
-    }
+    let mode = req
+        .mode
+        .as_deref()
+        .unwrap_or(if req.actions.is_empty() { "mcts" } else { "dirichlet" })
+        .to_lowercase();
+    let iterations = req.iterations.unwrap_or(50);
+    let max_depth = req.max_depth.unwrap_or(3);
+
     match world_model.read() {
-        Ok(wm) => match wm.predict_multi_step(req.initial_state.clone(), req.actions.clone()) {
-            Ok(pred) => Json(serde_json::json!({
-                "initial_state":   req.initial_state,
-                "actions":         req.actions,
-                "predicted_state": pred.predicted_state,
-                "distribution":    pred.distribution,
-                "confidence":      pred.confidence,
-                "steps":           pred.steps,
-            })),
-            Err(e) => Json(serde_json::json!({"error": e})),
-        },
+        Ok(wm) => {
+            if mode == "mcts" {
+                match wm.rollout_mcts(
+                    req.initial_state.clone(),
+                    req.actions.clone(),
+                    iterations,
+                    max_depth,
+                ) {
+                    Ok((best_action, pred)) => {
+                        return Json(serde_json::json!({
+                            "mode": "mcts",
+                            "initial_state": req.initial_state,
+                            "best_action": best_action,
+                            "predicted_state": pred.predicted_state,
+                            "distribution": pred.distribution,
+                            "confidence": pred.confidence,
+                            "steps": pred.steps,
+                            "iterations": iterations,
+                            "max_depth": max_depth,
+                        }));
+                    }
+                    Err(e) => return Json(serde_json::json!({"error": e, "mode": "mcts"})),
+                }
+            }
+
+            if req.actions.is_empty() {
+                return Json(serde_json::json!({
+                    "error": "actions must be non-empty (or set mode=mcts)"
+                }));
+            }
+
+            // Prefer Dirichlet transition multi-step (works after observe; no 100-obs train).
+            if mode != "ensemble" {
+                if let Ok(pred) = wm.rollout_dirichlet(req.initial_state.clone(), req.actions.clone()) {
+                    return Json(serde_json::json!({
+                        "mode": "dirichlet",
+                        "initial_state": req.initial_state,
+                        "actions": req.actions,
+                        "predicted_state": pred.predicted_state,
+                        "distribution": pred.distribution,
+                        "confidence": pred.confidence,
+                        "steps": pred.steps,
+                    }));
+                }
+            }
+
+            // Ensemble fallback (trained predictors)
+            match wm.predict_multi_step(req.initial_state.clone(), req.actions.clone()) {
+                Ok(pred) => Json(serde_json::json!({
+                    "mode": "ensemble",
+                    "initial_state": req.initial_state,
+                    "actions": req.actions,
+                    "predicted_state": pred.predicted_state,
+                    "distribution": pred.distribution,
+                    "confidence": pred.confidence,
+                    "steps": pred.steps,
+                })),
+                Err(e) => Json(serde_json::json!({"error": e})),
+            }
+        }
         Err(e) => Json(serde_json::json!({"error": format!("lock: {}", e)})),
     }
 }

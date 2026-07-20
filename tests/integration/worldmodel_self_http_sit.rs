@@ -145,7 +145,7 @@ async fn worldmodel_observe_predict_rollout_and_self_surface() {
         pred
     );
 
-    // Rollout multi-step
+    // Rollout multi-step (Dirichlet MAP — no trained predictor required)
     let roll: serde_json::Value = client
         .post(format!("{}/worldmodel/rollout", base))
         .json(&serde_json::json!({
@@ -159,9 +159,32 @@ async fn worldmodel_observe_predict_rollout_and_self_surface() {
         .await
         .unwrap();
     assert!(
-        roll.get("predicted_state").is_some() || roll.get("error").is_some(),
-        "rollout: {}",
+        roll.get("error").is_none(),
+        "dirichlet rollout should succeed after observe: {}",
         roll
+    );
+    assert_eq!(roll["predicted_state"], "running");
+    assert_eq!(roll["mode"], "dirichlet");
+
+    // MCTS mode picks an action from observed transitions
+    let mcts: serde_json::Value = client
+        .post(format!("{}/worldmodel/rollout", base))
+        .json(&serde_json::json!({
+            "initial_state": "idle",
+            "mode": "mcts",
+            "iterations": 20,
+            "max_depth": 2
+        }))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert!(
+        mcts.get("best_action").is_some(),
+        "mcts rollout: {}",
+        mcts
     );
 
     // Live beliefs
