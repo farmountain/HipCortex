@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 from typing import Any, Dict, List, Optional
 
@@ -569,7 +570,7 @@ class HipCortexClient:
     def can_execute(self, action: str = "rollout") -> bool:
         """Query SelfModel gate: GET /self/can-execute?operation=...
 
-        Falls back to /health ok only if self endpoint is unavailable.
+        Falls back to /health ok only if self route is missing (404).
         """
         try:
             resp = self._session.get(
@@ -581,21 +582,26 @@ class HipCortexClient:
                 body = resp.json()
                 if "should_execute" in body:
                     return bool(body["should_execute"])
-                if body.get("error"):
-                    return False
-            # Fallback: server without self routes
-            status = self.health()
-            return status.get("status") == "ok"
+                return False
+            if resp.status_code == 404:
+                status = self.health()
+                return status.get("status") == "ok"
+            return False
         except Exception:
             return False
 
     def rollout(
         self,
-        initial_state: Dict[str, Any],
+        initial_state: Any,
         actions: List[str],
         max_depth: int = 5,
     ) -> Dict[str, Any]:
-        """Predict next state trajectory via multi-step Monte Carlo Tree Search (/worldmodel/rollout)."""
+        """Multi-step predict via POST /worldmodel/rollout {initial_state, actions}.
+
+        ``initial_state`` may be a string or JSON-serializable object (stringified).
+        """
+        if not isinstance(initial_state, str):
+            initial_state = json.dumps(initial_state)
         payload = {
             "initial_state": initial_state,
             "actions": actions,

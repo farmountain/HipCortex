@@ -279,7 +279,13 @@ pub struct MemoryLinkRequest {
     pub from_id:  String,  // MemoryRecord UUID
     #[serde(alias = "target_id")]
     pub to_id:    String,  // MemoryRecord UUID
+    #[serde(default = "default_link_relation")]
     pub relation: String,
+}
+
+#[cfg(feature = "web-server")]
+fn default_link_relation() -> String {
+    "related".to_string()
 }
 
 #[cfg(feature = "web-server")]
