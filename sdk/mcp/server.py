@@ -371,6 +371,27 @@ TOOLS = [
     },
 ]
 
+RESOURCES = [
+    {
+        "uri": "hipcortex://context/relevant",
+        "name": "Relevant Memory Context",
+        "description": "Top-k memories relevant to the current session, auto-injected.",
+        "mimeType": "text/plain",
+    },
+    {
+        "uri": "hipcortex://beliefs/current",
+        "name": "Current Beliefs",
+        "description": "Active belief records from HipCortex symbolic store.",
+        "mimeType": "application/json",
+    },
+    {
+        "uri": "hipcortex://context/conversation",
+        "name": "Conversation History",
+        "description": "Recent temporal memory traces for this session.",
+        "mimeType": "text/plain",
+    },
+]
+
 # ---------------------------------------------------------------------------
 # Tool execution
 # ---------------------------------------------------------------------------
@@ -748,6 +769,47 @@ def respond(id_: Any, result: Any = None, error: Any = None) -> None:
     sys.stdout.flush()
 
 
+def handle_resources_list() -> dict:
+    return {"resources": RESOURCES}
+
+
+def handle_resource_read(uri: str) -> dict:
+    try:
+        if uri == "hipcortex://context/relevant":
+            data = _get("/memory/search?q=context&limit=5")
+            lines = []
+            for item in (data if isinstance(data, list) else []):
+                actor = item.get("actor", "")
+                action = item.get("action", "")
+                target = item.get("target", "")
+                lines.append(f"[{actor}] {action} → {target}")
+            text = "\n".join(lines) if lines else "(no memories yet)"
+            return {"contents": [{"uri": uri, "mimeType": "text/plain", "text": text}]}
+        elif uri == "hipcortex://beliefs/current":
+            data = _get("/memory/search?q=belief&record_type=Symbolic&limit=10")
+            return {
+                "contents": [
+                    {
+                        "uri": uri,
+                        "mimeType": "application/json",
+                        "text": json.dumps(data if isinstance(data, list) else []),
+                    }
+                ]
+            }
+        elif uri == "hipcortex://context/conversation":
+            actor = os.environ.get("HIPCORTEX_ACTOR", "mcp-session")
+            data = _get(f"/memory/query?actor={actor}&limit=20")
+            lines = []
+            for item in (data if isinstance(data, list) else []):
+                lines.append(f"{item.get('action', '')} → {item.get('target', '')}")
+            text = "\n".join(lines) if lines else "(no history yet)"
+            return {"contents": [{"uri": uri, "mimeType": "text/plain", "text": text}]}
+        else:
+            return {"contents": [{"uri": uri, "mimeType": "text/plain", "text": ""}]}
+    except Exception:
+        return {"contents": [{"uri": uri, "mimeType": "text/plain", "text": ""}]}
+
+
 def main() -> None:
     for raw_line in sys.stdin:
         line = raw_line.strip()
@@ -766,8 +828,8 @@ def main() -> None:
         if method == "initialize":
             respond(id_, {
                 "protocolVersion": "2024-11-05",
-                "capabilities": {"tools": {}},
-                "serverInfo": {"name": "hipcortex", "version": "0.5.2"},
+                "capabilities": {"tools": {}, "resources": {}},
+                "serverInfo": {"name": "hipcortex", "version": "0.6.0"},
             })
         elif method == "initialized":
             pass  # notification — no response
@@ -783,6 +845,10 @@ def main() -> None:
                 respond(id_, error=f"HipCortex server error: {e}")
             except Exception as e:
                 respond(id_, error=str(e))
+        elif method == "resources/list":
+            respond(id_, handle_resources_list())
+        elif method == "resources/read":
+            respond(id_, handle_resource_read(params.get("uri", "")))
         elif method == "ping":
             respond(id_, {})
         else:
