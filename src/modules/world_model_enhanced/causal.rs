@@ -850,5 +850,29 @@ mod tests {
         assert!(graph.nodes.contains_key("state"), "state node not added");
         assert!(graph.nodes.contains_key("action"), "action node not added");
         assert!(graph.nodes.contains_key("next_state"), "next_state node not added");
+        // Verify conditional distribution key "action=a1,state=s1" was inserted
+        assert!(
+            graph.distributions.contains_key("action=a1,state=s1"),
+            "missing conditional distribution action=a1,state=s1"
+        );
+        // Verify prior_Z has a concrete probability for s1 (the only from_state)
+        let prior = graph.distributions.get("prior_Z").expect("prior_Z must exist");
+        let p_s1 = prior.get("state=s1").copied().unwrap_or(0.0);
+        assert!(p_s1 > 0.0 && p_s1 <= 1.0, "P(state=s1) must be in (0, 1], got {}", p_s1);
+    }
+
+    #[test]
+    fn test_auto_populate_empty_model_no_panic() {
+        use crate::world_model_enhanced::transition::TransitionModel;
+        let model = TransitionModel::new();
+        let mut graph = CausalGraph::new();
+        graph.auto_populate_from_transitions(&model);
+        // Empty model: no distributions (no transitions recorded)
+        assert!(!graph.distributions.contains_key("prior_Z"),
+            "empty model must not insert prior_Z");
+        // Nodes still added (they're structural, not data-dependent)
+        assert!(graph.nodes.contains_key("state"));
+        assert!(graph.nodes.contains_key("action"));
+        assert!(graph.nodes.contains_key("next_state"));
     }
 }
