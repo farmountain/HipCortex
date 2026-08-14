@@ -67,6 +67,14 @@ pub struct EntityTracker {
     anomalies: Vec<Anomaly>,
 }
 
+/// Configuration for EntityTracker allowing custom Kalman F matrix.
+#[derive(Debug, Clone, Default)]
+pub struct EntityConfig {
+    /// Optional custom state-transition matrix F (must be dim×dim).
+    /// If None, identity matrix is used.
+    pub f_matrix: Option<Vec<Vec<f64>>>,
+}
+
 impl EntityTracker {
     /// Create new tracker with initial state
     pub fn new(initial_state: EntityState) -> Self {
@@ -82,6 +90,15 @@ impl EntityTracker {
             permanence_timeout: Duration::from_secs(60),
             anomalies: Vec::new(),
         }
+    }
+
+    /// Create tracker with custom config (e.g. custom F matrix).
+    pub fn with_config(initial_state: EntityState, config: EntityConfig) -> Self {
+        let mut tracker = Self::new(initial_state);
+        if let Some(f) = config.f_matrix {
+            tracker.transition_matrix = f;
+        }
+        tracker
     }
 
     /// Predict state N steps into future
@@ -150,10 +167,33 @@ impl EntityTracker {
             .map(|(x, ky_i)| x + ky_i)
             .collect();
 
-        // Covariance update: P = (I - K×H)×P
+        // Covariance update (Joseph form): P = (I - K×H)×P×(I - K×H)^T + K×R×K^T
         let kh = matrix_multiply(&kalman_gain, &self.observation_matrix)?;
         let i_minus_kh = matrix_subtract(&identity_matrix(self.state.properties.len()), &kh)?;
-        self.state.covariance = matrix_multiply(&i_minus_kh, &self.state.covariance)?;
+        
+        // Term 1: (I - KH) * P * (I - KH)^T
+        let term1_part1 = matrix_multiply(&i_minus_kh, &self.state.covariance)?;
+        let i_minus_kh_t = matrix_transpose(&i_minus_kh);
+        let term1 = matrix_multiply(&term1_part1, &i_minus_kh_t)?;
+        
+        // Term 2: K * R * K^T
+        let kr = matrix_multiply(&kalman_gain, &observation.measurement_noise)?;
+        let k_t = matrix_transpose(&kalman_gain);
+        let term2 = matrix_multiply(&kr, &k_t)?;
+        
+        // P = term1 + term2
+        let mut p_new = matrix_add(&term1, &term2)?;
+        
+        // Symmetrization: P = (P + P^T) / 2 to prevent float drift
+        let n = p_new.len();
+        for i in 0..n {
+            for j in 0..i {
+                let avg = (p_new[i][j] + p_new[j][i]) * 0.5;
+                p_new[i][j] = avg;
+                p_new[j][i] = avg;
+            }
+        }
+        self.state.covariance = p_new;
 
         self.last_update = observation.timestamp;
 
@@ -554,5 +594,33 @@ mod tests {
         
         tracker.clear_anomalies();
         assert_eq!(tracker.get_anomalies().len(), 0);
+    }
+
+    #[test]
+    fn test_with_config_custom_f_matrix() {
+        let initial_state = EntityState {
+            properties: vec![1.0, 0.0],
+            covariance: vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+        };
+        // F = [[1,1],[0,1]] — constant-velocity model
+        let f = vec![vec![1.0, 1.0], vec![0.0, 1.0]];
+        let config = EntityConfig { f_matrix: Some(f.clone()) };
+        let tracker = EntityTracker::with_config(initial_state, config);
+        assert_eq!(tracker.transition_matrix, f);
+        // One-step prediction: [1,0] -> F*[1,0] = [1,0]
+        let pred = tracker.predict(1).unwrap();
+        assert!((pred.properties[0] - 1.0).abs() < 1e-9);
+        assert!((pred.properties[1] - 0.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_with_config_default_uses_identity() {
+        let initial_state = EntityState {
+            properties: vec![2.0, 3.0],
+            covariance: vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+        };
+        let tracker = EntityTracker::with_config(initial_state, EntityConfig::default());
+        let identity = identity_matrix(2);
+        assert_eq!(tracker.transition_matrix, identity);
     }
 }
