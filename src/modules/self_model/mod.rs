@@ -83,6 +83,8 @@ pub struct SelfModel {
     performance: Arc<RwLock<PerformanceTracker>>,
     health: Arc<RwLock<HealthAggregator>>,
     decision: Arc<RwLock<DecisionEngine>>,
+    /// Optional override: if set, delegates `can_execute` to this gate instead of DecisionEngine.
+    gate_override: Option<Arc<std::sync::Mutex<dyn crate::execution_gate::ExecutionGate>>>,
 }
 
 impl SelfModel {
@@ -100,7 +102,15 @@ impl SelfModel {
             performance,
             health,
             decision,
+            gate_override: None,
         }
+    }
+
+    /// Create a SelfModel that delegates execution decisions to a custom ExecutionGate.
+    pub fn with_gate(gate: Arc<std::sync::Mutex<dyn crate::execution_gate::ExecutionGate>>) -> Self {
+        let mut sm = Self::new();
+        sm.gate_override = Some(gate);
+        sm
     }
 
     /// Register a capability with the system
@@ -127,6 +137,17 @@ impl SelfModel {
     ///
     /// Returns Decision with approval/rejection and rationale
     pub fn can_execute(&self, operation: &str, context: DecisionContext) -> Result<Decision, String> {
+        // Gate override short-circuits all internal checks
+        if let Some(ref gate) = self.gate_override {
+            let default_resources = ResourceUsage {
+                cpu_percent: 50.0, memory_mb: 500.0,
+                disk_io_mbps: 10.0, network_io_mbps: 10.0,
+                timestamp: Instant::now(),
+            };
+            let mut g = gate.lock().map_err(|e| format!("gate lock: {}", e))?;
+            return Ok(g.evaluate(operation, &context, 0.8, &default_resources, 0.7));
+        }
+
         // Get current system state
         let caps = self.capabilities.read()
             .map_err(|e| format!("Failed to read capabilities: {}", e))?;
@@ -179,10 +200,9 @@ impl SelfModel {
         // Get current health
         let health_score = health_agg.get_overall_health()?;
 
-        // Delegate to decision engine for final determination
         let mut engine = self.decision.write()
             .map_err(|e| format!("Failed to acquire decision engine: {}", e))?;
-        
+
         let decision = engine.evaluate(
             operation,
             context,
@@ -324,6 +344,27 @@ mod tests {
         
         let result = sm.record_outcome("test_op", Duration::from_millis(100), true);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_with_gate_overrides_decision_engine() {
+        use crate::execution_gate::ExecutionGate;
+        use std::sync::{Arc, Mutex};
+
+        struct AlwaysApproveGate;
+        impl ExecutionGate for AlwaysApproveGate {
+            fn evaluate(&mut self, _op: &str, _ctx: &DecisionContext, _sr: f64, _res: &ResourceUsage, _hs: f64) -> Decision {
+                Decision { should_execute: true, confidence: 1.0, rationale: "gate approved".into(), predicted_resources: None, expected_utility: 1.0 }
+            }
+            fn record_outcome(&mut self, _op: &str, _approved: bool) {}
+            fn min_utility(&self) -> f64 { 0.0 }
+        }
+
+        let gate: Arc<Mutex<dyn ExecutionGate>> = Arc::new(Mutex::new(AlwaysApproveGate));
+        let sm = SelfModel::with_gate(gate);
+        // unknown capability — default DecisionEngine would reject, gate approves
+        let d = sm.can_execute("unknown_op", DecisionContext::default_context()).unwrap();
+        assert!(d.should_execute, "gate should override to approve");
     }
 
     #[test]
