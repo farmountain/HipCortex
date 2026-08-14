@@ -42,6 +42,7 @@ pub mod optimized_memory_store;
 pub mod monitoring;
 #[path = "modules/openmanus_bridge.rs"]
 pub mod openmanus_bridge;
+pub mod payloads;
 #[path = "modules/perception_adapter.rs"]
 pub mod perception_adapter;
 pub mod persistence;

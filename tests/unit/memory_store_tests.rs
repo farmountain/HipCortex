@@ -3,6 +3,34 @@ use hipcortex::memory_store::MemoryStore;
 use std::fs;
 
 #[test]
+fn test_goal_payload_roundtrips_via_metadata() {
+    use hipcortex::payloads::{GoalPayload, GoalStatus, SuccessFactor};
+
+    let goal = GoalPayload {
+        target_state: "server healthy".to_string(),
+        acceptance_criteria: vec!["health endpoint returns 200".to_string()],
+        success_factors: vec![SuccessFactor { name: "uptime".to_string(), weight: 1.0, satisfied: false }],
+        max_react_iterations: 5,
+        status: GoalStatus::Pending,
+        current_iteration: 0,
+    };
+
+    let record = MemoryRecord::new(
+        MemoryType::Goal,
+        "system".to_string(),
+        "achieve".to_string(),
+        "server healthy".to_string(),
+        serde_json::to_value(&goal).unwrap(),
+    );
+
+    let parsed: GoalPayload = serde_json::from_value(record.metadata.clone()).unwrap();
+    assert_eq!(parsed.target_state, "server healthy");
+    assert_eq!(parsed.acceptance_criteria.len(), 1);
+    assert_eq!(parsed.max_react_iterations, 5);
+    assert!(matches!(parsed.status, GoalStatus::Pending));
+}
+
+#[test]
 fn test_add_and_query_memory_store() {
     let path = "test_memory.jsonl";
     let _ = fs::remove_file(path);
