@@ -1,4 +1,5 @@
 mod agent_bridge_sit;
+mod react_engine_sit;
 mod cli_tests;
 mod conversation_memory_sit;
 mod conversation_memory_uat;

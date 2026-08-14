@@ -468,6 +468,115 @@ impl LoopEngine {
     }
 }
 
+/// Goal-driven ReAct (Reasoning + Acting) engine with Reflexion.
+///
+/// Each iteration:
+///   1. THOUGHT  — produce chain-of-thought reasoning string
+///   2. ACTION   — record action attempt as a Temporal observation
+///   3. OBSERVE  — write Temporal MemoryRecord derived from goal
+///   4. EVALUATE — check acceptance criteria (all success_factors.satisfied)
+///   5. REFLECT  — write Reflexion record on incomplete progress
+pub struct ReactEngine {
+    pub max_iterations_override: Option<u32>,
+}
+
+impl ReactEngine {
+    pub fn new() -> Self {
+        Self { max_iterations_override: None }
+    }
+
+    /// Run the ReAct loop for `goal_id`. Returns Ok(GoalStatus) on completion.
+    pub fn run(
+        &mut self,
+        store: &mut crate::memory_store::MemoryStore<impl crate::persistence::MemoryBackend>,
+        goal_id: uuid::Uuid,
+        _skill_hint: u32,
+    ) -> Result<crate::payloads::GoalStatus, String> {
+        use crate::memory_record::{MemoryRecord, MemoryType};
+        use crate::payloads::{GoalPayload, GoalStatus};
+
+        let goal_record = store.find_by_id(goal_id)
+            .ok_or_else(|| format!("Goal not found: {}", goal_id))?
+            .clone();
+        let mut goal_payload: GoalPayload = serde_json::from_value(goal_record.metadata.clone())
+            .map_err(|e| format!("Goal metadata parse error: {}", e))?;
+
+        let max_iter = self.max_iterations_override.unwrap_or(goal_payload.max_react_iterations);
+
+        for i in 0..max_iter {
+            goal_payload.current_iteration = i;
+            goal_payload.status = GoalStatus::InProgress;
+
+            let thought = format!(
+                "Iteration {}: pursuing goal '{}'. Criteria: {:?}",
+                i, goal_payload.target_state, goal_payload.acceptance_criteria
+            );
+
+            let observation = serde_json::json!({
+                "thought": thought,
+                "action": "symbolic_step",
+                "iteration": i,
+                "target": goal_payload.target_state,
+            });
+
+            let mut obs = MemoryRecord::new(
+                MemoryType::Temporal,
+                "react_engine".to_string(),
+                "observe".to_string(),
+                goal_payload.target_state.clone(),
+                observation,
+            );
+            obs.derived_from = Some(goal_id);
+            obs.react_iteration = Some(i);
+            store.add(obs).map_err(|e| format!("Failed to write observation: {}", e))?;
+
+            let all_satisfied = goal_payload.success_factors.iter().all(|f| f.satisfied);
+
+            if all_satisfied {
+                goal_payload.status = GoalStatus::Succeeded;
+                self.update_goal_status(store, goal_id, &goal_payload)?;
+                return Ok(GoalStatus::Succeeded);
+            }
+
+            // REFLECT on incomplete progress
+            let critique = format!(
+                "Iteration {} incomplete. Unsatisfied: {:?}",
+                i,
+                goal_payload.success_factors.iter().filter(|f| !f.satisfied).map(|f| &f.name).collect::<Vec<_>>()
+            );
+            let mut reflection = MemoryRecord::new(
+                MemoryType::Reflexion,
+                "react_engine".to_string(),
+                "reflect".to_string(),
+                goal_payload.target_state.clone(),
+                serde_json::json!({ "critique": critique, "iteration": i }),
+            );
+            reflection.derived_from = Some(goal_id);
+            reflection.react_iteration = Some(i);
+            store.add(reflection).map_err(|e| format!("Failed to write reflection: {}", e))?;
+        }
+
+        goal_payload.status = GoalStatus::Failed;
+        self.update_goal_status(store, goal_id, &goal_payload)?;
+        Ok(GoalStatus::Failed)
+    }
+
+    fn update_goal_status(
+        &self,
+        store: &mut crate::memory_store::MemoryStore<impl crate::persistence::MemoryBackend>,
+        goal_id: uuid::Uuid,
+        payload: &crate::payloads::GoalPayload,
+    ) -> Result<(), String> {
+        store.update_record(goal_id, None, None, None, None, Some(serde_json::to_value(payload).unwrap()))
+            .map(|_| ())
+            .map_err(|e| format!("Failed to update goal: {}", e))
+    }
+}
+
+impl Default for ReactEngine {
+    fn default() -> Self { Self::new() }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

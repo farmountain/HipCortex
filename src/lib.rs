@@ -100,7 +100,7 @@ pub mod topological_memory;
 pub mod loop_engine;
 // Reexports for mcp/integration + auto paths exposure (Task 10 wiring)
 pub use topological_memory::{CausalTopoGraph, EdgeType};
-pub use loop_engine::LoopEngine;
+pub use loop_engine::{LoopEngine, ReactEngine};
 #[path = "modules/coherence/mod.rs"]
 pub mod coherence;
 #[path = "modules/health_reporter.rs"]
