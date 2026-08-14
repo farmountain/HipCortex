@@ -3,6 +3,22 @@ use hipcortex::memory_store::MemoryStore;
 use std::fs;
 
 #[test]
+fn test_archived_records_excluded_from_default_search() {
+    let mut store = MemoryStore::new_in_memory();
+
+    let active = MemoryRecord::new(MemoryType::Temporal, "a".into(), "act".into(), "t_active".into(), serde_json::json!({}));
+    let mut archived = MemoryRecord::new(MemoryType::Temporal, "a".into(), "act".into(), "t_old".into(), serde_json::json!({}));
+    archived.status = "archived".to_string();
+
+    store.add(active).unwrap();
+    store.add(archived).unwrap();
+
+    let results = store.search_semantic(None, "t", 10, false);
+    assert!(!results.iter().any(|(r, _)| r.status == "archived"),
+        "archived records must not appear in default search");
+}
+
+#[test]
 fn test_goal_payload_roundtrips_via_metadata() {
     use hipcortex::payloads::{GoalPayload, GoalStatus, SuccessFactor};
 

@@ -449,6 +449,7 @@ impl<B: MemoryBackend> MemoryStore<B> {
             .filter(|r| {
                 r.priority != "pinned"
                     && (include_quarantined || r.status != "quarantine")
+                    && r.status != "archived"
                     && r.expires_at.map_or(true, |exp| exp > now_ts)
             })
             .map(|rec| {
@@ -490,6 +491,7 @@ impl<B: MemoryBackend> MemoryStore<B> {
             .filter(|r| {
                 r.priority == "pinned"
                     && (include_quarantined || r.status != "quarantine")
+                    && r.status != "archived"
                     && r.expires_at.map_or(true, |exp| exp > now_ts)
             })
             .map(|r| (r, 2.0f64))
