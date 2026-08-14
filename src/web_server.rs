@@ -2679,6 +2679,71 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         get(move || { let s = store.clone(); async move { handle_prometheus_metrics(s).await } })
     };
 
+    let goal_react_route = {
+        let store = memory_store.clone();
+        post(move |Path(id): Path<String>| async move {
+            let goal_id = match uuid::Uuid::parse_str(&id) {
+                Ok(u) => u,
+                Err(_) => return Json(serde_json::json!({"error": "invalid uuid"})),
+            };
+            let mut engine = crate::loop_engine::ReactEngine::new();
+            let result = {
+                let mut s = store.lock().unwrap();
+                engine.run(&mut s, goal_id, 0)
+            };
+            match result {
+                Ok(status) => Json(serde_json::json!({"goal_id": goal_id.to_string(), "status": format!("{:?}", status)})),
+                Err(e) => Json(serde_json::json!({"error": e})),
+            }
+        })
+    };
+
+    let goal_trace_route = {
+        let store = memory_store.clone();
+        get(move |Path(id): Path<String>| async move {
+            let goal_id = match uuid::Uuid::parse_str(&id) {
+                Ok(u) => u,
+                Err(_) => return Json(serde_json::json!({"error": "invalid uuid"})),
+            };
+            let records: Vec<_> = {
+                let s = store.lock().unwrap();
+                s.all()
+                    .iter()
+                    .filter(|r| r.derived_from == Some(goal_id))
+                    .cloned()
+                    .collect()
+            };
+            let count = records.len();
+            Json(serde_json::json!({"goal_id": goal_id.to_string(), "trace": records, "count": count}))
+        })
+    };
+
+    let memory_diff_route = {
+        let store = memory_store.clone();
+        post(move |Json(req): Json<serde_json::Value>| async move {
+            let from_id = req.get("from_id").and_then(|v| v.as_str()).and_then(|s| uuid::Uuid::parse_str(s).ok());
+            let to_id   = req.get("to_id").and_then(|v| v.as_str()).and_then(|s| uuid::Uuid::parse_str(s).ok());
+            let (from_id, to_id) = match (from_id, to_id) {
+                (Some(a), Some(b)) => (a, b),
+                _ => return Json(serde_json::json!({"error": "from_id and to_id required"})),
+            };
+            let (from, to) = {
+                let s = store.lock().unwrap();
+                let from = match s.find_by_id(from_id) {
+                    Some(r) => r.clone(),
+                    None => return Json(serde_json::json!({"error": "from_id not found"})),
+                };
+                let to = match s.find_by_id(to_id) {
+                    Some(r) => r.clone(),
+                    None => return Json(serde_json::json!({"error": "to_id not found"})),
+                };
+                (from, to)
+            };
+            let diff = crate::memory_diff::compute_diff(&from, &to);
+            Json(serde_json::to_value(diff).unwrap_or(serde_json::json!({"error": "serialization failed"})))
+        })
+    };
+
     let app = Router::new()
         .route("/", get(|| async { axum::response::Redirect::permanent("/pricing") }))
         .route("/health", get(|| async {
@@ -2729,6 +2794,9 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/ns", get(handle_list_namespaces))
         .route("/regulatory/hold", get(handle_list_regulatory_holds).post(handle_set_regulatory_hold))
         .route("/regulatory/hold/:actor", delete(handle_release_regulatory_hold))
+        .route("/goal/:id/react", goal_react_route)
+        .route("/goal/:id/trace", goal_trace_route)
+        .route("/memory/diff", memory_diff_route)
         .layer(middleware::from_fn(api_key_middleware));
 
     axum::Server::bind(&addr)
