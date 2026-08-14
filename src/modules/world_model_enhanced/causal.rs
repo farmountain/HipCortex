@@ -42,6 +42,10 @@ pub struct InterventionQuery {
     
     /// Conditioning variables (if any)
     pub conditioned_on: HashMap<String, f64>,
+
+    /// String label for discrete interventions (e.g. action names).
+    /// When set, used as the distribution lookup key instead of intervention_value.to_string().
+    pub intervention_label: Option<String>,
 }
 
 /// Causal graph supporting do-calculus and counterfactual reasoning
@@ -256,10 +260,6 @@ impl CausalGraph {
         &self,
         query: &InterventionQuery,
     ) -> Result<HashMap<String, f64>, String> {
-        if self.distributions.is_empty() {
-            return Err("Missing empirical distributions for backdoor adjustment".to_string());
-        }
-
         if !self.nodes.contains_key(&query.intervention_var) {
             return Err(format!("Intervention variable '{}' not found", query.intervention_var));
         }
@@ -267,9 +267,90 @@ impl CausalGraph {
             return Err(format!("Outcome variable '{}' not found", query.outcome));
         }
 
+        let iv_str = query.intervention_label.as_deref()
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| {
+                let v = query.intervention_value;
+                if v == v.trunc() && v.abs() < 1e15 { format!("{}", v as i64) } else { format!("{}", v) }
+            });
+
+        let outcome_prefix = format!("{}=", query.outcome);
+        let mut outcome_values: HashSet<String> = HashSet::new();
+        for dist in self.distributions.values() {
+            for key in dist.keys() {
+                if let Some(val) = key.strip_prefix(&outcome_prefix) {
+                    outcome_values.insert(val.to_string());
+                }
+            }
+        }
+        if outcome_values.is_empty() { outcome_values.insert("1".to_string()); }
+
+        let adjustment_set = self.get_parents(&query.intervention_var);
         let mut result = HashMap::new();
-        // Distributions check passed, but backdoor adjustment requires full SCM
-        result.insert(query.outcome.clone(), 0.0);
+
+        for outcome_val in &outcome_values {
+            let outcome_key = format!("{}={}", query.outcome, outcome_val);
+
+            let prob = if adjustment_set.is_empty() {
+                let key_x = format!("{}={}", query.intervention_var, iv_str);
+                self.distributions.get(&key_x)
+                    .and_then(|d| d.get(&outcome_key))
+                    .copied()
+                    .unwrap_or(0.5)
+            } else {
+                // Backdoor: Σ_z P(Y=y | X=x, Z=z) × P(Z=z)
+                // Enumerate Z-states from prior_Z inner keys (avoids prefix-scan bug in compute_empirical_intervention)
+                let mut z_configs: Vec<(String, Vec<String>)> = Vec::new();
+                for z_var in &adjustment_set {
+                    let z_pfx = format!("{}=", z_var);
+                    let mut z_states: Vec<String> = self.distributions
+                        .get("prior_Z")
+                        .map(|d| d.keys()
+                            .filter_map(|k| k.strip_prefix(&z_pfx).map(|v| v.to_string()))
+                            .collect())
+                        .unwrap_or_default();
+                    if z_states.is_empty() { z_states.push("default".to_string()); }
+                    z_configs.push((z_var.clone(), z_states));
+                }
+
+                let mut cartesian: Vec<Vec<(String, String)>> = vec![Vec::new()];
+                for (z_var, states) in &z_configs {
+                    cartesian = cartesian.iter().flat_map(|c| {
+                        states.iter().map(move |s| {
+                            let mut n = c.clone();
+                            n.push((z_var.clone(), s.clone()));
+                            n
+                        })
+                    }).collect();
+                }
+
+                let num_z = cartesian.len().max(1) as f64;
+                let mut total = 0.0;
+                for z_config in &cartesian {
+                    // P(Z=z): product of per-dimension marginals from prior_Z; fallback uniform
+                    let p_z = if let Some(prior) = self.distributions.get("prior_Z") {
+                        let p: f64 = z_config.iter().map(|(z_var, z_val)| {
+                            prior.get(&format!("{}={}", z_var, z_val)).copied().unwrap_or(1.0 / num_z)
+                        }).product();
+                        p
+                    } else {
+                        1.0 / num_z
+                    };
+                    let mut x_z_key = format!("{}={}", query.intervention_var, iv_str);
+                    for (z_var, z_val) in z_config {
+                        x_z_key.push_str(&format!(",{}={}", z_var, z_val));
+                    }
+                    let p_y = self.distributions.get(&x_z_key)
+                        .or_else(|| self.distributions.get(&format!("{}={}", query.intervention_var, iv_str)))
+                        .and_then(|d| d.get(&outcome_key))
+                        .copied()
+                        .unwrap_or(0.5);
+                    total += p_y * p_z;
+                }
+                total.clamp(0.0, 1.0)
+            };
+            result.insert(outcome_val.clone(), prob);
+        }
         Ok(result)
     }
 
@@ -747,8 +828,9 @@ mod tests {
             intervention_var: "X".to_string(),
             intervention_value: 1.0,
             conditioned_on: HashMap::new(),
+            intervention_label: None,
         };
-        
+
         let result = graph.compute_intervention(&query);
         assert!(result.is_ok());
     }
@@ -859,6 +941,40 @@ mod tests {
         let prior = graph.distributions.get("prior_Z").expect("prior_Z must exist");
         let p_s1 = prior.get("state=s1").copied().unwrap_or(0.0);
         assert!(p_s1 > 0.0 && p_s1 <= 1.0, "P(state=s1) must be in (0, 1], got {}", p_s1);
+    }
+
+    #[test]
+    fn test_compute_intervention_backdoor() {
+        let mut graph = CausalGraph::new();
+        let _ = graph.add_node("X".to_string());
+        let _ = graph.add_node("Y".to_string());
+        let _ = graph.add_node("Z".to_string());
+        let _ = graph.add_edge("Z".to_string(), "X".to_string());
+        let _ = graph.add_edge("Z".to_string(), "Y".to_string());
+        let _ = graph.add_edge("X".to_string(), "Y".to_string());
+
+        // P(Z) prior: P(Z=z0)=0.6, P(Z=z1)=0.4
+        graph.record_empirical_distribution("prior_Z".to_string(), "Z=z0".to_string(), 0.6);
+        graph.record_empirical_distribution("prior_Z".to_string(), "Z=z1".to_string(), 0.4);
+        // P(Y|X=1,Z=z0): P(Y=1)=0.8
+        graph.record_empirical_distribution("X=1,Z=z0".to_string(), "Y=1".to_string(), 0.8);
+        graph.record_empirical_distribution("X=1,Z=z0".to_string(), "Y=0".to_string(), 0.2);
+        // P(Y|X=1,Z=z1): P(Y=1)=0.3
+        graph.record_empirical_distribution("X=1,Z=z1".to_string(), "Y=1".to_string(), 0.3);
+        graph.record_empirical_distribution("X=1,Z=z1".to_string(), "Y=0".to_string(), 0.7);
+
+        let query = InterventionQuery {
+            outcome: "Y".to_string(),
+            intervention_var: "X".to_string(),
+            intervention_value: 1.0,
+            conditioned_on: HashMap::new(),
+            intervention_label: Some("1".to_string()),
+        };
+
+        let result = graph.compute_intervention(&query).unwrap();
+        // Σ_z P(Y=1|X=1,Z=z)*P(Z=z) = 0.8*0.6 + 0.3*0.4 = 0.60
+        let p_y1 = result.get("1").copied().unwrap_or(0.0);
+        assert!((p_y1 - 0.60).abs() < 0.01, "Expected 0.60, got {}", p_y1);
     }
 
     #[test]

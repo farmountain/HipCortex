@@ -3934,8 +3934,8 @@ async fn handle_wm_rollout(
         .as_deref()
         .unwrap_or(if req.actions.is_empty() { "mcts" } else { "dirichlet" })
         .to_lowercase();
-    let iterations = req.iterations.unwrap_or(50);
-    let max_depth = req.max_depth.unwrap_or(3);
+    let iterations = req.iterations.unwrap_or(50).min(200);
+    let max_depth = req.max_depth.unwrap_or(3).min(10);
 
     match world_model.read() {
         Ok(wm) => {
@@ -4297,7 +4297,7 @@ async fn handle_wm_causal_intervention(
         .unwrap_or_default();
 
     use crate::world_model_enhanced::InterventionQuery;
-    let query = InterventionQuery { outcome, intervention_var, intervention_value, conditioned_on };
+    let query = InterventionQuery { outcome, intervention_var, intervention_value, conditioned_on, intervention_label: None };
 
     match world_model.read() {
         Ok(wm) => match wm.causal_intervention(query) {

@@ -229,6 +229,7 @@ mod tests {
             intervention_var: "rain".to_string(),
             intervention_value: 1.0,
             conditioned_on: HashMap::new(),
+            intervention_label: None,
         };
         let intervention_res = client.causal_intervention(query).await.unwrap();
         assert!(intervention_res.contains_key("wet_floor") || intervention_res.is_empty());

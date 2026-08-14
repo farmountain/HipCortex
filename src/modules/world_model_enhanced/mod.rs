@@ -908,6 +908,7 @@ mod tests {
             intervention_var: "X".into(),
             intervention_value: 1.0,
             conditioned_on: HashMap::new(),
+            intervention_label: None,
         };
         let res = wm.causal_intervention(q).unwrap();
         assert!(
