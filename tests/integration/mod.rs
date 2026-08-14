@@ -52,3 +52,4 @@ mod intelligence_uat;
 mod topological_substrate_tests;
 mod omega_loop_auditable_tests;
 mod cognitive_os_test;
+mod react_e2e_sit;

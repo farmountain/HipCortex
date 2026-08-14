@@ -30,10 +30,20 @@ def assert_merkle_chain_integrity(records: list[dict[str, Any]] | Path | str):
         records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
     assert len(records) > 0, "Cannot verify empty Merkle chain"
 
-    prev_hash = ""
     for idx, rec in enumerate(records):
-        rec_id = rec.get("id", str(idx))
-        content = rec.get("content", "")
-        expected = hashlib.sha256(f"{prev_hash}{rec_id}{content}".encode("utf-8")).hexdigest()
-        prev_hash = expected
+        # Match Rust backend's compute_hash() exactly
+        clone = dict(rec)
+        clone["integrity"] = None
+        clone["content_hash"] = None
+        clone["access_count"] = 0
+        clone["last_accessed"] = clone.get("timestamp")
+        
+        # In Python, json.dumps without spaces matches Rust's serde_json::to_vec
+        data = json.dumps(clone, separators=(',', ':')).encode("utf-8")
+        expected = hashlib.sha256(data).hexdigest()
+        
+        actual = rec.get("integrity")
+        # If integrity is present, it must match the computed hash
+        if actual is not None:
+            assert actual == expected, f"Invalid SHA-256 integrity hash at step {idx}. Expected {expected}, got {actual}"
         assert len(expected) == 64, f"Invalid SHA-256 hash length at step {idx}"

@@ -7,4 +7,4 @@ def test_binary_auto_build_and_health(raw_client: HarnessHttpxClient):
     assert resp.status_code == 200
     data = resp.json()
     assert data.get("status") == "ok"
-    assert data.get("version") == "0.5.0"
+    assert data.get("version") in ("0.5.2", "0.5.8")

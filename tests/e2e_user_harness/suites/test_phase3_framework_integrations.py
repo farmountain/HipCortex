@@ -43,6 +43,7 @@ def test_autogen_adapter_structure(raw_client: HarnessHttpxClient):
 def test_framework_bridge_scripts_syntax():
     """Verify all 5 generated framework bridge scripts are syntactically valid and contain expected targets."""
     workspace_root = Path(__file__).parent.parent.parent.parent
+    adapters_dir = workspace_root / "examples" / "adapters"
     bridge_files = [
         "hipcortex_crewai.py",
         "hipcortex_llamaindex.py",
@@ -52,7 +53,7 @@ def test_framework_bridge_scripts_syntax():
     ]
     
     for filename in bridge_files:
-        filepath = workspace_root / filename
+        filepath = adapters_dir / filename
         assert filepath.exists(), f"Missing bridge file: {filename}"
         content = filepath.read_text(encoding="utf-8")
         # Ensure valid Python AST
