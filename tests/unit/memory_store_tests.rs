@@ -173,3 +173,24 @@ fn test_rocksdb_backend() {
     std::fs::remove_dir_all(path).unwrap();
     std::fs::remove_file("rocks_test.audit.log").unwrap();
 }
+
+#[test]
+fn test_provenance_fields_do_not_change_hash_of_legacy_record() {
+    let record = MemoryRecord::new(
+        MemoryType::Temporal,
+        "actor".to_string(),
+        "action".to_string(),
+        "target".to_string(),
+        serde_json::json!({}),
+    );
+    assert!(record.evidence.is_empty());
+    assert!(record.derived_from.is_none());
+    assert!(record.react_iteration.is_none());
+    let h1 = record.compute_hash();
+    let h2 = record.compute_hash();
+    assert_eq!(h1, h2, "hash must be deterministic");
+    let json = serde_json::to_string(&record).unwrap();
+    assert!(!json.contains("evidence"), "empty evidence must be omitted from JSON");
+    assert!(!json.contains("derived_from"), "None derived_from must be omitted from JSON");
+    assert!(!json.contains("react_iteration"), "None react_iteration must be omitted from JSON");
+}

@@ -10,6 +10,9 @@ pub enum MemoryType {
     Procedural,
     Reflexion,
     Perception,
+    Goal,
+    Skill,
+    Belief,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,6 +62,15 @@ pub struct MemoryRecord {
     /// Quarantined records are excluded from search/query unless include_quarantined=true.
     #[serde(default = "default_status")]
     pub status: String,
+    /// IDs of records that support or evidence this record.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evidence: Vec<Uuid>,
+    /// ID of the parent record this was derived from (e.g. goal_id for ReactEngine records).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub derived_from: Option<Uuid>,
+    /// ReAct iteration index that produced this record (None for non-ReAct records).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub react_iteration: Option<u32>,
 }
 
 fn default_status() -> String {
@@ -106,6 +118,9 @@ impl MemoryRecord {
             tags: Vec::new(),
             priority: "normal".to_string(),
             status: "active".to_string(),
+            evidence: Vec::new(),
+            derived_from: None,
+            react_iteration: None,
         };
         let hash = rec.compute_hash();
         rec.integrity = Some(hash.clone());
