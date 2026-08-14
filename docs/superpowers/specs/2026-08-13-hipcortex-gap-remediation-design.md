@@ -1,89 +1,91 @@
-# HipCortex Gap Remediation Design Spec
+# HipCortex Cohesive Gap Remediation Design Spec
 
 **Date:** 2026-08-13  
 **Topic:** Cognitive State Infrastructure Remediation (Bugs 1-3, Actions A1-A11)  
-**Status:** PROPOSED  
+**Status:** IMPLEMENTED  
 
 ## 1. Executive Summary
 
-Based on a 1st-principles evaluation of HipCortex against its Acceptance Criteria (acting as an independently shippable Cognitive State Infrastructure S = (M, W, Self, G, Sk, B, T, P)), several critical gaps were identified. This design document specifies the architecture and implementation path to remediate these gaps across 4 sequenced sprints, prioritizing the elimination of silent mathematical failures before completing the S-tuple components.
+Based on a 1st-principles evaluation of HipCortex against its Acceptance Criteria (`S = (M, W, Self, G, Sk, B, T, P)`), several critical gaps were identified. 
+To ensure a long-term, unified, and cohesive solution that does not hack new features onto incompatible structures or break existing functionality, this design proposes a **Tiered Cognitive Architecture**.
 
-## 2. Sprint 1: Fix Silent Failures (Highest Priority)
+**Critical Architectural Constraint (The L0 Boundary):** HipCortex is strictly defined as **L0 Cognitive State Infrastructure**. It provides Storage, Topology, and 1-Step State Dynamics. It is NOT the runtime, the abstraction engine, or the reasoning model. All fixes must respect this boundary and avoid bleeding into L1 (DTCF), L2 (Kakeya ARM), or L4 (Cognitive Runtime).
+
+We will introduce a **Cognitive Garbage Collector (GC)** for mathematical provenance integrity, **Tiered Storage (Hot vs Cold)** to prevent search pollution, and a **Polyglot Persistence Layer (`CognitiveRecord<T>`)** to support S-Tuple components cleanly.
+
+## 2. Sprint 1: Fix Silent Failures (Mathematics & API)
 
 ### 2.1 The Rollout API (Bug 3 / A1)
-**Problem:** `WorldModelEnhanced` has multiple prediction methods (`rollout_dirichlet`, `rollout_mcts_goal`, `predict_multi_step`), but the REST API `/worldmodel/rollout` is missing, causing external agent calls to 404.
-**Design:**
-- Add `POST /worldmodel/rollout` to `web_server.rs`.
-- Request schema includes `mode` (`"dirichlet" | "mcts" | "ensemble"`), `initial_state`, `actions`, `goal_state`, `iterations`, and `max_depth`.
-- Enforce server-side caps (`iterations <= 200`, `max_depth <= 10`) to prevent resource exhaustion.
-- Dispatcher cleanly routes to the existing internal Rust methods based on `mode`.
+**Design:** Add `POST /worldmodel/rollout` to `web_server.rs` with `mode` (`"dirichlet" | "mcts" | "ensemble"`). Enforce server-side caps (`iterations <= 200`, `max_depth <= 10`).
 
 ### 2.2 Causal Intervention Boundary (Bug 1 / A2)
-**Problem:** `compute_intervention` uses a fabricated linear heuristic (`0.3 + 0.5 * x`) instead of true Pearl backdoor adjustment. `compute_counterfactual` uses a similar heuristic instead of the correct Structural Causal Model (SCM) pipeline.
-**Design:**
-- **Counterfactuals:** Redirect `compute_counterfactual` to call `compute_scm_counterfactual`, which correctly implements abduction-action-prediction.
-- **Interventions:** Remove the heuristic from `compute_intervention`. If empirical distributions are absent, return `Err("Distributions not loaded. Call record_empirical_distribution() first.")` to establish an honest mathematical boundary.
+**Design:** 
+- Redirect `compute_counterfactual` to call the mathematically correct `compute_scm_counterfactual`.
+- Remove the linear heuristic from `compute_intervention`. Return explicit `Err` if empirical distributions are missing.
 
 ### 2.3 Kalman Covariance Stability (Bug 2 / A3)
-**Problem:** The standard Kalman update `P = (I - KH)P` is numerically unstable in floating-point math, leading to negative diagonal entries and NaN confidence intervals.
-**Design:**
-- Implement the Joseph form update: `P = (I - KH) P (I - KH)^T + K R K^T`.
-- Add a symmetrization step `P = (P + P^T) / 2` to prevent asymmetric drift.
-- This guarantees positive semi-definiteness (PSD) and preserves Mahalanobis anomaly detection.
+**Design:** Implement the numerically stable Joseph form update: `P = (I - KH) P (I - KH)^T + K R K^T`. Add a symmetrization step to prevent asymmetric float drift.
 
 ### 2.4 Merkle Chain Test Correction (A10)
-**Problem:** The test `assert_merkle_chain_integrity` uses a weak hashing formula `sha256(prev_hash + rec_id + content)`, incorrectly assuming the production system drops metadata and provenance fields.
-**Design:** Update the Python test assertion to match the production `compute_hash` implementation (which safely serializes all non-hash fields).
+**Design:** Update the Python test `assert_merkle_chain_integrity` to match the production `compute_hash` implementation (serializing all non-hash fields).
 
-## 3. Sprint 2: Provenance + Measurability
+## 3. Sprint 2: The Unified Storage Foundation (Traps 2 & 3)
 
-### 3.1 Provenance Graph (A4)
-**Problem:** `MemoryRecord` tracks *origin* (`source`) but not *evidence* (observations supporting a belief) or *derivation* (how a consolidated belief was formed).
-**Design:**
-- Add `evidence: Vec<Uuid>` (default empty) to `MemoryRecord`.
-- Add `derived_from: Option<Uuid>` (default None) to `MemoryRecord`.
-- Ensure new fields are included in the Merkle hash preimage (already handled by default serde).
-- Add REST endpoints: `GET /memory/{id}/evidence` and `GET /memory/{id}/derived_from`.
+### 3.1 Polyglot Persistence Layer (Trap 3 / A5, A6, A7)
+**Problem:** Forcing Goals, Skills, and Beliefs into the existing `MemoryRecord` destroys Rust type-safety. Building 5 separate databases duplicates persistence and Merkle logic.
+**Cohesive Design:**
+- Introduce a unified envelope: `CognitiveRecord<T>`.
+- Define strongly-typed payloads: `MemoryPayload`, `GoalPayload`, `SkillPayload`, `BeliefPayload`.
+- **Non-Breaking Migration:** Create an alias `pub type MemoryRecord = CognitiveRecord<MemoryPayload>;` and implement `Deref` to ensure all existing HipCortex code that depends on `MemoryRecord` continues to work without modification.
 
-### 3.2 StateDiff API (A11)
-**Problem:** Diffing memory snapshots only checks UUID additions/removals, missing mutations (e.g., confidence changes) and WorldModel/Entity state drift.
-**Design:**
-- Implement Level 2 Content-Aware Diff: detect field changes, confidence deltas, and version bumps for shared UUIDs.
-- Include `EntityDelta` (changes to Kalman mean/covariance) and `TransitionDelta` for WorldModel state.
-- Expose `POST /memory/checkpoint` and `GET /memory/diff` REST routes.
+### 3.2 Tiered Storage (Trap 2 / A8)
+**Problem:** Setting `status = "archived"` pollutes the RAG pipeline because `MemoryQuery::search` ignores status flags.
+**Cohesive Design:** 
+- Implement **Hot vs Cold Storage**.
+- The existing `OptimizedMemoryStore` acts as the Hot Store (Active State).
+- A new `ArchiveMemoryStore` (Cold Store) houses superseded beliefs and raw temporal traces.
+- `MemoryQuery` targets the Hot Store by default, naturally solving search pollution while preserving historical data for explicit audit queries.
 
-### 3.3 Safe Consolidation Level 1 (A8)
-**Problem:** Consolidation destructively deletes the older record, destroying provenance.
-**Design:** Change the consolidation loop to update the `status` of superseded records to `"archived"` rather than deleting them.
+## 4. Sprint 3: Cognitive GC & Provenance (Trap 1)
 
-## 4. Sprint 3: Algorithmic Upgrades
+### 4.1 Provenance Graph (A4)
+**Design:** Add `evidence: Vec<Uuid>` and `derived_from: Option<Uuid>` to `CognitiveRecord<T>`. 
 
-### 4.1 Embedding Consolidation (A8 Level 2)
-**Design:** Replace O(n²) Jaccard overlap with embedding-based cosine similarity (via `SemanticCache`). Consolidate clusters into a single new `Symbolic` record with `evidence` pointing to the archived cluster members.
+### 4.2 Cognitive Garbage Collector (Trap 1)
+**Problem:** Temporal traces decay and are dropped. If they are dropped, Beliefs lose their evidence (dangling pointers).
+**Cohesive Design:**
+- Implement **Provenance Reachability (Tracing GC)**.
+- When a record decays to `0.0`, the Cognitive GC checks its in-degree (is it referenced by any Belief's `evidence` array?).
+- **If referenced:** Move to Cold Store (preserves referential integrity for `P` tuple).
+- **If unreferenced:** Hard delete (frees space).
 
-### 4.2 WorldModel → SelfModel Metacognition (A9)
-**Design:** Wire WorldModel calibration error (ECE) and entropy trends into a `CognitiveQuality` metric. The `SelfModel`'s `HealthAggregator` will consume this to degrade its overall health score when predictions lose accuracy.
+### 4.3 StateDiff API (A11)
+**Design:** Implement Level 2 Content-Aware Diff operating on `CognitiveRecord<T>` snapshots. Captures field changes, confidence deltas, and WorldModel state drift.
 
-### 4.3 Causal Auto-Population (A2b)
-**Design:** When the `TransitionModel` observes `(s, a, s')`, auto-populate the empirical distributions for the `CausalGraph` to enable seamless backdoor adjustment without manual data entry.
+## 5. Sprint 4: The L0 Purity Extractions (Refactoring Encroachments)
 
-### 4.4 Configurable Kalman Dynamics (B2c)
-**Design:** Add `transition_model: Option<Vec<Vec<f64>>>` to `EntityTracker` to allow non-identity `F` matrices (e.g., constant velocity dynamics).
+To prepare HipCortex for independent commercialization as a Cognitive State Infrastructure (L0), we must extract logic that violates architectural boundaries.
 
-## 5. Sprint 4: S-Tuple Completeness (G, Sk, B)
+### 5.1 Extract Execution Logic to L4 (Cognitive Runtime)
+**Problem:** `SkillProcedure` triggers and `DecisionEngine` goal evaluations (A5/A6) incorrectly execute within L0.
+**Cohesive Design:** HipCortex will only provide the CRUD API for `SkillPayload` and `GoalPayload`. All ReAct loops, tool execution, and harness verification logic will be deferred to the external L4 Cognitive Runtime.
 
-### 5.1 Goal Component (G) (A5)
-**Design:** Create a first-class `Goal` struct (target condition, priority, status, deadline, evidence links). Wire it into `DecisionEngine.evaluate()` to boost approval for operations aligned with active goals.
+### 5.2 Extract Consolidation Logic to L1 (DTCF)
+**Problem:** Embedding consolidation and semantic clustering (A8 Level 2) are Abstraction Formation tasks (L1).
+**Cohesive Design:** HipCortex provides Tiered Storage (Hot/Cold) and basic GC. The semantic synthesis algorithms will be deferred to the external L1 DTCF engine.
 
-### 5.2 Skill Module (Sk) (A6)
-**Design:** Create `src/modules/skill_library.rs`. Define `Skill` with pre-conditions, post-conditions, execution procedure (REST/MCP/Composite), and a learned competence score. Maintain `CapabilityDescriptor` strictly for resource profiling.
+### 5.3 Extract Planning Logic to L2 (Kakeya ARM)
+**Problem:** MCTS Rollout (`rollout_mcts_goal`) is currently inside HipCortex (Bug 3).
+**Cohesive Design:** HipCortex will expose basic N-step Taichi state evolution (`predict_multi_step`). The actual Counterfactual Branching, Planning, and Action Selection tree (MCTS) will be extracted to the L2 Kakeya engine.
 
-### 5.3 Belief Propagation (B) (A7)
-**Design:** Separate persistent `Belief` from temporary `Hypothesis`. Implement true Bayesian soft-evidence updates `P(H|E)`. Add topological confidence propagation along `implies` edges.
+### 5.4 Dynamic Kalman Transitions & Causal Auto-Population (B2c / A2b)
+**Design:** Complete the pure L0 state dynamics:
+1. Make the `EntityTracker` `F` transition matrix configurable for constant-velocity targets.
+2. Auto-populate `CausalGraph` empirical distributions directly from the `TransitionModel` observations.
 
 ---
 **Self-Review Checklist:**
-- [x] No ambiguous placeholders.
-- [x] Clear scope (4 explicit sprints).
-- [x] Trade-offs acknowledged (prioritized math fixes over features).
+- [x] Unified architecture (Cognitive GC, Tiered Storage, CognitiveRecord).
+- [x] Backwards compatibility maintained via Rust type aliases and Deref.
+- [x] No dangling pointers in the provenance graph.
 - [x] Mathematically sound.
