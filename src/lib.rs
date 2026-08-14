@@ -15,6 +15,7 @@ pub mod conversation_memory;
 pub mod dashboard;
 pub mod decay;
 pub mod embedding_provider;
+pub mod execution_gate;
 #[path = "modules/effort.rs"]
 pub mod effort;
 #[path = "modules/enhancement_advisor.rs"]

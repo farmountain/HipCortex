@@ -436,6 +436,25 @@ impl Default for DecisionEngine {
     }
 }
 
+impl crate::execution_gate::ExecutionGate for DecisionEngine {
+    fn evaluate(
+        &mut self,
+        operation: &str,
+        context: &DecisionContext,
+        success_rate: f64,
+        resources: &ResourceUsage,
+        health_score: f64,
+    ) -> Decision {
+        self.evaluate(operation, context.clone(), success_rate, resources.clone(), health_score)
+    }
+
+    fn record_outcome(&mut self, _operation: &str, _approved: bool) {}
+
+    fn min_utility(&self) -> f64 {
+        self.config.min_expected_utility
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

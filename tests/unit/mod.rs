@@ -9,6 +9,7 @@ mod coherence_tests;
 mod conversation_memory_tests;
 mod edge_workflow_small;
 mod effort_tests;
+mod execution_gate_tests;
 mod enhancement_advisor_tests;
 mod graph_connectivity_tests;
 mod hypothesis_manager_tests;
