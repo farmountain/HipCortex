@@ -17,6 +17,7 @@ mod hypothesis_manager_tests;
 mod integration_layer_tests;
 mod knowledge_export_tests;
 mod llama_client_tests;
+mod memory_diff_tests;
 mod memory_store_tests;
 mod memory_tests;
 mod multimodal_perception_tests;
