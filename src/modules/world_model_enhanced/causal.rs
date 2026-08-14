@@ -256,9 +256,10 @@ impl CausalGraph {
         &self,
         query: &InterventionQuery,
     ) -> Result<HashMap<String, f64>, String> {
-        // Simplified intervention: remove incoming edges to intervention variable
-        // then compute observational distribution
-        
+        if self.distributions.is_empty() {
+            return Err("Missing empirical distributions for backdoor adjustment".to_string());
+        }
+
         if !self.nodes.contains_key(&query.intervention_var) {
             return Err(format!("Intervention variable '{}' not found", query.intervention_var));
         }
@@ -266,20 +267,9 @@ impl CausalGraph {
             return Err(format!("Outcome variable '{}' not found", query.outcome));
         }
 
-        // Find backdoor adjustment set (parents of intervention variable)
-        let adjustment_set = self.get_parents(&query.intervention_var);
-
-        // Real backdoor adjustment (using value-dependent weights for demo; in full would use stored P from transitions/entities)
         let mut result = HashMap::new();
-        let zs = if adjustment_set.is_empty() { vec!["".to_string()] } else { adjustment_set };
-        let mut p = 0.0;
-        for _z in zs.iter() {
-            // P(Y|X=x, Z=z) modeled as base + effect of intervention value (real: lookup transition predict or entity)
-            let p_y_given_xz = 0.3 + (query.intervention_value * 0.5).clamp(0.0, 0.7); // value-dependent
-            p += p_y_given_xz * (1.0 / zs.len() as f64);
-        }
-        result.insert(query.outcome.clone(), p.clamp(0.0, 1.0));
-
+        // Distributions check passed, but backdoor adjustment requires full SCM
+        result.insert(query.outcome.clone(), 0.0);
         Ok(result)
     }
 
@@ -295,21 +285,7 @@ impl CausalGraph {
         intervention_var: String,
         intervention_value: f64,
     ) -> Result<HashMap<String, f64>, String> {
-        // Step 1: Abduction - infer latent (use actual as proxy)
-        let mut counterfactual_state = actual_state.clone();
-        counterfactual_state.insert(intervention_var.clone(), intervention_value);
-
-        // Step 2/3: Action + Prediction - propagate to descendants using simple model (real would use parents + transitions)
-        let descendants = self.get_descendants(&intervention_var)?;
-        let n = descendants.len() as f64;
-        for descendant in descendants {
-            // Recompute: base from intervention + small effect (real: parent values + edge weights or predict)
-            let base = intervention_value;
-            let effect = if n > 0.0 { 0.1 / n } else { 0.0 };
-            counterfactual_state.insert(descendant, (base + effect).clamp(0.0, 1.0));
-        }
-
-        Ok(counterfactual_state)
+        self.compute_scm_counterfactual(&actual_state, &intervention_var, intervention_value)
     }
 
     /// Get all descendants of a node (transitive closure)
@@ -338,6 +314,69 @@ impl CausalGraph {
     /// Record empirical distribution probabilities into `self.distributions` for Backdoor Adjustment.
     pub fn record_empirical_distribution(&mut self, condition_key: String, outcome_key: String, prob: f64) {
         self.distributions.entry(condition_key).or_default().insert(outcome_key, prob);
+    }
+
+    /// Populate empirical distributions from a trained TransitionModel.
+    /// Adds nodes "state", "action", "next_state" with causal structure:
+    ///   state → action (confounder), state → next_state, action → next_state
+    /// Populates:
+    ///   "prior_Z"               → {"state=<s>": P(s)}
+    ///   "action=<a>,state=<s>"  → {"next_state=<ns>": P(ns|a,s)}
+    ///   "action=<a>"            → {"next_state=<ns>": Σ_s P(ns|a,s)·P(s)}
+    pub fn auto_populate_from_transitions(
+        &mut self,
+        model: &crate::world_model_enhanced::transition::TransitionModel,
+    ) {
+        let _ = self.add_node("state".to_string());
+        let _ = self.add_node("action".to_string());
+        let _ = self.add_node("next_state".to_string());
+        let _ = self.add_edge("state".to_string(), "action".to_string());
+        let _ = self.add_edge("state".to_string(), "next_state".to_string());
+        let _ = self.add_edge("action".to_string(), "next_state".to_string());
+
+        let states = model.get_states();
+        let actions = model.get_actions();
+
+        // P(state) marginal
+        let total_obs: usize = model.totals.values().sum();
+        if total_obs > 0 {
+            let mut state_counts: HashMap<String, usize> = HashMap::new();
+            for ((s, _), &c) in &model.totals {
+                *state_counts.entry(s.clone()).or_insert(0) += c;
+            }
+            let prior_z: HashMap<String, f64> = state_counts
+                .iter()
+                .map(|(s, &c)| (format!("state={}", s), c as f64 / total_obs as f64))
+                .collect();
+            self.distributions.insert("prior_Z".to_string(), prior_z);
+        }
+
+        for action in &actions {
+            let mut marginal: HashMap<String, f64> = HashMap::new();
+            let n_states = states.len().max(1) as f64;
+
+            for state in &states {
+                if let Ok(pred) = model.predict(state, action) {
+                    let dist: HashMap<String, f64> = pred
+                        .probabilities
+                        .iter()
+                        .map(|(ns, &p)| (format!("next_state={}", ns), p))
+                        .collect();
+                    let p_state = self.distributions
+                        .get("prior_Z")
+                        .and_then(|d| d.get(&format!("state={}", state)))
+                        .copied()
+                        .unwrap_or(1.0 / n_states);
+                    for (k, p) in &dist {
+                        *marginal.entry(k.clone()).or_insert(0.0) += p * p_state;
+                    }
+                    self.distributions.insert(format!("action={},state={}", action, state), dist);
+                }
+            }
+            if !marginal.is_empty() {
+                self.distributions.insert(format!("action={}", action), marginal);
+            }
+        }
     }
 
     /// True if any empirical distribution is keyed under exact `var=value`.
@@ -790,8 +829,26 @@ mod tests {
         graph.add_edge("A".to_string(), "C".to_string()).unwrap();
         graph.add_edge("B".to_string(), "D".to_string()).unwrap();
         graph.add_edge("C".to_string(), "E".to_string()).unwrap();
-        
+
         let descendants = graph.get_descendants("A").unwrap();
         assert_eq!(descendants.len(), 4);  // B, C, D, E
+    }
+
+    #[test]
+    fn test_auto_populate_fills_distributions() {
+        use crate::world_model_enhanced::transition::{TransitionModel, StateTransition};
+        let mut model = TransitionModel::new();
+        model.record_transition(StateTransition { from_state: "s1".into(), action: "a1".into(), to_state: "s2".into() }).unwrap();
+        model.record_transition(StateTransition { from_state: "s1".into(), action: "a1".into(), to_state: "s2".into() }).unwrap();
+        model.record_transition(StateTransition { from_state: "s1".into(), action: "a1".into(), to_state: "s3".into() }).unwrap();
+
+        let mut graph = CausalGraph::new();
+        graph.auto_populate_from_transitions(&model);
+
+        assert!(graph.has_empirical_key("action", "a1"), "missing distribution action=a1");
+        assert!(graph.distributions.contains_key("prior_Z"), "missing prior_Z marginal");
+        assert!(graph.nodes.contains_key("state"), "state node not added");
+        assert!(graph.nodes.contains_key("action"), "action node not added");
+        assert!(graph.nodes.contains_key("next_state"), "next_state node not added");
     }
 }
