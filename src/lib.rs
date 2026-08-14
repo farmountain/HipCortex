@@ -4,6 +4,7 @@
 pub mod a2a_protocol;
 #[cfg(feature = "async-store")]
 pub mod async_memory_store;
+pub mod archive_store;
 pub mod audit_log;
 pub mod safety_classifier;
 pub mod safety_guardrail;

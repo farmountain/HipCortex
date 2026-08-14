@@ -1,5 +1,6 @@
 #[cfg(feature = "async-store")]
 mod async_memory_store_tests;
+mod archive_store_tests;
 mod audit_log_tests;
 mod aureus_bridge_tests;
 // #[cfg(feature = "web-server")]
