@@ -632,6 +632,15 @@ impl WorldModelEnhanced {
             .unwrap_or_default()
     }
 
+    /// Sync causal graph distributions from the current transition model.
+    /// Calls `auto_populate_from_transitions` so the causal DAG stays in step
+    /// with the latest Dirichlet posteriors without requiring a full rebuild.
+    pub fn sync_causal_distributions(&self) {
+        if let (Ok(t), Ok(mut g)) = (self.transitions.read(), self.causal_graph.write()) {
+            g.auto_populate_from_transitions(&t);
+        }
+    }
+
     /// Total number of state transitions observed across all (state, action) pairs.
     pub fn transition_count(&self) -> usize {
         self.transitions.read()
