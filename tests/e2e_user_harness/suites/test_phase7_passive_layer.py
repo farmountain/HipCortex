@@ -153,7 +153,7 @@ def test_vsix_package_json_has_passive_capture_config():
         os.path.dirname(__file__),
         "../../../vscode-extension/package.json",
     )
-    with open(pkg_path) as f:
+    with open(pkg_path, encoding="utf-8") as f:
         pkg = json.load(f)
     props = (
         pkg.get("contributes", {})
@@ -173,7 +173,7 @@ def test_vsix_extension_ts_has_passive_capture_guard():
         os.path.dirname(__file__),
         "../../../vscode-extension/src/extension.ts",
     )
-    with open(ts_path) as f:
+    with open(ts_path, encoding="utf-8") as f:
         content = f.read()
     assert "passiveCapture" in content, "extension.ts missing passiveCapture guard"
     assert "onDidWriteTerminalData" in content, "extension.ts missing terminal listener"

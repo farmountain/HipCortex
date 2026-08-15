@@ -1844,6 +1844,8 @@ export function activate(context: vscode.ExtensionContext) {
     const onSave = vscode.workspace.onDidSaveTextDocument(async (doc) => {
         if (doc.uri.scheme !== 'file') { return; }
         if (doc.fileName.includes('.git') || doc.fileName.includes('node_modules')) { return; }
+        const passiveCapture = vscode.workspace.getConfiguration('hipcortex').get<boolean>('passiveCapture', true);
+        if (!passiveCapture) { return; }
         try {
             const api = new HipCortexAPI();
             const started = await api.autoStartServer(serverChannel);
@@ -1901,6 +1903,31 @@ export function activate(context: vscode.ExtensionContext) {
     });
     context.subscriptions.push(onSave);
     console.log('✅ HipCortex auto-capture on file save registered');
+
+    // onDidWriteTerminalData added in VS Code 1.58 — guard for older type bundles
+    const windowAny = vscode.window as any;
+    if (typeof windowAny.onDidWriteTerminalData === 'function') {
+        const onTerminalData = windowAny.onDidWriteTerminalData(async (e: any) => {
+            const passiveCaptureTerminal = vscode.workspace.getConfiguration('hipcortex').get<boolean>('passiveCapture', true);
+            if (!passiveCaptureTerminal) { return; }
+            const data = (e.data as string).replace(/\x1b\[[0-9;]*[mGKH]/g, '').trim();
+            if (!data || data.length < 10) { return; }
+            const snippet = data.slice(0, 200);
+            try {
+                const api = new HipCortexAPI();
+                await api.addMemory({
+                    actor: 'vscode-terminal',
+                    action: 'terminal_output',
+                    target: snippet,
+                    record_type: 'Temporal',
+                    source: 'vscode-passive',
+                });
+            } catch (_) {
+                // fail silently — never break the terminal
+            }
+        });
+        context.subscriptions.push(onTerminalData);
+    }
 
     // Register chat participant with high priority and explicit configuration
     const chatParticipant = new HipCortexChatParticipant(tokenTracker);

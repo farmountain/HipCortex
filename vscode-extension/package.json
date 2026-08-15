@@ -264,6 +264,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "When true, only reuse a local server if /health.version exactly matches the expected crate/server binary version. When false (default), reuse any healthy server with same major.minor (or missing version field)."
+                },
+                "hipcortex.passiveCapture": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "When enabled, HipCortex automatically captures file saves and terminal output as memories. Disable to opt out of passive capture."
                 }
             }
         }
