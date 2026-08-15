@@ -322,6 +322,7 @@ TOOLS = [
             "properties": {
                 "actor": {"type": "string", "description": "Filter to a specific actor (optional)"},
                 "limit": {"type": "integer", "default": 20, "description": "Max beliefs to return"},
+                "min_conf": {"type": "number", "default": 0.0, "description": "Minimum confidence threshold [0.0, 1.0]"},
             },
         },
     },
@@ -368,6 +369,91 @@ TOOLS = [
                 },
             },
         },
+    },
+    {
+        "name": "compute_state_diff",
+        "description": (
+            "Compute a causal StateDiff over a tx-log range [from_tx, to_tx]. "
+            "Returns MemoryDelta (added/archived/updated counts), WorldModelDelta, "
+            "and CausalAttributionPaths. Range cap: 10,000 entries."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "required": ["from_tx", "to_tx"],
+            "properties": {
+                "from_tx": {"type": "integer", "description": "Start tx id (inclusive)"},
+                "to_tx":   {"type": "integer", "description": "End tx id (inclusive)"},
+            },
+        },
+    },
+    {
+        "name": "consolidate_memory",
+        "description": (
+            "Trigger greedy tag+actor memory consolidation. Groups Temporal records "
+            "by actor+tags, collapses groups >= min_group_size into summary records, "
+            "and archives originals. Returns ConsolidationReport."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "min_group_size": {
+                    "type": "integer",
+                    "description": "Min records per group to consolidate (default 3)",
+                },
+            },
+        },
+    },
+    {
+        "name": "simulate_rollout",
+        "description": (
+            "Simulate a k-step (k≤5) world-model rollout from an initial state "
+            "over a sequence of actions using Dirichlet-MAP transitions. "
+            "Returns predicted_state, mode, and uncertainty. "
+            "Use before committing to a multi-step action plan."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "required": ["initial_state", "actions"],
+            "properties": {
+                "initial_state": {"type": "string", "description": "Starting state label"},
+                "actions": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Action sequence (max 5 steps)",
+                },
+                "max_depth": {"type": "integer", "description": "Override max depth (≤5, default 5)"},
+            },
+        },
+    },
+    {
+        "name": "get_system_health",
+        "description": (
+            "Get SelfModel health + CalibrationTracker metrics: overall health score, "
+            "calibration_score, prediction_error_ewma, consolidation_pressure, "
+            "epistemic_entropy, and whether the system is healthy."
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+]
+
+RESOURCES = [
+    {
+        "uri": "hipcortex://context/relevant",
+        "name": "Relevant Memory Context",
+        "description": "Top-k memories relevant to the current session, auto-injected.",
+        "mimeType": "text/plain",
+    },
+    {
+        "uri": "hipcortex://beliefs/current",
+        "name": "Current Beliefs",
+        "description": "Active belief records from HipCortex symbolic store.",
+        "mimeType": "application/json",
+    },
+    {
+        "uri": "hipcortex://context/conversation",
+        "name": "Conversation History",
+        "description": "Recent temporal memory traces for this session.",
+        "mimeType": "text/plain",
     },
 ]
 
@@ -532,6 +618,8 @@ def handle_get_live_beliefs(args: dict) -> str:
     params: dict = {"limit": args.get("limit", 20)}
     if "actor" in args:
         params["actor"] = args["actor"]
+    if "min_conf" in args:
+        params["min_conf"] = args["min_conf"]
     qs = urllib.parse.urlencode(params)
     result = _get(f"/memory/live_beliefs?{qs}")
     beliefs = result.get("beliefs", [])
@@ -542,6 +630,45 @@ def handle_get_live_beliefs(args: dict) -> str:
         for b in beliefs
     ]
     return f"Live beliefs ({result.get('total', len(beliefs))}):\n" + "\n".join(lines)
+
+
+def handle_simulate_rollout(args: dict) -> str:
+    actions = args["actions"]
+    effective_depth = min(args.get("max_depth", 5), 5)
+    if len(actions) > effective_depth:
+        return f"✗ Rollout rejected: {len(actions)} actions exceed max_depth={effective_depth} (k≤5 limit)"
+    payload = {
+        "initial_state": args["initial_state"],
+        "actions": actions,
+        "max_depth": effective_depth,
+    }
+    result = _post("/worldmodel/rollout", payload)
+    if "error" in result:
+        return f"✗ Rollout failed: {result['error']}"
+    uncertainty = result.get("uncertainty")
+    unc_str = f"{uncertainty:.3f}" if isinstance(uncertainty, (int, float)) else "?"
+    return (
+        f"Rollout: {result.get('predicted_state', '?')} "
+        f"(mode={result.get('mode', '?')}, uncertainty={unc_str})"
+    )
+
+
+def handle_get_system_health(_args: dict) -> str:
+    result = _get("/self/health")
+    if "error" in result:
+        return f"✗ Health check failed: {result['error']}"
+    healthy = result.get("healthy", False)
+    overall = result.get("overall", 0.0)
+    cal = result.get("calibration_score", None)
+    ewma = result.get("prediction_error_ewma", None)
+    pressure = result.get("consolidation_pressure", None)
+    entropy = result.get("epistemic_entropy", None)
+    lines = [f"System healthy: {healthy} | overall={overall:.3f}"]
+    if cal is not None:
+        lines.append(f"calibration_score={cal:.3f} | prediction_error_ewma={ewma:.3f}")
+    if pressure is not None:
+        lines.append(f"consolidation_pressure={pressure:.3f} | epistemic_entropy={entropy:.3f}")
+    return "\n".join(lines)
 
 
 def handle_purge_expired(_args: dict) -> str:
@@ -700,6 +827,39 @@ def handle_can_execute(args: dict) -> str:
     return f"can_execute({op}) = {ok} (confidence={conf})\n  {rat}".rstrip()
 
 
+def handle_compute_state_diff(args: dict) -> str:
+    from_tx = int(args.get("from_tx", 0))
+    to_tx   = int(args.get("to_tx",   0))
+    result = _post("/v1/state/diff", {"from_tx": from_tx, "to_tx": to_tx})
+    if "error" in result:
+        return f"✗ StateDiff error: {result['error']}"
+    md = result.get("memory_delta", {})
+    wm = result.get("world_model_delta", {})
+    lines = [
+        f"StateDiff tx[{from_tx}..{to_tx}]  count={result.get('tx_count', 0)}",
+        f"  memory: +{len(md.get('added', []))} archived={len(md.get('archived', []))} "
+        f"updated={len(md.get('updated', []))} net={md.get('net_delta', 0)}",
+        f"  world_model: obs+{wm.get('observations_added', 0)} "
+        f"dist_upd={wm.get('distributions_updated', 0)}",
+        f"  causal_attributions: {len(result.get('causal_attributions', []))}",
+    ]
+    return "\n".join(lines)
+
+
+def handle_consolidate_memory(args: dict) -> str:
+    body: dict = {}
+    if "min_group_size" in args:
+        body["min_group_size"] = int(args["min_group_size"])
+    result = _post("/v1/memory/consolidate", body)
+    if "error" in result:
+        return f"✗ Consolidate error: {result['error']}"
+    return (
+        f"Consolidated {result.get('groups_consolidated', 0)} groups — "
+        f"archived {result.get('records_archived', 0)} records, "
+        f"created {result.get('summary_records_created', 0)} summaries"
+    )
+
+
 def dispatch_tool(name: str, args: dict) -> str:
     global _live_beliefs_seen
     handlers = {
@@ -720,7 +880,11 @@ def dispatch_tool(name: str, args: dict) -> str:
         "get_live_beliefs": handle_get_live_beliefs,
         "purge_expired":    handle_purge_expired,
         "reflect":          handle_reflect,
-        "predict":          handle_predict,
+        "predict":              handle_predict,
+        "compute_state_diff":   handle_compute_state_diff,
+        "consolidate_memory":   handle_consolidate_memory,
+        "simulate_rollout":     handle_simulate_rollout,
+        "get_system_health":    handle_get_system_health,
     }
     handler = handlers.get(name)
     if handler is None:
@@ -748,6 +912,47 @@ def respond(id_: Any, result: Any = None, error: Any = None) -> None:
     sys.stdout.flush()
 
 
+def handle_resources_list() -> dict:
+    return {"resources": RESOURCES}
+
+
+def handle_resource_read(uri: str) -> dict:
+    try:
+        if uri == "hipcortex://context/relevant":
+            data = _get("/memory/search?q=context&limit=5")
+            lines = []
+            for item in (data if isinstance(data, list) else []):
+                actor = item.get("actor", "")
+                action = item.get("action", "")
+                target = item.get("target", "")
+                lines.append(f"[{actor}] {action} → {target}")
+            text = "\n".join(lines) if lines else "(no memories yet)"
+            return {"contents": [{"uri": uri, "mimeType": "text/plain", "text": text}]}
+        elif uri == "hipcortex://beliefs/current":
+            data = _get("/memory/search?q=belief&record_type=Symbolic&limit=10")
+            return {
+                "contents": [
+                    {
+                        "uri": uri,
+                        "mimeType": "application/json",
+                        "text": json.dumps(data if isinstance(data, list) else []),
+                    }
+                ]
+            }
+        elif uri == "hipcortex://context/conversation":
+            actor = os.environ.get("HIPCORTEX_ACTOR", "mcp-session")
+            data = _get(f"/memory/query?actor={actor}&limit=20")
+            lines = []
+            for item in (data if isinstance(data, list) else []):
+                lines.append(f"{item.get('action', '')} → {item.get('target', '')}")
+            text = "\n".join(lines) if lines else "(no history yet)"
+            return {"contents": [{"uri": uri, "mimeType": "text/plain", "text": text}]}
+        else:
+            return {"contents": [{"uri": uri, "mimeType": "text/plain", "text": ""}]}
+    except Exception:
+        return {"contents": [{"uri": uri, "mimeType": "text/plain", "text": ""}]}
+
+
 def main() -> None:
     for raw_line in sys.stdin:
         line = raw_line.strip()
@@ -766,8 +971,8 @@ def main() -> None:
         if method == "initialize":
             respond(id_, {
                 "protocolVersion": "2024-11-05",
-                "capabilities": {"tools": {}},
-                "serverInfo": {"name": "hipcortex", "version": "0.5.2"},
+                "capabilities": {"tools": {}, "resources": {}},
+                "serverInfo": {"name": "hipcortex", "version": "0.7.0"},
             })
         elif method == "initialized":
             pass  # notification — no response
@@ -783,6 +988,10 @@ def main() -> None:
                 respond(id_, error=f"HipCortex server error: {e}")
             except Exception as e:
                 respond(id_, error=str(e))
+        elif method == "resources/list":
+            respond(id_, handle_resources_list())
+        elif method == "resources/read":
+            respond(id_, handle_resource_read(params.get("uri", "")))
         elif method == "ping":
             respond(id_, {})
         else:
