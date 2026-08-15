@@ -52,4 +52,5 @@ mod memory_expiry_consistency_tests;
 mod memory_ppr_tests;
 mod tx_log_tests;
 mod state_diff_tests;
+mod consolidation_tests;
 
