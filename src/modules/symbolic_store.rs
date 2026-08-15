@@ -533,7 +533,10 @@ impl<B: GraphDatabase> SymbolicStore<B> {
     /// Enable synchronous coherence write-gating on this store.
     /// When set, every mutation (add_node, add_edge, set_property, remove_node)
     /// will validate invariants before executing.
-    pub fn with_coherence(mut self, checker: std::sync::Arc<crate::coherence::CoherenceChecker>) -> Self {
+    pub fn with_coherence(
+        mut self,
+        checker: std::sync::Arc<crate::coherence::CoherenceChecker>,
+    ) -> Self {
         self.coherence = Some(checker);
         self
     }
@@ -558,7 +561,10 @@ impl<B: GraphDatabase> SymbolicStore<B> {
     }
 
     /// Attach world-model for entity registration and tracking.
-    pub fn with_world_model(mut self, wm: std::sync::Arc<crate::world_model_enhanced::WorldModelEnhanced>) -> Self {
+    pub fn with_world_model(
+        mut self,
+        wm: std::sync::Arc<crate::world_model_enhanced::WorldModelEnhanced>,
+    ) -> Self {
         self.world_model = Some(wm);
         self
     }
@@ -578,8 +584,13 @@ impl<B: GraphDatabase> SymbolicStore<B> {
                 let nodes = self.backend.find_by_label("System:Self");
                 if let Some(self_node) = nodes.first() {
                     let id = self_node.id;
-                    self.backend.update_property(id, "overall_health", &health.overall.to_string());
-                    self.backend.update_property(id, "total_modules", &health.modules.len().to_string());
+                    self.backend
+                        .update_property(id, "overall_health", &health.overall.to_string());
+                    self.backend.update_property(
+                        id,
+                        "total_modules",
+                        &health.modules.len().to_string(),
+                    );
                     return true;
                 }
             }
@@ -591,7 +602,8 @@ impl<B: GraphDatabase> SymbolicStore<B> {
     /// Returns Ok(()) if safe, or the context string is blocked.
     fn gate_mutation(&self, context: &str) -> Result<(), String> {
         if let Some(ref coherence) = self.coherence {
-            coherence.gate_write(context)
+            coherence
+                .gate_write(context)
                 .map_err(|rejection| rejection.reason)?;
         }
         Ok(())
@@ -605,15 +617,13 @@ impl<B: GraphDatabase> SymbolicStore<B> {
                 Ok(decision) if !decision.should_execute => return Uuid::nil(),
                 Err(_) => {
                     // Auto-register capability on first use
-                    let _ = sm.register_capability(
-                        crate::self_model::CapabilityDescriptor {
-                            name: "symbolic_add_node".to_string(),
-                            description: "Add node to symbolic graph".to_string(),
-                            required_cpu_percent: 5.0,
-                            required_memory_mb: 10.0,
-                            limitations: vec![],
-                        }
-                    );
+                    let _ = sm.register_capability(crate::self_model::CapabilityDescriptor {
+                        name: "symbolic_add_node".to_string(),
+                        description: "Add node to symbolic graph".to_string(),
+                        required_cpu_percent: 5.0,
+                        required_memory_mb: 10.0,
+                        limitations: vec![],
+                    });
                 }
                 _ => {}
             }
@@ -644,15 +654,13 @@ impl<B: GraphDatabase> SymbolicStore<B> {
             match sm.can_execute("symbolic_add_edge", context) {
                 Ok(decision) if !decision.should_execute => return,
                 Err(_) => {
-                    let _ = sm.register_capability(
-                        crate::self_model::CapabilityDescriptor {
-                            name: "symbolic_add_edge".to_string(),
-                            description: "Add edge to symbolic graph".to_string(),
-                            required_cpu_percent: 2.0,
-                            required_memory_mb: 5.0,
-                            limitations: vec![],
-                        }
-                    );
+                    let _ = sm.register_capability(crate::self_model::CapabilityDescriptor {
+                        name: "symbolic_add_edge".to_string(),
+                        description: "Add edge to symbolic graph".to_string(),
+                        required_cpu_percent: 2.0,
+                        required_memory_mb: 5.0,
+                        limitations: vec![],
+                    });
                 }
                 _ => {}
             }

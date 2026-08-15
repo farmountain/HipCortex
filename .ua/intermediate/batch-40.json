@@ -1,0 +1,533 @@
+{
+  "nodes": [
+    {
+      "id": "file:src/modules/loop_engine.rs",
+      "type": "file",
+      "name": "loop_engine.rs",
+      "filePath": "src/modules/loop_engine.rs",
+      "summary": "Implements the cognitive omega-loop engine (`LoopEngine`) for Bayesian topology-guided self-mutation, and the `ReactEngine` for goal-driven ReAct-style iteration that writes Temporal observations and Reflexion critiques per cycle and terminates on GoalPayload success-factor satisfaction.",
+      "tags": ["service", "cognitive-loop", "bayesian", "goal-driven", "self-mutation"],
+      "complexity": "complex",
+      "languageNotes": "Heavy use of topology PageRank for coverage gap detection and Dirichlet rollouts via WorldModelEnhanced; all mutations are gated by SafetyGuardrail::check_precondition and CoherenceChecker::gate_write before touching the causal graph."
+    },
+    {
+      "id": "class:src/modules/loop_engine.rs:LoopEngine",
+      "type": "class",
+      "name": "LoopEngine",
+      "filePath": "src/modules/loop_engine.rs",
+      "lineRange": [71, 468],
+      "summary": "Orchestrates the omega cognitive loop: snapshot → gap detection → strata rollout → surprise calculation → Bayesian attribution → tentative topology mutation → uncertainty propagation → belief update → trace distillation.",
+      "tags": ["cognitive-loop", "bayesian", "topology", "self-mutation"],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:src/modules/loop_engine.rs:ReactEngine",
+      "type": "class",
+      "name": "ReactEngine",
+      "filePath": "src/modules/loop_engine.rs",
+      "lineRange": [479, 577],
+      "summary": "Goal-driven ReAct loop engine that iterates up to a configurable max, writing Temporal observations and Reflexion critiques per iteration, then resolves goal status (Succeeded/Failed) based on GoalPayload success factors.",
+      "tags": ["goal-driven", "react-loop", "memory-store", "reflexion"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/modules/loop_engine.rs:run_omega_loop",
+      "type": "function",
+      "name": "run_omega_loop",
+      "filePath": "src/modules/loop_engine.rs",
+      "lineRange": [143, 188],
+      "summary": "Executes one full omega cycle: snapshot → gap detection → world-model uncertainty → PageRank localization → rollout simulation → surprise → attribution → mutation → audit → belief/trace update.",
+      "tags": ["cognitive-loop", "orchestration", "bayesian"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/modules/loop_engine.rs:simulate_rollouts",
+      "type": "function",
+      "name": "simulate_rollouts",
+      "filePath": "src/modules/loop_engine.rs",
+      "lineRange": [371, 420],
+      "summary": "Simulates future state trajectories using localized subgraph PageRank seeds and Dirichlet rollout, falling back to direct next-state prediction when rollout returns empty.",
+      "tags": ["simulation", "world-model", "bayesian"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/modules/loop_engine.rs:apply_tentative_mutation",
+      "type": "function",
+      "name": "apply_tentative_mutation",
+      "filePath": "src/modules/loop_engine.rs",
+      "lineRange": [303, 341],
+      "summary": "Applies a topology mutation conditioned on AttributionMap weights, guarded by SafetyGuardrail and CoherenceChecker, then propagates uncertainty and appends audit entries.",
+      "tags": ["mutation", "safety-guarded", "topology"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/modules/loop_engine.rs:detect_coverage_gap",
+      "type": "function",
+      "name": "detect_coverage_gap",
+      "filePath": "src/modules/loop_engine.rs",
+      "lineRange": [228, 266],
+      "summary": "Identifies topology coverage gaps via personalized PageRank; returns a StrataTrajectory with a coverage score and highlighted sparse-topology layers.",
+      "tags": ["gap-detection", "pagerank", "topology"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/modules/loop_engine.rs:process_surprise_reflexion",
+      "type": "function",
+      "name": "process_surprise_reflexion",
+      "filePath": "src/modules/loop_engine.rs",
+      "lineRange": [192, 224],
+      "summary": "Records a state-action-outcome transition into the world model and runs the coherence gate to reject updates that would introduce paradoxes or safety violations.",
+      "tags": ["reflexion", "world-model", "coherence"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/modules/loop_engine.rs:run",
+      "type": "function",
+      "name": "run",
+      "filePath": "src/modules/loop_engine.rs",
+      "lineRange": [489, 562],
+      "summary": "ReactEngine entry point: loads a GoalPayload from the memory store, iterates observe/reflect cycles writing MemoryRecords, checks success factors each iteration, and returns Succeeded or Failed status.",
+      "tags": ["goal-driven", "react-loop", "memory-store"],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:src/modules/self_model/decision.rs",
+      "type": "file",
+      "name": "decision.rs",
+      "filePath": "src/modules/self_model/decision.rs",
+      "summary": "Implements `DecisionEngine` using expected-utility maximization to approve or reject operation execution, now also implementing the `ExecutionGate` trait to allow injection as a pluggable gate into `SelfModel`.",
+      "tags": ["decision-engine", "expected-utility", "execution-gate", "self-model"],
+      "complexity": "complex",
+      "languageNotes": "Adaptive threshold uses EWMA of historical approval rate to tighten or relax the EU floor; the ExecutionGate trait impl delegates to the same evaluate() method, enabling decoupled polymorphic gating."
+    },
+    {
+      "id": "class:src/modules/self_model/decision.rs:DecisionEngine",
+      "type": "class",
+      "name": "DecisionEngine",
+      "filePath": "src/modules/self_model/decision.rs",
+      "lineRange": [206, 455],
+      "summary": "Expected-utility decision engine with configurable thresholds, adaptive EU floor based on historical approval rate, validation feedback loop, and `ExecutionGate` trait implementation.",
+      "tags": ["decision-engine", "expected-utility", "execution-gate", "adaptive"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/modules/self_model/decision.rs:evaluate",
+      "type": "function",
+      "name": "evaluate",
+      "filePath": "src/modules/self_model/decision.rs",
+      "lineRange": [235, 342],
+      "summary": "Core decision evaluation: computes expected utility then gates approval through cascading checks on success rate, resource usage, health score, and adaptive EU threshold, recording each decision in history.",
+      "tags": ["decision-engine", "expected-utility", "validation"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/modules/self_model/decision.rs:compute_expected_utility",
+      "type": "function",
+      "name": "compute_expected_utility",
+      "filePath": "src/modules/self_model/decision.rs",
+      "lineRange": [353, 379],
+      "summary": "Computes expected utility as a weighted combination of success rate, health score, resource efficiency, priority, deadline urgency, and cascading-impact penalty.",
+      "tags": ["expected-utility", "computation", "decision-engine"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/modules/self_model/decision.rs:adaptive_threshold",
+      "type": "function",
+      "name": "adaptive_threshold",
+      "filePath": "src/modules/self_model/decision.rs",
+      "lineRange": [385, 405],
+      "summary": "Adjusts the minimum expected-utility threshold based on historical approval rate: raises threshold if approval rate is too high, lowers it if too low, requiring at least 10 decisions to activate.",
+      "tags": ["adaptive", "threshold", "decision-engine"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:src/modules/self_model/mod.rs",
+      "type": "file",
+      "name": "mod.rs",
+      "filePath": "src/modules/self_model/mod.rs",
+      "summary": "Self-model coordinator (`SelfModel`) aggregating capability registry, resource monitor, performance tracker, health aggregator, and decision engine; new `with_gate()` constructor injects an `ExecutionGate` override that short-circuits `can_execute` without touching the internal decision pipeline.",
+      "tags": ["self-model", "coordinator", "execution-gate", "capability-registry"],
+      "complexity": "complex",
+      "languageNotes": "All subsystem fields are wrapped in Arc<RwLock<...>> for concurrent access; the gate_override is Arc<Mutex<dyn ExecutionGate>> to support trait-object polymorphism across threads."
+    },
+    {
+      "id": "class:src/modules/self_model/mod.rs:SelfModel",
+      "type": "class",
+      "name": "SelfModel",
+      "filePath": "src/modules/self_model/mod.rs",
+      "lineRange": [80, 298],
+      "summary": "Thread-safe coordinator that wires capability registry, resource monitor, EWMA performance tracker, health aggregator, and decision engine together; supports pluggable ExecutionGate injection via `with_gate()`.",
+      "tags": ["self-model", "coordinator", "arc-rwlock", "execution-gate"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/modules/self_model/mod.rs:can_execute",
+      "type": "function",
+      "name": "can_execute",
+      "filePath": "src/modules/self_model/mod.rs",
+      "lineRange": [139, 215],
+      "summary": "Primary execution gate: if a gate_override is set, delegates immediately to it; otherwise queries capability, resources, performance, and health to feed the DecisionEngine and returns its Decision.",
+      "tags": ["execution-gate", "decision-engine", "capability-check"],
+      "complexity": "complex"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:src/modules/loop_engine.rs",
+      "target": "file:src/memory_store.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/modules/loop_engine.rs",
+      "target": "file:src/memory_record.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/modules/loop_engine.rs",
+      "target": "file:src/payloads.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/modules/loop_engine.rs",
+      "target": "file:src/persistence.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/modules/self_model/decision.rs",
+      "target": "file:src/execution_gate.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/modules/self_model/mod.rs",
+      "target": "file:src/execution_gate.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/modules/self_model/mod.rs",
+      "target": "file:src/modules/self_model/decision.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/modules/self_model/mod.rs",
+      "target": "file:src/modules/self_model/resource.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/modules/loop_engine.rs",
+      "target": "class:src/modules/loop_engine.rs:LoopEngine",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/modules/loop_engine.rs",
+      "target": "class:src/modules/loop_engine.rs:ReactEngine",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/modules/loop_engine.rs",
+      "target": "function:src/modules/loop_engine.rs:run_omega_loop",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/modules/loop_engine.rs",
+      "target": "function:src/modules/loop_engine.rs:simulate_rollouts",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/modules/loop_engine.rs",
+      "target": "function:src/modules/loop_engine.rs:apply_tentative_mutation",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/modules/loop_engine.rs",
+      "target": "function:src/modules/loop_engine.rs:detect_coverage_gap",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/modules/loop_engine.rs",
+      "target": "function:src/modules/loop_engine.rs:process_surprise_reflexion",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/modules/loop_engine.rs",
+      "target": "function:src/modules/loop_engine.rs:run",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/modules/loop_engine.rs",
+      "target": "class:src/modules/loop_engine.rs:LoopEngine",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/modules/loop_engine.rs",
+      "target": "class:src/modules/loop_engine.rs:ReactEngine",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/modules/loop_engine.rs",
+      "target": "function:src/modules/loop_engine.rs:run_omega_loop",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/modules/loop_engine.rs",
+      "target": "function:src/modules/loop_engine.rs:simulate_rollouts",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/modules/loop_engine.rs",
+      "target": "function:src/modules/loop_engine.rs:apply_tentative_mutation",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/modules/loop_engine.rs",
+      "target": "function:src/modules/loop_engine.rs:detect_coverage_gap",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/modules/loop_engine.rs",
+      "target": "function:src/modules/loop_engine.rs:process_surprise_reflexion",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/modules/loop_engine.rs",
+      "target": "function:src/modules/loop_engine.rs:run",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:src/modules/loop_engine.rs:LoopEngine",
+      "target": "function:src/modules/loop_engine.rs:run_omega_loop",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "class:src/modules/loop_engine.rs:LoopEngine",
+      "target": "function:src/modules/loop_engine.rs:simulate_rollouts",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "class:src/modules/loop_engine.rs:LoopEngine",
+      "target": "function:src/modules/loop_engine.rs:apply_tentative_mutation",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "class:src/modules/loop_engine.rs:LoopEngine",
+      "target": "function:src/modules/loop_engine.rs:detect_coverage_gap",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "class:src/modules/loop_engine.rs:LoopEngine",
+      "target": "function:src/modules/loop_engine.rs:process_surprise_reflexion",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "class:src/modules/loop_engine.rs:ReactEngine",
+      "target": "function:src/modules/loop_engine.rs:run",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/modules/self_model/decision.rs",
+      "target": "class:src/modules/self_model/decision.rs:DecisionEngine",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/modules/self_model/decision.rs",
+      "target": "function:src/modules/self_model/decision.rs:evaluate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/modules/self_model/decision.rs",
+      "target": "function:src/modules/self_model/decision.rs:compute_expected_utility",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/modules/self_model/decision.rs",
+      "target": "function:src/modules/self_model/decision.rs:adaptive_threshold",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/modules/self_model/decision.rs",
+      "target": "class:src/modules/self_model/decision.rs:DecisionEngine",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/modules/self_model/decision.rs",
+      "target": "function:src/modules/self_model/decision.rs:evaluate",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/modules/self_model/decision.rs",
+      "target": "function:src/modules/self_model/decision.rs:compute_expected_utility",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/modules/self_model/decision.rs",
+      "target": "function:src/modules/self_model/decision.rs:adaptive_threshold",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:src/modules/self_model/decision.rs:DecisionEngine",
+      "target": "function:src/modules/self_model/decision.rs:evaluate",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "class:src/modules/self_model/decision.rs:DecisionEngine",
+      "target": "function:src/modules/self_model/decision.rs:compute_expected_utility",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "class:src/modules/self_model/decision.rs:DecisionEngine",
+      "target": "function:src/modules/self_model/decision.rs:adaptive_threshold",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "class:src/modules/self_model/decision.rs:DecisionEngine",
+      "target": "file:src/execution_gate.rs",
+      "type": "implements",
+      "direction": "forward",
+      "weight": 0.9
+    },
+    {
+      "source": "file:src/modules/self_model/mod.rs",
+      "target": "class:src/modules/self_model/mod.rs:SelfModel",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/modules/self_model/mod.rs",
+      "target": "function:src/modules/self_model/mod.rs:can_execute",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/modules/self_model/mod.rs",
+      "target": "class:src/modules/self_model/mod.rs:SelfModel",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/modules/self_model/mod.rs",
+      "target": "function:src/modules/self_model/mod.rs:can_execute",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "class:src/modules/self_model/mod.rs:SelfModel",
+      "target": "function:src/modules/self_model/mod.rs:can_execute",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "class:src/modules/self_model/mod.rs:SelfModel",
+      "target": "class:src/modules/self_model/decision.rs:DecisionEngine",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "function:src/modules/self_model/mod.rs:can_execute",
+      "target": "class:src/modules/self_model/decision.rs:DecisionEngine",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/modules/loop_engine.rs:run",
+      "target": "file:src/memory_store.rs",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/modules/loop_engine.rs:run",
+      "target": "file:src/memory_record.rs",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "batchIndex": 8,
+  "nodes": [
+    {
+      "id": "document:docs/launch/DISTRIBUTION.md",
+      "type": "document",
+      "name": "Distribution Checklist",
+      "filePath": "docs/launch/DISTRIBUTION.md",
+      "summary": "Step-by-step launch checklist covering six distribution channels: Show HN, npm TypeScript SDK, VS Code Marketplace, HuggingFace Space, GitHub Copilot Extension, and PyPI. Includes shell commands for each channel and a post-launch monitoring checklist for tracking downloads, installs, and community engagement.",
+      "tags": ["launch", "marketing", "distribution", "npm", "vscode", "huggingface", "pypi", "copilot"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:docs/launch/copilot-extension-plan.md",
+      "type": "document",
+      "name": "GitHub Copilot Extension Plan",
+      "filePath": "docs/launch/copilot-extension-plan.md",
+      "summary": "Three-day implementation plan for a GitHub Copilot Extension that gives Copilot Chat persistent memory via HipCortex MCP. Covers architecture (Copilot Chat -> Extension API -> HipCortex MCP Server), five slash commands (/remember, /recall, /forget, /context, /health), key file layout, and a three-tier monetization model (Free / Pro $9/mo / Team $29/mo).",
+      "tags": ["launch", "marketing", "copilot", "github", "mcp", "monetization", "integration", "extension"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:docs/launch/reddit-localllama.md",
+      "type": "document",
+      "name": "Reddit r/LocalLLAMA Launch Post",
+      "filePath": "docs/launch/reddit-localllama.md",
+      "summary": "Drafted launch post for r/LocalLLAMA (plus r/MachineLearning and LinkedIn variants) highlighting HipCortex v0.2 features: 0.6ms write latency, temporal decay, causal world model, Merkle-chained audit log, and one-command MCP install for Cursor/Claude Code. Includes demand-threshold signal table to gate further investment decisions (Fly.io SaaS, SOC 2, enterprise outreach) based on GitHub stars, PyPI installs, and issue volume.",
+      "tags": ["launch", "marketing", "reddit", "localllama", "community", "demand-signals", "linkedin", "social"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:docs/launch/show-hn.md",
+      "type": "document",
+      "name": "Show HN Submission",
+      "filePath": "docs/launch/show-hn.md",
+      "summary": "Prepared Hacker News Show HN post for HipCortex, leading with the metacognitive intelligence layer (Self-Model, World-Model Enhanced, Coherence Checker) and the proactive agent harness achieving ~93% context reduction. Includes a submission checklist (binary paths, live endpoints, timing), pre-written responses to anticipated HN comments (MemGPT comparison, benchmark fairness, why Rust, production readiness), and cross-post coordination with r/LocalLLAMA.",
+      "tags": ["launch", "marketing", "hackernews", "show-hn", "community", "intelligence-layer", "mcp", "benchmarks"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": []
+}

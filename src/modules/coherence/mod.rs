@@ -80,38 +80,40 @@
 //! - **Confidence**: Highest confidence score wins — best for reliability-weighted decisions
 
 mod checker;
-mod resolver;
 mod invariants;
+mod resolver;
 #[cfg(feature = "tokio")]
 mod write_actor;
 
-pub use checker::{ConsistencyChecker, InconsistencyType, InconsistencyReport};
-pub use resolver::{ConflictResolver, ResolutionStrategy, ResolutionResult, ResolutionHistory, CandidateValue};
-pub use invariants::{SystemInvariants, InvariantType, InvariantViolation};
+pub use checker::{ConsistencyChecker, InconsistencyReport, InconsistencyType};
+pub use invariants::{InvariantType, InvariantViolation, SystemInvariants};
+pub use resolver::{
+    CandidateValue, ConflictResolver, ResolutionHistory, ResolutionResult, ResolutionStrategy,
+};
 #[cfg(feature = "tokio")]
 pub use write_actor::{CoherenceWriteActor, CoherenceWriteMutation};
 
-use std::sync::{Arc, RwLock, Mutex};
-use std::time::{Duration, Instant};
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex, RwLock};
+use std::time::{Duration, Instant};
 
 /// Central Coherence Checker coordinator integrating consistency validation
 pub struct CoherenceChecker {
     /// Inconsistency detector
     checker: Arc<RwLock<ConsistencyChecker>>,
-    
+
     /// Conflict resolver with pluggable strategies
     resolver: Arc<RwLock<ConflictResolver>>,
-    
+
     /// System invariant validator
     invariants: Arc<RwLock<SystemInvariants>>,
-    
+
     /// Active inconsistencies (inconsistency_id -> report)
     active_inconsistencies: Arc<RwLock<HashMap<String, InconsistencyReport>>>,
-    
+
     /// Coherence metrics
     metrics: Arc<RwLock<CoherenceMetrics>>,
-    
+
     /// Last check timestamp
     last_check: Arc<RwLock<Instant>>,
 }
@@ -187,19 +189,30 @@ impl CoherenceChecker {
         }
     }
 
-    pub fn set_temporal_indexer(&self, indexer: Arc<Mutex<crate::temporal_indexer::TemporalIndexer<uuid::Uuid>>>) {
+    pub fn set_temporal_indexer(
+        &self,
+        indexer: Arc<Mutex<crate::temporal_indexer::TemporalIndexer<uuid::Uuid>>>,
+    ) {
         if let Ok(mut checker) = self.checker.write() {
             checker.set_temporal_indexer(indexer);
         }
     }
 
-    pub fn set_symbolic_store(&self, store: Arc<Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>) {
+    pub fn set_symbolic_store(
+        &self,
+        store: Arc<
+            Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>,
+        >,
+    ) {
         if let Ok(mut checker) = self.checker.write() {
             checker.set_symbolic_store(store);
         }
     }
 
-    pub fn set_procedural_cache(&self, cache: Arc<Mutex<crate::procedural_cache::ProceduralCache>>) {
+    pub fn set_procedural_cache(
+        &self,
+        cache: Arc<Mutex<crate::procedural_cache::ProceduralCache>>,
+    ) {
         if let Ok(mut checker) = self.checker.write() {
             checker.set_procedural_cache(cache);
         }
@@ -219,57 +232,73 @@ impl CoherenceChecker {
     ///
     /// Returns list of detected inconsistencies
     pub fn check_consistency(&self) -> Result<Vec<InconsistencyReport>, String> {
-        let mut checker = self.checker.write()
+        let mut checker = self
+            .checker
+            .write()
             .map_err(|e| format!("Failed to acquire checker lock: {}", e))?;
-        
-        let mut metrics = self.metrics.write()
+
+        let mut metrics = self
+            .metrics
+            .write()
             .map_err(|e| format!("Failed to acquire metrics lock: {}", e))?;
-        
+
         // Update last check time
-        let mut last_check = self.last_check.write()
+        let mut last_check = self
+            .last_check
+            .write()
             .map_err(|e| format!("Failed to acquire last_check lock: {}", e))?;
         *last_check = Instant::now();
-        
+
         // Increment check counter
         metrics.total_checks += 1;
-        
+
         // Run consistency checks
         let inconsistencies = checker.check_all()?;
-        
+
         // Update metrics
         metrics.inconsistencies_found += inconsistencies.len() as u64;
-        
+
         // Store active inconsistencies
-        let mut active = self.active_inconsistencies.write()
+        let mut active = self
+            .active_inconsistencies
+            .write()
             .map_err(|e| format!("Failed to acquire active_inconsistencies lock: {}", e))?;
-        
+
         for report in &inconsistencies {
             active.insert(report.id.clone(), report.clone());
         }
-        
+
         Ok(inconsistencies)
     }
 
     /// Run COW background check on an isolated thread with cloned Arc snapshots
-    pub fn check_consistency_cow(&self) -> Result<std::thread::JoinHandle<Result<Vec<InconsistencyReport>, String>>, String> {
-        let checker = self.checker.read()
+    pub fn check_consistency_cow(
+        &self,
+    ) -> Result<std::thread::JoinHandle<Result<Vec<InconsistencyReport>, String>>, String> {
+        let checker = self
+            .checker
+            .read()
             .map_err(|e| format!("Failed to acquire checker lock: {}", e))?;
         Ok(checker.check_consistency_cow())
     }
 
     /// Check consistency for specific entity (targeted check)
     pub fn check_entity(&self, entity_id: &str) -> Result<Vec<InconsistencyReport>, String> {
-        let mut checker = self.checker.write()
+        let mut checker = self
+            .checker
+            .write()
             .map_err(|e| format!("Failed to acquire checker lock: {}", e))?;
-        
+
         checker.check_entity(entity_id)
     }
 
     /// Check if scheduled check is needed (60 second interval)
     pub fn should_run_scheduled_check(&self) -> Result<bool, String> {
-        let last_check = self.last_check.read()
+        let last_check = self
+            .last_check
+            .read()
             .map_err(|e| format!("Failed to acquire last_check lock: {}", e))?;
-        
+
         Ok(last_check.elapsed() >= Duration::from_secs(60))
     }
 
@@ -285,49 +314,63 @@ impl CoherenceChecker {
         inconsistency: &InconsistencyReport,
         strategy: ResolutionStrategy,
     ) -> Result<ResolutionResult, String> {
-        let mut resolver = self.resolver.write()
+        let mut resolver = self
+            .resolver
+            .write()
             .map_err(|e| format!("Failed to acquire resolver lock: {}", e))?;
-        
-        let mut metrics = self.metrics.write()
+
+        let mut metrics = self
+            .metrics
+            .write()
             .map_err(|e| format!("Failed to acquire metrics lock: {}", e))?;
-        
+
         // Attempt resolution
         let result = resolver.resolve(inconsistency, strategy)?;
-        
+
         // Update metrics
         if result.success {
             metrics.auto_resolutions_succeeded += 1;
-            
+
             // Remove from active inconsistencies if resolved
-            let mut active = self.active_inconsistencies.write()
+            let mut active = self
+                .active_inconsistencies
+                .write()
                 .map_err(|e| format!("Failed to acquire active_inconsistencies lock: {}", e))?;
             active.remove(&inconsistency.id);
         } else {
             metrics.auto_resolutions_failed += 1;
         }
-        
+
         Ok(result)
     }
 
     /// Attempt automatic resolution for all active inconsistencies
-    pub fn resolve_all(&self, strategy: ResolutionStrategy) -> Result<Vec<ResolutionResult>, String> {
-        let active = self.active_inconsistencies.read()
+    pub fn resolve_all(
+        &self,
+        strategy: ResolutionStrategy,
+    ) -> Result<Vec<ResolutionResult>, String> {
+        let active = self
+            .active_inconsistencies
+            .read()
             .map_err(|e| format!("Failed to acquire active_inconsistencies lock: {}", e))?;
-        
+
         let inconsistencies: Vec<_> = active.values().cloned().collect();
         drop(active);
-        
+
         let mut results = Vec::new();
         for inconsistency in &inconsistencies {
             match self.resolve_conflict(inconsistency, strategy.clone()) {
                 Ok(result) => results.push(result),
                 Err(e) => {
                     // Log error but continue resolving others
-                    eprintln!("Failed to resolve inconsistency {}: {}", inconsistency.id, e);
+                    eprintln!(
+                        "Failed to resolve inconsistency {}: {}",
+                        inconsistency.id, e
+                    );
                 }
             }
         }
-        
+
         Ok(results)
     }
 
@@ -338,16 +381,20 @@ impl CoherenceChecker {
         chosen_value: serde_json::Value,
         operator: &str,
     ) -> Result<(), String> {
-        let mut resolver = self.resolver.write()
+        let mut resolver = self
+            .resolver
+            .write()
             .map_err(|e| format!("Failed to acquire resolver lock: {}", e))?;
-        
+
         resolver.apply_manual_override(inconsistency_id, chosen_value, operator)?;
-        
+
         // Remove from active inconsistencies
-        let mut active = self.active_inconsistencies.write()
+        let mut active = self
+            .active_inconsistencies
+            .write()
             .map_err(|e| format!("Failed to acquire active_inconsistencies lock: {}", e))?;
         active.remove(inconsistency_id);
-        
+
         Ok(())
     }
 
@@ -358,7 +405,11 @@ impl CoherenceChecker {
     /// Validate all system invariants
     ///
     /// Verifies cross-module coherence between TransitionModel and CausalTopoGraph during online System-ID updates.
-    pub fn verify_coherence(&self, _transitions: &crate::world_model_enhanced::transition::TransitionModel, _topo: &crate::topological_memory::CausalTopoGraph) -> bool {
+    pub fn verify_coherence(
+        &self,
+        _transitions: &crate::world_model_enhanced::transition::TransitionModel,
+        _topo: &crate::topological_memory::CausalTopoGraph,
+    ) -> bool {
         match self.enforce_invariants() {
             Ok(violations) => !violations.iter().any(|v| v.critical),
             Err(_) => false,
@@ -367,18 +418,22 @@ impl CoherenceChecker {
 
     /// Returns list of violated invariants (empty if all pass)
     pub fn enforce_invariants(&self) -> Result<Vec<InvariantViolation>, String> {
-        let mut invariants = self.invariants.write()
+        let mut invariants = self
+            .invariants
+            .write()
             .map_err(|e| format!("Failed to acquire invariants lock: {}", e))?;
-        
-        let mut metrics = self.metrics.write()
+
+        let mut metrics = self
+            .metrics
+            .write()
             .map_err(|e| format!("Failed to acquire metrics lock: {}", e))?;
-        
+
         let violations = invariants.validate_all()?;
-        
+
         // Update metrics
         metrics.invariants_validated += 1;
         metrics.invariants_violated += violations.len() as u64;
-        
+
         // If critical invariant violated, halt further operations
         for violation in &violations {
             if violation.critical {
@@ -386,7 +441,7 @@ impl CoherenceChecker {
                 // In production, this would trigger system health degradation
             }
         }
-        
+
         Ok(violations)
     }
 
@@ -403,12 +458,11 @@ impl CoherenceChecker {
     /// This is the synchronous safety gate — unlike the async 60s background
     /// checker, this blocks the write BEFORE it happens.
     pub fn gate_write(&self, context: &str) -> Result<(), WriteRejection> {
-        let mut metrics = self.metrics.write()
-            .map_err(|_| WriteRejection {
-                inconsistencies: vec![],
-                violations: vec![],
-                reason: "failed to acquire metrics lock".into(),
-            })?;
+        let mut metrics = self.metrics.write().map_err(|_| WriteRejection {
+            inconsistencies: vec![],
+            violations: vec![],
+            reason: "failed to acquire metrics lock".into(),
+        })?;
 
         metrics.writes_gated += 1;
         drop(metrics);
@@ -416,9 +470,7 @@ impl CoherenceChecker {
         // Run invariant validation synchronously
         match self.enforce_invariants() {
             Ok(violations) => {
-                let critical: Vec<_> = violations.into_iter()
-                    .filter(|v| v.critical)
-                    .collect();
+                let critical: Vec<_> = violations.into_iter().filter(|v| v.critical).collect();
 
                 if !critical.is_empty() {
                     if let Ok(mut metrics) = self.metrics.write() {
@@ -429,7 +481,8 @@ impl CoherenceChecker {
                         reason: format!(
                             "{} critical invariant(s) violated: {}",
                             critical.len(),
-                            critical.iter()
+                            critical
+                                .iter()
                                 .map(|v| format!("{:?}", v.invariant_type))
                                 .collect::<Vec<_>>()
                                 .join(", ")
@@ -470,9 +523,7 @@ impl CoherenceChecker {
             reason: format!("auto-resolution failed: {}", e),
         })?;
 
-        let unresolved: Vec<_> = results.into_iter()
-            .filter(|r| !r.success)
-            .collect();
+        let unresolved: Vec<_> = results.into_iter().filter(|r| !r.success).collect();
 
         if !unresolved.is_empty() {
             // Also run invariants for a complete picture
@@ -497,16 +548,23 @@ impl CoherenceChecker {
 
     /// Get write-gating statistics.
     pub fn get_gate_stats(&self) -> Result<(u64, u64), String> {
-        let metrics = self.metrics.read()
+        let metrics = self
+            .metrics
+            .read()
             .map_err(|e| format!("Failed to acquire metrics lock: {}", e))?;
         Ok((metrics.writes_gated, metrics.writes_blocked))
     }
 
     /// Validate specific invariant type
-    pub fn check_invariant(&self, invariant: InvariantType) -> Result<Option<InvariantViolation>, String> {
-        let mut invariants = self.invariants.write()
+    pub fn check_invariant(
+        &self,
+        invariant: InvariantType,
+    ) -> Result<Option<InvariantViolation>, String> {
+        let mut invariants = self
+            .invariants
+            .write()
             .map_err(|e| format!("Failed to acquire invariants lock: {}", e))?;
-        
+
         invariants.validate_specific(invariant)
     }
 
@@ -519,46 +577,56 @@ impl CoherenceChecker {
     /// coherence_score = 1.0 - (active_inconsistencies / total_entities)
     /// where 1.0 is perfect coherence
     pub fn compute_coherence_score(&self, total_entities: usize) -> Result<f64, String> {
-        let active = self.active_inconsistencies.read()
+        let active = self
+            .active_inconsistencies
+            .read()
             .map_err(|e| format!("Failed to acquire active_inconsistencies lock: {}", e))?;
-        
+
         let active_count = active.len();
-        
+
         let score = if total_entities == 0 {
             1.0 // Perfect coherence if no entities
         } else {
             1.0 - (active_count as f64 / total_entities as f64)
         };
-        
+
         // Update cached score
-        let mut metrics = self.metrics.write()
+        let mut metrics = self
+            .metrics
+            .write()
             .map_err(|e| format!("Failed to acquire metrics lock: {}", e))?;
         metrics.coherence_score = score;
-        
+
         Ok(score)
     }
 
     /// Get current coherence metrics
     pub fn get_metrics(&self) -> Result<CoherenceMetrics, String> {
-        let metrics = self.metrics.read()
+        let metrics = self
+            .metrics
+            .read()
             .map_err(|e| format!("Failed to acquire metrics lock: {}", e))?;
-        
+
         Ok(metrics.clone())
     }
 
     /// Get all active inconsistencies
     pub fn get_active_inconsistencies(&self) -> Result<Vec<InconsistencyReport>, String> {
-        let active = self.active_inconsistencies.read()
+        let active = self
+            .active_inconsistencies
+            .read()
             .map_err(|e| format!("Failed to acquire active_inconsistencies lock: {}", e))?;
-        
+
         Ok(active.values().cloned().collect())
     }
 
     /// Get resolution history
     pub fn get_resolution_history(&self) -> Result<Vec<ResolutionHistory>, String> {
-        let resolver = self.resolver.read()
+        let resolver = self
+            .resolver
+            .read()
             .map_err(|e| format!("Failed to acquire resolver lock: {}", e))?;
-        
+
         resolver.get_history()
     }
 }
@@ -584,7 +652,7 @@ mod tests {
     #[test]
     fn test_scheduled_check_timing() {
         let checker = CoherenceChecker::new();
-        
+
         // Should not need check immediately
         assert!(!checker.should_run_scheduled_check().unwrap());
     }
@@ -592,11 +660,11 @@ mod tests {
     #[test]
     fn test_coherence_score_computation() {
         let checker = CoherenceChecker::new();
-        
+
         // Perfect coherence with no inconsistencies
         let score = checker.compute_coherence_score(100).unwrap();
         assert_eq!(score, 1.0);
-        
+
         // Perfect coherence with zero entities
         let score = checker.compute_coherence_score(0).unwrap();
         assert_eq!(score, 1.0);
@@ -605,7 +673,7 @@ mod tests {
     #[test]
     fn test_active_inconsistencies_tracking() {
         let checker = CoherenceChecker::new();
-        
+
         // Initially no inconsistencies
         let active = checker.get_active_inconsistencies().unwrap();
         assert_eq!(active.len(), 0);

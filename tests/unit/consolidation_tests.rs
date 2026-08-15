@@ -1,9 +1,9 @@
 use hipcortex::archive_store::ArchiveStore;
-use hipcortex::consolidation::{consolidate, compute_pressure, ConsolidationConfig};
+use hipcortex::backends::petgraph_backend::PetgraphBackend;
+use hipcortex::consolidation::{compute_pressure, consolidate, ConsolidationConfig};
 use hipcortex::memory_record::{MemoryRecord, MemoryType};
 use hipcortex::memory_store::MemoryStore;
 use hipcortex::symbolic_store::SymbolicStore;
-use hipcortex::backends::petgraph_backend::PetgraphBackend;
 use hipcortex::tx_log::TxLog;
 
 fn make_record(actor: &str, tags: &[&str]) -> MemoryRecord {
@@ -28,7 +28,10 @@ fn pressure_zero_on_empty_store() {
 #[test]
 fn pressure_proportional_to_count() {
     let mut store = MemoryStore::new_in_memory();
-    let config = ConsolidationConfig { capacity_limit: 10, ..Default::default() };
+    let config = ConsolidationConfig {
+        capacity_limit: 10,
+        ..Default::default()
+    };
     for _ in 0..5 {
         store.add(make_record("a", &["t"])).unwrap();
     }
@@ -43,7 +46,10 @@ fn consolidate_groups_by_actor_and_tags() {
     let mut store = MemoryStore::new_in_memory();
     let mut archive = ArchiveStore::new(dir.path().join("archive.jsonl"));
     let mut graph = SymbolicStore::from_backend(PetgraphBackend::new());
-    let config = ConsolidationConfig { min_group_size: 3, ..Default::default() };
+    let config = ConsolidationConfig {
+        min_group_size: 3,
+        ..Default::default()
+    };
 
     // Group A: 3 records — should consolidate.
     for _ in 0..3 {
@@ -56,11 +62,18 @@ fn consolidate_groups_by_actor_and_tags() {
 
     let report = consolidate(&mut store, &mut archive, &mut graph, &log, &config).unwrap();
 
-    assert_eq!(report.groups_consolidated, 1, "only group A should consolidate");
+    assert_eq!(
+        report.groups_consolidated, 1,
+        "only group A should consolidate"
+    );
     assert_eq!(report.records_archived, 3, "3 originals archived");
     assert_eq!(report.summary_records_created, 1);
     // Hot store: 1 summary + 2 bob records.
-    assert_eq!(store.all().len(), 3, "hot store should have 1 summary + 2 bob records");
+    assert_eq!(
+        store.all().len(),
+        3,
+        "hot store should have 1 summary + 2 bob records"
+    );
 }
 
 #[test]
@@ -70,7 +83,10 @@ fn consolidate_moves_originals_to_archive() {
     let mut store = MemoryStore::new_in_memory();
     let mut archive = ArchiveStore::new(dir.path().join("archive.jsonl"));
     let mut graph = SymbolicStore::from_backend(PetgraphBackend::new());
-    let config = ConsolidationConfig { min_group_size: 2, ..Default::default() };
+    let config = ConsolidationConfig {
+        min_group_size: 2,
+        ..Default::default()
+    };
 
     let r1 = make_record("agent", &["task"]);
     let r2 = make_record("agent", &["task"]);
@@ -86,8 +102,14 @@ fn consolidate_moves_originals_to_archive() {
     assert!(report.archived_ids.contains(&id2));
 
     // Originals gone from hot store.
-    assert!(store.find_by_id(id1).is_none(), "id1 should not be in hot store");
-    assert!(store.find_by_id(id2).is_none(), "id2 should not be in hot store");
+    assert!(
+        store.find_by_id(id1).is_none(),
+        "id1 should not be in hot store"
+    );
+    assert!(
+        store.find_by_id(id2).is_none(),
+        "id2 should not be in hot store"
+    );
 
     // Originals present in cold store.
     let cold = archive.load_all().unwrap();

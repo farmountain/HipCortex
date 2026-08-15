@@ -1,6 +1,6 @@
+use crate::procedural_cache::{FSMBackend, FSMState, FSMTransition, ProceduralCache};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::procedural_cache::{FSMState, FSMTransition, FSMBackend, ProceduralCache};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SkillTemplateStep {

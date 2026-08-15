@@ -7,7 +7,7 @@
 //   resolve_all(100 conflicts):       < 50ms
 //   enforce_invariants(500 entities): < 20ms
 
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use hipcortex::coherence::{CoherenceChecker, ResolutionStrategy};
 
 // ── 16.5: Consistency check latency ─────────────────────────────────────
@@ -23,9 +23,7 @@ fn bench_consistency_check(c: &mut Criterion) {
                 let checker = CoherenceChecker::new();
                 b.iter(|| {
                     for i in 0..n {
-                        criterion::black_box(
-                            checker.check_entity(&format!("entity_{}", i))
-                        );
+                        criterion::black_box(checker.check_entity(&format!("entity_{}", i)));
                     }
                 });
             },
@@ -61,9 +59,7 @@ fn bench_conflict_resolution(c: &mut Criterion) {
                     let _ = checker.check_entity(&format!("entity_{}", i));
                 }
                 b.iter(|| {
-                    criterion::black_box(
-                        checker.resolve_all(ResolutionStrategy::Consensus)
-                    );
+                    criterion::black_box(checker.resolve_all(ResolutionStrategy::Consensus));
                 });
             },
         );
@@ -74,21 +70,18 @@ fn bench_conflict_resolution(c: &mut Criterion) {
         ResolutionStrategy::Consensus,
         ResolutionStrategy::Recency,
         ResolutionStrategy::Confidence,
-    ].iter() {
-        group.bench_function(
-            &format!("strategy_{:?}", strategy).to_lowercase(),
-            |b| {
-                let checker = CoherenceChecker::new();
-                for i in 0..100 {
-                    let _ = checker.check_entity(&format!("entity_{}", i));
-                }
-                b.iter(|| {
-                    criterion::black_box(
-                        checker.resolve_all(strategy.clone())
-                    );
-                });
-            },
-        );
+    ]
+    .iter()
+    {
+        group.bench_function(&format!("strategy_{:?}", strategy).to_lowercase(), |b| {
+            let checker = CoherenceChecker::new();
+            for i in 0..100 {
+                let _ = checker.check_entity(&format!("entity_{}", i));
+            }
+            b.iter(|| {
+                criterion::black_box(checker.resolve_all(strategy.clone()));
+            });
+        });
     }
     group.finish();
 }
@@ -127,7 +120,8 @@ fn bench_write_gating(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches,
+criterion_group!(
+    benches,
     bench_consistency_check,
     bench_conflict_resolution,
     bench_invariant_enforcement,

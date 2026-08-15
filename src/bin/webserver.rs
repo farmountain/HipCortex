@@ -1,8 +1,8 @@
-use hipcortex::aureus_bridge::AureusBridge;
 use hipcortex::archive_store::ArchiveStore;
+use hipcortex::aureus_bridge::AureusBridge;
 use hipcortex::coherence::CoherenceChecker;
 use hipcortex::memory_store::MemoryStore;
-use hipcortex::self_model::{SelfModel, CapabilityDescriptor};
+use hipcortex::self_model::{CapabilityDescriptor, SelfModel};
 use hipcortex::symbolic_store::{InMemoryGraph, SymbolicStore};
 use hipcortex::tx_log::TxLog;
 use hipcortex::web_server::{self, AppState};
@@ -31,7 +31,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .or_else(|_| std::env::var("HIPCORTEX_STORAGE"))
         .unwrap_or_else(|_| ".".to_string());
 
-
     // ── Memory store ─────────────────────────────────────────────────────────
     let store_path = format!("{}/memory.jsonl", data_dir);
     let memory_store = Arc::new(Mutex::new(MemoryStore::new(&store_path)?));
@@ -40,7 +39,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wm_path = format!("{}/worldmodel.json", data_dir);
     let world_model = match WorldModelEnhanced::load(&wm_path) {
         Ok(wm) => {
-            println!("WorldModel: loaded {} transitions from {}", wm.transition_count(), wm_path);
+            println!(
+                "WorldModel: loaded {} transitions from {}",
+                wm.transition_count(),
+                wm_path
+            );
             wm
         }
         Err(_) => {
@@ -52,22 +55,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // ── SelfModel: bootstrap with registered capabilities ────────────────────
     let self_model = Arc::new(SelfModel::new());
-    for op in &["add_memory", "search_memory", "query_memory", "ingest",
-                "bulk_add", "forget", "reflect", "context", "predict", "rollout",
-                "temporal_insert", "symbolic_add_node", "symbolic_add_edge",
-                "fsm_advance", "perception_adapt"] {
-        self_model.register_capability(CapabilityDescriptor {
-            name: op.to_string(),
-            description: format!("HipCortex {} operation", op),
-            required_cpu_percent: 5.0,
-            required_memory_mb: 50.0,
-            limitations: vec![],
-        }).ok();
+    for op in &[
+        "add_memory",
+        "search_memory",
+        "query_memory",
+        "ingest",
+        "bulk_add",
+        "forget",
+        "reflect",
+        "context",
+        "predict",
+        "rollout",
+        "temporal_insert",
+        "symbolic_add_node",
+        "symbolic_add_edge",
+        "fsm_advance",
+        "perception_adapt",
+    ] {
+        self_model
+            .register_capability(CapabilityDescriptor {
+                name: op.to_string(),
+                description: format!("HipCortex {} operation", op),
+                required_cpu_percent: 5.0,
+                required_memory_mb: 50.0,
+                limitations: vec![],
+            })
+            .ok();
     }
 
     // ── Assemble AppState ────────────────────────────────────────────────────
     let archive_path = format!("{}/memory-archive.jsonl", data_dir);
-    let tx_path      = format!("{}/memory-tx.jsonl", data_dir);
+    let tx_path = format!("{}/memory-tx.jsonl", data_dir);
     let tx_log = TxLog::open(&tx_path)
         .map(|l| Arc::new(l))
         .map_err(|e| eprintln!("[TxLog] open error: {e}"))
@@ -79,7 +97,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         aureus: Arc::new(Mutex::new(AureusBridge::new())),
         self_model,
         coherence: Arc::new(CoherenceChecker::new()),
-        topo_graph: Arc::new(Mutex::new(hipcortex::topological_memory::CausalTopoGraph::new())),
+        topo_graph: Arc::new(Mutex::new(
+            hipcortex::topological_memory::CausalTopoGraph::new(),
+        )),
         archive_store: Arc::new(Mutex::new(ArchiveStore::new(&archive_path))),
         tx_log,
     };

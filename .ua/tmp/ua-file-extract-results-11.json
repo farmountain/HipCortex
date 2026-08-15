@@ -1,0 +1,129 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 1,
+  "filesSkipped": [],
+  "analysisOutcomes": {
+    "structure": {
+      "succeeded": 1,
+      "failed": 0
+    },
+    "callGraph": {
+      "succeeded": 0,
+      "failed": 0,
+      "skipped": 1
+    }
+  },
+  "results": [
+    {
+      "path": "docs/superpowers/specs/2026-08-13-hipcortex-gap-remediation-design.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 91,
+      "nonEmptyLines": 67,
+      "sections": [
+        {
+          "heading": "HipCortex Cohesive Gap Remediation Design Spec",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "1. Executive Summary",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "2. Sprint 1: Fix Silent Failures (Mathematics & API)",
+          "level": 2,
+          "line": 16
+        },
+        {
+          "heading": "2.1 The Rollout API (Bug 3 / A1)",
+          "level": 3,
+          "line": 18
+        },
+        {
+          "heading": "2.2 Causal Intervention Boundary (Bug 1 / A2)",
+          "level": 3,
+          "line": 21
+        },
+        {
+          "heading": "2.3 Kalman Covariance Stability (Bug 2 / A3)",
+          "level": 3,
+          "line": 26
+        },
+        {
+          "heading": "2.4 Merkle Chain Test Correction (A10)",
+          "level": 3,
+          "line": 29
+        },
+        {
+          "heading": "3. Sprint 2: The Unified Storage Foundation (Traps 2 & 3)",
+          "level": 2,
+          "line": 32
+        },
+        {
+          "heading": "3.1 Polyglot Persistence Layer (Trap 3 / A5, A6, A7)",
+          "level": 3,
+          "line": 34
+        },
+        {
+          "heading": "3.2 Tiered Storage (Trap 2 / A8)",
+          "level": 3,
+          "line": 41
+        },
+        {
+          "heading": "4. Sprint 3: Cognitive GC & Provenance (Trap 1)",
+          "level": 2,
+          "line": 49
+        },
+        {
+          "heading": "4.1 Provenance Graph (A4)",
+          "level": 3,
+          "line": 51
+        },
+        {
+          "heading": "4.2 Cognitive Garbage Collector (Trap 1)",
+          "level": 3,
+          "line": 54
+        },
+        {
+          "heading": "4.3 StateDiff API (A11)",
+          "level": 3,
+          "line": 62
+        },
+        {
+          "heading": "5. Sprint 4: The L0 Purity Extractions (Refactoring Encroachments)",
+          "level": 2,
+          "line": 65
+        },
+        {
+          "heading": "5.1 Extract Execution Logic to L4 (Cognitive Runtime)",
+          "level": 3,
+          "line": 69
+        },
+        {
+          "heading": "5.2 Extract Consolidation Logic to L1 (DTCF)",
+          "level": 3,
+          "line": 73
+        },
+        {
+          "heading": "5.3 Extract Planning Logic to L2 (Kakeya ARM)",
+          "level": 3,
+          "line": 77
+        },
+        {
+          "heading": "5.4 Dynamic Kalman Transitions & Causal Auto-Population (B2c / A2b)",
+          "level": 3,
+          "line": 81
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 19
+      }
+    }
+  ]
+}

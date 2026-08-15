@@ -1,0 +1,301 @@
+{
+  "batchIndex": 5,
+  "nodes": [
+    {
+      "id": "document:PRODUCTION_READY_REPORT.md",
+      "type": "document",
+      "name": "Production Ready Report",
+      "filePath": "PRODUCTION_READY_REPORT.md",
+      "summary": "Executive status report declaring HipCortex production-ready, covering technical implementation status across core memory engine, REST API, and VS Code extension. Documents performance benchmarks (sub-1ms ops, 1000+ batch records/sec), quality assurance metrics (31/31 unit tests passing), and user value delivery for Developer, Student, and Researcher personas. Concludes with deployment recommendation and a future roadmap.",
+      "tags": ["status-report", "production", "performance", "benchmarks", "qa", "personas"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:QUICK_START_GUIDE.md",
+      "type": "document",
+      "name": "Quick Start Guide",
+      "filePath": "QUICK_START_GUIDE.md",
+      "summary": "Step-by-step installation and setup guide for two primary deployment paths: Docker/Podman containerized server (with docker-compose full-stack example) and VS Code extension installation from VSIX or source. Covers environment variable configuration, testing setup, and common troubleshooting for both paths.",
+      "tags": ["quickstart", "installation", "docker", "vscode", "configuration", "troubleshooting"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:README.md",
+      "type": "document",
+      "name": "README",
+      "filePath": "README.md",
+      "summary": "Primary project landing page positioning HipCortex as local persistent memory for AI coding agents (Claude, Cursor, VS Code, Python/TS agents). Explains the core value proposition of reducing token costs and preserving decisions across sessions via a local causal graph served over HTTP+MCP. Covers 60-second install via pip/npm/VSIX and links to the channel/capabilities honesty matrix.",
+      "tags": ["overview", "install", "mcp", "pip", "npm", "agents", "value-proposition"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:docs/acceptance.md",
+      "type": "document",
+      "name": "Acceptance Checklist",
+      "filePath": "docs/acceptance.md",
+      "summary": "Short QA acceptance checklist covering unit tests, SIT (system integration testing with FSM + DB + Cache), UAT (manual CLI and HTTP verification), dashboard metrics display, and LLM connector smoke tests. Also lists safety-audit CLI verification and audit snapshot requirements.",
+      "tags": ["qa", "acceptance", "testing", "sit", "uat", "checklist"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:docs/agent.md",
+      "type": "document",
+      "name": "Codex Agent Guide",
+      "filePath": "docs/agent.md",
+      "summary": "Workflow guide for the OpenAI Codex agent contributing to this repository, specifying branch conventions (work directly on `work` branch), required cargo test/fmt steps before commits, PR format requirements, and a fast-startup script (`scripts/codex_startup.sh`) to avoid container timeout during initialization.",
+      "tags": ["agent", "codex", "contributing", "workflow", "ci"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:docs/api_contract.md",
+      "type": "document",
+      "name": "API Contract",
+      "filePath": "docs/api_contract.md",
+      "summary": "Placeholder document outlining planned REST and gRPC interfaces for HipCortex memory ingestion, query, and reflexion operations. Currently a stub with minimal detail.",
+      "tags": ["api", "rest", "grpc", "contract", "stub"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:docs/architecture.md",
+      "type": "document",
+      "name": "Architecture",
+      "filePath": "docs/architecture.md",
+      "summary": "Comprehensive architectural reference describing HipCortex's Universal Cognitive Layer vision, the full module interaction diagram (PerceptionAdapter → TemporalIndexer → SymbolicStore → ProceduralCache → AureusBridge → IntegrationLayer), security model (AES-GCM encryption, SHA-256 integrity, Merkle audit log), the AGI Cognitive Triad (World Model / Self Model / Working Memory), and formal agent operating rules. Includes Mermaid flowcharts and sequence diagrams for request lifecycle and FSM transitions.",
+      "tags": ["architecture", "modules", "security", "agi", "world-model", "self-model", "flowchart"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/business_context.md",
+      "type": "document",
+      "name": "Business Context",
+      "filePath": "docs/business_context.md",
+      "summary": "Defines the mission and problem space: AI agents lack persistent, modular, contextual memory. Articulates the Universal Cognitive Layer vision (privacy-first, device-agnostic, explainable), lists key feature moats (local encrypted memory, multimodal reasoning, universal API, edge AI), identifies strategic gaps (federated learning, mobile SDKs, plugin marketplace), and maps primary user roles (AI Agent, Developer, Architect, Researcher) to use cases.",
+      "tags": ["business", "mission", "strategy", "vision", "gaps", "user-roles"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:docs/capabilities.md",
+      "type": "document",
+      "name": "Capabilities Matrix",
+      "filePath": "docs/capabilities.md",
+      "summary": "Code-grounded honesty matrix (v0.5.2/VSIX v0.5.8) mapping each operation (add_memory, query, search, forget, live_beliefs, link, predict, rollout, etc.) across all surfaces: REST, MCP, Python SDK, TypeScript SDK, VS Code LM tools, VS Code Commands, LangChain, and CrewAI. Includes a full MCP tools inventory and known surface gaps with priority order. Validated by `scripts/check_capabilities.py`.",
+      "tags": ["capabilities", "matrix", "mcp", "rest", "sdk", "vscode", "langchain", "crewai"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/channels.md",
+      "type": "document",
+      "name": "Channel Matrix",
+      "filePath": "docs/channels.md",
+      "summary": "Honest distribution and integration channel matrix defining statuses (native, mcp, framework, guide, claimed, none) for every supported host: Rust binary, pip, npm, Docker, managed Fly tier, MCP server, VS Code VSIX, Claude Code, Cursor, Windsurf, Cline, agent frameworks (LangChain, CrewAI, AutoGen, LlamaIndex), and more. Provides the canonical version snapshot across all surfaces.",
+      "tags": ["channels", "distribution", "install", "mcp", "vscode", "langchain", "version"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:docs/contributing.md",
+      "type": "document",
+      "name": "Contributing Guide",
+      "filePath": "docs/contributing.md",
+      "summary": "Short contribution guide covering fork-and-PR workflow, Rust coding standards (clippy, doc-comments, descriptive names), testing requirements (cargo test, integration_tests.rs), and pointers to the roadmap for current priorities.",
+      "tags": ["contributing", "workflow", "testing", "coding-standards", "open-source"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:docs/data_model.md",
+      "type": "document",
+      "name": "Data Model",
+      "filePath": "docs/data_model.md",
+      "summary": "Documents the canonical `MemoryRecord` struct and `MemoryType` enum (Temporal, Symbolic, Procedural, Reflexion, Perception) with Rust type signatures. Explains storage backends (JSONL and RocksDB via MemoryStore), AES-GCM optional encryption, SHA-256 integrity hashing, Merkle-chained audit.log, write-ahead log for crash recovery, IndexMap-accelerated lookups, and async I/O via AsyncMemoryStore.",
+      "tags": ["data-model", "memory-record", "storage", "encryption", "audit", "rocksdb"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:docs/integration.md",
+      "type": "document",
+      "name": "Integration Guide",
+      "filePath": "docs/integration.md",
+      "summary": "Practical integration guide covering REST/gRPC server setup (web-server and grpc-server Cargo features), the McpServer bundling both endpoints, OpenManus and MCP agent protocol adapters, LLM connector wiring (OpenAI, Claude, Ollama) to AureusBridge, RAG adapters, Notion/PDF export, and step-by-step instructions for integrating external agents via PerceptionAdapter.",
+      "tags": ["integration", "rest", "grpc", "mcp", "llm", "openai", "rag", "agent-protocols"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:docs/memory_design.md",
+      "type": "document",
+      "name": "Memory Design",
+      "filePath": "docs/memory_design.md",
+      "summary": "Formal design document establishing the mathematical and logical foundations of each memory component: PCA/ICA for PerceptionAdapter, Markov chains for TemporalIndexer, graph theory for SymbolicStore, automata for ProceduralCache, Bayesian inference for AureusBridge, entropy bounds for SemanticCompression, and log-likelihood for AuditLog. Defines chain-of-thought verifiability, self-correction, and logical consistency as core design principles.",
+      "tags": ["memory-design", "math", "bayesian", "markov", "graph-theory", "pca", "formal-methods"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/roadmap.md",
+      "type": "document",
+      "name": "Roadmap",
+      "filePath": "docs/roadmap.md",
+      "summary": "Tracks completed features (modular architecture, temporal indexer, FSM cache, symbolic store, LLM connectors, world model auto-feeding) and outlines the Universal Cognitive Layer vision for the future (federated learning, mobile/AR SDKs, plugin marketplace, visual explainability). Also lists SafetyGuardrail phases (all three complete) and post-MVP ideas.",
+      "tags": ["roadmap", "completed", "future", "federated-learning", "plugins", "safety"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:docs/usage.md",
+      "type": "document",
+      "name": "Usage Guide",
+      "filePath": "docs/usage.md",
+      "summary": "Comprehensive day-to-day usage reference covering build/test/bench commands, agent integration with automatic world model maintenance (AgentMessage → PerceptionSession → WorldModelEnhanced auto-path), the substrate-first proactive harness loop (live_beliefs → reflect → decide → ingest), project config (.hipcortex/config.toml), install wizard flags, graph backend options (petgraph/Neo4j/Postgres), FSM backend options, and WASM plugin hosting.",
+      "tags": ["usage", "cli", "build", "agent", "proactive", "config", "world-model", "harness"],
+      "complexity": "complex"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:README.md",
+      "target": "document:docs/architecture.md",
+      "type": "related",
+      "label": "links to architecture"
+    },
+    {
+      "source": "document:README.md",
+      "target": "document:docs/channels.md",
+      "type": "related",
+      "label": "links to channel matrix"
+    },
+    {
+      "source": "document:README.md",
+      "target": "document:docs/usage.md",
+      "type": "related",
+      "label": "links to usage guide"
+    },
+    {
+      "source": "document:README.md",
+      "target": "document:docs/contributing.md",
+      "type": "related",
+      "label": "links to contributing"
+    },
+    {
+      "source": "document:QUICK_START_GUIDE.md",
+      "target": "document:docs/deployment.md",
+      "type": "related",
+      "label": "references production deployment guide"
+    },
+    {
+      "source": "document:PRODUCTION_READY_REPORT.md",
+      "target": "document:docs/roadmap.md",
+      "type": "related",
+      "label": "references future roadmap"
+    },
+    {
+      "source": "document:docs/architecture.md",
+      "target": "document:README.md",
+      "type": "related",
+      "label": "references readme"
+    },
+    {
+      "source": "document:docs/architecture.md",
+      "target": "document:docs/roadmap.md",
+      "type": "related",
+      "label": "references roadmap for additional modules"
+    },
+    {
+      "source": "document:docs/architecture.md",
+      "target": "document:docs/memory_design.md",
+      "type": "related",
+      "label": "references memory design guarantees"
+    },
+    {
+      "source": "document:docs/capabilities.md",
+      "target": "document:docs/channels.md",
+      "type": "related",
+      "label": "cross-references channel matrix"
+    },
+    {
+      "source": "document:docs/channels.md",
+      "target": "document:docs/capabilities.md",
+      "type": "related",
+      "label": "references capabilities matrix"
+    },
+    {
+      "source": "document:docs/channels.md",
+      "target": "document:docs/usage.md",
+      "type": "related",
+      "label": "references project config in usage"
+    },
+    {
+      "source": "document:docs/contributing.md",
+      "target": "document:docs/roadmap.md",
+      "type": "related",
+      "label": "references roadmap for priorities"
+    },
+    {
+      "source": "document:docs/usage.md",
+      "target": "document:docs/architecture.md",
+      "type": "related",
+      "label": "references architecture for module roles"
+    },
+    {
+      "source": "document:docs/usage.md",
+      "target": "document:docs/integration.md",
+      "type": "related",
+      "label": "references integration for API details"
+    },
+    {
+      "source": "document:docs/usage.md",
+      "target": "document:docs/contributing.md",
+      "type": "related",
+      "label": "references contributing guide"
+    },
+    {
+      "source": "document:docs/usage.md",
+      "target": "document:docs/roadmap.md",
+      "type": "related",
+      "label": "references roadmap"
+    },
+    {
+      "source": "document:docs/usage.md",
+      "target": "document:docs/capabilities.md",
+      "type": "related",
+      "label": "references capability matrix"
+    },
+    {
+      "source": "document:docs/usage.md",
+      "target": "document:docs/channels.md",
+      "type": "related",
+      "label": "references channel support matrix"
+    },
+    {
+      "source": "document:docs/data_model.md",
+      "target": "document:docs/architecture.md",
+      "type": "related",
+      "label": "data model used throughout architecture"
+    },
+    {
+      "source": "document:docs/memory_design.md",
+      "target": "document:docs/architecture.md",
+      "type": "related",
+      "label": "expands on architecture guarantees"
+    },
+    {
+      "source": "document:docs/integration.md",
+      "target": "document:docs/architecture.md",
+      "type": "related",
+      "label": "integration references architecture modules"
+    },
+    {
+      "source": "document:docs/acceptance.md",
+      "target": "document:docs/roadmap.md",
+      "type": "related",
+      "label": "acceptance criteria align with roadmap"
+    },
+    {
+      "source": "document:docs/business_context.md",
+      "target": "document:docs/architecture.md",
+      "type": "related",
+      "label": "business context grounds architecture vision"
+    },
+    {
+      "source": "document:docs/roadmap.md",
+      "target": "document:docs/architecture.md",
+      "type": "related",
+      "label": "roadmap items map to architecture modules"
+    }
+  ]
+}

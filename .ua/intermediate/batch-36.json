@@ -1,0 +1,249 @@
+{
+  "batchIndex": 36,
+  "nodes": [
+    {
+      "id": "sdk/python/hipcortex/install/SKILL.md",
+      "type": "document",
+      "label": "SKILL.md (install package)",
+      "path": "sdk/python/hipcortex/install/SKILL.md",
+      "description": "Claude Code skill definition for HipCortex persistent memory. Instructs AI agents to treat HipCortex as their primary durable mind: MUST call get_live_beliefs or search_memory before project-state questions; MUST ingest after decisions/findings. Documents substrate-first harness (80-99% LLM context reduction goal), loop/omega primitives for topo reasoning, soft harness nudge (HIPCORTEX_HARNESS_SOFT), REST API examples (/memory/add, /memory/search-flat, /memory/forget, /stats), slash commands (/hipcortex remember|recall|latest|update|forget|stats), confidence scoring, tags/priority, knowledge graph endpoints, time-travel queries, deduplication, auto-memory, and zero-config /memory/ingest.",
+      "harness_primitives": ["get_live_beliefs", "search_memory", "reflect", "loop", "omega"],
+      "slash_commands": ["/hipcortex remember", "/hipcortex recall", "/hipcortex latest", "/hipcortex update", "/hipcortex forget", "/hipcortex stats"],
+      "api_endpoints": [
+        "POST /memory/add",
+        "GET /memory/search-flat",
+        "DELETE /memory/forget/{actor}",
+        "GET /stats",
+        "POST /memory/ingest",
+        "POST /memory/reflect",
+        "POST /memory/consolidate",
+        "GET /memory/live_beliefs",
+        "PATCH /memory/update/{id}",
+        "GET /memory/latest",
+        "POST /graph/node",
+        "POST /graph/edge",
+        "GET /graph",
+        "GET /memory/query"
+      ],
+      "env_vars": ["HIPCORTEX_URL", "HIPCORTEX_HARNESS_SOFT"],
+      "tags": ["skill", "claude-code", "agent-harness", "docs", "mcp"]
+    },
+    {
+      "id": "sdk/python/hipcortex/install/__init__.py",
+      "type": "file",
+      "label": "__init__.py (install package)",
+      "path": "sdk/python/hipcortex/install/__init__.py",
+      "language": "python",
+      "description": "Package marker for the hipcortex.install subpackage. Contains a single comment noting it holds SKILL.md for Claude Code registration. No imports or exports.",
+      "tags": ["package-init", "install", "python"]
+    },
+    {
+      "id": "sdk/python/hipcortex/install/mcp_server.py",
+      "type": "file",
+      "label": "mcp_server.py (bundled MCP server)",
+      "path": "sdk/python/hipcortex/install/mcp_server.py",
+      "language": "python",
+      "description": "Bundled copy of the HipCortex MCP server for PyPI distribution. Implements Model Context Protocol (2024-11-05) over JSON-RPC 2.0 / stdio, exposing HipCortex memory as tools to MCP-compatible AI coding assistants (Cursor, Claude Code, Windsurf, Zed AI). Requires only Python 3.9+ stdlib plus requests. Implements 18 MCP tools: add_memory, search_memory, forget_actor, get_stats, search_code, link_memories, get_neighbors, search_related, graph_ppr, deconstruct_hypothesis, check_topo_edge, rollout, can_execute, delete_memory, get_live_beliefs, purge_expired, reflect, predict. Substrate-first soft harness: warns if search_memory is called before get_live_beliefs (HIPCORTEX_HARNESS_SOFT env, default on). Synced from sdk/mcp/server.py by stamp_versions.py.",
+      "functions": [
+        "_headers", "_get", "_post", "_delete",
+        "handle_add_memory", "handle_search_memory", "handle_forget_actor",
+        "handle_get_stats", "handle_search_code", "handle_link_memories",
+        "handle_get_neighbors", "handle_search_related", "handle_delete_memory",
+        "handle_get_live_beliefs", "handle_purge_expired", "handle_reflect",
+        "handle_predict", "handle_graph_ppr", "handle_deconstruct_hypothesis",
+        "handle_check_topo_edge", "handle_rollout", "handle_can_execute",
+        "dispatch_tool", "respond", "main"
+      ],
+      "mcp_tools": [
+        "add_memory", "search_memory", "forget_actor", "get_stats", "search_code",
+        "link_memories", "get_neighbors", "search_related", "graph_ppr",
+        "deconstruct_hypothesis", "check_topo_edge", "rollout", "can_execute",
+        "delete_memory", "get_live_beliefs", "purge_expired", "reflect", "predict"
+      ],
+      "constants": ["HIPCORTEX_URL", "API_KEY", "TIMEOUT", "_live_beliefs_seen", "_HARNESS_SEARCH_WARN", "TOOLS"],
+      "imports": ["json", "os", "sys", "urllib.parse", "requests"],
+      "protocol": "MCP 2024-11-05 / JSON-RPC 2.0 over stdio",
+      "api_endpoints": [
+        "POST /memory/add", "POST /memory/search", "GET /memory/query",
+        "DELETE /memory/forget/{actor}", "GET /stats", "GET /graph/search",
+        "POST /memory/link", "GET /memory/neighbors/{id}", "GET /memory/search/related",
+        "GET /topo/ppr", "POST /topo/deconstruct", "POST /topo/apply-hyp",
+        "POST /topo/check-edge", "POST /worldmodel/rollout", "GET /self/can-execute",
+        "DELETE /memory/{id}", "GET /memory/live_beliefs", "POST /memory/consolidate",
+        "POST /memory/reflect", "POST /worldmodel/predict"
+      ],
+      "tags": ["mcp", "server", "stdio", "json-rpc", "python", "bundled"]
+    },
+    {
+      "id": "sdk/python/hipcortex/__init__.py",
+      "type": "file",
+      "label": "__init__.py (hipcortex Python SDK)",
+      "path": "sdk/python/hipcortex/__init__.py",
+      "language": "python",
+      "description": "Python SDK package entrypoint. Declares __version__ = '0.5.2' and re-exports the four primary public symbols: HipCortexClient (sync), AsyncHipCortexClient (async), HipCortexMemory + AsyncHipCortexMemory (LangChain adapters), and HipCortexStorageContext (LlamaIndex adapter).",
+      "version": "0.5.2",
+      "imports": [
+        ".client.HipCortexClient",
+        ".async_client.AsyncHipCortexClient",
+        ".langchain_memory.HipCortexMemory",
+        ".langchain_memory.AsyncHipCortexMemory",
+        ".llamaindex_storage.HipCortexStorageContext"
+      ],
+      "exports": [
+        "HipCortexClient",
+        "AsyncHipCortexClient",
+        "HipCortexMemory",
+        "AsyncHipCortexMemory",
+        "HipCortexStorageContext"
+      ],
+      "tags": ["python", "sdk", "entrypoint", "package-init"]
+    },
+    {
+      "id": "sdk/python/hipcortex/client.py",
+      "type": "file",
+      "label": "client.py (Python SDK)",
+      "path": "sdk/python/hipcortex/client.py",
+      "language": "python",
+      "description": "Synchronous HTTP client for the HipCortex REST API using requests.Session. URL resolved via config.load_settings() (HIPCORTEX_URL > project .hipcortex/config.toml > user config > default). Core memory: add_memory (with tags/priority), query_memory (tags/as_of/include_expired time-travel), search (semantic+keyword with optional embedding), forget (GDPR). Graph/TMF: link_memories, get_neighbors, search_related (PPR), delete_memory. Symbolic graph: graph(), get_node(), create_node(), create_edge(). Intelligence: health, coherence_status, live_beliefs, reflect, predict, stats, can_execute (SelfModel gate), rollout (worldmodel multi-step). Zero-config API: remember() via /memory/ingest (auto-classify), recall() via /memory/search-flat, recall_with_metadata, prompt_context, remember_and_recall. State helpers: set_state, get_state. Convenience: add_human_message, add_ai_message, get_conversation_history, consolidate, ping_latency_ms.",
+      "class": "HipCortexClient",
+      "imports": ["json", "time", "requests", ".config.load_settings"],
+      "methods": [
+        "add_memory", "query_memory", "search", "forget",
+        "link_memories", "get_neighbors", "search_related", "delete_memory",
+        "graph", "get_node", "create_node", "create_edge",
+        "health", "coherence_status", "live_beliefs", "reflect", "predict",
+        "stats", "can_execute", "rollout",
+        "remember", "recall", "recall_with_metadata", "prompt_context", "remember_and_recall",
+        "set_state", "get_state", "consolidate",
+        "add_human_message", "add_ai_message", "get_conversation_history",
+        "ping_latency_ms"
+      ],
+      "api_endpoints": [
+        "POST /memory/add", "GET /memory/query", "POST /memory/search",
+        "DELETE /memory/forget/{actor}", "POST /memory/link",
+        "GET /memory/neighbors/{id}", "GET /memory/search/related",
+        "DELETE /memory/{id}", "GET /graph", "GET /node/{id}",
+        "POST /graph/node", "POST /graph/edge",
+        "GET /health", "GET /coherence/status", "GET /memory/live_beliefs",
+        "POST /memory/reflect", "POST /worldmodel/predict", "GET /stats",
+        "GET /self/can-execute", "POST /worldmodel/rollout",
+        "POST /memory/ingest", "GET /memory/search-flat", "POST /memory/context",
+        "POST /memory/consolidate"
+      ],
+      "tags": ["python", "sdk", "http-client", "sync", "rest"]
+    },
+    {
+      "id": "sdk/python/hipcortex/config.py",
+      "type": "file",
+      "label": "config.py (Python SDK)",
+      "path": "sdk/python/hipcortex/config.py",
+      "language": "python",
+      "description": "Settings resolution and TOML config I/O for the Python SDK. Resolution precedence for url: HIPCORTEX_URL env > project .hipcortex/config.toml > ~/.hipcortex/user.toml > default (127.0.0.1:3030). Resolution for actor: HIPCORTEX_ACTOR env > project > user > None. Uses tomllib (Python 3.11+) or tomli fallback. HipCortexSettings dataclass holds url, actor, mode (conservative/proactive), channels, data_dir, server_version_policy, aliases. Provides: load_settings, write_project_config, write_user_config, ensure_project_config, resolve_actor, get_default_actor, settings_to_toml (deterministic TOML writer).",
+      "class": "HipCortexSettings",
+      "functions": [
+        "load_settings", "load_toml_file", "project_config_path",
+        "write_project_config", "write_user_config", "ensure_project_config",
+        "settings_to_toml", "resolve_actor", "get_default_actor",
+        "_layer_from_toml", "_apply_layer", "_normalize_data_dir",
+        "_format_toml_value", "_escape_toml_str"
+      ],
+      "constants": [
+        "PROJECT_DIR_NAME", "PROJECT_CONFIG_NAME", "USER_CONFIG_PATH",
+        "DEFAULT_URL", "DEFAULT_MODE", "DEFAULT_SERVER_VERSION_POLICY",
+        "ENV_URL", "ENV_ACTOR"
+      ],
+      "imports": ["os", "sys", "dataclasses", "pathlib", "tomllib (3.11+) / tomli"],
+      "config_files": [".hipcortex/config.toml", "~/.hipcortex/user.toml"],
+      "env_vars": ["HIPCORTEX_URL", "HIPCORTEX_ACTOR"],
+      "tags": ["python", "sdk", "config", "toml", "settings"]
+    },
+    {
+      "id": "sdk/python/hipcortex/daemon.py",
+      "type": "file",
+      "label": "daemon.py (Python SDK)",
+      "path": "sdk/python/hipcortex/daemon.py",
+      "language": "python",
+      "description": "Shared daemon/lifecycle protocol for the HipCortex local server. Single-attach model: one supervised binary process, one lock file (~/.hipcortex/server.lock via O_CREAT|O_EXCL), one PID file (~/.hipcortex/hipcortex.pid), default data dir (~/.hipcortex/data). Cross-platform (Windows tasklist/taskkill/netstat, Unix os.kill/lsof/SIGTERM/SIGKILL). Public API: start_server (acquire lock, spawn binary, write pid, wait for health), stop_server (4-step: pid file > lock holder > confirmed HipCortex port > stale cleanup), restart_server, wait_for_health, health_check, is_port_open. Custom exceptions: DaemonError, AlreadyRunning, PortInUse, LockError.",
+      "functions": [
+        "start_server", "stop_server", "restart_server",
+        "wait_for_health", "health_check", "is_port_open",
+        "is_pid_alive", "read_pid", "write_pid", "clear_pid",
+        "acquire_lock", "release_lock", "ensure_install_dir",
+        "resolve_start_data_dir", "resolve_data_dir",
+        "_terminate_pid", "_force_kill_pid", "_pids_on_port",
+        "_wait_terminated", "_windows_pid_alive",
+        "_netstat_line_matches_listen_port", "_tasklist_output_matches_pid",
+        "_read_lock_pid"
+      ],
+      "exceptions": ["DaemonError", "AlreadyRunning", "PortInUse", "LockError"],
+      "constants": [
+        "INSTALL_DIR", "PID_FILE", "LOCK_FILE", "DEFAULT_DATA_DIR",
+        "DEFAULT_HOST", "DEFAULT_PORT", "DEFAULT_URL"
+      ],
+      "imports": ["json", "os", "platform", "re", "signal", "socket", "subprocess", "time", "urllib.request", "pathlib"],
+      "paths": [
+        "~/.hipcortex/ (INSTALL_DIR)",
+        "~/.hipcortex/hipcortex.pid",
+        "~/.hipcortex/server.lock",
+        "~/.hipcortex/data"
+      ],
+      "tags": ["python", "sdk", "daemon", "process-management", "cross-platform"]
+    }
+  ],
+  "edges": [
+    {
+      "from": "sdk/python/hipcortex/__init__.py",
+      "to": "sdk/python/hipcortex/client.py",
+      "type": "imports",
+      "label": "exports HipCortexClient"
+    },
+    {
+      "from": "sdk/python/hipcortex/__init__.py",
+      "to": "sdk/python/hipcortex/async_client.py",
+      "type": "imports",
+      "label": "exports AsyncHipCortexClient"
+    },
+    {
+      "from": "sdk/python/hipcortex/__init__.py",
+      "to": "sdk/python/hipcortex/langchain_memory.py",
+      "type": "imports",
+      "label": "exports HipCortexMemory, AsyncHipCortexMemory"
+    },
+    {
+      "from": "sdk/python/hipcortex/__init__.py",
+      "to": "sdk/python/hipcortex/llamaindex_storage.py",
+      "type": "imports",
+      "label": "exports HipCortexStorageContext"
+    },
+    {
+      "from": "sdk/python/hipcortex/client.py",
+      "to": "sdk/python/hipcortex/config.py",
+      "type": "imports",
+      "label": "load_settings for URL resolution"
+    },
+    {
+      "from": "sdk/python/hipcortex/install/mcp_server.py",
+      "to": "sdk/python/hipcortex/install/SKILL.md",
+      "type": "co-located",
+      "label": "SKILL.md governs harness behavior for MCP server"
+    },
+    {
+      "from": "scripts/stamp_versions.py",
+      "to": "sdk/python/hipcortex/install/mcp_server.py",
+      "type": "writes",
+      "label": "sync_mcp_bundle syncs this file from sdk/mcp/server.py"
+    },
+    {
+      "from": "sdk/python/hipcortex/install/__init__.py",
+      "to": "sdk/python/hipcortex/install/SKILL.md",
+      "type": "co-located",
+      "label": "package marker; SKILL.md in same directory"
+    },
+    {
+      "from": "sdk/python/hipcortex/install/__init__.py",
+      "to": "sdk/python/hipcortex/install/mcp_server.py",
+      "type": "co-located",
+      "label": "bundled MCP server in same install package"
+    }
+  ]
+}

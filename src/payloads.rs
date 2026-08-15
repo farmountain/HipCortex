@@ -33,7 +33,9 @@ pub struct GoalPayload {
     pub current_iteration: u32,
 }
 
-fn default_max_iterations() -> u32 { 10 }
+fn default_max_iterations() -> u32 {
+    10
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillPayload {

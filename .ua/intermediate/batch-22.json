@@ -1,0 +1,79 @@
+{
+  "batchIndex": 22,
+  "nodes": [
+    {
+      "id": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/.openspec.yaml",
+      "type": "document",
+      "name": "fix-memory-query-truncation openspec manifest",
+      "filePath": "openspec/changes/archive/2026-07-16-fix-memory-query-truncation/.openspec.yaml",
+      "summary": "Minimal spec-driven manifest for the memory query truncation bug-fix change, recording the creation date of 2026-07-10. Serves as the machine-readable anchor for this archive change set.",
+      "tags": ["openspec", "archive", "bug-fix", "manifest"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/design.md",
+      "type": "document",
+      "name": "fix-memory-query-truncation design",
+      "filePath": "openspec/changes/archive/2026-07-16-fix-memory-query-truncation/design.md",
+      "summary": "Design decisions for fixing deterministic newest-first slice ordering in memory retrieval. Chooses explicit slice-time sorting (O(N log N) on filtered candidates) over pre-sorted storage, specifying exact sort insertion points in handle_query_memory, handle_memory_live_beliefs, and MemoryStore::search_semantic. Includes risk mitigations for sorting overhead and test false-positives on small datasets.",
+      "tags": ["openspec", "archive", "bug-fix", "memory-store", "web-server", "sorting", "semantic-search"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/proposal.md",
+      "type": "document",
+      "name": "fix-memory-query-truncation proposal",
+      "filePath": "openspec/changes/archive/2026-07-16-fix-memory-query-truncation/proposal.md",
+      "summary": "Change proposal identifying that /memory/query, /memory/beliefs, and search_semantic applied result limits against unsorted insertion-order iterators, discarding newest records. Proposes enforcing timestamp-descending sorting before all truncate/take calls and adding longitudinal integration tests seeding more than limit records to expose the bug. Introduces the deterministic-slice-ordering capability.",
+      "tags": ["openspec", "archive", "bug-fix", "memory-query", "beliefs", "semantic-search", "pagination"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/tasks.md",
+      "type": "document",
+      "name": "fix-memory-query-truncation tasks",
+      "filePath": "openspec/changes/archive/2026-07-16-fix-memory-query-truncation/tasks.md",
+      "summary": "Fully checked-off task list covering four sections: sort-before-truncate fixes in web_server.rs for handle_query_memory and handle_memory_live_beliefs, sort fix in MemoryStore::search_semantic, three longitudinal integration tests in tests/integration/web_server_gaps_sit.rs seeding Day-1 to Day-150 records, and full cargo test suite verification.",
+      "tags": ["openspec", "archive", "bug-fix", "tasks", "web-server", "memory-store", "integration-tests"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/.openspec.yaml",
+      "target": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/proposal.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/.openspec.yaml",
+      "target": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/design.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/.openspec.yaml",
+      "target": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/proposal.md",
+      "target": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/design.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/design.md",
+      "target": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/proposal.md",
+      "target": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    }
+  ]
+}

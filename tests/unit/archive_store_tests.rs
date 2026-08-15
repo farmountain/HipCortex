@@ -9,7 +9,11 @@ fn test_archive_store_append_and_load() {
 
     let mut store = ArchiveStore::new(&path);
     let record = MemoryRecord::new(
-        MemoryType::Temporal, "a".into(), "b".into(), "c".into(), serde_json::json!({}),
+        MemoryType::Temporal,
+        "a".into(),
+        "b".into(),
+        "c".into(),
+        serde_json::json!({}),
     );
     let id = record.id;
     store.append(record).unwrap();

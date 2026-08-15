@@ -1,5 +1,5 @@
-use hipcortex::openmanus_bridge;
 use hipcortex::mcp_bridge;
+use hipcortex::openmanus_bridge;
 
 #[test]
 fn openmanus_to_percept() {

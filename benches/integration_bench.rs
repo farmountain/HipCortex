@@ -6,11 +6,11 @@
 //   integration overhead:    < 10ms delta
 //   throughput:              > 1000 ops/sec
 
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
-use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
-use hipcortex::symbolic_store::SymbolicStore;
-use hipcortex::self_model::{DecisionContext, ResourceUsage};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use hipcortex::coherence::CoherenceChecker;
+use hipcortex::self_model::{DecisionContext, ResourceUsage};
+use hipcortex::symbolic_store::SymbolicStore;
+use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
 use std::collections::HashMap;
 use std::time::{Instant, SystemTime};
 use uuid::Uuid;
@@ -24,7 +24,9 @@ fn make_trace(actor: &str, action: &str, target: &str, relevance: f32) -> Tempor
         relevance,
         decay_factor: 1.0,
         last_access: SystemTime::now(),
-        decay_type: hipcortex::decay::DecayType::Exponential { half_life: std::time::Duration::from_secs(3600) },
+        decay_type: hipcortex::decay::DecayType::Exponential {
+            half_life: std::time::Duration::from_secs(3600),
+        },
     }
 }
 
@@ -84,7 +86,8 @@ fn bench_throughput(c: &mut Criterion) {
             batch_size,
             |b, &n| {
                 b.iter(|| {
-                    let mut indexer: TemporalIndexer<String> = TemporalIndexer::new(n as usize, 3600);
+                    let mut indexer: TemporalIndexer<String> =
+                        TemporalIndexer::new(n as usize, 3600);
                     for i in 0..n {
                         let trace = make_trace(
                             &format!("actor_{}", i % 10),

@@ -1,0 +1,705 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 1,
+  "filesSkipped": [],
+  "analysisOutcomes": {
+    "structure": {
+      "succeeded": 1,
+      "failed": 0
+    },
+    "callGraph": {
+      "succeeded": 1,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "results": [
+    {
+      "path": "src/actors/world_model_actor.rs",
+      "language": "rust",
+      "fileCategory": "code",
+      "totalLines": 243,
+      "nonEmptyLines": 220,
+      "functions": [
+        {
+          "name": "new",
+          "startLine": 67,
+          "endLine": 114,
+          "params": [
+            "buffer_size"
+          ]
+        },
+        {
+          "name": "record_perceived_action",
+          "startLine": 116,
+          "endLine": 118,
+          "params": [
+            "action"
+          ]
+        },
+        {
+          "name": "observe_transition",
+          "startLine": 120,
+          "endLine": 126,
+          "params": [
+            "from_state",
+            "action",
+            "to_state"
+          ]
+        },
+        {
+          "name": "predict_next_state",
+          "startLine": 128,
+          "endLine": 134,
+          "params": [
+            "current_state",
+            "action"
+          ]
+        },
+        {
+          "name": "register_entity",
+          "startLine": 136,
+          "endLine": 142,
+          "params": [
+            "entity_id",
+            "initial_state"
+          ]
+        },
+        {
+          "name": "update_entity",
+          "startLine": 144,
+          "endLine": 150,
+          "params": [
+            "entity_id",
+            "observation"
+          ]
+        },
+        {
+          "name": "predict_entity",
+          "startLine": 152,
+          "endLine": 158,
+          "params": [
+            "entity_id",
+            "steps"
+          ]
+        },
+        {
+          "name": "add_causal_edge",
+          "startLine": 160,
+          "endLine": 166,
+          "params": [
+            "from",
+            "to"
+          ]
+        },
+        {
+          "name": "causal_intervention",
+          "startLine": 168,
+          "endLine": 174,
+          "params": [
+            "query"
+          ]
+        },
+        {
+          "name": "counterfactual",
+          "startLine": 176,
+          "endLine": 182,
+          "params": [
+            "actual_state",
+            "intervention_var",
+            "intervention_value"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "WorldModelMessage",
+          "startLine": 12,
+          "endLine": 57,
+          "methods": [],
+          "properties": [
+            "RecordPerceivedAction",
+            "ObserveTransition",
+            "PredictNextState",
+            "RegisterEntity",
+            "UpdateEntity",
+            "PredictEntity",
+            "AddCausalEdge",
+            "CausalIntervention",
+            "Counterfactual"
+          ]
+        },
+        {
+          "name": "WorldModelActorClient",
+          "startLine": 61,
+          "endLine": 63,
+          "methods": [
+            "new",
+            "record_perceived_action",
+            "observe_transition",
+            "predict_next_state",
+            "register_entity",
+            "update_entity",
+            "predict_entity",
+            "add_causal_edge",
+            "causal_intervention",
+            "counterfactual"
+          ],
+          "properties": [
+            "tx"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "WorldModelMessage",
+          "line": 12,
+          "isDefault": false
+        },
+        {
+          "name": "WorldModelActorClient",
+          "line": 61,
+          "isDefault": false
+        },
+        {
+          "name": "new",
+          "line": 67,
+          "isDefault": false
+        },
+        {
+          "name": "record_perceived_action",
+          "line": 116,
+          "isDefault": false
+        },
+        {
+          "name": "observe_transition",
+          "line": 120,
+          "isDefault": false
+        },
+        {
+          "name": "predict_next_state",
+          "line": 128,
+          "isDefault": false
+        },
+        {
+          "name": "register_entity",
+          "line": 136,
+          "isDefault": false
+        },
+        {
+          "name": "update_entity",
+          "line": 144,
+          "isDefault": false
+        },
+        {
+          "name": "predict_entity",
+          "line": 152,
+          "isDefault": false
+        },
+        {
+          "name": "add_causal_edge",
+          "line": 160,
+          "isDefault": false
+        },
+        {
+          "name": "causal_intervention",
+          "line": 168,
+          "isDefault": false
+        },
+        {
+          "name": "counterfactual",
+          "line": 176,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "new",
+          "callee": "mpsc::channel::<WorldModelMessage>",
+          "lineNumber": 68
+        },
+        {
+          "caller": "new",
+          "callee": "tokio::spawn",
+          "lineNumber": 70
+        },
+        {
+          "caller": "new",
+          "callee": "WorldModelEnhanced::new",
+          "lineNumber": 71
+        },
+        {
+          "caller": "new",
+          "callee": "rx.recv",
+          "lineNumber": 72
+        },
+        {
+          "caller": "new",
+          "callee": "world_model.record_perceived_action",
+          "lineNumber": 75
+        },
+        {
+          "caller": "new",
+          "callee": "world_model.observe_transition",
+          "lineNumber": 78
+        },
+        {
+          "caller": "new",
+          "callee": "responder.send",
+          "lineNumber": 79
+        },
+        {
+          "caller": "new",
+          "callee": "world_model.predict_next_state",
+          "lineNumber": 82
+        },
+        {
+          "caller": "new",
+          "callee": "responder.send",
+          "lineNumber": 83
+        },
+        {
+          "caller": "new",
+          "callee": "world_model.register_entity",
+          "lineNumber": 86
+        },
+        {
+          "caller": "new",
+          "callee": "responder.send",
+          "lineNumber": 87
+        },
+        {
+          "caller": "new",
+          "callee": "world_model.update_entity",
+          "lineNumber": 90
+        },
+        {
+          "caller": "new",
+          "callee": "responder.send",
+          "lineNumber": 91
+        },
+        {
+          "caller": "new",
+          "callee": "world_model.predict_entity",
+          "lineNumber": 94
+        },
+        {
+          "caller": "new",
+          "callee": "responder.send",
+          "lineNumber": 95
+        },
+        {
+          "caller": "new",
+          "callee": "world_model.add_causal_edge",
+          "lineNumber": 98
+        },
+        {
+          "caller": "new",
+          "callee": "responder.send",
+          "lineNumber": 99
+        },
+        {
+          "caller": "new",
+          "callee": "world_model.causal_intervention",
+          "lineNumber": 102
+        },
+        {
+          "caller": "new",
+          "callee": "responder.send",
+          "lineNumber": 103
+        },
+        {
+          "caller": "new",
+          "callee": "world_model.counterfactual",
+          "lineNumber": 106
+        },
+        {
+          "caller": "new",
+          "callee": "responder.send",
+          "lineNumber": 107
+        },
+        {
+          "caller": "record_perceived_action",
+          "callee": "self.tx.send",
+          "lineNumber": 117
+        },
+        {
+          "caller": "observe_transition",
+          "callee": "oneshot::channel",
+          "lineNumber": 121
+        },
+        {
+          "caller": "observe_transition",
+          "callee": "self.tx.send(WorldModelMessage::ObserveTransition { from_state, action, to_state, responder: tx })\n            .await.map_err",
+          "lineNumber": 122
+        },
+        {
+          "caller": "observe_transition",
+          "callee": "self.tx.send",
+          "lineNumber": 122
+        },
+        {
+          "caller": "observe_transition",
+          "callee": "rx.await.map_err",
+          "lineNumber": 125
+        },
+        {
+          "caller": "predict_next_state",
+          "callee": "oneshot::channel",
+          "lineNumber": 129
+        },
+        {
+          "caller": "predict_next_state",
+          "callee": "self.tx.send(WorldModelMessage::PredictNextState { current_state, action, responder: tx })\n            .await.map_err",
+          "lineNumber": 130
+        },
+        {
+          "caller": "predict_next_state",
+          "callee": "self.tx.send",
+          "lineNumber": 130
+        },
+        {
+          "caller": "predict_next_state",
+          "callee": "rx.await.map_err",
+          "lineNumber": 133
+        },
+        {
+          "caller": "register_entity",
+          "callee": "oneshot::channel",
+          "lineNumber": 137
+        },
+        {
+          "caller": "register_entity",
+          "callee": "self.tx.send(WorldModelMessage::RegisterEntity { entity_id, initial_state, responder: tx })\n            .await.map_err",
+          "lineNumber": 138
+        },
+        {
+          "caller": "register_entity",
+          "callee": "self.tx.send",
+          "lineNumber": 138
+        },
+        {
+          "caller": "register_entity",
+          "callee": "rx.await.map_err",
+          "lineNumber": 141
+        },
+        {
+          "caller": "update_entity",
+          "callee": "oneshot::channel",
+          "lineNumber": 145
+        },
+        {
+          "caller": "update_entity",
+          "callee": "self.tx.send(WorldModelMessage::UpdateEntity { entity_id, observation, responder: tx })\n            .await.map_err",
+          "lineNumber": 146
+        },
+        {
+          "caller": "update_entity",
+          "callee": "self.tx.send",
+          "lineNumber": 146
+        },
+        {
+          "caller": "update_entity",
+          "callee": "rx.await.map_err",
+          "lineNumber": 149
+        },
+        {
+          "caller": "predict_entity",
+          "callee": "oneshot::channel",
+          "lineNumber": 153
+        },
+        {
+          "caller": "predict_entity",
+          "callee": "self.tx.send(WorldModelMessage::PredictEntity { entity_id, steps, responder: tx })\n            .await.map_err",
+          "lineNumber": 154
+        },
+        {
+          "caller": "predict_entity",
+          "callee": "self.tx.send",
+          "lineNumber": 154
+        },
+        {
+          "caller": "predict_entity",
+          "callee": "rx.await.map_err",
+          "lineNumber": 157
+        },
+        {
+          "caller": "add_causal_edge",
+          "callee": "oneshot::channel",
+          "lineNumber": 161
+        },
+        {
+          "caller": "add_causal_edge",
+          "callee": "self.tx.send(WorldModelMessage::AddCausalEdge { from, to, responder: tx })\n            .await.map_err",
+          "lineNumber": 162
+        },
+        {
+          "caller": "add_causal_edge",
+          "callee": "self.tx.send",
+          "lineNumber": 162
+        },
+        {
+          "caller": "add_causal_edge",
+          "callee": "rx.await.map_err",
+          "lineNumber": 165
+        },
+        {
+          "caller": "causal_intervention",
+          "callee": "oneshot::channel",
+          "lineNumber": 169
+        },
+        {
+          "caller": "causal_intervention",
+          "callee": "self.tx.send(WorldModelMessage::CausalIntervention { query, responder: tx })\n            .await.map_err",
+          "lineNumber": 170
+        },
+        {
+          "caller": "causal_intervention",
+          "callee": "self.tx.send",
+          "lineNumber": 170
+        },
+        {
+          "caller": "causal_intervention",
+          "callee": "rx.await.map_err",
+          "lineNumber": 173
+        },
+        {
+          "caller": "counterfactual",
+          "callee": "oneshot::channel",
+          "lineNumber": 177
+        },
+        {
+          "caller": "counterfactual",
+          "callee": "self.tx.send(WorldModelMessage::Counterfactual { actual_state, intervention_var, intervention_value, responder: tx })\n            .await.map_err",
+          "lineNumber": 178
+        },
+        {
+          "caller": "counterfactual",
+          "callee": "self.tx.send",
+          "lineNumber": 178
+        },
+        {
+          "caller": "counterfactual",
+          "callee": "rx.await.map_err",
+          "lineNumber": 181
+        },
+        {
+          "caller": "test_world_model_actor_client_transitions_and_predictions",
+          "callee": "WorldModelActorClient::new",
+          "lineNumber": 194
+        },
+        {
+          "caller": "test_world_model_actor_client_transitions_and_predictions",
+          "callee": "client.record_perceived_action(\"move_forward\".to_string()).await.unwrap",
+          "lineNumber": 195
+        },
+        {
+          "caller": "test_world_model_actor_client_transitions_and_predictions",
+          "callee": "client.record_perceived_action",
+          "lineNumber": 195
+        },
+        {
+          "caller": "test_world_model_actor_client_transitions_and_predictions",
+          "callee": "\"move_forward\".to_string",
+          "lineNumber": 195
+        },
+        {
+          "caller": "test_world_model_actor_client_transitions_and_predictions",
+          "callee": "client.observe_transition(\"room_a\".to_string(), \"move_forward\".to_string(), \"room_b\".to_string()).await.unwrap",
+          "lineNumber": 197
+        },
+        {
+          "caller": "test_world_model_actor_client_transitions_and_predictions",
+          "callee": "client.observe_transition",
+          "lineNumber": 197
+        },
+        {
+          "caller": "test_world_model_actor_client_transitions_and_predictions",
+          "callee": "\"room_a\".to_string",
+          "lineNumber": 197
+        },
+        {
+          "caller": "test_world_model_actor_client_transitions_and_predictions",
+          "callee": "\"move_forward\".to_string",
+          "lineNumber": 197
+        },
+        {
+          "caller": "test_world_model_actor_client_transitions_and_predictions",
+          "callee": "\"room_b\".to_string",
+          "lineNumber": 197
+        },
+        {
+          "caller": "test_world_model_actor_client_transitions_and_predictions",
+          "callee": "client.predict_next_state(\"room_a\".to_string(), \"move_forward\".to_string()).await.unwrap",
+          "lineNumber": 198
+        },
+        {
+          "caller": "test_world_model_actor_client_transitions_and_predictions",
+          "callee": "client.predict_next_state",
+          "lineNumber": 198
+        },
+        {
+          "caller": "test_world_model_actor_client_transitions_and_predictions",
+          "callee": "\"room_a\".to_string",
+          "lineNumber": 198
+        },
+        {
+          "caller": "test_world_model_actor_client_transitions_and_predictions",
+          "callee": "\"move_forward\".to_string",
+          "lineNumber": 198
+        },
+        {
+          "caller": "test_world_model_actor_client_entities",
+          "callee": "WorldModelActorClient::new",
+          "lineNumber": 204
+        },
+        {
+          "caller": "test_world_model_actor_client_entities",
+          "callee": "client.register_entity(\"robot_1\".to_string(), init_state).await.unwrap",
+          "lineNumber": 209
+        },
+        {
+          "caller": "test_world_model_actor_client_entities",
+          "callee": "client.register_entity",
+          "lineNumber": 209
+        },
+        {
+          "caller": "test_world_model_actor_client_entities",
+          "callee": "\"robot_1\".to_string",
+          "lineNumber": 209
+        },
+        {
+          "caller": "test_world_model_actor_client_entities",
+          "callee": "Instant::now",
+          "lineNumber": 214
+        },
+        {
+          "caller": "test_world_model_actor_client_entities",
+          "callee": "client.update_entity(\"robot_1\".to_string(), obs).await.unwrap",
+          "lineNumber": 216
+        },
+        {
+          "caller": "test_world_model_actor_client_entities",
+          "callee": "client.update_entity",
+          "lineNumber": 216
+        },
+        {
+          "caller": "test_world_model_actor_client_entities",
+          "callee": "\"robot_1\".to_string",
+          "lineNumber": 216
+        },
+        {
+          "caller": "test_world_model_actor_client_entities",
+          "callee": "client.predict_entity(\"robot_1\".to_string(), 2).await.unwrap",
+          "lineNumber": 218
+        },
+        {
+          "caller": "test_world_model_actor_client_entities",
+          "callee": "client.predict_entity",
+          "lineNumber": 218
+        },
+        {
+          "caller": "test_world_model_actor_client_entities",
+          "callee": "\"robot_1\".to_string",
+          "lineNumber": 218
+        },
+        {
+          "caller": "test_world_model_actor_client_causal_and_counterfactual",
+          "callee": "WorldModelActorClient::new",
+          "lineNumber": 224
+        },
+        {
+          "caller": "test_world_model_actor_client_causal_and_counterfactual",
+          "callee": "client.add_causal_edge(\"rain\".to_string(), \"wet_floor\".to_string()).await.unwrap",
+          "lineNumber": 225
+        },
+        {
+          "caller": "test_world_model_actor_client_causal_and_counterfactual",
+          "callee": "client.add_causal_edge",
+          "lineNumber": 225
+        },
+        {
+          "caller": "test_world_model_actor_client_causal_and_counterfactual",
+          "callee": "\"rain\".to_string",
+          "lineNumber": 225
+        },
+        {
+          "caller": "test_world_model_actor_client_causal_and_counterfactual",
+          "callee": "\"wet_floor\".to_string",
+          "lineNumber": 225
+        },
+        {
+          "caller": "test_world_model_actor_client_causal_and_counterfactual",
+          "callee": "\"wet_floor\".to_string",
+          "lineNumber": 228
+        },
+        {
+          "caller": "test_world_model_actor_client_causal_and_counterfactual",
+          "callee": "\"rain\".to_string",
+          "lineNumber": 229
+        },
+        {
+          "caller": "test_world_model_actor_client_causal_and_counterfactual",
+          "callee": "HashMap::new",
+          "lineNumber": 231
+        },
+        {
+          "caller": "test_world_model_actor_client_causal_and_counterfactual",
+          "callee": "client.causal_intervention(query).await.unwrap",
+          "lineNumber": 234
+        },
+        {
+          "caller": "test_world_model_actor_client_causal_and_counterfactual",
+          "callee": "client.causal_intervention",
+          "lineNumber": 234
+        },
+        {
+          "caller": "test_world_model_actor_client_causal_and_counterfactual",
+          "callee": "HashMap::new",
+          "lineNumber": 237
+        },
+        {
+          "caller": "test_world_model_actor_client_causal_and_counterfactual",
+          "callee": "actual.insert",
+          "lineNumber": 238
+        },
+        {
+          "caller": "test_world_model_actor_client_causal_and_counterfactual",
+          "callee": "\"rain\".to_string",
+          "lineNumber": 238
+        },
+        {
+          "caller": "test_world_model_actor_client_causal_and_counterfactual",
+          "callee": "actual.insert",
+          "lineNumber": 239
+        },
+        {
+          "caller": "test_world_model_actor_client_causal_and_counterfactual",
+          "callee": "\"wet_floor\".to_string",
+          "lineNumber": 239
+        },
+        {
+          "caller": "test_world_model_actor_client_causal_and_counterfactual",
+          "callee": "client.counterfactual(actual, \"rain\".to_string(), 1.0).await.unwrap",
+          "lineNumber": 240
+        },
+        {
+          "caller": "test_world_model_actor_client_causal_and_counterfactual",
+          "callee": "client.counterfactual",
+          "lineNumber": 240
+        },
+        {
+          "caller": "test_world_model_actor_client_causal_and_counterfactual",
+          "callee": "\"rain\".to_string",
+          "lineNumber": 240
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 12,
+        "functionCount": 10,
+        "classCount": 2
+      }
+    }
+  ]
+}

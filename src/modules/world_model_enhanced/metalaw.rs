@@ -1,11 +1,20 @@
-use serde::{Deserialize, Serialize};
 use super::entity::EntityState;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum InvariantType {
-    Conservation { metric_index: usize },
-    Monotonic { metric_index: usize, increasing: bool },
-    Bounded { metric_index: usize, min: f64, max: f64 },
+    Conservation {
+        metric_index: usize,
+    },
+    Monotonic {
+        metric_index: usize,
+        increasing: bool,
+    },
+    Bounded {
+        metric_index: usize,
+        min: f64,
+        max: f64,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,13 +37,21 @@ impl MetaLawEngine {
         self.laws.push(law);
     }
 
-    pub fn verify_transition(&self, pre_state: &EntityState, post_state: &EntityState) -> Vec<String> {
+    pub fn verify_transition(
+        &self,
+        pre_state: &EntityState,
+        post_state: &EntityState,
+    ) -> Vec<String> {
         let mut violations = Vec::new();
         for law in &self.laws {
             match &law.invariant_type {
                 InvariantType::Conservation { metric_index } => {
-                    if *metric_index < pre_state.properties.len() && *metric_index < post_state.properties.len() {
-                        let diff = (post_state.properties[*metric_index] - pre_state.properties[*metric_index]).abs();
+                    if *metric_index < pre_state.properties.len()
+                        && *metric_index < post_state.properties.len()
+                    {
+                        let diff = (post_state.properties[*metric_index]
+                            - pre_state.properties[*metric_index])
+                            .abs();
                         if diff >= 1e-6 {
                             violations.push(law.law_id.clone());
                         }
@@ -42,9 +59,15 @@ impl MetaLawEngine {
                         violations.push(law.law_id.clone());
                     }
                 }
-                InvariantType::Monotonic { metric_index, increasing } => {
-                    if *metric_index < pre_state.properties.len() && *metric_index < post_state.properties.len() {
-                        let diff = post_state.properties[*metric_index] - pre_state.properties[*metric_index];
+                InvariantType::Monotonic {
+                    metric_index,
+                    increasing,
+                } => {
+                    if *metric_index < pre_state.properties.len()
+                        && *metric_index < post_state.properties.len()
+                    {
+                        let diff = post_state.properties[*metric_index]
+                            - pre_state.properties[*metric_index];
                         if *increasing && diff < -1e-6 {
                             violations.push(law.law_id.clone());
                         } else if !*increasing && diff > 1e-6 {
@@ -54,7 +77,11 @@ impl MetaLawEngine {
                         violations.push(law.law_id.clone());
                     }
                 }
-                InvariantType::Bounded { metric_index, min, max } => {
+                InvariantType::Bounded {
+                    metric_index,
+                    min,
+                    max,
+                } => {
                     if *metric_index < post_state.properties.len() {
                         let val = post_state.properties[*metric_index];
                         if val < *min - 1e-6 || val > *max + 1e-6 {

@@ -1,0 +1,8 @@
+{
+  "projectRoot": "D:/all_projects/hipcortex",
+  "batchFiles": [
+    {"path": "AGENTS.md", "language": "markdown", "sizeLines": 43, "fileCategory": "docs"},
+    {"path": "CLAUDE.md", "language": "markdown", "sizeLines": 184, "fileCategory": "docs"}
+  ],
+  "batchImportData": {"AGENTS.md": [], "CLAUDE.md": []}
+}

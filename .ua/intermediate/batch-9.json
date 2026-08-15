@@ -1,0 +1,105 @@
+{
+  "batchIndex": 9,
+  "nodes": [
+    {
+      "id": "document:docs/superpowers/plans/2026-05-20-500-stars-sprint.md",
+      "type": "document",
+      "name": "500-Star Sprint Plan (2026-05-20)",
+      "filePath": "docs/superpowers/plans/2026-05-20-500-stars-sprint.md",
+      "summary": "Implementation plan for 8 features targeting 500 GitHub stars: ARM64 cross-compiled binaries, async Python client (httpx), TypeScript/JavaScript SDK, OpenAPI 3.0 spec endpoint, bulk-add endpoint, memory TTL auto-expiry, auto-embedding via Ollama/OpenAI, and AutoGen 0.4 adapter fix. Each task includes TDD steps, full code, build verification, and git commit instructions. Gated on star threshold before unlocking Phase 2 backlog (multi-tenancy, webhooks, Helm chart, OAuth2).",
+      "tags": ["planning", "sprint", "sdk", "typescript", "python", "arm64", "openapi", "autogen", "ecosystem"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-05-20-golden-path-ux-sprint.md",
+      "type": "document",
+      "name": "Golden Path UX Sprint Plan (2026-05-20)",
+      "filePath": "docs/superpowers/plans/2026-05-20-golden-path-ux-sprint.md",
+      "summary": "Five-task plan to eliminate first-use friction: npm publish of the TypeScript SDK, AsyncHipCortexMemory LangChain wrapper, unified search-with-embedding endpoint (embedding_model field on POST /memory/search), graceful SIGINT shutdown with MemoryStore flush plus systemd service template, and MCP stdio server for Cursor/Claude Code/Windsurf. Goal is sub-5-minute time-to-integration for new users across JS, async Python, local AI, edge, and coding-agent channels.",
+      "tags": ["planning", "ux", "npm", "langchain", "mcp", "shutdown", "systemd", "sdk"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-06-04-intelligence-layer-wiring.md",
+      "type": "document",
+      "name": "Intelligence Layer Wiring Plan (2026-06-04)",
+      "filePath": "docs/superpowers/plans/2026-06-04-intelligence-layer-wiring.md",
+      "summary": "Nine-task plan to wire WorldModelEnhanced, AureusBridge, SelfModel, and CoherenceChecker into the web server via a new AppState<B> struct and run_with_state() entry point, with 9 new REST endpoints, JSON-snapshot persistence for the world model (atomic writes + 5-minute periodic flush), memory auto-feed on every add/ingest, and full SIT test coverage. Replaces run_with_both_stores delegation pattern with a fully state-aware router.",
+      "tags": ["planning", "intelligence-layer", "world-model", "self-model", "coherence", "aureus", "rest-api", "persistence"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-07-17-semantic-tag-auto-capture.md",
+      "type": "document",
+      "name": "Semantic Tag Auto-Capture Plan (2026-07-17)",
+      "filePath": "docs/superpowers/plans/2026-07-17-semantic-tag-auto-capture.md",
+      "summary": "VS Code extension plan to add extractSemanticTags() — a 5-layer tag extractor (languageId, file extension, path-segment hints, git branch slug, document symbols, error diagnostics) — and wire it into both the onDidSaveTextDocument auto-capture and the hipcortex.addMemory command palette. Produces max 8 deduplicated lowercase tags per record, with a 200ms async budget and graceful degradation. Bumps extension to v0.5.2 and rebuilds VSIX.",
+      "tags": ["planning", "vscode-extension", "tags", "auto-capture", "typescript", "vsix"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-07-17-server-lifecycle-option-a.md",
+      "type": "document",
+      "name": "Server Lifecycle Option A Plan (2026-07-17)",
+      "filePath": "docs/superpowers/plans/2026-07-17-server-lifecycle-option-a.md",
+      "summary": "VS Code extension plan for robust local-server lifecycle management: dynamic port parsing from apiUrl, version-aware reuse/restart policy (strict vs default major.minor), killProcessOnPort helper (Windows netstat/taskkill + Unix lsof/fuser), full rewrite of doAutoStartServer using shouldReuseRunningServer/isServerVersionAcceptable helpers, and deactivate() child-process cleanup. Introduces EXPECTED_SERVER_VERSION constant tied to Cargo.toml crate version (not package.json). Bumps extension to v0.5.4.",
+      "tags": ["planning", "vscode-extension", "server-lifecycle", "typescript", "version-policy", "vsix"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-07-18-cross-channel-ux-enhancement-plan.md",
+      "type": "document",
+      "name": "Cross-Channel UX Enhancement Plan (2026-07-18)",
+      "filePath": "docs/superpowers/plans/2026-07-18-cross-channel-ux-enhancement-plan.md",
+      "summary": "Eight-phase plan to unify HipCortex across Claude Code, VS Code VSIX, pip wizard, MCP hosts, npm/Node, and agent frameworks. Phases cover: honesty/measurement (channel matrix), version stamping + doctor CLI, unified .hipcortex/config.toml identity, single daemon attach model, capability matrix from OpenAPI, idempotent install wizard v2, host installers (Antigravity, Hermes, OpenClaw, Grok Build), and framework package-first adapters. Phases 0-8 documented as complete as of 2026-07-19.",
+      "tags": ["planning", "cross-channel", "ux", "mcp", "cli", "config", "install", "multi-phase"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-07-20-release-pr-vsix.md",
+      "type": "document",
+      "name": "Release PR + VSIX v0.5.7 Plan (2026-07-20)",
+      "filePath": "docs/superpowers/plans/2026-07-20-release-pr-vsix.md",
+      "summary": "Short release coordination plan for v0.5.7: enhance release.yml to always artifact server binaries with topological routes, package VSIX in a multi-OS CI job, open PR from feat/optional-deep-wire to main, tag v0.5.7 on branch tip to trigger binary CI, and upload hipcortex-memory-0.5.7.vsix directly to the GitHub release.",
+      "tags": ["planning", "release", "vsix", "ci", "github-actions"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-07-20-worldmodel-self-routes-surface.md",
+      "type": "document",
+      "name": "WorldModel/Self Routes Surface Plan (2026-07-20)",
+      "filePath": "docs/superpowers/plans/2026-07-20-worldmodel-self-routes-surface.md",
+      "summary": "Plan to make the intelligence REST surface discoverable, contract-aligned, and tested: update OpenAPI spec to document all worldmodel/self/live_beliefs/link/reflect/hypotheses routes matching run_with_state, add observe aliases (from|state, to|next_state), fix predict URL in worldmodel status, add Python SDK can_execute method, and write SIT smoke tests covering observe→predict→rollout plus self/health and can-execute.",
+      "tags": ["planning", "world-model", "self-model", "openapi", "rest-api", "testing"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-07-20-fill-stubs.md",
+      "type": "document",
+      "name": "Fill Real Stubs Plan (2026-07-20)",
+      "filePath": "docs/superpowers/plans/2026-07-20-fill-stubs.md",
+      "summary": "Plan to implement real logic in empty stub functions across topological_memory (search.rs, contradiction.rs, deconstructor.rs), loop_engine (detect_coverage_gap, propagate_uncertainty, simulate_rollouts), coherence (check_graph_consistency, check_entity_permanence, check_memory_consistency), resolver (get_candidate_values), and scripts (migrate/import_trace). Explicitly excludes UI placeholders and intentional test noops.",
+      "tags": ["planning", "refactoring", "stubs", "topological-memory", "coherence", "loop-engine"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-07-20-mcts-deep-causal.md",
+      "type": "document",
+      "name": "MCTS + Deep Causal Wiring Plan (2026-07-20)",
+      "filePath": "docs/superpowers/plans/2026-07-20-mcts-deep-causal.md",
+      "summary": "Plan to fix /worldmodel/rollout by adding WorldModelEnhanced::rollout_dirichlet (multi-step MAP via TransitionModel) and mcts_best_action (wrapping MctsSimulator), routing handle_wm_rollout to use Dirichlet first with optional MCTS mode, and wiring causal intervention to use empirical distributions before heuristic fallback and SCM for counterfactuals. Includes unit tests and a SIT observe→rollout success test.",
+      "tags": ["planning", "world-model", "mcts", "causal", "rollout", "dirichlet"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:docs/superpowers/specs/2026-08-13-hipcortex-gap-remediation-design.md",
+      "type": "document",
+      "name": "HipCortex Gap Remediation Design Spec (2026-08-13)",
+      "filePath": "docs/superpowers/specs/2026-08-13-hipcortex-gap-remediation-design.md",
+      "summary": "Four-sprint design spec for a Tiered Cognitive Architecture remediation: Sprint 1 fixes silent math failures (rollout API, causal intervention boundary, Kalman covariance stability, Merkle chain test); Sprint 2 introduces a polyglot CognitiveRecord<T> envelope with Hot/Cold tiered storage; Sprint 3 adds a Cognitive GC with provenance reachability and StateDiff API; Sprint 4 extracts L1/L2/L4 boundary violations (MCTS to Kakeya ARM, consolidation to DTCF, execution to Cognitive Runtime). Enforces strict L0 Cognitive State Infrastructure boundary.",
+      "tags": ["design", "architecture", "gap-remediation", "cognitive-gc", "tiered-storage", "provenance", "l0-boundary"],
+      "complexity": "complex"
+    }
+  ],
+  "edges": []
+}

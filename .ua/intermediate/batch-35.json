@@ -1,0 +1,227 @@
+{
+  "batchIndex": 35,
+  "nodes": [
+    {
+      "id": "scripts/stamp_versions.py",
+      "type": "file",
+      "label": "stamp_versions.py",
+      "path": "scripts/stamp_versions.py",
+      "language": "python",
+      "description": "CI/dev utility that stamps product version strings. Reads a canonical VERSION file (one semver line) and propagates the version into sdk/mcp/server.py serverInfo.version via regex substitution. Also keeps the PyPI-bundled copy (sdk/python/hipcortex/install/mcp_server.py) in sync with the canonical MCP server. Supports --print, --mcp, --check (dry-run), and --version override modes.",
+      "symbols": [
+        "read_version",
+        "current_mcp_version",
+        "sync_mcp_bundle",
+        "stamp_mcp",
+        "main"
+      ],
+      "constants": [
+        "REPO_ROOT",
+        "VERSION_FILE",
+        "MCP_SERVER",
+        "MCP_BUNDLED",
+        "MCP_VERSION_RE"
+      ],
+      "imports": ["argparse", "re", "sys", "pathlib.Path"],
+      "key_paths": [
+        "VERSION (repo root)",
+        "sdk/mcp/server.py",
+        "sdk/python/hipcortex/install/mcp_server.py"
+      ],
+      "cli_flags": ["--print", "--mcp", "--check", "--version"],
+      "tags": ["versioning", "ci", "tooling", "mcp"]
+    },
+    {
+      "id": "sdk/continue/README.md",
+      "type": "document",
+      "label": "Continue.dev Context Provider README",
+      "path": "sdk/continue/README.md",
+      "description": "Installation and usage guide for the HipCortex Continue.dev context provider. Documents: 2-step setup (copy provider + add to config.json), starting the HipCortex server (binary or managed hipcortex.fly.dev), usage patterns (@hipcortex queries, /remember and /recall slash commands), and environment variables (HIPCORTEX_URL, HIPCORTEX_API_KEY, HIPCORTEX_ACTOR).",
+      "env_vars": ["HIPCORTEX_URL", "HIPCORTEX_API_KEY", "HIPCORTEX_ACTOR"],
+      "tags": ["continue-dev", "integration", "docs", "sdk"]
+    },
+    {
+      "id": "sdk/continue/index.ts",
+      "type": "file",
+      "label": "index.ts (Continue.dev provider)",
+      "path": "sdk/continue/index.ts",
+      "language": "typescript",
+      "description": "Continue.dev context provider implementation for HipCortex. Implements the BaseContextProvider interface to inject persistent memory into Continue.dev conversations. Exposes HipCortexContextProvider (get()) which searches memory and returns ContextItem[], and HipCortexSlashCommands (remember/recall generators). Communicates with the HipCortex REST server via fetch to /memory/search and /memory/add.",
+      "symbols": [
+        "HipCortexContextProvider",
+        "HipCortexSlashCommands",
+        "searchMemory",
+        "addMemory",
+        "headers"
+      ],
+      "interfaces": [
+        "ContextItem",
+        "ContextProviderExtras",
+        "BaseContextProvider"
+      ],
+      "constants": ["HIPCORTEX_URL", "HIPCORTEX_API_KEY", "DEFAULT_ACTOR"],
+      "api_calls": ["/memory/search (POST)", "/memory/add (POST)"],
+      "exports": ["HipCortexContextProvider (default)", "HipCortexSlashCommands"],
+      "tags": ["continue-dev", "context-provider", "typescript", "sdk"]
+    },
+    {
+      "id": "sdk/typescript/src/index.ts",
+      "type": "file",
+      "label": "index.ts (TypeScript SDK entrypoint)",
+      "path": "sdk/typescript/src/index.ts",
+      "language": "typescript",
+      "description": "Public entrypoint for the HipCortex TypeScript SDK. Re-exports HipCortexClient class and all TypeScript type definitions from ./client and ./types respectively.",
+      "exports": [
+        "HipCortexClient",
+        "AddMemoryRequest",
+        "AddMemoryResponse",
+        "BulkAddRequest",
+        "BulkAddResponse",
+        "CoherenceStatusResponse",
+        "ForgetResponse",
+        "HipCortexClientOptions",
+        "MemoryRecord",
+        "QueryMemoryResponse",
+        "QueryParams",
+        "SearchRequest",
+        "SearchResponse",
+        "SearchResult",
+        "StatsResponse",
+        "RolloutRequest",
+        "RolloutResponse",
+        "LiveBeliefsResponse",
+        "ReflectRequest",
+        "ReflectResponse",
+        "PredictRequest",
+        "PredictResponse"
+      ],
+      "tags": ["typescript", "sdk", "entrypoint"]
+    },
+    {
+      "id": "sdk/typescript/src/client.ts",
+      "type": "file",
+      "label": "client.ts (TypeScript SDK)",
+      "path": "sdk/typescript/src/client.ts",
+      "language": "typescript",
+      "description": "Synchronous (fetch-based) TypeScript HTTP client for the HipCortex REST API. Constructor accepts HipCortexClientOptions (baseUrl, apiKey, timeout). Core memory methods: addMemory, queryMemory, search, bulkAdd, forget, health, stats, coherenceStatus. Intelligence layer: liveBeliefs, reflect, predict, rollout. Graph/TMF (v0.4.0): linkMemories, getNeighbors, searchRelated, deleteMemory. Convenience helpers: addHumanMessage, addAiMessage, getConversationHistory, canExecute. Uses AbortController for per-request timeout.",
+      "class": "HipCortexClient",
+      "methods": [
+        "addMemory",
+        "queryMemory",
+        "search",
+        "bulkAdd",
+        "forget",
+        "health",
+        "stats",
+        "coherenceStatus",
+        "liveBeliefs",
+        "reflect",
+        "predict",
+        "rollout",
+        "addHumanMessage",
+        "addAiMessage",
+        "getConversationHistory",
+        "linkMemories",
+        "getNeighbors",
+        "searchRelated",
+        "deleteMemory",
+        "canExecute"
+      ],
+      "private_methods": ["request"],
+      "api_endpoints": [
+        "POST /memory/add",
+        "GET /memory/query",
+        "POST /memory/search",
+        "POST /memory/bulk",
+        "DELETE /memory/forget/{actor}",
+        "GET /health",
+        "GET /stats",
+        "GET /coherence/status",
+        "GET /memory/live_beliefs",
+        "POST /memory/reflect",
+        "POST /worldmodel/predict",
+        "POST /worldmodel/rollout",
+        "POST /memory/link",
+        "GET /memory/neighbors/{id}",
+        "GET /memory/search/related",
+        "DELETE /memory/{id}"
+      ],
+      "tags": ["typescript", "sdk", "http-client", "rest"]
+    },
+    {
+      "id": "sdk/typescript/src/types.ts",
+      "type": "file",
+      "label": "types.ts (TypeScript SDK)",
+      "path": "sdk/typescript/src/types.ts",
+      "language": "typescript",
+      "description": "All TypeScript interface definitions for the HipCortex SDK. Covers the full API surface: core memory (AddMemoryRequest with record_type enum, MemoryRecord, AddMemoryResponse, QueryParams, QueryMemoryResponse, SearchRequest/Response/Result, BulkAddRequest/Response, ForgetResponse, StatsResponse, CoherenceStatusResponse, HipCortexClientOptions), TMF graph types (LinkMemoriesRequest/Response, NeighborsResponse, RelatedSearchResponse, DeleteMemoryResponse, RolloutRequest/Response), and intelligence layer types (LiveBeliefsResponse, ReflectRequest/Response, PredictRequest/Response).",
+      "interfaces": [
+        "AddMemoryRequest",
+        "MemoryRecord",
+        "AddMemoryResponse",
+        "QueryParams",
+        "QueryMemoryResponse",
+        "SearchRequest",
+        "SearchResult",
+        "SearchResponse",
+        "BulkAddRequest",
+        "BulkAddResponse",
+        "ForgetResponse",
+        "StatsResponse",
+        "CoherenceStatusResponse",
+        "HipCortexClientOptions",
+        "LinkMemoriesRequest",
+        "LinkMemoriesResponse",
+        "NeighborsResponse",
+        "RelatedSearchParams",
+        "RelatedSearchResponse",
+        "DeleteMemoryResponse",
+        "RolloutRequest",
+        "RolloutResponse",
+        "LiveBeliefsResponse",
+        "ReflectRequest",
+        "ReflectResponse",
+        "PredictRequest",
+        "PredictResponse"
+      ],
+      "record_types": [
+        "Temporal", "Symbolic", "Procedural", "Reflexion", "Perception",
+        "Episodic", "Semantic", "LongTerm", "ShortTerm", "Working",
+        "Reflexive", "Perceptual"
+      ],
+      "tags": ["typescript", "sdk", "types", "interfaces"]
+    }
+  ],
+  "edges": [
+    {
+      "from": "sdk/typescript/src/index.ts",
+      "to": "sdk/typescript/src/client.ts",
+      "type": "re-exports",
+      "label": "exports HipCortexClient"
+    },
+    {
+      "from": "sdk/typescript/src/index.ts",
+      "to": "sdk/typescript/src/types.ts",
+      "type": "re-exports",
+      "label": "exports all type interfaces"
+    },
+    {
+      "from": "sdk/typescript/src/client.ts",
+      "to": "sdk/typescript/src/types.ts",
+      "type": "imports",
+      "label": "imports all request/response types"
+    },
+    {
+      "from": "scripts/stamp_versions.py",
+      "to": "sdk/python/hipcortex/install/mcp_server.py",
+      "type": "writes",
+      "label": "sync_mcp_bundle syncs bundled copy"
+    },
+    {
+      "from": "sdk/continue/index.ts",
+      "to": "sdk/continue/README.md",
+      "type": "documented-by",
+      "label": "README documents installation and usage"
+    }
+  ]
+}

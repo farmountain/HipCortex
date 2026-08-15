@@ -1,0 +1,80 @@
+{
+  "batchIndex": 3,
+  "nodes": [
+    {
+      "id": "pipeline:.github/workflows/ci.yml",
+      "type": "pipeline",
+      "name": "CI",
+      "filePath": ".github/workflows/ci.yml",
+      "summary": "Primary continuous integration pipeline triggered on push/PR to main. Runs six parallel jobs: core library build+test (unit, integration, property suites) with and without tokio, web-server binary build, latency+token-reduction benchmarks (PR-only, posts comment), Python SDK unit tests, host MCP installer E2E smoke tests on Ubuntu and Windows, and a standalone token-reduction benchmark asserting 80%+ savings.",
+      "tags": ["ci-cd", "rust", "testing", "benchmark", "python", "multi-platform"],
+      "complexity": "complex"
+    },
+    {
+      "id": "pipeline:.github/workflows/cognitive_os_token_verification.yml",
+      "type": "pipeline",
+      "name": "Cognitive OS Token Optimization Verification",
+      "filePath": ".github/workflows/cognitive_os_token_verification.yml",
+      "summary": "Lightweight pipeline triggered on push/PR/manual dispatch that verifies Headroom and Caveman token-compression savings offline (no live Rust server). Runs a single Python harness (`tests/verify_token_optimization.py`) asserting Top-5/Top-3 compression math (59-89% / 70-92% savings) using Python stdlib only.",
+      "tags": ["ci-cd", "python", "token-optimization", "headroom", "caveman"],
+      "complexity": "simple"
+    },
+    {
+      "id": "pipeline:.github/workflows/publish-npm.yml",
+      "type": "pipeline",
+      "name": "Publish npm package",
+      "filePath": ".github/workflows/publish-npm.yml",
+      "summary": "Publishes the HipCortex TypeScript SDK (`sdk/typescript`) to npm on GitHub Release publication or manual dispatch. Installs Node 20 dependencies, runs tests, builds, then publishes publicly with `NPM_TOKEN`; supports a dry-run mode via `workflow_dispatch` input that runs `npm pack --dry-run` instead of publishing.",
+      "tags": ["ci-cd", "typescript", "npm", "publish", "release"],
+      "complexity": "simple"
+    },
+    {
+      "id": "pipeline:.github/workflows/publish-pypi.yml",
+      "type": "pipeline",
+      "name": "Publish Python SDK to PyPI",
+      "filePath": ".github/workflows/publish-pypi.yml",
+      "summary": "Builds and publishes the HipCortex Python SDK (`sdk/python`) to PyPI on GitHub Release or manual dispatch. Uses `python -m build` to produce wheel+sdist, then `pypa/gh-action-pypi-publish` with OIDC id-token permissions or `PYPI_API_TOKEN`; publish step is gated to release events only so manual triggers build without publishing.",
+      "tags": ["ci-cd", "python", "pypi", "publish", "release"],
+      "complexity": "simple"
+    },
+    {
+      "id": "pipeline:.github/workflows/release.yml",
+      "type": "pipeline",
+      "name": "Release Binaries",
+      "filePath": ".github/workflows/release.yml",
+      "summary": "Cross-platform binary release pipeline triggered on GitHub Release or manual dispatch. The `build-release` job compiles the `webserver` binary for five targets (linux-amd64, linux-arm64 via `cross`, macos-amd64, macos-arm64, windows-amd64) and uploads each as a release asset and workflow artifact. A dependent `package-vsix` job downloads all binaries, stages them into `vscode-extension/server/`, builds the VS Code extension with `vsce package`, and uploads the resulting VSIX to both the release and as an artifact.",
+      "tags": ["ci-cd", "rust", "release", "cross-compile", "vscode", "vsix", "multi-platform"],
+      "complexity": "complex"
+    }
+  ],
+  "edges": [
+    {
+      "source": "pipeline:.github/workflows/release.yml",
+      "target": "pipeline:.github/workflows/publish-npm.yml",
+      "type": "triggers",
+      "weight": 0.5,
+      "description": "Both are triggered by the same GitHub Release published event, running in parallel on release"
+    },
+    {
+      "source": "pipeline:.github/workflows/release.yml",
+      "target": "pipeline:.github/workflows/publish-pypi.yml",
+      "type": "triggers",
+      "weight": 0.5,
+      "description": "Both are triggered by the same GitHub Release published event, running in parallel on release"
+    },
+    {
+      "source": "pipeline:.github/workflows/publish-npm.yml",
+      "target": "pipeline:.github/workflows/publish-pypi.yml",
+      "type": "depends_on",
+      "weight": 0.3,
+      "description": "Both publish SDK artifacts on release; npm covers TypeScript SDK, PyPI covers Python SDK — sibling release artifacts"
+    },
+    {
+      "source": "pipeline:.github/workflows/ci.yml",
+      "target": "pipeline:.github/workflows/cognitive_os_token_verification.yml",
+      "type": "depends_on",
+      "weight": 0.4,
+      "description": "CI includes an inline token-reduction benchmark job; the cognitive OS workflow provides a dedicated offline verification pass for the same token-savings claims"
+    }
+  ]
+}

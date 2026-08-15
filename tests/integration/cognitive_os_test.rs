@@ -2,13 +2,13 @@ use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
 use uuid::Uuid;
 
-use hipcortex::task_graph::{TaskGraph, TaskNode, TaskState};
-use hipcortex::executive_scheduler::{ExecutiveScheduler, StackFrame};
-use hipcortex::world_model_enhanced::{MctsSimulator, TransitionModel};
-use hipcortex::self_model::SelfModel;
 use hipcortex::coherence::CoherenceChecker;
+use hipcortex::executive_scheduler::{ExecutiveScheduler, StackFrame};
+use hipcortex::self_model::SelfModel;
 use hipcortex::session_context::SessionContext;
+use hipcortex::task_graph::{TaskGraph, TaskNode, TaskState};
 use hipcortex::topological_memory::CausalTopoGraph;
+use hipcortex::world_model_enhanced::{MctsSimulator, TransitionModel};
 
 #[cfg(feature = "tokio")]
 use hipcortex::coherence::{CoherenceWriteActor, CoherenceWriteMutation};
@@ -59,13 +59,19 @@ fn test_cognitive_os_end_to_end() {
         2,
         |_| 1.0,
     );
-    assert!(search_res.is_ok(), "MctsSimulator should run planning search without error");
+    assert!(
+        search_res.is_ok(),
+        "MctsSimulator should run planning search without error"
+    );
 
     let self_model = SelfModel::new();
     let coherence = CoherenceChecker::new();
 
     let tick_res = scheduler.tick(&self_model, &coherence);
-    assert!(tick_res.is_ok(), "Scheduler tick should complete successfully");
+    assert!(
+        tick_res.is_ok(),
+        "Scheduler tick should complete successfully"
+    );
     assert_eq!(
         scheduler.active_graph.as_ref().unwrap().graph[node_idx].state,
         TaskState::Completed,
@@ -85,7 +91,10 @@ fn test_cognitive_os_end_to_end() {
     session_context.paged_items[0].last_accessed = SystemTime::now() - Duration::from_secs(3600);
 
     let evicted = session_context.evict_with_topological_decay(&topo, 60, 60);
-    assert!(evicted >= 1, "Should evict obsolete trace node using CausalTopoGraph topological recency");
+    assert!(
+        evicted >= 1,
+        "Should evict obsolete trace node using CausalTopoGraph topological recency"
+    );
 
     // 4. CoherenceWriteActor checks invariant consistency across temporal and symbolic structures without blocking concurrent readers
     #[cfg(feature = "tokio")]
@@ -110,8 +119,14 @@ fn test_cognitive_os_end_to_end() {
                 target_store: "symbolic_store".to_string(),
             };
             let res = actor.submit_mutation(mutation).await;
-            assert!(res.is_ok(), "Mutation should be processed asynchronously without blocking");
-            assert!(wal_path.exists(), "WAL file should be written by CoherenceWriteActor");
+            assert!(
+                res.is_ok(),
+                "Mutation should be processed asynchronously without blocking"
+            );
+            assert!(
+                wal_path.exists(),
+                "WAL file should be written by CoherenceWriteActor"
+            );
         });
     }
 }

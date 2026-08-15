@@ -1,0 +1,177 @@
+{
+  "tour": [
+    {
+      "step": 1,
+      "title": "Project Entry Points",
+      "description": "Start here: the module registry (lib.rs) wires every subsystem via #[path] attributes, Cargo.toml declares all feature flags that gate external dependencies, and README.md frames the value proposition and 60-second install path.",
+      "nodeIds": [
+        "file::src/lib.rs",
+        "config:Cargo.toml",
+        "document:README.md",
+        "document:CLAUDE.md"
+      ],
+      "concepts": ["crate structure", "feature flags", "module registration", "#[path] attributes"],
+      "nextStep": 2
+    },
+    {
+      "step": 2,
+      "title": "Canonical Data Model",
+      "description": "MemoryRecord is the single unit of storage — it carries a MemoryType discriminant (Temporal/Symbolic/Procedural/Reflexion), a SHA-256 integrity hash, and metadata. The data_model.md spec documents query semantics and storage invariants.",
+      "nodeIds": [
+        "file::src/memory_record.rs",
+        "file:memory_record",
+        "document:docs/data_model.md",
+        "document:docs/memory_design.md"
+      ],
+      "concepts": ["MemoryRecord struct", "MemoryType enum", "SHA-256 integrity hash", "query model"],
+      "nextStep": 3
+    },
+    {
+      "step": 3,
+      "title": "Memory Persistence & Security",
+      "description": "MemoryStore is the persistence facade: it enforces AES-GCM encryption, a write-ahead log for crash recovery, Merkle-chained audit.log, and snapshot rollback. SafetyGuardrail wraps every mutation — no write bypasses check_precondition.",
+      "nodeIds": [
+        "file::src/memory_store.rs",
+        "file:memory_store",
+        "file::src/safety_guardrail.rs",
+        "file:src/safety_guardrail.rs",
+        "file:src/snapshot_manager.rs",
+        "file:snapshot_manager"
+      ],
+      "concepts": ["AES-GCM encryption", "WAL crash recovery", "Merkle audit chain", "SafetyGuardrail preconditions", "snapshot rollback"],
+      "nextStep": 4
+    },
+    {
+      "step": 4,
+      "title": "Core Memory Subsystems",
+      "description": "Four specialized subsystems handle storage: TemporalIndexer (segmented ring buffer + Markov ordering), SymbolicStore (petgraph-backed knowledge graph), ProceduralCache (FSM-driven traces), and AureusBridge (reflexion/chain-of-thought hook that optionally calls LLM connectors).",
+      "nodeIds": [
+        "file:temporal_indexer",
+        "file:symbolic_store",
+        "file:procedural_cache",
+        "file:aureus_bridge",
+        "file:temporal_fsm_backend"
+      ],
+      "concepts": ["ring buffer decay", "Markov ordering", "petgraph knowledge graph", "FSM transitions", "chain-of-thought reflexion"],
+      "nextStep": 5
+    },
+    {
+      "step": 5,
+      "title": "Perception, Integration & LLM Connectors",
+      "description": "PerceptionAdapter normalises multimodal inputs (text, embeddings, agent messages, vision) through PCA decorrelation and rate limiting. IntegrationLayer bridges OpenManus and MCP payloads to memory ops and routes to LLM connectors (OpenAI, Claude, Mistral, Ollama, mock).",
+      "nodeIds": [
+        "file:perception_adapter",
+        "file:integration_layer",
+        "file:src/llm_clients/mod.rs",
+        "file:src/embedding_provider.rs",
+        "file:src/modules/loop_engine.rs"
+      ],
+      "concepts": ["multimodal input normalisation", "PCA decorrelation", "OpenManus/MCP bridging", "LLM connector trait", "embedding provider"],
+      "nextStep": 6
+    },
+    {
+      "step": 6,
+      "title": "Intelligence Layer Overview",
+      "description": "Three metacognitive modules sit above the storage layer: self_model (capability registry, resource monitor, decision engine), world_model_enhanced (probabilistic state transitions, entity tracking), and coherence (consistency checker, conflict resolver, system invariants). The openspec design doc explains the wiring.",
+      "nodeIds": [
+        "file:self_model_mod",
+        "file:wme::mod_rs",
+        "file:coherence_mod",
+        "document:openspec/changes/intelligence-foundation/design.md",
+        "document:docs/superpowers/plans/2026-06-04-intelligence-layer-wiring.md"
+      ],
+      "concepts": ["metacognition", "AGI cognitive triad", "capability registry", "coherence invariants", "opt-in wiring"],
+      "nextStep": 7
+    },
+    {
+      "step": 7,
+      "title": "World Model: Transitions & Entity Tracking",
+      "description": "WorldModelEnhanced uses Dirichlet-Multinomial posteriors for state transition prediction and a Kalman filter for entity attribute tracking. The uncertainty module quantifies confidence intervals; the constraint module enforces hard rules on state space.",
+      "nodeIds": [
+        "file:src/modules/world_model_enhanced/transition.rs",
+        "file:wme::transition_rs",
+        "file:src/modules/world_model_enhanced/uncertainty.rs",
+        "file:wme::uncertainty_rs",
+        "file:wme::entity_rs",
+        "file:wme::constraint_rs"
+      ],
+      "concepts": ["Dirichlet-Multinomial transitions", "Kalman entity tracking", "uncertainty quantification", "constraint enforcement", "predictive world model"],
+      "nextStep": 8
+    },
+    {
+      "step": 8,
+      "title": "Causal Reasoning & Do-Calculus",
+      "description": "The causal module implements a directed acyclic graph with do-calculus support for intervention queries. It underpins counterfactual reasoning: given an intervention on a variable, what effect propagates through the causal graph?",
+      "nodeIds": [
+        "file:wme::causal_rs",
+        "file:src/modules/world_model_enhanced/mod.rs",
+        "file:world_model",
+        "file:examples/world_model_example.rs"
+      ],
+      "concepts": ["causal DAG", "do-calculus", "intervention queries", "counterfactual reasoning", "causal propagation"],
+      "nextStep": 9
+    },
+    {
+      "step": 9,
+      "title": "Self-Model: Decision Engine & Health",
+      "description": "SelfModel tracks the agent's own capabilities, monitors resource consumption via linear regression, accumulates performance history with EWMA + Bayesian updating, aggregates health as a weighted geometric mean, and selects actions via expected-utility decision theory.",
+      "nodeIds": [
+        "file:self_model::capability_rs",
+        "file:self_model::decision_rs",
+        "file:self_model::health_rs",
+        "file:self_model::performance_rs",
+        "file:self_model::resource_rs"
+      ],
+      "concepts": ["capability registry", "EWMA performance tracking", "Bayesian updating", "weighted geometric mean health", "expected utility decisions"],
+      "nextStep": 10
+    },
+    {
+      "step": 10,
+      "title": "Server Surfaces: REST, gRPC & MCP",
+      "description": "Three server surfaces expose memory ops: the Axum web_server (70+ routes, feature web-server), Tonic gRPC server with protobuf schema, and the combined MCP server that bridges both. The OpenManus bridge adapts agent-protocol payloads.",
+      "nodeIds": [
+        "file::src/web_server.rs",
+        "file:web_server",
+        "file::src/grpc_server.rs",
+        "file::src/mcp_server.rs",
+        "schema:proto/memory.proto",
+        "file:src/modules/mcp_bridge.rs",
+        "file:src/modules/openmanus_bridge.rs"
+      ],
+      "concepts": ["Axum REST routes", "Tonic gRPC", "protobuf schema", "MCP bridge", "OpenManus protocol", "feature gating"],
+      "nextStep": 11
+    },
+    {
+      "step": 11,
+      "title": "SDKs, CLI & VS Code Extension",
+      "description": "Client surfaces include the Python SDK (async client + daemon + MCP installer), TypeScript SDK, Continue.dev adapter, CLI binary (memory_cli), and the VS Code extension that auto-captures memories on file save with semantic tag extraction.",
+      "nodeIds": [
+        "file:sdk/python/hipcortex/client.py",
+        "file:sdk/python/hipcortex/daemon.py",
+        "file:sdk/typescript/src/client.ts",
+        "file:sdk/continue/index.ts",
+        "file:memory_cli",
+        "file:vscode-extension/src/extension.ts",
+        "file::src/bin/cli.rs"
+      ],
+      "concepts": ["Python async client", "daemon lifecycle", "TypeScript SDK", "Continue.dev adapter", "CLI binary", "VS Code LM tools"],
+      "nextStep": 12
+    },
+    {
+      "step": 12,
+      "title": "Testing, Infrastructure & Gap Roadmap",
+      "description": "Three Rust test binaries cover units, integration (SIT/UAT), and property tests; the Python E2E harness validates the full stack end-to-end. Docker/Helm/CI pipelines handle deployment. The gap-remediation spec (Sprint 1-4) is the active roadmap for production hardening.",
+      "nodeIds": [
+        "file::tests/integration_suite.rs",
+        "file:tests/property_suite.rs",
+        "file::tests/e2e_user_harness/suites/test_phase0_bootstrap.py",
+        "pipeline:.github/workflows/ci.yml",
+        "service:Dockerfile",
+        "config:deploy/helm/hipcortex/Chart.yaml",
+        "document:docs/superpowers/specs/2026-08-13-hipcortex-gap-remediation-design.md"
+      ],
+      "concepts": ["unit/integration/property test suites", "E2E Python harness", "CI pipelines", "Helm chart", "Docker multi-stage build", "Sprint 1-4 gap remediation"],
+      "nextStep": null
+    }
+  ]
+}

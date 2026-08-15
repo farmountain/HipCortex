@@ -1,8 +1,8 @@
-#[cfg(feature = "postgres_backend")]
-use hipcortex::backends::postgres_backend::PostgresGraphBackend;
 #[cfg(feature = "neo4j_backend")]
 use hipcortex::backends::neo4j_backend::Neo4jBackend;
-use hipcortex::symbolic_store::{SymbolicStore, InMemoryGraph};
+#[cfg(feature = "postgres_backend")]
+use hipcortex::backends::postgres_backend::PostgresGraphBackend;
+use hipcortex::symbolic_store::{InMemoryGraph, SymbolicStore};
 use std::collections::HashMap;
 
 #[cfg(feature = "postgres_backend")]

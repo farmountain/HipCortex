@@ -1,0 +1,79 @@
+{
+  "batchIndex": 24,
+  "nodes": [
+    {
+      "id": "document:openspec/changes/intelligence-foundation/.openspec.yaml",
+      "type": "document",
+      "name": "intelligence-foundation openspec manifest",
+      "filePath": "openspec/changes/intelligence-foundation/.openspec.yaml",
+      "summary": "Minimal spec-driven manifest for the active intelligence-foundation change, recording the creation date of 2026-03-13. Serves as the machine-readable anchor for the self-model, world-model-enhanced, and coherence modules change set.",
+      "tags": ["openspec", "active", "intelligence", "self-model", "world-model", "coherence", "manifest"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:openspec/changes/intelligence-foundation/design.md",
+      "type": "document",
+      "name": "intelligence-foundation design",
+      "filePath": "openspec/changes/intelligence-foundation/design.md",
+      "summary": "Comprehensive design document for the three-module intelligence layer: Self-Model (capability registry, resource monitoring with linear regression, EWMA performance tracking, weighted geometric mean health, expected utility decision engine), Enhanced World-Model (Dirichlet-Multinomial transitions, Kalman entity tracking, do-calculus causal graphs, uncertainty quantification), and Coherence Checker (graph edit distance scoring, consensus/recency/confidence resolution strategies, invariant enforcement). Documents 10 architecture decisions, 8 risk mitigations, a five-phase migration plan (alpha week 11 through full rollout week 14), and 5 open questions on rejection policy, check frequency, and concurrency.",
+      "tags": ["openspec", "active", "intelligence", "self-model", "world-model", "coherence", "bayesian", "kalman", "causal-graph", "architecture"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:openspec/changes/intelligence-foundation/proposal.md",
+      "type": "document",
+      "name": "intelligence-foundation proposal",
+      "filePath": "openspec/changes/intelligence-foundation/proposal.md",
+      "summary": "Change proposal framing HipCortex's gap from sophisticated storage system to intelligent agent. Proposes adding self-model metacognition, enhancing the world-model to predictive Bayesian state modeling with Kalman entity tracking, and adding coherence checking with automatic conflict resolution. Lists new API endpoints (/health/self-model, /predict/next-state, /coherence/status, etc.), impact on all six existing subsystems, and confirms backward compatibility with opt-in configuration flags.",
+      "tags": ["openspec", "active", "intelligence", "self-model", "world-model", "coherence", "api", "metacognition"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:openspec/changes/intelligence-foundation/tasks.md",
+      "type": "document",
+      "name": "intelligence-foundation tasks",
+      "filePath": "openspec/changes/intelligence-foundation/tasks.md",
+      "summary": "Exhaustive 24-section, 252-item fully checked-off task list for the intelligence foundation. Covers implementation of all three modules (self_model/, world_model_enhanced/, coherence/), 600+ unit tests, 300+ SIT, 200+ property-based tests, 11 UAT scenarios, criterion.rs benchmarks, integration hooks for all six existing subsystems, 13 new REST API endpoints, rustdoc documentation, test infrastructure setup, QA validation targets (>70% prediction accuracy, ECE<0.1, >95% inconsistency detection), and four deployment phases from internal alpha through full production rollout.",
+      "tags": ["openspec", "active", "intelligence", "tasks", "testing", "benchmarks", "deployment", "api", "integration"],
+      "complexity": "complex"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:openspec/changes/intelligence-foundation/.openspec.yaml",
+      "target": "document:openspec/changes/intelligence-foundation/proposal.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/intelligence-foundation/.openspec.yaml",
+      "target": "document:openspec/changes/intelligence-foundation/design.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/intelligence-foundation/.openspec.yaml",
+      "target": "document:openspec/changes/intelligence-foundation/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/intelligence-foundation/proposal.md",
+      "target": "document:openspec/changes/intelligence-foundation/design.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/intelligence-foundation/design.md",
+      "target": "document:openspec/changes/intelligence-foundation/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/intelligence-foundation/proposal.md",
+      "target": "document:openspec/changes/intelligence-foundation/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    }
+  ]
+}

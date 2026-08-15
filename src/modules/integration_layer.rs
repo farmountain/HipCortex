@@ -1,9 +1,9 @@
 use crate::aureus_bridge::AureusBridge;
 use crate::llm_clients::LLMClient;
+use crate::mcp_bridge;
 use crate::memory_record::{MemoryRecord, MemoryType};
 use crate::memory_store::MemoryStore;
 use crate::openmanus_bridge;
-use crate::mcp_bridge;
 use crate::perception_adapter::{Modality, PerceptionSession};
 use crate::persistence::MemoryBackend;
 use serde::Deserialize;
@@ -137,7 +137,11 @@ impl IntegrationLayer {
                             // violation logged by guardrail; still forward text but skip intel/auto for safety
                         } else {
                             let _ = self.perception.adapt(p.clone());
-                            let actor = p.tags.get(0).cloned().unwrap_or_else(|| "agent".to_string());
+                            let actor = p
+                                .tags
+                                .get(0)
+                                .cloned()
+                                .unwrap_or_else(|| "agent".to_string());
                             let mut rec = MemoryRecord::new(
                                 MemoryType::Temporal,
                                 actor.clone(),
@@ -160,7 +164,11 @@ impl IntegrationLayer {
                             // minimal call/use to expose topo substrate + Ω loop for auto feeds from AgentMessage
                             // (addresses prior exploration on auto paths needing topo/loop)
                             let _ = crate::topological_memory::CausalTopoGraph::new().node_count();
-                            let _ = crate::loop_engine::LoopEngine::new(crate::topological_memory::CausalTopoGraph::new()).metrics.iterations;
+                            let _ = crate::loop_engine::LoopEngine::new(
+                                crate::topological_memory::CausalTopoGraph::new(),
+                            )
+                            .metrics
+                            .iterations;
                         }
                     }
                 }

@@ -1,0 +1,67 @@
+{
+  "batchIndex": 15,
+  "nodes": [
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/.openspec.yaml",
+      "type": "document",
+      "name": "Fix Extension Dispatch OpenSpec",
+      "filePath": "openspec/changes/archive/2026-07-09-fix-extension-dispatch/.openspec.yaml",
+      "summary": "Metadata file for the archived fix-extension-dispatch openspec change, created 2026-07-08 using the spec-driven schema.",
+      "tags": ["openspec", "metadata", "archive", "vscode-extension", "dispatch"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/proposal.md",
+      "type": "document",
+      "name": "Fix Extension Dispatch Proposal",
+      "filePath": "openspec/changes/archive/2026-07-09-fix-extension-dispatch/proposal.md",
+      "summary": "Identifies two bugs in the VS Code extension: search and query chat commands both incorrectly route to handleQueryMemory (missing scored semantic search via POST /memory/search), and the fully-implemented causal REST API has no LM tool registered making it invisible to Copilot agents. Proposes splitting dispatch, adding searchMemory API method, and registering a hipcortex_causal LM tool.",
+      "tags": ["openspec", "proposal", "archive", "vscode-extension", "dispatch", "semantic-search", "causal", "copilot", "lm-tool"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/design.md",
+      "type": "document",
+      "name": "Fix Extension Dispatch Design",
+      "filePath": "openspec/changes/archive/2026-07-09-fix-extension-dispatch/design.md",
+      "summary": "Pure TypeScript change to vscode-extension/src/extension.ts only. Defines four design decisions: scored vs raw result formatting for search vs query, searchMemory on HipCortexAPI class, mode discriminator for hipcortex_causal tool, and axios usage pattern. Includes precise file map with line numbers for each change.",
+      "tags": ["openspec", "design", "archive", "vscode-extension", "typescript", "hipcortex-api", "search-memory", "causal-tool", "mode-discriminator"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/tasks.md",
+      "type": "document",
+      "name": "Fix Extension Dispatch Tasks",
+      "filePath": "openspec/changes/archive/2026-07-09-fix-extension-dispatch/tasks.md",
+      "summary": "Five completed tasks in two groups: API updates (add searchMemory method, register hipcortex_causal LM tool) and dispatch/display work (split query/search prefixes, implement handleSearchMemory with scored output, verify npm run compile succeeds). All tasks marked done.",
+      "tags": ["openspec", "tasks", "archive", "vscode-extension", "search-memory", "causal-lm-tool", "dispatch"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/.openspec.yaml",
+      "target": "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/proposal.md",
+      "type": "related",
+      "label": "metadata → proposal"
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/proposal.md",
+      "target": "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/design.md",
+      "type": "related",
+      "label": "proposal → design"
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/design.md",
+      "target": "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/tasks.md",
+      "type": "related",
+      "label": "design → tasks"
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/proposal.md",
+      "target": "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/tasks.md",
+      "type": "related",
+      "label": "proposal → tasks"
+    }
+  ]
+}

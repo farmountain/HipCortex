@@ -1,0 +1,79 @@
+{
+  "batchIndex": 23,
+  "nodes": [
+    {
+      "id": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/.openspec.yaml",
+      "type": "document",
+      "name": "server-lifecycle-improvements openspec manifest",
+      "filePath": "openspec/changes/archive/2026-07-16-server-lifecycle-improvements/.openspec.yaml",
+      "summary": "Minimal spec-driven manifest for the VS Code extension server lifecycle improvement change, recording the creation date of 2026-07-16. Serves as the machine-readable anchor for this archive change set.",
+      "tags": ["openspec", "archive", "vscode-extension", "manifest"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/design.md",
+      "type": "document",
+      "name": "server-lifecycle-improvements design",
+      "filePath": "openspec/changes/archive/2026-07-16-server-lifecycle-improvements/design.md",
+      "summary": "Design decisions for cross-platform server lifecycle management in the VS Code extension. Specifies OS-specific port discovery and termination (netstat+taskkill on Windows, lsof/fuser+kill on Unix), version verification via /health endpoint comparison against extension package version, and dynamic port extraction from apiUrl. Covers risks of terminating non-HipCortex processes and restricted execution environments.",
+      "tags": ["openspec", "archive", "vscode-extension", "server-lifecycle", "cross-platform", "port-management", "version-verification"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/proposal.md",
+      "type": "document",
+      "name": "server-lifecycle-improvements proposal",
+      "filePath": "openspec/changes/archive/2026-07-16-server-lifecycle-improvements/proposal.md",
+      "summary": "Change proposal identifying orphaned server processes after VS Code extension reloads as the root cause of port conflicts, version drift, and startup failures. Proposes version-aware autostart, cross-platform port conflict resolution, dynamic port selection from apiUrl, and graceful cleanup on deactivation. Introduces the server-lifecycle capability affecting vscode-extension/src/extension.ts.",
+      "tags": ["openspec", "archive", "vscode-extension", "server-lifecycle", "bug-fix", "autostart"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/tasks.md",
+      "type": "document",
+      "name": "server-lifecycle-improvements tasks",
+      "filePath": "openspec/changes/archive/2026-07-16-server-lifecycle-improvements/tasks.md",
+      "summary": "Fully checked-off task list covering four sections: dynamic port extraction and cross-platform killProcessOnPort utility, version-checking and port-killing in doAutoStartServer, deactivate() cleanup of globalServerProcess, and TypeScript compilation plus extension unit test and package verification.",
+      "tags": ["openspec", "archive", "vscode-extension", "tasks", "server-lifecycle", "typescript"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/.openspec.yaml",
+      "target": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/proposal.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/.openspec.yaml",
+      "target": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/design.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/.openspec.yaml",
+      "target": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/proposal.md",
+      "target": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/design.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/design.md",
+      "target": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/proposal.md",
+      "target": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    }
+  ]
+}

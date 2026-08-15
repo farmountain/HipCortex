@@ -1,0 +1,7 @@
+{
+  "projectRoot": "D:/all_projects/hipcortex",
+  "batchFiles": [
+    {"path": "src/actors/world_model_actor.rs", "language": "rust", "sizeLines": 0, "fileCategory": "code"}
+  ],
+  "batchImportData": {"src/actors/world_model_actor.rs": ["src/modules/world_model_enhanced/mod.rs"]}
+}

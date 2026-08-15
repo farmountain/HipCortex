@@ -1,4 +1,4 @@
-use hipcortex::tx_log::{TxLog, TxKind};
+use hipcortex::tx_log::{TxKind, TxLog};
 use uuid::Uuid;
 
 #[test]
@@ -25,7 +25,11 @@ fn query_range_correctness() {
     let entries = log.query_range(start, end).unwrap();
     assert_eq!(entries.len(), 5, "expected 5 entries in [{start},{end}]");
     for e in &entries {
-        assert!(e.tx_id >= start && e.tx_id <= end, "entry out of range: {}", e.tx_id);
+        assert!(
+            e.tx_id >= start && e.tx_id <= end,
+            "entry out of range: {}",
+            e.tx_id
+        );
     }
 }
 
@@ -41,7 +45,10 @@ fn counter_restore_on_reopen() {
     };
     let log2 = TxLog::open(&path).unwrap();
     let next = log2.append(TxKind::MemoryAdd, vec![], "a");
-    assert!(next > last_id, "counter did not restore: last={last_id} next={next}");
+    assert!(
+        next > last_id,
+        "counter did not restore: last={last_id} next={next}"
+    );
 }
 
 #[test]

@@ -1,0 +1,3302 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 3,
+  "filesSkipped": [],
+  "analysisOutcomes": {
+    "structure": {
+      "succeeded": 3,
+      "failed": 0
+    },
+    "callGraph": {
+      "succeeded": 3,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "results": [
+    {
+      "path": "src/modules/loop_engine.rs",
+      "language": "rust",
+      "fileCategory": "code",
+      "totalLines": 667,
+      "nonEmptyLines": 592,
+      "functions": [
+        {
+          "name": "new",
+          "startLine": 86,
+          "endLine": 98,
+          "params": [
+            "topo"
+          ]
+        },
+        {
+          "name": "create_iteration_snapshot",
+          "startLine": 102,
+          "endLine": 139,
+          "params": []
+        },
+        {
+          "name": "run_omega_loop",
+          "startLine": 143,
+          "endLine": 188,
+          "params": []
+        },
+        {
+          "name": "process_surprise_reflexion",
+          "startLine": 192,
+          "endLine": 224,
+          "params": [
+            "state",
+            "action",
+            "outcome",
+            "surprise_epsilon"
+          ]
+        },
+        {
+          "name": "detect_coverage_gap",
+          "startLine": 228,
+          "endLine": 266,
+          "params": []
+        },
+        {
+          "name": "compute_bayesian_attribution",
+          "startLine": 271,
+          "endLine": 298,
+          "params": [
+            "epsilon"
+          ]
+        },
+        {
+          "name": "apply_tentative_mutation",
+          "startLine": 303,
+          "endLine": 341,
+          "params": [
+            "attr"
+          ]
+        },
+        {
+          "name": "propagate_uncertainty",
+          "startLine": 344,
+          "endLine": 368,
+          "params": [
+            "resolved_err"
+          ]
+        },
+        {
+          "name": "simulate_rollouts",
+          "startLine": 371,
+          "endLine": 420,
+          "params": [
+            "localized",
+            "strata"
+          ]
+        },
+        {
+          "name": "calculate_surprise",
+          "startLine": 423,
+          "endLine": 440,
+          "params": [
+            "obs_error"
+          ]
+        },
+        {
+          "name": "update_meta_beliefs",
+          "startLine": 443,
+          "endLine": 448,
+          "params": [
+            "attr"
+          ]
+        },
+        {
+          "name": "distill_traces",
+          "startLine": 452,
+          "endLine": 468,
+          "params": [
+            "_attr"
+          ]
+        },
+        {
+          "name": "new",
+          "startLine": 484,
+          "endLine": 486,
+          "params": []
+        },
+        {
+          "name": "run",
+          "startLine": 489,
+          "endLine": 562,
+          "params": [
+            "store",
+            "goal_id",
+            "_skill_hint"
+          ]
+        },
+        {
+          "name": "update_goal_status",
+          "startLine": 564,
+          "endLine": 573,
+          "params": [
+            "store",
+            "goal_id",
+            "payload"
+          ]
+        },
+        {
+          "name": "default",
+          "startLine": 577,
+          "endLine": 577,
+          "params": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "LoopMetrics",
+          "startLine": 25,
+          "endLine": 31,
+          "methods": [],
+          "properties": [
+            "iterations",
+            "snapshots_taken",
+            "gaps_detected",
+            "mutations",
+            "rollbacks"
+          ]
+        },
+        {
+          "name": "StrataTrajectory",
+          "startLine": 35,
+          "endLine": 38,
+          "methods": [],
+          "properties": [
+            "layers",
+            "coverage_score"
+          ]
+        },
+        {
+          "name": "BeliefState",
+          "startLine": 42,
+          "endLine": 44,
+          "methods": [],
+          "properties": [
+            "beliefs"
+          ]
+        },
+        {
+          "name": "IterationSnapshot",
+          "startLine": 48,
+          "endLine": 53,
+          "methods": [],
+          "properties": [
+            "topo_node_count",
+            "topo_edge_count",
+            "timestamp",
+            "belief_snapshot"
+          ]
+        },
+        {
+          "name": "SurpriseDelta",
+          "startLine": 57,
+          "endLine": 60,
+          "methods": [],
+          "properties": [
+            "magnitude",
+            "node_errors"
+          ]
+        },
+        {
+          "name": "AttributionMap",
+          "startLine": 64,
+          "endLine": 69,
+          "methods": [],
+          "properties": [
+            "topology_fault_weight",
+            "policy_fault_weight",
+            "utility_fault_weight",
+            "resolved_error"
+          ]
+        },
+        {
+          "name": "LoopEngine",
+          "startLine": 71,
+          "endLine": 81,
+          "methods": [
+            "new",
+            "create_iteration_snapshot",
+            "run_omega_loop",
+            "process_surprise_reflexion",
+            "detect_coverage_gap",
+            "compute_bayesian_attribution",
+            "apply_tentative_mutation",
+            "propagate_uncertainty",
+            "simulate_rollouts",
+            "calculate_surprise",
+            "update_meta_beliefs",
+            "distill_traces"
+          ],
+          "properties": [
+            "topo",
+            "wm",
+            "coherence",
+            "snapshot_mgr",
+            "audit",
+            "safety",
+            "metrics",
+            "active_strata",
+            "state"
+          ]
+        },
+        {
+          "name": "ReactEngine",
+          "startLine": 479,
+          "endLine": 481,
+          "methods": [
+            "new",
+            "run",
+            "update_goal_status",
+            "default"
+          ],
+          "properties": [
+            "max_iterations_override"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "LoopMetrics",
+          "line": 25,
+          "isDefault": false
+        },
+        {
+          "name": "StrataTrajectory",
+          "line": 35,
+          "isDefault": false
+        },
+        {
+          "name": "BeliefState",
+          "line": 42,
+          "isDefault": false
+        },
+        {
+          "name": "IterationSnapshot",
+          "line": 48,
+          "isDefault": false
+        },
+        {
+          "name": "SurpriseDelta",
+          "line": 57,
+          "isDefault": false
+        },
+        {
+          "name": "AttributionMap",
+          "line": 64,
+          "isDefault": false
+        },
+        {
+          "name": "LoopEngine",
+          "line": 71,
+          "isDefault": false
+        },
+        {
+          "name": "new",
+          "line": 86,
+          "isDefault": false
+        },
+        {
+          "name": "create_iteration_snapshot",
+          "line": 102,
+          "isDefault": false
+        },
+        {
+          "name": "run_omega_loop",
+          "line": 143,
+          "isDefault": false
+        },
+        {
+          "name": "process_surprise_reflexion",
+          "line": 192,
+          "isDefault": false
+        },
+        {
+          "name": "detect_coverage_gap",
+          "line": 228,
+          "isDefault": false
+        },
+        {
+          "name": "compute_bayesian_attribution",
+          "line": 271,
+          "isDefault": false
+        },
+        {
+          "name": "apply_tentative_mutation",
+          "line": 303,
+          "isDefault": false
+        },
+        {
+          "name": "simulate_rollouts",
+          "line": 371,
+          "isDefault": false
+        },
+        {
+          "name": "calculate_surprise",
+          "line": 423,
+          "isDefault": false
+        },
+        {
+          "name": "update_meta_beliefs",
+          "line": 443,
+          "isDefault": false
+        },
+        {
+          "name": "distill_traces",
+          "line": 452,
+          "isDefault": false
+        },
+        {
+          "name": "ReactEngine",
+          "line": 479,
+          "isDefault": false
+        },
+        {
+          "name": "new",
+          "line": 484,
+          "isDefault": false
+        },
+        {
+          "name": "run",
+          "line": 489,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "new",
+          "callee": "WorldModelEnhanced::new",
+          "lineNumber": 89
+        },
+        {
+          "caller": "new",
+          "callee": "CoherenceChecker::new",
+          "lineNumber": 90
+        },
+        {
+          "caller": "new",
+          "callee": "AuditLog::new_sink",
+          "lineNumber": 92
+        },
+        {
+          "caller": "new",
+          "callee": "SafetyGuardrail::new",
+          "lineNumber": 93
+        },
+        {
+          "caller": "new",
+          "callee": "LoopMetrics::default",
+          "lineNumber": 94
+        },
+        {
+          "caller": "new",
+          "callee": "BeliefState::default",
+          "lineNumber": 96
+        },
+        {
+          "caller": "create_iteration_snapshot",
+          "callee": "self.safety.check_precondition",
+          "lineNumber": 105
+        },
+        {
+          "caller": "create_iteration_snapshot",
+          "callee": "Err",
+          "lineNumber": 106
+        },
+        {
+          "caller": "create_iteration_snapshot",
+          "callee": "self.topo.to_serializable",
+          "lineNumber": 112
+        },
+        {
+          "caller": "create_iteration_snapshot",
+          "callee": "std::env::temp_dir",
+          "lineNumber": 113
+        },
+        {
+          "caller": "create_iteration_snapshot",
+          "callee": "uuid::Uuid::new_v4",
+          "lineNumber": 114
+        },
+        {
+          "caller": "create_iteration_snapshot",
+          "callee": "temp_dir.join",
+          "lineNumber": 116
+        },
+        {
+          "caller": "create_iteration_snapshot",
+          "callee": "serde_json::to_string(&serializable).map_err",
+          "lineNumber": 118
+        },
+        {
+          "caller": "create_iteration_snapshot",
+          "callee": "serde_json::to_string",
+          "lineNumber": 118
+        },
+        {
+          "caller": "create_iteration_snapshot",
+          "callee": "std::fs::write(&temp_path, json_data).map_err",
+          "lineNumber": 120
+        },
+        {
+          "caller": "create_iteration_snapshot",
+          "callee": "std::fs::write",
+          "lineNumber": 120
+        },
+        {
+          "caller": "create_iteration_snapshot",
+          "callee": "SnapshotManager::save(&temp_path, &tag).map_err",
+          "lineNumber": 125
+        },
+        {
+          "caller": "create_iteration_snapshot",
+          "callee": "SnapshotManager::save",
+          "lineNumber": 125
+        },
+        {
+          "caller": "create_iteration_snapshot",
+          "callee": "std::fs::remove_file",
+          "lineNumber": 129
+        },
+        {
+          "caller": "create_iteration_snapshot",
+          "callee": "std::fs::remove_file",
+          "lineNumber": 130
+        },
+        {
+          "caller": "create_iteration_snapshot",
+          "callee": "self.topo.node_count",
+          "lineNumber": 133
+        },
+        {
+          "caller": "create_iteration_snapshot",
+          "callee": "serializable.edges.len",
+          "lineNumber": 134
+        },
+        {
+          "caller": "create_iteration_snapshot",
+          "callee": "chrono::Utc::now().timestamp",
+          "lineNumber": 135
+        },
+        {
+          "caller": "create_iteration_snapshot",
+          "callee": "chrono::Utc::now",
+          "lineNumber": 135
+        },
+        {
+          "caller": "create_iteration_snapshot",
+          "callee": "self.state.clone",
+          "lineNumber": 136
+        },
+        {
+          "caller": "create_iteration_snapshot",
+          "callee": "Ok",
+          "lineNumber": 138
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "self.create_iteration_snapshot",
+          "lineNumber": 145
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "self.detect_coverage_gap",
+          "lineNumber": 149
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "Some",
+          "lineNumber": 150
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "self.active_strata.clone().unwrap_or_default",
+          "lineNumber": 152
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "self.active_strata.clone",
+          "lineNumber": 152
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "self.wm.get_transition_uncertainty",
+          "lineNumber": 156
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "(unc as f32 * 0.8).max",
+          "lineNumber": 157
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "self.topo.node_count",
+          "lineNumber": 158
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "self.topo.personalized_pagerank",
+          "lineNumber": 160
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "\"root\".to_string",
+          "lineNumber": 160
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "ranks.get",
+          "lineNumber": 161
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "(0.2 + *r * 0.3).min",
+          "lineNumber": 162
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "self.topo.node_count",
+          "lineNumber": 167
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "self.topo.extract_localized_subgraph",
+          "lineNumber": 168
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "self.simulate_rollouts",
+          "lineNumber": 169
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "self.calculate_surprise",
+          "lineNumber": 172
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "self.compute_bayesian_attribution",
+          "lineNumber": 175
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "self.apply_tentative_mutation",
+          "lineNumber": 178
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "self.audit.append",
+          "lineNumber": 180
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "self.update_meta_beliefs",
+          "lineNumber": 183
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "self.distill_traces",
+          "lineNumber": 184
+        },
+        {
+          "caller": "run_omega_loop",
+          "callee": "Ok",
+          "lineNumber": 187
+        },
+        {
+          "caller": "process_surprise_reflexion",
+          "callee": "self.wm.transitions.write",
+          "lineNumber": 195
+        },
+        {
+          "caller": "process_surprise_reflexion",
+          "callee": "trans.record_transition",
+          "lineNumber": 196
+        },
+        {
+          "caller": "process_surprise_reflexion",
+          "callee": "state.to_string",
+          "lineNumber": 197
+        },
+        {
+          "caller": "process_surprise_reflexion",
+          "callee": "action.to_string",
+          "lineNumber": 198
+        },
+        {
+          "caller": "process_surprise_reflexion",
+          "callee": "outcome.to_string",
+          "lineNumber": 199
+        },
+        {
+          "caller": "process_surprise_reflexion",
+          "callee": "Ok",
+          "lineNumber": 202
+        },
+        {
+          "caller": "process_surprise_reflexion",
+          "callee": "self.wm.transitions.write",
+          "lineNumber": 206
+        },
+        {
+          "caller": "process_surprise_reflexion",
+          "callee": "trans.update_with_system_id",
+          "lineNumber": 207
+        },
+        {
+          "caller": "process_surprise_reflexion",
+          "callee": "self.wm.transitions.read",
+          "lineNumber": 211
+        },
+        {
+          "caller": "process_surprise_reflexion",
+          "callee": "self.coherence.verify_coherence",
+          "lineNumber": 212
+        },
+        {
+          "caller": "process_surprise_reflexion",
+          "callee": "Err",
+          "lineNumber": 219
+        },
+        {
+          "caller": "process_surprise_reflexion",
+          "callee": "\"System-ID update rejected by Coherence Gate due to paradox or safety violation\".to_string",
+          "lineNumber": 219
+        },
+        {
+          "caller": "process_surprise_reflexion",
+          "callee": "Ok",
+          "lineNumber": 223
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "self.topo.node_count",
+          "lineNumber": 229
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "Some",
+          "lineNumber": 231
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "self.topo.personalized_pagerank",
+          "lineNumber": 236
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "ranks.is_empty",
+          "lineNumber": 237
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "Some",
+          "lineNumber": 238
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "ranks.values().copied().collect",
+          "lineNumber": 244
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "ranks.values().copied",
+          "lineNumber": 244
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "ranks.values",
+          "lineNumber": 244
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "vals.sort_by",
+          "lineNumber": 245
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "b.partial_cmp(a).unwrap_or",
+          "lineNumber": 245
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "b.partial_cmp",
+          "lineNumber": 245
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "vals.iter().sum::<f32>().max",
+          "lineNumber": 246
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "vals.iter().sum::<f32>",
+          "lineNumber": 246
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "vals.iter",
+          "lineNumber": 246
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "(1.0 - top_share).clamp",
+          "lineNumber": 248
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "vals\r\n                .iter()\r\n                .zip(ranks.keys())\r\n                .take(3)\r\n                .map(|(_, k)| k.clone()).collect",
+          "lineNumber": 251
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "vals\r\n                .iter()\r\n                .zip(ranks.keys())\r\n                .take(3).map",
+          "lineNumber": 251
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "vals\r\n                .iter()\r\n                .zip(ranks.keys()).take",
+          "lineNumber": 251
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "vals\r\n                .iter().zip",
+          "lineNumber": 251
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "vals.iter",
+          "lineNumber": 251
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "ranks.keys",
+          "lineNumber": 253
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "k.clone",
+          "lineNumber": 255
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "layers.is_empty",
+          "lineNumber": 257
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "layers.push",
+          "lineNumber": 258
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "\"sparse_topology\".into",
+          "lineNumber": 258
+        },
+        {
+          "caller": "detect_coverage_gap",
+          "callee": "Some",
+          "lineNumber": 260
+        },
+        {
+          "caller": "compute_bayesian_attribution",
+          "callee": "epsilon.node_errors.values().sum",
+          "lineNumber": 278
+        },
+        {
+          "caller": "compute_bayesian_attribution",
+          "callee": "epsilon.node_errors.values",
+          "lineNumber": 278
+        },
+        {
+          "caller": "compute_bayesian_attribution",
+          "callee": "self.topo.node_count",
+          "lineNumber": 279
+        },
+        {
+          "caller": "compute_bayesian_attribution",
+          "callee": "(self.topo.node_count() as f32).sqrt",
+          "lineNumber": 279
+        },
+        {
+          "caller": "compute_bayesian_attribution",
+          "callee": "self.topo.node_count",
+          "lineNumber": 279
+        },
+        {
+          "caller": "compute_bayesian_attribution",
+          "callee": "(k_t * epsilon.magnitude + error_mass * 0.6 + topo_prior * 0.1).clamp",
+          "lineNumber": 280
+        },
+        {
+          "caller": "compute_bayesian_attribution",
+          "callee": "(epsilon.magnitude * (0.5 + topo_w)).clamp",
+          "lineNumber": 296
+        },
+        {
+          "caller": "apply_tentative_mutation",
+          "callee": "self.safety.check_precondition",
+          "lineNumber": 304
+        },
+        {
+          "caller": "apply_tentative_mutation",
+          "callee": "Err",
+          "lineNumber": 306
+        },
+        {
+          "caller": "apply_tentative_mutation",
+          "callee": "self.coherence.gate_write",
+          "lineNumber": 310
+        },
+        {
+          "caller": "apply_tentative_mutation",
+          "callee": "self.audit.append",
+          "lineNumber": 315
+        },
+        {
+          "caller": "apply_tentative_mutation",
+          "callee": "Err",
+          "lineNumber": 316
+        },
+        {
+          "caller": "apply_tentative_mutation",
+          "callee": "self.topo.node_count",
+          "lineNumber": 323
+        },
+        {
+          "caller": "apply_tentative_mutation",
+          "callee": "self.topo.add_node",
+          "lineNumber": 326
+        },
+        {
+          "caller": "apply_tentative_mutation",
+          "callee": "synth.clone",
+          "lineNumber": 326
+        },
+        {
+          "caller": "apply_tentative_mutation",
+          "callee": "HashMap::new",
+          "lineNumber": 327
+        },
+        {
+          "caller": "apply_tentative_mutation",
+          "callee": "p.insert",
+          "lineNumber": 328
+        },
+        {
+          "caller": "apply_tentative_mutation",
+          "callee": "\"attr_weight\".into",
+          "lineNumber": 328
+        },
+        {
+          "caller": "apply_tentative_mutation",
+          "callee": "attr.topology_fault_weight.to_string",
+          "lineNumber": 328
+        },
+        {
+          "caller": "apply_tentative_mutation",
+          "callee": "self.propagate_uncertainty",
+          "lineNumber": 334
+        },
+        {
+          "caller": "apply_tentative_mutation",
+          "callee": "self.audit.append",
+          "lineNumber": 338
+        },
+        {
+          "caller": "apply_tentative_mutation",
+          "callee": "Ok",
+          "lineNumber": 340
+        },
+        {
+          "caller": "propagate_uncertainty",
+          "callee": "resolved_err.clamp",
+          "lineNumber": 348
+        },
+        {
+          "caller": "propagate_uncertainty",
+          "callee": "self.topo.to_serializable",
+          "lineNumber": 349
+        },
+        {
+          "caller": "propagate_uncertainty",
+          "callee": "ser.edges.iter_mut",
+          "lineNumber": 351
+        },
+        {
+          "caller": "propagate_uncertainty",
+          "callee": "(e.confidence * decay).clamp",
+          "lineNumber": 353
+        },
+        {
+          "caller": "propagate_uncertainty",
+          "callee": "(before - e.confidence).abs",
+          "lineNumber": 354
+        },
+        {
+          "caller": "propagate_uncertainty",
+          "callee": "CausalTopoGraph::from_serializable",
+          "lineNumber": 359
+        },
+        {
+          "caller": "propagate_uncertainty",
+          "callee": "self.audit.append",
+          "lineNumber": 362
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "localized.personalized_pagerank",
+          "lineNumber": 373
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "ranks\r\n            .into_iter()\r\n            .map(|(k, _)| k)\r\n            .chain(strata.layers.iter().cloned()).collect",
+          "lineNumber": 374
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "ranks\r\n            .into_iter()\r\n            .map(|(k, _)| k).chain",
+          "lineNumber": 374
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "ranks\r\n            .into_iter().map",
+          "lineNumber": 374
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "ranks.into_iter",
+          "lineNumber": 374
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "strata.layers.iter().cloned",
+          "lineNumber": 377
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "strata.layers.iter",
+          "lineNumber": 377
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "seeds.sort",
+          "lineNumber": 379
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "seeds.dedup",
+          "lineNumber": 380
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "seeds.iter().take",
+          "lineNumber": 383
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "seeds.iter",
+          "lineNumber": 383
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "self.wm.predict_next_state",
+          "lineNumber": 385
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "out.push",
+          "lineNumber": 388
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "out.is_empty",
+          "lineNumber": 391
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "out.is_empty",
+          "lineNumber": 396
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "out.is_empty",
+          "lineNumber": 401
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "self.wm.rollout_dirichlet",
+          "lineNumber": 402
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "seeds.first().cloned().unwrap_or_else",
+          "lineNumber": 403
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "seeds.first().cloned",
+          "lineNumber": 403
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "seeds.first",
+          "lineNumber": 403
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "\"idle\".into",
+          "lineNumber": 403
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "out.push",
+          "lineNumber": 406
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "out.is_empty",
+          "lineNumber": 409
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "out.push",
+          "lineNumber": 410
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "localized.node_count",
+          "lineNumber": 411
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "\"empty_sim\".into",
+          "lineNumber": 412
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "\"sim_fallback_next\".into",
+          "lineNumber": 414
+        },
+        {
+          "caller": "simulate_rollouts",
+          "callee": "localized.node_count",
+          "lineNumber": 416
+        },
+        {
+          "caller": "calculate_surprise",
+          "callee": "HashMap::new",
+          "lineNumber": 424
+        },
+        {
+          "caller": "calculate_surprise",
+          "callee": "self.topo.node_count",
+          "lineNumber": 426
+        },
+        {
+          "caller": "calculate_surprise",
+          "callee": "node_errs.insert",
+          "lineNumber": 427
+        },
+        {
+          "caller": "calculate_surprise",
+          "callee": "\"root\".to_string",
+          "lineNumber": 427
+        },
+        {
+          "caller": "calculate_surprise",
+          "callee": "self.topo.personalized_pagerank",
+          "lineNumber": 429
+        },
+        {
+          "caller": "calculate_surprise",
+          "callee": "\"root\".to_string",
+          "lineNumber": 429
+        },
+        {
+          "caller": "calculate_surprise",
+          "callee": "ranks.iter().take",
+          "lineNumber": 430
+        },
+        {
+          "caller": "calculate_surprise",
+          "callee": "ranks.iter",
+          "lineNumber": 430
+        },
+        {
+          "caller": "calculate_surprise",
+          "callee": "node_errs.insert",
+          "lineNumber": 432
+        },
+        {
+          "caller": "calculate_surprise",
+          "callee": "n.clone",
+          "lineNumber": 432
+        },
+        {
+          "caller": "calculate_surprise",
+          "callee": "obs_error.max",
+          "lineNumber": 437
+        },
+        {
+          "caller": "update_meta_beliefs",
+          "callee": "self.state.beliefs.entry(\"kappa_topo\".into()).or_insert",
+          "lineNumber": 444
+        },
+        {
+          "caller": "update_meta_beliefs",
+          "callee": "self.state.beliefs.entry",
+          "lineNumber": 444
+        },
+        {
+          "caller": "update_meta_beliefs",
+          "callee": "\"kappa_topo\".into",
+          "lineNumber": 444
+        },
+        {
+          "caller": "update_meta_beliefs",
+          "callee": "self.state.beliefs.entry(\"kappa_policy\".into()).or_insert",
+          "lineNumber": 445
+        },
+        {
+          "caller": "update_meta_beliefs",
+          "callee": "self.state.beliefs.entry",
+          "lineNumber": 445
+        },
+        {
+          "caller": "update_meta_beliefs",
+          "callee": "\"kappa_policy\".into",
+          "lineNumber": 445
+        },
+        {
+          "caller": "update_meta_beliefs",
+          "callee": "self.state.beliefs.entry(\"kappa_utility\".into()).or_insert",
+          "lineNumber": 446
+        },
+        {
+          "caller": "update_meta_beliefs",
+          "callee": "self.state.beliefs.entry",
+          "lineNumber": 446
+        },
+        {
+          "caller": "update_meta_beliefs",
+          "callee": "\"kappa_utility\".into",
+          "lineNumber": 446
+        },
+        {
+          "caller": "update_meta_beliefs",
+          "callee": "self.state.beliefs.entry(\"kappa_resolved\".into()).or_insert",
+          "lineNumber": 447
+        },
+        {
+          "caller": "update_meta_beliefs",
+          "callee": "self.state.beliefs.entry",
+          "lineNumber": 447
+        },
+        {
+          "caller": "update_meta_beliefs",
+          "callee": "\"kappa_resolved\".into",
+          "lineNumber": 447
+        },
+        {
+          "caller": "distill_traces",
+          "callee": "self.topo.to_serializable",
+          "lineNumber": 453
+        },
+        {
+          "caller": "distill_traces",
+          "callee": "serializable.edges.len",
+          "lineNumber": 454
+        },
+        {
+          "caller": "distill_traces",
+          "callee": "serializable.edges.retain",
+          "lineNumber": 457
+        },
+        {
+          "caller": "distill_traces",
+          "callee": "serializable.edges.len",
+          "lineNumber": 461
+        },
+        {
+          "caller": "distill_traces",
+          "callee": "CausalTopoGraph::from_serializable",
+          "lineNumber": 463
+        },
+        {
+          "caller": "distill_traces",
+          "callee": "Ok",
+          "lineNumber": 467
+        },
+        {
+          "caller": "run",
+          "callee": "store.find_by_id(goal_id)\r\n            .ok_or_else(|| format!(\"Goal not found: {}\", goal_id))?.clone",
+          "lineNumber": 498
+        },
+        {
+          "caller": "run",
+          "callee": "store.find_by_id(goal_id).ok_or_else",
+          "lineNumber": 498
+        },
+        {
+          "caller": "run",
+          "callee": "store.find_by_id",
+          "lineNumber": 498
+        },
+        {
+          "caller": "run",
+          "callee": "serde_json::from_value(goal_record.metadata.clone()).map_err",
+          "lineNumber": 501
+        },
+        {
+          "caller": "run",
+          "callee": "serde_json::from_value",
+          "lineNumber": 501
+        },
+        {
+          "caller": "run",
+          "callee": "goal_record.metadata.clone",
+          "lineNumber": 501
+        },
+        {
+          "caller": "run",
+          "callee": "self.max_iterations_override.unwrap_or",
+          "lineNumber": 504
+        },
+        {
+          "caller": "run",
+          "callee": "MemoryRecord::new",
+          "lineNumber": 522
+        },
+        {
+          "caller": "run",
+          "callee": "\"react_engine\".to_string",
+          "lineNumber": 524
+        },
+        {
+          "caller": "run",
+          "callee": "\"observe\".to_string",
+          "lineNumber": 525
+        },
+        {
+          "caller": "run",
+          "callee": "goal_payload.target_state.clone",
+          "lineNumber": 526
+        },
+        {
+          "caller": "run",
+          "callee": "Some",
+          "lineNumber": 529
+        },
+        {
+          "caller": "run",
+          "callee": "Some",
+          "lineNumber": 530
+        },
+        {
+          "caller": "run",
+          "callee": "store.add(obs).map_err",
+          "lineNumber": 531
+        },
+        {
+          "caller": "run",
+          "callee": "store.add",
+          "lineNumber": 531
+        },
+        {
+          "caller": "run",
+          "callee": "goal_payload.success_factors.iter().all",
+          "lineNumber": 533
+        },
+        {
+          "caller": "run",
+          "callee": "goal_payload.success_factors.iter",
+          "lineNumber": 533
+        },
+        {
+          "caller": "run",
+          "callee": "self.update_goal_status",
+          "lineNumber": 537
+        },
+        {
+          "caller": "run",
+          "callee": "Ok",
+          "lineNumber": 538
+        },
+        {
+          "caller": "run",
+          "callee": "MemoryRecord::new",
+          "lineNumber": 547
+        },
+        {
+          "caller": "run",
+          "callee": "\"react_engine\".to_string",
+          "lineNumber": 549
+        },
+        {
+          "caller": "run",
+          "callee": "\"reflect\".to_string",
+          "lineNumber": 550
+        },
+        {
+          "caller": "run",
+          "callee": "goal_payload.target_state.clone",
+          "lineNumber": 551
+        },
+        {
+          "caller": "run",
+          "callee": "Some",
+          "lineNumber": 554
+        },
+        {
+          "caller": "run",
+          "callee": "Some",
+          "lineNumber": 555
+        },
+        {
+          "caller": "run",
+          "callee": "store.add(reflection).map_err",
+          "lineNumber": 556
+        },
+        {
+          "caller": "run",
+          "callee": "store.add",
+          "lineNumber": 556
+        },
+        {
+          "caller": "run",
+          "callee": "self.update_goal_status",
+          "lineNumber": 560
+        },
+        {
+          "caller": "run",
+          "callee": "Ok",
+          "lineNumber": 561
+        },
+        {
+          "caller": "update_goal_status",
+          "callee": "store.update_record(goal_id, None, None, None, None, Some(serde_json::to_value(payload).unwrap()))\r\n            .map(|_| ()).map_err",
+          "lineNumber": 570
+        },
+        {
+          "caller": "update_goal_status",
+          "callee": "store.update_record(goal_id, None, None, None, None, Some(serde_json::to_value(payload).unwrap())).map",
+          "lineNumber": 570
+        },
+        {
+          "caller": "update_goal_status",
+          "callee": "store.update_record",
+          "lineNumber": 570
+        },
+        {
+          "caller": "update_goal_status",
+          "callee": "Some",
+          "lineNumber": 570
+        },
+        {
+          "caller": "update_goal_status",
+          "callee": "serde_json::to_value(payload).unwrap",
+          "lineNumber": 570
+        },
+        {
+          "caller": "update_goal_status",
+          "callee": "serde_json::to_value",
+          "lineNumber": 570
+        },
+        {
+          "caller": "default",
+          "callee": "Self::new",
+          "lineNumber": 577
+        },
+        {
+          "caller": "test_omega_loop_snapshot",
+          "callee": "CausalTopoGraph::new",
+          "lineNumber": 586
+        },
+        {
+          "caller": "test_omega_loop_snapshot",
+          "callee": "LoopEngine::new",
+          "lineNumber": 587
+        },
+        {
+          "caller": "test_omega_loop_snapshot",
+          "callee": "engine.create_iteration_snapshot",
+          "lineNumber": 588
+        },
+        {
+          "caller": "test_omega_loop_gap_detection_stub",
+          "callee": "CausalTopoGraph::new",
+          "lineNumber": 594
+        },
+        {
+          "caller": "test_omega_loop_gap_detection_stub",
+          "callee": "LoopEngine::new",
+          "lineNumber": 595
+        },
+        {
+          "caller": "test_omega_loop_gap_detection_stub",
+          "callee": "engine.detect_coverage_gap",
+          "lineNumber": 596
+        },
+        {
+          "caller": "test_omega_loop_basic_run_snapshot_strata",
+          "callee": "CausalTopoGraph::new",
+          "lineNumber": 603
+        },
+        {
+          "caller": "test_omega_loop_basic_run_snapshot_strata",
+          "callee": "LoopEngine::new",
+          "lineNumber": 604
+        },
+        {
+          "caller": "test_omega_loop_basic_run_snapshot_strata",
+          "callee": "engine.run_omega_loop",
+          "lineNumber": 605
+        },
+        {
+          "caller": "test_bayesian_attribution_and_mutation",
+          "callee": "LoopEngine::new",
+          "lineNumber": 616
+        },
+        {
+          "caller": "test_bayesian_attribution_and_mutation",
+          "callee": "CausalTopoGraph::new",
+          "lineNumber": 616
+        },
+        {
+          "caller": "test_bayesian_attribution_and_mutation",
+          "callee": "engine.topo.add_node",
+          "lineNumber": 618
+        },
+        {
+          "caller": "test_bayesian_attribution_and_mutation",
+          "callee": "\"nodeX\".into",
+          "lineNumber": 618
+        },
+        {
+          "caller": "test_bayesian_attribution_and_mutation",
+          "callee": "HashMap::new",
+          "lineNumber": 618
+        },
+        {
+          "caller": "test_bayesian_attribution_and_mutation",
+          "callee": "engine.topo.add_node",
+          "lineNumber": 619
+        },
+        {
+          "caller": "test_bayesian_attribution_and_mutation",
+          "callee": "\"nodeY\".into",
+          "lineNumber": 619
+        },
+        {
+          "caller": "test_bayesian_attribution_and_mutation",
+          "callee": "HashMap::new",
+          "lineNumber": 619
+        },
+        {
+          "caller": "test_bayesian_attribution_and_mutation",
+          "callee": "HashMap::new",
+          "lineNumber": 623
+        },
+        {
+          "caller": "test_bayesian_attribution_and_mutation",
+          "callee": "m.insert",
+          "lineNumber": 624
+        },
+        {
+          "caller": "test_bayesian_attribution_and_mutation",
+          "callee": "\"nodeX\".to_string",
+          "lineNumber": 624
+        },
+        {
+          "caller": "test_bayesian_attribution_and_mutation",
+          "callee": "engine.compute_bayesian_attribution",
+          "lineNumber": 628
+        },
+        {
+          "caller": "test_bayesian_attribution_and_mutation",
+          "callee": "engine.apply_tentative_mutation",
+          "lineNumber": 632
+        },
+        {
+          "caller": "test_simulate_rollouts_and_surprise",
+          "callee": "CausalTopoGraph::new",
+          "lineNumber": 638
+        },
+        {
+          "caller": "test_simulate_rollouts_and_surprise",
+          "callee": "topo.add_node",
+          "lineNumber": 639
+        },
+        {
+          "caller": "test_simulate_rollouts_and_surprise",
+          "callee": "\"stateA\".into",
+          "lineNumber": 639
+        },
+        {
+          "caller": "test_simulate_rollouts_and_surprise",
+          "callee": "HashMap::new",
+          "lineNumber": 639
+        },
+        {
+          "caller": "test_simulate_rollouts_and_surprise",
+          "callee": "topo.add_node",
+          "lineNumber": 640
+        },
+        {
+          "caller": "test_simulate_rollouts_and_surprise",
+          "callee": "\"stateB\".into",
+          "lineNumber": 640
+        },
+        {
+          "caller": "test_simulate_rollouts_and_surprise",
+          "callee": "HashMap::new",
+          "lineNumber": 640
+        },
+        {
+          "caller": "test_simulate_rollouts_and_surprise",
+          "callee": "topo.add_edge",
+          "lineNumber": 641
+        },
+        {
+          "caller": "test_simulate_rollouts_and_surprise",
+          "callee": "\"stateA\".into",
+          "lineNumber": 641
+        },
+        {
+          "caller": "test_simulate_rollouts_and_surprise",
+          "callee": "\"stateB\".into",
+          "lineNumber": 641
+        },
+        {
+          "caller": "test_simulate_rollouts_and_surprise",
+          "callee": "LoopEngine::new",
+          "lineNumber": 642
+        },
+        {
+          "caller": "test_simulate_rollouts_and_surprise",
+          "callee": "engine.wm.observe_transition",
+          "lineNumber": 644
+        },
+        {
+          "caller": "test_simulate_rollouts_and_surprise",
+          "callee": "\"stateA\".into",
+          "lineNumber": 644
+        },
+        {
+          "caller": "test_simulate_rollouts_and_surprise",
+          "callee": "\"move\".into",
+          "lineNumber": 644
+        },
+        {
+          "caller": "test_simulate_rollouts_and_surprise",
+          "callee": "\"stateB\".into",
+          "lineNumber": 644
+        },
+        {
+          "caller": "test_simulate_rollouts_and_surprise",
+          "callee": "engine.topo.extract_localized_subgraph",
+          "lineNumber": 646
+        },
+        {
+          "caller": "test_simulate_rollouts_and_surprise",
+          "callee": "\"stateA\".to_string",
+          "lineNumber": 646
+        },
+        {
+          "caller": "test_simulate_rollouts_and_surprise",
+          "callee": "engine.simulate_rollouts",
+          "lineNumber": 647
+        },
+        {
+          "caller": "test_simulate_rollouts_and_surprise",
+          "callee": "engine.calculate_surprise",
+          "lineNumber": 650
+        },
+        {
+          "caller": "test_full_omega_cycle_reaches_mutation_attr",
+          "callee": "CausalTopoGraph::new",
+          "lineNumber": 656
+        },
+        {
+          "caller": "test_full_omega_cycle_reaches_mutation_attr",
+          "callee": "topo.add_node",
+          "lineNumber": 657
+        },
+        {
+          "caller": "test_full_omega_cycle_reaches_mutation_attr",
+          "callee": "\"root\".into",
+          "lineNumber": 657
+        },
+        {
+          "caller": "test_full_omega_cycle_reaches_mutation_attr",
+          "callee": "HashMap::new",
+          "lineNumber": 657
+        },
+        {
+          "caller": "test_full_omega_cycle_reaches_mutation_attr",
+          "callee": "LoopEngine::new",
+          "lineNumber": 658
+        },
+        {
+          "caller": "test_full_omega_cycle_reaches_mutation_attr",
+          "callee": "engine.wm.observe_transition",
+          "lineNumber": 660
+        },
+        {
+          "caller": "test_full_omega_cycle_reaches_mutation_attr",
+          "callee": "\"root\".into",
+          "lineNumber": 660
+        },
+        {
+          "caller": "test_full_omega_cycle_reaches_mutation_attr",
+          "callee": "\"act\".into",
+          "lineNumber": 660
+        },
+        {
+          "caller": "test_full_omega_cycle_reaches_mutation_attr",
+          "callee": "\"next\".into",
+          "lineNumber": 660
+        },
+        {
+          "caller": "test_full_omega_cycle_reaches_mutation_attr",
+          "callee": "engine.run_omega_loop",
+          "lineNumber": 661
+        }
+      ],
+      "metrics": {
+        "importCount": 4,
+        "exportCount": 21,
+        "functionCount": 16,
+        "classCount": 8
+      }
+    },
+    {
+      "path": "src/modules/self_model/decision.rs",
+      "language": "rust",
+      "fileCategory": "code",
+      "totalLines": 767,
+      "nonEmptyLines": 651,
+      "functions": [
+        {
+          "name": "default_context",
+          "startLine": 38,
+          "endLine": 45,
+          "params": []
+        },
+        {
+          "name": "high_priority",
+          "startLine": 48,
+          "endLine": 55,
+          "params": []
+        },
+        {
+          "name": "critical",
+          "startLine": 58,
+          "endLine": 65,
+          "params": []
+        },
+        {
+          "name": "approve",
+          "startLine": 89,
+          "endLine": 97,
+          "params": [
+            "rationale",
+            "confidence",
+            "predicted_resources",
+            "eu"
+          ]
+        },
+        {
+          "name": "reject",
+          "startLine": 100,
+          "endLine": 108,
+          "params": [
+            "rationale",
+            "confidence",
+            "eu"
+          ]
+        },
+        {
+          "name": "new",
+          "startLine": 134,
+          "endLine": 143,
+          "params": []
+        },
+        {
+          "name": "record_decision",
+          "startLine": 145,
+          "endLine": 158,
+          "params": [
+            "decision"
+          ]
+        },
+        {
+          "name": "record_validation",
+          "startLine": 160,
+          "endLine": 163,
+          "params": [
+            "_was_correct"
+          ]
+        },
+        {
+          "name": "approval_rate",
+          "startLine": 165,
+          "endLine": 171,
+          "params": []
+        },
+        {
+          "name": "default",
+          "startLine": 194,
+          "endLine": 202,
+          "params": []
+        },
+        {
+          "name": "new",
+          "startLine": 213,
+          "endLine": 215,
+          "params": []
+        },
+        {
+          "name": "with_config",
+          "startLine": 218,
+          "endLine": 223,
+          "params": [
+            "config"
+          ]
+        },
+        {
+          "name": "evaluate",
+          "startLine": 235,
+          "endLine": 342,
+          "params": [
+            "operation",
+            "context",
+            "success_rate",
+            "predicted_resources",
+            "health_score"
+          ]
+        },
+        {
+          "name": "compute_expected_utility",
+          "startLine": 353,
+          "endLine": 379,
+          "params": [
+            "context",
+            "success_rate",
+            "predicted_resources",
+            "health_score"
+          ]
+        },
+        {
+          "name": "adaptive_threshold",
+          "startLine": 385,
+          "endLine": 405,
+          "params": []
+        },
+        {
+          "name": "validate_decision",
+          "startLine": 408,
+          "endLine": 410,
+          "params": [
+            "was_correct"
+          ]
+        },
+        {
+          "name": "get_stats",
+          "startLine": 413,
+          "endLine": 420,
+          "params": []
+        },
+        {
+          "name": "get_config",
+          "startLine": 423,
+          "endLine": 425,
+          "params": []
+        },
+        {
+          "name": "update_config",
+          "startLine": 428,
+          "endLine": 430,
+          "params": [
+            "config"
+          ]
+        },
+        {
+          "name": "default",
+          "startLine": 434,
+          "endLine": 436,
+          "params": []
+        },
+        {
+          "name": "evaluate",
+          "startLine": 440,
+          "endLine": 449,
+          "params": [
+            "operation",
+            "context",
+            "success_rate",
+            "resources",
+            "health_score"
+          ]
+        },
+        {
+          "name": "record_outcome",
+          "startLine": 451,
+          "endLine": 451,
+          "params": [
+            "_operation",
+            "_approved"
+          ]
+        },
+        {
+          "name": "min_utility",
+          "startLine": 453,
+          "endLine": 455,
+          "params": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "DecisionContext",
+          "startLine": 22,
+          "endLine": 34,
+          "methods": [
+            "default_context",
+            "high_priority",
+            "critical"
+          ],
+          "properties": [
+            "priority",
+            "deadline",
+            "user_facing",
+            "cascading_impact"
+          ]
+        },
+        {
+          "name": "Decision",
+          "startLine": 70,
+          "endLine": 85,
+          "methods": [
+            "approve",
+            "reject"
+          ],
+          "properties": [
+            "should_execute",
+            "confidence",
+            "rationale",
+            "predicted_resources",
+            "expected_utility"
+          ]
+        },
+        {
+          "name": "DecisionHistory",
+          "startLine": 113,
+          "endLine": 131,
+          "methods": [
+            "new",
+            "record_decision",
+            "record_validation",
+            "approval_rate"
+          ],
+          "properties": [
+            "decisions_made",
+            "approved",
+            "rejected",
+            "correct_decisions",
+            "avg_approved_eu",
+            "avg_rejected_eu"
+          ]
+        },
+        {
+          "name": "DecisionConfig",
+          "startLine": 176,
+          "endLine": 191,
+          "methods": [
+            "default"
+          ],
+          "properties": [
+            "min_success_rate",
+            "max_resource_usage",
+            "min_health_score",
+            "min_expected_utility",
+            "adaptive"
+          ]
+        },
+        {
+          "name": "DecisionEngine",
+          "startLine": 206,
+          "endLine": 209,
+          "methods": [
+            "new",
+            "with_config",
+            "evaluate",
+            "compute_expected_utility",
+            "adaptive_threshold",
+            "validate_decision",
+            "get_stats",
+            "get_config",
+            "update_config",
+            "default",
+            "evaluate",
+            "record_outcome",
+            "min_utility"
+          ],
+          "properties": [
+            "config",
+            "history"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "DecisionContext",
+          "line": 22,
+          "isDefault": false
+        },
+        {
+          "name": "default_context",
+          "line": 38,
+          "isDefault": false
+        },
+        {
+          "name": "high_priority",
+          "line": 48,
+          "isDefault": false
+        },
+        {
+          "name": "critical",
+          "line": 58,
+          "isDefault": false
+        },
+        {
+          "name": "Decision",
+          "line": 70,
+          "isDefault": false
+        },
+        {
+          "name": "approve",
+          "line": 89,
+          "isDefault": false
+        },
+        {
+          "name": "reject",
+          "line": 100,
+          "isDefault": false
+        },
+        {
+          "name": "DecisionConfig",
+          "line": 176,
+          "isDefault": false
+        },
+        {
+          "name": "DecisionEngine",
+          "line": 206,
+          "isDefault": false
+        },
+        {
+          "name": "new",
+          "line": 213,
+          "isDefault": false
+        },
+        {
+          "name": "with_config",
+          "line": 218,
+          "isDefault": false
+        },
+        {
+          "name": "evaluate",
+          "line": 235,
+          "isDefault": false
+        },
+        {
+          "name": "validate_decision",
+          "line": 408,
+          "isDefault": false
+        },
+        {
+          "name": "get_stats",
+          "line": 413,
+          "isDefault": false
+        },
+        {
+          "name": "get_config",
+          "line": 423,
+          "isDefault": false
+        },
+        {
+          "name": "update_config",
+          "line": 428,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "high_priority",
+          "callee": "Some",
+          "lineNumber": 51
+        },
+        {
+          "caller": "high_priority",
+          "callee": "Duration::from_secs",
+          "lineNumber": 51
+        },
+        {
+          "caller": "critical",
+          "callee": "Some",
+          "lineNumber": 61
+        },
+        {
+          "caller": "critical",
+          "callee": "Duration::from_secs",
+          "lineNumber": 61
+        },
+        {
+          "caller": "approve",
+          "callee": "Some",
+          "lineNumber": 94
+        },
+        {
+          "caller": "new",
+          "callee": "Self::with_config",
+          "lineNumber": 214
+        },
+        {
+          "caller": "new",
+          "callee": "DecisionConfig::default",
+          "lineNumber": 214
+        },
+        {
+          "caller": "with_config",
+          "callee": "DecisionHistory::new",
+          "lineNumber": 221
+        },
+        {
+          "caller": "evaluate",
+          "callee": "self.compute_expected_utility",
+          "lineNumber": 244
+        },
+        {
+          "caller": "evaluate",
+          "callee": "Decision::approve",
+          "lineNumber": 253
+        },
+        {
+          "caller": "evaluate",
+          "callee": "self.history.record_decision",
+          "lineNumber": 259
+        },
+        {
+          "caller": "evaluate",
+          "callee": "Decision::reject",
+          "lineNumber": 265
+        },
+        {
+          "caller": "evaluate",
+          "callee": "self.history.record_decision",
+          "lineNumber": 273
+        },
+        {
+          "caller": "evaluate",
+          "callee": "Decision::reject",
+          "lineNumber": 278
+        },
+        {
+          "caller": "evaluate",
+          "callee": "self.history.record_decision",
+          "lineNumber": 286
+        },
+        {
+          "caller": "evaluate",
+          "callee": "Decision::reject",
+          "lineNumber": 299
+        },
+        {
+          "caller": "evaluate",
+          "callee": "self.history.record_decision",
+          "lineNumber": 307
+        },
+        {
+          "caller": "evaluate",
+          "callee": "self.adaptive_threshold",
+          "lineNumber": 313
+        },
+        {
+          "caller": "evaluate",
+          "callee": "Decision::reject",
+          "lineNumber": 319
+        },
+        {
+          "caller": "evaluate",
+          "callee": "self.history.record_decision",
+          "lineNumber": 327
+        },
+        {
+          "caller": "evaluate",
+          "callee": "Decision::approve",
+          "lineNumber": 333
+        },
+        {
+          "caller": "evaluate",
+          "callee": "self.history.record_decision",
+          "lineNumber": 340
+        },
+        {
+          "caller": "adaptive_threshold",
+          "callee": "self.history.approval_rate",
+          "lineNumber": 391
+        },
+        {
+          "caller": "adaptive_threshold",
+          "callee": "(self.config.min_expected_utility + adjustment).max(0.1).min",
+          "lineNumber": 404
+        },
+        {
+          "caller": "adaptive_threshold",
+          "callee": "(self.config.min_expected_utility + adjustment).max",
+          "lineNumber": 404
+        },
+        {
+          "caller": "validate_decision",
+          "callee": "self.history.record_validation",
+          "lineNumber": 409
+        },
+        {
+          "caller": "get_stats",
+          "callee": "self.history.approval_rate",
+          "lineNumber": 418
+        },
+        {
+          "caller": "default",
+          "callee": "Self::new",
+          "lineNumber": 435
+        },
+        {
+          "caller": "evaluate",
+          "callee": "self.evaluate",
+          "lineNumber": 448
+        },
+        {
+          "caller": "evaluate",
+          "callee": "context.clone",
+          "lineNumber": 448
+        },
+        {
+          "caller": "evaluate",
+          "callee": "resources.clone",
+          "lineNumber": 448
+        },
+        {
+          "caller": "create_healthy_resources",
+          "callee": "Instant::now",
+          "lineNumber": 469
+        },
+        {
+          "caller": "create_heavy_resources",
+          "callee": "Instant::now",
+          "lineNumber": 480
+        },
+        {
+          "caller": "test_decision_context_default",
+          "callee": "DecisionContext::default_context",
+          "lineNumber": 486
+        },
+        {
+          "caller": "test_decision_context_high_priority",
+          "callee": "DecisionContext::high_priority",
+          "lineNumber": 494
+        },
+        {
+          "caller": "test_decision_context_critical",
+          "callee": "DecisionContext::critical",
+          "lineNumber": 501
+        },
+        {
+          "caller": "test_decision_engine_new",
+          "callee": "DecisionEngine::new",
+          "lineNumber": 509
+        },
+        {
+          "caller": "test_decision_engine_new",
+          "callee": "engine.get_stats",
+          "lineNumber": 510
+        },
+        {
+          "caller": "test_evaluate_healthy_operation",
+          "callee": "DecisionEngine::new",
+          "lineNumber": 518
+        },
+        {
+          "caller": "test_evaluate_healthy_operation",
+          "callee": "DecisionContext::default_context",
+          "lineNumber": 519
+        },
+        {
+          "caller": "test_evaluate_healthy_operation",
+          "callee": "create_healthy_resources",
+          "lineNumber": 520
+        },
+        {
+          "caller": "test_evaluate_healthy_operation",
+          "callee": "engine.evaluate",
+          "lineNumber": 522
+        },
+        {
+          "caller": "test_evaluate_low_success_rate",
+          "callee": "DecisionEngine::new",
+          "lineNumber": 537
+        },
+        {
+          "caller": "test_evaluate_low_success_rate",
+          "callee": "DecisionContext::default_context",
+          "lineNumber": 538
+        },
+        {
+          "caller": "test_evaluate_low_success_rate",
+          "callee": "create_healthy_resources",
+          "lineNumber": 539
+        },
+        {
+          "caller": "test_evaluate_low_success_rate",
+          "callee": "engine.evaluate",
+          "lineNumber": 541
+        },
+        {
+          "caller": "test_evaluate_low_health",
+          "callee": "DecisionEngine::new",
+          "lineNumber": 555
+        },
+        {
+          "caller": "test_evaluate_low_health",
+          "callee": "DecisionContext::default_context",
+          "lineNumber": 556
+        },
+        {
+          "caller": "test_evaluate_low_health",
+          "callee": "create_healthy_resources",
+          "lineNumber": 557
+        },
+        {
+          "caller": "test_evaluate_low_health",
+          "callee": "engine.evaluate",
+          "lineNumber": 559
+        },
+        {
+          "caller": "test_evaluate_high_resource_usage",
+          "callee": "DecisionEngine::new",
+          "lineNumber": 573
+        },
+        {
+          "caller": "test_evaluate_high_resource_usage",
+          "callee": "DecisionContext::default_context",
+          "lineNumber": 574
+        },
+        {
+          "caller": "test_evaluate_high_resource_usage",
+          "callee": "create_heavy_resources",
+          "lineNumber": 575
+        },
+        {
+          "caller": "test_evaluate_high_resource_usage",
+          "callee": "engine.evaluate",
+          "lineNumber": 577
+        },
+        {
+          "caller": "test_critical_operation_override",
+          "callee": "DecisionEngine::new",
+          "lineNumber": 591
+        },
+        {
+          "caller": "test_critical_operation_override",
+          "callee": "DecisionContext::critical",
+          "lineNumber": 592
+        },
+        {
+          "caller": "test_critical_operation_override",
+          "callee": "create_heavy_resources",
+          "lineNumber": 593
+        },
+        {
+          "caller": "test_critical_operation_override",
+          "callee": "engine.evaluate",
+          "lineNumber": 596
+        },
+        {
+          "caller": "test_expected_utility_computation",
+          "callee": "DecisionEngine::new",
+          "lineNumber": 610
+        },
+        {
+          "caller": "test_expected_utility_computation",
+          "callee": "DecisionContext::default_context",
+          "lineNumber": 611
+        },
+        {
+          "caller": "test_expected_utility_computation",
+          "callee": "create_healthy_resources",
+          "lineNumber": 612
+        },
+        {
+          "caller": "test_expected_utility_computation",
+          "callee": "engine.compute_expected_utility",
+          "lineNumber": 614
+        },
+        {
+          "caller": "test_expected_utility_with_cascading_impact",
+          "callee": "DecisionEngine::new",
+          "lineNumber": 622
+        },
+        {
+          "caller": "test_expected_utility_with_cascading_impact",
+          "callee": "create_healthy_resources",
+          "lineNumber": 638
+        },
+        {
+          "caller": "test_expected_utility_with_cascading_impact",
+          "callee": "engine.compute_expected_utility",
+          "lineNumber": 640
+        },
+        {
+          "caller": "test_expected_utility_with_cascading_impact",
+          "callee": "engine.compute_expected_utility",
+          "lineNumber": 641
+        },
+        {
+          "caller": "test_decision_statistics",
+          "callee": "DecisionEngine::new",
+          "lineNumber": 649
+        },
+        {
+          "caller": "test_decision_statistics",
+          "callee": "DecisionContext::default_context",
+          "lineNumber": 650
+        },
+        {
+          "caller": "test_decision_statistics",
+          "callee": "create_healthy_resources",
+          "lineNumber": 651
+        },
+        {
+          "caller": "test_decision_statistics",
+          "callee": "engine.evaluate",
+          "lineNumber": 654
+        },
+        {
+          "caller": "test_decision_statistics",
+          "callee": "ctx.clone",
+          "lineNumber": 654
+        },
+        {
+          "caller": "test_decision_statistics",
+          "callee": "resources.clone",
+          "lineNumber": 654
+        },
+        {
+          "caller": "test_decision_statistics",
+          "callee": "engine.evaluate",
+          "lineNumber": 655
+        },
+        {
+          "caller": "test_decision_statistics",
+          "callee": "ctx.clone",
+          "lineNumber": 655
+        },
+        {
+          "caller": "test_decision_statistics",
+          "callee": "resources.clone",
+          "lineNumber": 655
+        },
+        {
+          "caller": "test_decision_statistics",
+          "callee": "engine.evaluate",
+          "lineNumber": 656
+        },
+        {
+          "caller": "test_decision_statistics",
+          "callee": "ctx.clone",
+          "lineNumber": 656
+        },
+        {
+          "caller": "test_decision_statistics",
+          "callee": "resources.clone",
+          "lineNumber": 656
+        },
+        {
+          "caller": "test_decision_statistics",
+          "callee": "engine.get_stats",
+          "lineNumber": 658
+        },
+        {
+          "caller": "test_adaptive_threshold_not_enough_data",
+          "callee": "DecisionEngine::new",
+          "lineNumber": 668
+        },
+        {
+          "caller": "test_adaptive_threshold_not_enough_data",
+          "callee": "engine.adaptive_threshold",
+          "lineNumber": 671
+        },
+        {
+          "caller": "test_adaptive_threshold_high_approval_rate",
+          "callee": "DecisionEngine::new",
+          "lineNumber": 677
+        },
+        {
+          "caller": "test_adaptive_threshold_high_approval_rate",
+          "callee": "DecisionContext::default_context",
+          "lineNumber": 678
+        },
+        {
+          "caller": "test_adaptive_threshold_high_approval_rate",
+          "callee": "create_healthy_resources",
+          "lineNumber": 679
+        },
+        {
+          "caller": "test_adaptive_threshold_high_approval_rate",
+          "callee": "engine.evaluate",
+          "lineNumber": 683
+        },
+        {
+          "caller": "test_adaptive_threshold_high_approval_rate",
+          "callee": "ctx.clone",
+          "lineNumber": 683
+        },
+        {
+          "caller": "test_adaptive_threshold_high_approval_rate",
+          "callee": "good_resources.clone",
+          "lineNumber": 683
+        },
+        {
+          "caller": "test_adaptive_threshold_high_approval_rate",
+          "callee": "engine.get_stats",
+          "lineNumber": 686
+        },
+        {
+          "caller": "test_adaptive_threshold_high_approval_rate",
+          "callee": "engine.adaptive_threshold",
+          "lineNumber": 690
+        },
+        {
+          "caller": "test_custom_config",
+          "callee": "DecisionEngine::with_config",
+          "lineNumber": 704
+        },
+        {
+          "caller": "test_custom_config",
+          "callee": "DecisionContext::default_context",
+          "lineNumber": 705
+        },
+        {
+          "caller": "test_custom_config",
+          "callee": "create_healthy_resources",
+          "lineNumber": 706
+        },
+        {
+          "caller": "test_custom_config",
+          "callee": "engine.evaluate",
+          "lineNumber": 709
+        },
+        {
+          "caller": "test_update_config",
+          "callee": "DecisionEngine::new",
+          "lineNumber": 717
+        },
+        {
+          "caller": "test_update_config",
+          "callee": "Default::default",
+          "lineNumber": 721
+        },
+        {
+          "caller": "test_update_config",
+          "callee": "engine.update_config",
+          "lineNumber": 724
+        },
+        {
+          "caller": "test_validate_decision",
+          "callee": "DecisionEngine::new",
+          "lineNumber": 730
+        },
+        {
+          "caller": "test_validate_decision",
+          "callee": "engine.validate_decision",
+          "lineNumber": 732
+        },
+        {
+          "caller": "test_validate_decision",
+          "callee": "engine.validate_decision",
+          "lineNumber": 733
+        },
+        {
+          "caller": "test_validate_decision",
+          "callee": "engine.validate_decision",
+          "lineNumber": 734
+        },
+        {
+          "caller": "test_decision_approve",
+          "callee": "create_healthy_resources",
+          "lineNumber": 741
+        },
+        {
+          "caller": "test_decision_approve",
+          "callee": "Decision::approve",
+          "lineNumber": 742
+        },
+        {
+          "caller": "test_decision_approve",
+          "callee": "\"Test\".to_string",
+          "lineNumber": 743
+        },
+        {
+          "caller": "test_decision_approve",
+          "callee": "resources.clone",
+          "lineNumber": 745
+        },
+        {
+          "caller": "test_decision_reject",
+          "callee": "Decision::reject",
+          "lineNumber": 756
+        },
+        {
+          "caller": "test_decision_reject",
+          "callee": "\"Test\".to_string",
+          "lineNumber": 757
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 16,
+        "functionCount": 23,
+        "classCount": 5
+      }
+    },
+    {
+      "path": "src/modules/self_model/mod.rs",
+      "language": "rust",
+      "fileCategory": "code",
+      "totalLines": 385,
+      "nonEmptyLines": 339,
+      "functions": [
+        {
+          "name": "new",
+          "startLine": 92,
+          "endLine": 107,
+          "params": []
+        },
+        {
+          "name": "with_gate",
+          "startLine": 110,
+          "endLine": 114,
+          "params": [
+            "gate"
+          ]
+        },
+        {
+          "name": "register_capability",
+          "startLine": 117,
+          "endLine": 121,
+          "params": [
+            "descriptor"
+          ]
+        },
+        {
+          "name": "get_capability",
+          "startLine": 124,
+          "endLine": 128,
+          "params": [
+            "name"
+          ]
+        },
+        {
+          "name": "can_execute",
+          "startLine": 139,
+          "endLine": 215,
+          "params": [
+            "operation",
+            "context"
+          ]
+        },
+        {
+          "name": "record_outcome",
+          "startLine": 218,
+          "endLine": 235,
+          "params": [
+            "operation",
+            "duration",
+            "success"
+          ]
+        },
+        {
+          "name": "record_resource_usage",
+          "startLine": 238,
+          "endLine": 246,
+          "params": [
+            "operation",
+            "usage"
+          ]
+        },
+        {
+          "name": "report_health",
+          "startLine": 249,
+          "endLine": 258,
+          "params": [
+            "module_name",
+            "health"
+          ]
+        },
+        {
+          "name": "get_health",
+          "startLine": 261,
+          "endLine": 265,
+          "params": []
+        },
+        {
+          "name": "get_module_health",
+          "startLine": 268,
+          "endLine": 272,
+          "params": [
+            "module_name"
+          ]
+        },
+        {
+          "name": "is_healthy",
+          "startLine": 275,
+          "endLine": 278,
+          "params": []
+        },
+        {
+          "name": "predict_resources",
+          "startLine": 281,
+          "endLine": 285,
+          "params": [
+            "operation"
+          ]
+        },
+        {
+          "name": "predict_performance",
+          "startLine": 288,
+          "endLine": 292,
+          "params": [
+            "operation"
+          ]
+        },
+        {
+          "name": "default",
+          "startLine": 296,
+          "endLine": 298,
+          "params": []
+        }
+      ],
+      "classes": [
+        {
+          "name": "SelfModel",
+          "startLine": 80,
+          "endLine": 88,
+          "methods": [
+            "new",
+            "with_gate",
+            "register_capability",
+            "get_capability",
+            "can_execute",
+            "record_outcome",
+            "record_resource_usage",
+            "report_health",
+            "get_health",
+            "get_module_health",
+            "is_healthy",
+            "predict_resources",
+            "predict_performance",
+            "default"
+          ],
+          "properties": [
+            "capabilities",
+            "resources",
+            "performance",
+            "health",
+            "decision",
+            "gate_override"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "SelfModel",
+          "line": 80,
+          "isDefault": false
+        },
+        {
+          "name": "new",
+          "line": 92,
+          "isDefault": false
+        },
+        {
+          "name": "with_gate",
+          "line": 110,
+          "isDefault": false
+        },
+        {
+          "name": "register_capability",
+          "line": 117,
+          "isDefault": false
+        },
+        {
+          "name": "get_capability",
+          "line": 124,
+          "isDefault": false
+        },
+        {
+          "name": "can_execute",
+          "line": 139,
+          "isDefault": false
+        },
+        {
+          "name": "record_outcome",
+          "line": 218,
+          "isDefault": false
+        },
+        {
+          "name": "record_resource_usage",
+          "line": 238,
+          "isDefault": false
+        },
+        {
+          "name": "report_health",
+          "line": 249,
+          "isDefault": false
+        },
+        {
+          "name": "get_health",
+          "line": 261,
+          "isDefault": false
+        },
+        {
+          "name": "get_module_health",
+          "line": 268,
+          "isDefault": false
+        },
+        {
+          "name": "is_healthy",
+          "line": 275,
+          "isDefault": false
+        },
+        {
+          "name": "predict_resources",
+          "line": 281,
+          "isDefault": false
+        },
+        {
+          "name": "predict_performance",
+          "line": 288,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "new",
+          "callee": "Arc::new",
+          "lineNumber": 93
+        },
+        {
+          "caller": "new",
+          "callee": "RwLock::new",
+          "lineNumber": 93
+        },
+        {
+          "caller": "new",
+          "callee": "CapabilityRegistry::new",
+          "lineNumber": 93
+        },
+        {
+          "caller": "new",
+          "callee": "Arc::new",
+          "lineNumber": 94
+        },
+        {
+          "caller": "new",
+          "callee": "RwLock::new",
+          "lineNumber": 94
+        },
+        {
+          "caller": "new",
+          "callee": "ResourceMonitor::new",
+          "lineNumber": 94
+        },
+        {
+          "caller": "new",
+          "callee": "Arc::new",
+          "lineNumber": 95
+        },
+        {
+          "caller": "new",
+          "callee": "RwLock::new",
+          "lineNumber": 95
+        },
+        {
+          "caller": "new",
+          "callee": "PerformanceTracker::new",
+          "lineNumber": 95
+        },
+        {
+          "caller": "new",
+          "callee": "Arc::new",
+          "lineNumber": 96
+        },
+        {
+          "caller": "new",
+          "callee": "RwLock::new",
+          "lineNumber": 96
+        },
+        {
+          "caller": "new",
+          "callee": "HealthAggregator::new",
+          "lineNumber": 96
+        },
+        {
+          "caller": "new",
+          "callee": "Arc::new",
+          "lineNumber": 97
+        },
+        {
+          "caller": "new",
+          "callee": "RwLock::new",
+          "lineNumber": 97
+        },
+        {
+          "caller": "new",
+          "callee": "DecisionEngine::new",
+          "lineNumber": 97
+        },
+        {
+          "caller": "with_gate",
+          "callee": "Self::new",
+          "lineNumber": 111
+        },
+        {
+          "caller": "with_gate",
+          "callee": "Some",
+          "lineNumber": 112
+        },
+        {
+          "caller": "register_capability",
+          "callee": "self.capabilities.write().map_err",
+          "lineNumber": 118
+        },
+        {
+          "caller": "register_capability",
+          "callee": "self.capabilities.write",
+          "lineNumber": 118
+        },
+        {
+          "caller": "register_capability",
+          "callee": "caps.register",
+          "lineNumber": 120
+        },
+        {
+          "caller": "get_capability",
+          "callee": "self.capabilities.read().map_err",
+          "lineNumber": 125
+        },
+        {
+          "caller": "get_capability",
+          "callee": "self.capabilities.read",
+          "lineNumber": 125
+        },
+        {
+          "caller": "get_capability",
+          "callee": "caps.get",
+          "lineNumber": 127
+        },
+        {
+          "caller": "can_execute",
+          "callee": "Instant::now",
+          "lineNumber": 145
+        },
+        {
+          "caller": "can_execute",
+          "callee": "gate.lock().map_err",
+          "lineNumber": 147
+        },
+        {
+          "caller": "can_execute",
+          "callee": "gate.lock",
+          "lineNumber": 147
+        },
+        {
+          "caller": "can_execute",
+          "callee": "Ok",
+          "lineNumber": 148
+        },
+        {
+          "caller": "can_execute",
+          "callee": "g.evaluate",
+          "lineNumber": 148
+        },
+        {
+          "caller": "can_execute",
+          "callee": "self.capabilities.read().map_err",
+          "lineNumber": 152
+        },
+        {
+          "caller": "can_execute",
+          "callee": "self.capabilities.read",
+          "lineNumber": 152
+        },
+        {
+          "caller": "can_execute",
+          "callee": "self.resources.read().map_err",
+          "lineNumber": 154
+        },
+        {
+          "caller": "can_execute",
+          "callee": "self.resources.read",
+          "lineNumber": 154
+        },
+        {
+          "caller": "can_execute",
+          "callee": "self.performance.read().map_err",
+          "lineNumber": 156
+        },
+        {
+          "caller": "can_execute",
+          "callee": "self.performance.read",
+          "lineNumber": 156
+        },
+        {
+          "caller": "can_execute",
+          "callee": "self.health.read().map_err",
+          "lineNumber": 158
+        },
+        {
+          "caller": "can_execute",
+          "callee": "self.health.read",
+          "lineNumber": 158
+        },
+        {
+          "caller": "can_execute",
+          "callee": "caps.get",
+          "lineNumber": 162
+        },
+        {
+          "caller": "can_execute",
+          "callee": "Ok",
+          "lineNumber": 165
+        },
+        {
+          "caller": "can_execute",
+          "callee": "Decision::reject",
+          "lineNumber": 165
+        },
+        {
+          "caller": "can_execute",
+          "callee": "resources.predict",
+          "lineNumber": 174
+        },
+        {
+          "caller": "can_execute",
+          "callee": "Instant::now",
+          "lineNumber": 180
+        },
+        {
+          "caller": "can_execute",
+          "callee": "Instant::now",
+          "lineNumber": 189
+        },
+        {
+          "caller": "can_execute",
+          "callee": "perf.get_success_rate",
+          "lineNumber": 195
+        },
+        {
+          "caller": "can_execute",
+          "callee": "health_agg.get_overall_health",
+          "lineNumber": 201
+        },
+        {
+          "caller": "can_execute",
+          "callee": "self.decision.write().map_err",
+          "lineNumber": 203
+        },
+        {
+          "caller": "can_execute",
+          "callee": "self.decision.write",
+          "lineNumber": 203
+        },
+        {
+          "caller": "can_execute",
+          "callee": "engine.evaluate",
+          "lineNumber": 206
+        },
+        {
+          "caller": "can_execute",
+          "callee": "Ok",
+          "lineNumber": 214
+        },
+        {
+          "caller": "record_outcome",
+          "callee": "self.performance.write().map_err",
+          "lineNumber": 221
+        },
+        {
+          "caller": "record_outcome",
+          "callee": "self.performance.write",
+          "lineNumber": 221
+        },
+        {
+          "caller": "record_outcome",
+          "callee": "perf.record",
+          "lineNumber": 223
+        },
+        {
+          "caller": "record_outcome",
+          "callee": "operation.to_string",
+          "lineNumber": 224
+        },
+        {
+          "caller": "record_outcome",
+          "callee": "Instant::now",
+          "lineNumber": 227
+        },
+        {
+          "caller": "record_outcome",
+          "callee": "Ok",
+          "lineNumber": 234
+        },
+        {
+          "caller": "record_resource_usage",
+          "callee": "self.resources.write().map_err",
+          "lineNumber": 243
+        },
+        {
+          "caller": "record_resource_usage",
+          "callee": "self.resources.write",
+          "lineNumber": 243
+        },
+        {
+          "caller": "record_resource_usage",
+          "callee": "resources.record",
+          "lineNumber": 245
+        },
+        {
+          "caller": "report_health",
+          "callee": "self.health.write().map_err",
+          "lineNumber": 250
+        },
+        {
+          "caller": "report_health",
+          "callee": "self.health.write",
+          "lineNumber": 250
+        },
+        {
+          "caller": "report_health",
+          "callee": "health_agg.report",
+          "lineNumber": 252
+        },
+        {
+          "caller": "report_health",
+          "callee": "crate::safety_guardrail::SAFETY_GUARDRAIL\r\n            .lock()\r\n            .unwrap().check_precondition",
+          "lineNumber": 253
+        },
+        {
+          "caller": "report_health",
+          "callee": "crate::safety_guardrail::SAFETY_GUARDRAIL\r\n            .lock().unwrap",
+          "lineNumber": 253
+        },
+        {
+          "caller": "report_health",
+          "callee": "crate::safety_guardrail::SAFETY_GUARDRAIL.lock",
+          "lineNumber": 253
+        },
+        {
+          "caller": "get_health",
+          "callee": "self.health.read().map_err",
+          "lineNumber": 262
+        },
+        {
+          "caller": "get_health",
+          "callee": "self.health.read",
+          "lineNumber": 262
+        },
+        {
+          "caller": "get_health",
+          "callee": "health_agg.get_overall_health",
+          "lineNumber": 264
+        },
+        {
+          "caller": "get_module_health",
+          "callee": "self.health.read().map_err",
+          "lineNumber": 269
+        },
+        {
+          "caller": "get_module_health",
+          "callee": "self.health.read",
+          "lineNumber": 269
+        },
+        {
+          "caller": "get_module_health",
+          "callee": "health_agg.get_module_health",
+          "lineNumber": 271
+        },
+        {
+          "caller": "is_healthy",
+          "callee": "self.get_health",
+          "lineNumber": 276
+        },
+        {
+          "caller": "is_healthy",
+          "callee": "Ok",
+          "lineNumber": 277
+        },
+        {
+          "caller": "predict_resources",
+          "callee": "self.resources.read().map_err",
+          "lineNumber": 282
+        },
+        {
+          "caller": "predict_resources",
+          "callee": "self.resources.read",
+          "lineNumber": 282
+        },
+        {
+          "caller": "predict_resources",
+          "callee": "resources.predict",
+          "lineNumber": 284
+        },
+        {
+          "caller": "predict_performance",
+          "callee": "self.performance.read().map_err",
+          "lineNumber": 289
+        },
+        {
+          "caller": "predict_performance",
+          "callee": "self.performance.read",
+          "lineNumber": 289
+        },
+        {
+          "caller": "predict_performance",
+          "callee": "perf.predict",
+          "lineNumber": 291
+        },
+        {
+          "caller": "default",
+          "callee": "Self::new",
+          "lineNumber": 297
+        },
+        {
+          "caller": "test_new_self_model",
+          "callee": "SelfModel::new",
+          "lineNumber": 307
+        },
+        {
+          "caller": "test_register_and_query_capability",
+          "callee": "SelfModel::new",
+          "lineNumber": 313
+        },
+        {
+          "caller": "test_register_and_query_capability",
+          "callee": "\"test_op\".to_string",
+          "lineNumber": 316
+        },
+        {
+          "caller": "test_register_and_query_capability",
+          "callee": "\"Test operation\".to_string",
+          "lineNumber": 317
+        },
+        {
+          "caller": "test_register_and_query_capability",
+          "callee": "sm.get_capability",
+          "lineNumber": 325
+        },
+        {
+          "caller": "test_can_execute_unknown_capability",
+          "callee": "SelfModel::new",
+          "lineNumber": 332
+        },
+        {
+          "caller": "test_can_execute_unknown_capability",
+          "callee": "sm.can_execute",
+          "lineNumber": 334
+        },
+        {
+          "caller": "test_can_execute_unknown_capability",
+          "callee": "DecisionContext::default_context",
+          "lineNumber": 334
+        },
+        {
+          "caller": "test_can_execute_unknown_capability",
+          "callee": "decision.unwrap",
+          "lineNumber": 336
+        },
+        {
+          "caller": "test_record_outcome",
+          "callee": "SelfModel::new",
+          "lineNumber": 343
+        },
+        {
+          "caller": "test_record_outcome",
+          "callee": "sm.record_outcome",
+          "lineNumber": 345
+        },
+        {
+          "caller": "test_record_outcome",
+          "callee": "Duration::from_millis",
+          "lineNumber": 345
+        },
+        {
+          "caller": "evaluate",
+          "callee": "\"gate approved\".into",
+          "lineNumber": 357
+        },
+        {
+          "caller": "test_with_gate_overrides_decision_engine",
+          "callee": "Arc::new",
+          "lineNumber": 363
+        },
+        {
+          "caller": "test_with_gate_overrides_decision_engine",
+          "callee": "Mutex::new",
+          "lineNumber": 363
+        },
+        {
+          "caller": "test_with_gate_overrides_decision_engine",
+          "callee": "SelfModel::with_gate",
+          "lineNumber": 364
+        },
+        {
+          "caller": "test_with_gate_overrides_decision_engine",
+          "callee": "sm.can_execute(\"unknown_op\", DecisionContext::default_context()).unwrap",
+          "lineNumber": 366
+        },
+        {
+          "caller": "test_with_gate_overrides_decision_engine",
+          "callee": "sm.can_execute",
+          "lineNumber": 366
+        },
+        {
+          "caller": "test_with_gate_overrides_decision_engine",
+          "callee": "DecisionContext::default_context",
+          "lineNumber": 366
+        },
+        {
+          "caller": "test_health_reporting",
+          "callee": "SelfModel::new",
+          "lineNumber": 372
+        },
+        {
+          "caller": "test_health_reporting",
+          "callee": "sm.get_health",
+          "lineNumber": 382
+        }
+      ],
+      "metrics": {
+        "importCount": 3,
+        "exportCount": 14,
+        "functionCount": 14,
+        "classCount": 1
+      }
+    }
+  ]
+}

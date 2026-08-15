@@ -28,8 +28,8 @@ fn gate2_bounded_memory_10k_turns() {
     let mut graph = SymbolicStore::from_backend(PetgraphBackend::new());
 
     // Use 10 actors × 10 tags → 100 groups; each gets 100 records = 10,000 total.
-    let actors = ["a0","a1","a2","a3","a4","a5","a6","a7","a8","a9"];
-    let tags   = ["t0","t1","t2","t3","t4","t5","t6","t7","t8","t9"];
+    let actors = ["a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9"];
+    let tags = ["t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"];
     for actor in &actors {
         for tag in &tags {
             for _ in 0..100 {
@@ -73,7 +73,10 @@ fn gate2_bounded_memory_10k_turns() {
     );
 
     // Gate 2b: every original archived.
-    assert_eq!(report.records_archived, 10_000, "Gate 2b: all originals archived");
+    assert_eq!(
+        report.records_archived, 10_000,
+        "Gate 2b: all originals archived"
+    );
 
     // Gate 2c: archive has all originals.
     let cold = archive.load_all().unwrap();
@@ -92,5 +95,8 @@ fn gate2_bounded_memory_10k_turns() {
         reachability * 100.0
     );
     // Stronger check: summary nodes exist in graph.
-    assert_eq!(report.summary_records_created, 100, "Gate 2e: 100 summary nodes");
+    assert_eq!(
+        report.summary_records_created, 100,
+        "Gate 2e: 100 summary nodes"
+    );
 }

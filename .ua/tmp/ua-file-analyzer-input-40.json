@@ -1,0 +1,13 @@
+{
+  "projectRoot": "D:/all_projects/hipcortex",
+  "batchFiles": [
+    {"path": "src/modules/loop_engine.rs", "language": "rust", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "src/modules/self_model/decision.rs", "language": "rust", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "src/modules/self_model/mod.rs", "language": "rust", "sizeLines": 0, "fileCategory": "code"}
+  ],
+  "batchImportData": {
+    "src/modules/loop_engine.rs": ["src/memory_store.rs","src/memory_record.rs","src/payloads.rs","src/persistence.rs"],
+    "src/modules/self_model/decision.rs": ["src/execution_gate.rs"],
+    "src/modules/self_model/mod.rs": ["src/execution_gate.rs","src/modules/self_model/decision.rs","src/modules/self_model/resource.rs"]
+  }
+}

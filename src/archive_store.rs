@@ -2,11 +2,11 @@
 //! Append-only JSONL file. No LRU, no decay, no encryption by default.
 //! Merkle integrity hash on each record is preserved from the hot store.
 
+use crate::memory_record::MemoryRecord;
+use anyhow::Result;
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use anyhow::Result;
-use crate::memory_record::MemoryRecord;
 
 pub struct ArchiveStore {
     path: PathBuf,
@@ -14,12 +14,17 @@ pub struct ArchiveStore {
 
 impl ArchiveStore {
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
-        Self { path: path.as_ref().to_path_buf() }
+        Self {
+            path: path.as_ref().to_path_buf(),
+        }
     }
 
     /// Append one record to the archive file.
     pub fn append(&mut self, record: MemoryRecord) -> Result<()> {
-        let mut file = OpenOptions::new().create(true).append(true).open(&self.path)?;
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.path)?;
         let line = serde_json::to_string(&record)?;
         writeln!(file, "{}", line)?;
         Ok(())
@@ -35,7 +40,9 @@ impl ArchiveStore {
         let mut records = Vec::new();
         for line in reader.lines() {
             let line = line?;
-            if line.trim().is_empty() { continue; }
+            if line.trim().is_empty() {
+                continue;
+            }
             if let Ok(rec) = serde_json::from_str::<MemoryRecord>(&line) {
                 records.push(rec);
             }

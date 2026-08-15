@@ -1,0 +1,79 @@
+{
+  "batchIndex": 17,
+  "nodes": [
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/.openspec.yaml",
+      "type": "document",
+      "name": "Python Server Endpoint Parity OpenSpec Metadata",
+      "filePath": "openspec/changes/archive/2026-07-09-python-server-endpoint-parity/.openspec.yaml",
+      "summary": "Metadata file for the python-server-endpoint-parity change spec, created 2026-07-08. Marks the change as using the spec-driven schema. Serves as the manifest anchor for the change set.",
+      "tags": ["openspec", "archive", "python", "mcp", "metadata"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/proposal.md",
+      "type": "document",
+      "name": "Python MCP Server Endpoint Parity Proposal",
+      "filePath": "openspec/changes/archive/2026-07-09-python-server-endpoint-parity/proposal.md",
+      "summary": "Proposes adding missing MCP tools to sdk/mcp/server.py: get_live_beliefs (proxies GET /memory/live_beliefs), purge_expired (proxies POST /memory/consolidate), and a fix to include Perception in the add_memory record_type enum. Addresses a runtime ValueError caused by agents calling an unregistered tool. No Rust changes required.",
+      "tags": ["openspec", "archive", "python", "mcp", "live-beliefs", "purge-expired", "sdk"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/design.md",
+      "type": "document",
+      "name": "Python MCP Server Endpoint Parity Design",
+      "filePath": "openspec/changes/archive/2026-07-09-python-server-endpoint-parity/design.md",
+      "summary": "Details the implementation of get_live_beliefs and purge_expired as Python handler functions in sdk/mcp/server.py, both proxying to the running Rust server. Includes tool registration schemas, handler code, and dispatch integration. Also corrects the add_memory record_type enum to include Perception as the 5th tier.",
+      "tags": ["openspec", "archive", "python", "mcp", "design", "live-beliefs", "purge-expired"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/tasks.md",
+      "type": "document",
+      "name": "Python MCP Server Endpoint Parity Tasks",
+      "filePath": "openspec/changes/archive/2026-07-09-python-server-endpoint-parity/tasks.md",
+      "summary": "Completed task checklist for the python-server-endpoint-parity change. Covers schema alignment (adding Perception, updating search_memory harness comment) and live-beliefs/purge tool implementation (schemas, handlers, dispatch bindings). All tasks marked complete.",
+      "tags": ["openspec", "archive", "python", "mcp", "tasks", "completed"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/.openspec.yaml",
+      "to": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/proposal.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/.openspec.yaml",
+      "to": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/design.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/.openspec.yaml",
+      "to": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/proposal.md",
+      "to": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/design.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/proposal.md",
+      "to": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/design.md",
+      "to": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    }
+  ]
+}

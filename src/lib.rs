@@ -2,25 +2,24 @@
 //! Export all modules for easy external use.
 
 pub mod a2a_protocol;
+pub mod archive_store;
 #[cfg(feature = "async-store")]
 pub mod async_memory_store;
-pub mod archive_store;
-pub mod cognitive_gc;
 pub mod audit_log;
-pub mod safety_classifier;
-pub mod safety_guardrail;
 #[path = "modules/aureus_bridge.rs"]
 pub mod aureus_bridge;
+pub mod cognitive_gc;
+pub mod consolidation;
 pub mod conversation_memory;
 #[cfg(feature = "web-server")]
 pub mod dashboard;
 pub mod decay;
-pub mod embedding_provider;
-pub mod execution_gate;
 #[path = "modules/effort.rs"]
 pub mod effort;
+pub mod embedding_provider;
 #[path = "modules/enhancement_advisor.rs"]
 pub mod enhancement_advisor;
+pub mod execution_gate;
 #[cfg(feature = "gui")]
 pub mod gui;
 #[path = "modules/hypotheses_graph.rs"]
@@ -37,17 +36,14 @@ pub mod mcp_bridge;
 pub mod memory;
 pub mod memory_cli;
 pub mod memory_diff;
-pub mod tx_log;
-pub mod state_diff;
-pub mod consolidation;
 pub mod memory_processor;
 pub mod memory_query;
 pub mod memory_record;
 pub mod memory_store;
-pub mod optimized_memory_store;
 pub mod monitoring;
 #[path = "modules/openmanus_bridge.rs"]
 pub mod openmanus_bridge;
+pub mod optimized_memory_store;
 pub mod payloads;
 #[path = "modules/perception_adapter.rs"]
 pub mod perception_adapter;
@@ -56,10 +52,22 @@ pub mod plugin_host;
 pub mod poisson;
 #[path = "modules/procedural_cache.rs"]
 pub mod procedural_cache;
+pub mod safety_classifier;
+pub mod safety_guardrail;
+pub mod state_diff;
+pub mod tx_log;
 pub use procedural_cache::skill_compiler;
+#[path = "modules/latent_map.rs"]
+pub mod latent_map;
+#[path = "modules/latent_map_evaluator.rs"]
+pub mod latent_map_evaluator;
 #[path = "modules/puzzle.rs"]
 pub mod puzzle;
 pub mod rag_adapter;
+#[path = "modules/reflexion_hooks.rs"]
+pub mod reflexion_hooks;
+#[path = "modules/representation_auditor.rs"]
+pub mod representation_auditor;
 pub mod retrieval_pipeline;
 #[cfg(feature = "rocksdb-backend")]
 pub mod rocksdb_backend;
@@ -72,14 +80,6 @@ pub mod snapshot_manager;
 pub mod source_trust;
 #[path = "modules/symbolic_store.rs"]
 pub mod symbolic_store;
-#[path = "modules/latent_map.rs"]
-pub mod latent_map;
-#[path = "modules/latent_map_evaluator.rs"]
-pub mod latent_map_evaluator;
-#[path = "modules/reflexion_hooks.rs"]
-pub mod reflexion_hooks;
-#[path = "modules/representation_auditor.rs"]
-pub mod representation_auditor;
 pub mod backends {
     #[cfg(feature = "neo4j_backend")]
     pub mod neo4j_backend;
@@ -89,54 +89,54 @@ pub mod backends {
     pub mod rustfsm_backend;
     pub mod temporal_backend;
 }
+#[path = "modules/loop_engine.rs"]
+pub mod loop_engine;
+#[path = "modules/self_model/mod.rs"]
+pub mod self_model;
 #[path = "modules/temporal_indexer.rs"]
 pub mod temporal_indexer;
+#[path = "modules/topological_memory/mod.rs"] // ADD
+pub mod topological_memory;
 #[path = "modules/world_model.rs"]
 pub mod world_model;
 pub mod world_model_client;
-#[path = "modules/self_model/mod.rs"]
-pub mod self_model;
 #[path = "modules/world_model_enhanced/mod.rs"]
 pub mod world_model_enhanced;
-#[path = "modules/topological_memory/mod.rs"]  // ADD
-pub mod topological_memory;
-#[path = "modules/loop_engine.rs"]
-pub mod loop_engine;
 // Reexports for mcp/integration + auto paths exposure (Task 10 wiring)
-pub use topological_memory::{CausalTopoGraph, EdgeType};
 pub use loop_engine::{LoopEngine, ReactEngine};
+pub use topological_memory::{CausalTopoGraph, EdgeType};
 #[path = "modules/coherence/mod.rs"]
 pub mod coherence;
 #[path = "modules/health_reporter.rs"]
 pub mod health_reporter;
 pub use persistence::InMemoryBackend;
-#[path = "modules/executive/task_graph.rs"]
-pub mod task_graph;
+#[path = "modules/broker_policy.rs"]
+pub mod broker_policy;
+#[path = "modules/continuation_checkpoint.rs"]
+pub mod continuation_checkpoint;
 #[path = "modules/executive/scheduler.rs"]
 pub mod executive_scheduler;
+#[path = "modules/lease_manager.rs"]
+pub mod lease_manager;
 #[path = "modules/world_model_enhanced/simulator.rs"]
 pub mod mcts_simulator;
+#[path = "modules/session_context.rs"]
+pub mod session_context;
+#[path = "modules/executive/task_graph.rs"]
+pub mod task_graph;
+#[path = "modules/working_set_broker.rs"]
+pub mod working_set_broker;
 #[cfg(feature = "tokio")]
 #[path = "actors/world_model_actor.rs"]
 pub mod world_model_actor;
-#[path = "modules/continuation_checkpoint.rs"]
-pub mod continuation_checkpoint;
-#[path = "modules/session_context.rs"]
-pub mod session_context;
-#[path = "modules/lease_manager.rs"]
-pub mod lease_manager;
-#[path = "modules/broker_policy.rs"]
-pub mod broker_policy;
-#[path = "modules/working_set_broker.rs"]
-pub mod working_set_broker;
 #[cfg(feature = "async-store")]
 pub use persistence::{AsyncFileBackend, AsyncMemoryBackend};
 #[cfg(feature = "grpc-server")]
 pub mod grpc_server;
 #[cfg(all(feature = "web-server", feature = "grpc-server"))]
 pub mod mcp_server;
-pub mod vision_encoder;
 #[cfg(feature = "web-server")]
 pub mod openapi_spec;
+pub mod vision_encoder;
 #[cfg(feature = "web-server")]
 pub mod web_server;

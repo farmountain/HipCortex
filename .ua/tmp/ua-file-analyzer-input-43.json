@@ -1,0 +1,7 @@
+{
+  "projectRoot": "D:/all_projects/hipcortex",
+  "batchFiles": [
+    {"path": "tests/integration/mod.rs", "language": "rust", "sizeLines": 0, "fileCategory": "code"}
+  ],
+  "batchImportData": {"tests/integration/mod.rs": ["tests/integration/react_e2e_sit.rs","tests/integration/react_engine_sit.rs"]}
+}

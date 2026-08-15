@@ -1,0 +1,61 @@
+{
+  "batchIndex": 6,
+  "nodes": [
+    {
+      "id": "resource:deploy/helm/hipcortex/templates/deployment.yaml",
+      "type": "resource",
+      "name": "Deployment",
+      "filePath": "deploy/helm/hipcortex/templates/deployment.yaml",
+      "summary": "Kubernetes Deployment manifest for the HipCortex container. Configures replica count, image, port 3030, environment variables (including PORT and DATA_DIR), optional secret-backed API key injection via secretKeyRef, a persistent or emptyDir data volume mount, and liveness/readiness probes.",
+      "tags": ["kubernetes", "helm", "deployment", "container", "volumes", "secrets", "probes"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "resource:deploy/helm/hipcortex/templates/pvc.yaml",
+      "type": "resource",
+      "name": "PersistentVolumeClaim",
+      "filePath": "deploy/helm/hipcortex/templates/pvc.yaml",
+      "summary": "Conditionally rendered PersistentVolumeClaim (only when persistence.enabled is true). Requests storage with a configurable access mode, size, and optional storageClass from Helm values. Named with the fullname helper suffixed by -data.",
+      "tags": ["kubernetes", "helm", "pvc", "storage", "persistence"],
+      "complexity": "simple"
+    },
+    {
+      "id": "resource:deploy/helm/hipcortex/templates/secret.yaml",
+      "type": "resource",
+      "name": "Secret",
+      "filePath": "deploy/helm/hipcortex/templates/secret.yaml",
+      "summary": "Conditionally rendered Opaque Kubernetes Secret (only when apiKeys value is set). Stores base64-encoded API keys under the key api-keys, which the Deployment references via secretKeyRef for the HIPCORTEX_API_KEYS environment variable.",
+      "tags": ["kubernetes", "helm", "secret", "api-keys", "security"],
+      "complexity": "simple"
+    },
+    {
+      "id": "resource:deploy/helm/hipcortex/templates/service.yaml",
+      "type": "resource",
+      "name": "Service",
+      "filePath": "deploy/helm/hipcortex/templates/service.yaml",
+      "summary": "Kubernetes Service that exposes the HipCortex Deployment. Configurable service type (ClusterIP/NodePort/LoadBalancer) and port via Helm values, with targetPort fixed at 3030 to match the container. Uses selectorLabels to bind to the Deployment pods.",
+      "tags": ["kubernetes", "helm", "service", "networking", "http"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "resource:deploy/helm/hipcortex/templates/deployment.yaml",
+      "target": "resource:deploy/helm/hipcortex/templates/pvc.yaml",
+      "relation": "mounts",
+      "description": "Deployment mounts the PVC (claimName: fullname-data) as the data volume when persistence.enabled is true"
+    },
+    {
+      "source": "resource:deploy/helm/hipcortex/templates/deployment.yaml",
+      "target": "resource:deploy/helm/hipcortex/templates/secret.yaml",
+      "relation": "reads",
+      "description": "Deployment reads the Secret via secretKeyRef for the HIPCORTEX_API_KEYS environment variable when apiKeys is set"
+    },
+    {
+      "source": "resource:deploy/helm/hipcortex/templates/service.yaml",
+      "target": "resource:deploy/helm/hipcortex/templates/deployment.yaml",
+      "relation": "selects",
+      "description": "Service selects Deployment pods via shared selectorLabels and routes traffic to container port 3030"
+    }
+  ]
+}

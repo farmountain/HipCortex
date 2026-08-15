@@ -1,0 +1,13 @@
+{
+  "projectRoot": "D:/all_projects/hipcortex",
+  "batchFiles": [
+    {"path": "src/modules/world_model_enhanced/causal.rs", "language": "rust", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "src/modules/world_model_enhanced/entity.rs", "language": "rust", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "src/modules/world_model_enhanced/mod.rs", "language": "rust", "sizeLines": 0, "fileCategory": "code"}
+  ],
+  "batchImportData": {
+    "src/modules/world_model_enhanced/causal.rs": ["src/modules/world_model_enhanced/transition.rs"],
+    "src/modules/world_model_enhanced/entity.rs": [],
+    "src/modules/world_model_enhanced/mod.rs": ["src/modules/world_model_enhanced/causal.rs","src/modules/world_model_enhanced/entity.rs","src/modules/world_model_enhanced/transition.rs","src/modules/world_model_enhanced/uncertainty.rs"]
+  }
+}

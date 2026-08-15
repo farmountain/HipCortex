@@ -1,0 +1,267 @@
+{
+  "batchIndex": 42,
+  "nodes": [
+    {
+      "id": "semantic_compression",
+      "label": "semantic_compression",
+      "file": "src/semantic_compression.rs",
+      "kind": "module",
+      "language": "rust",
+      "summary": "Embedding dimensionality reduction via chunk-average pooling. Single public function `compress_embedding(&[f32], new_dim) -> Vec<f32>` that divides a high-dimensional embedding vector into `new_dim` equal chunks and replaces each chunk with its mean. Zero-allocation path when new_dim==0 or input is empty. Used by PerceptionAdapter for PCA decorrelation output compression.",
+      "symbols": [
+        { "name": "compress_embedding", "kind": "fn", "visibility": "pub", "signature": "fn compress_embedding(vec: &[f32], new_dim: usize) -> Vec<f32>" }
+      ],
+      "dependencies": [],
+      "feature_gates": [],
+      "notes": "Pure, no external deps. Has inline unit test `compress_basic`."
+    },
+    {
+      "id": "snapshot_manager",
+      "label": "snapshot_manager",
+      "file": "src/snapshot_manager.rs",
+      "kind": "module",
+      "language": "rust",
+      "summary": "Filesystem snapshot/rollback for MemoryStore data files using flate2 + tar. `SnapshotManager::save` archives a single file as `<name>.<tag>.tar.gz`; `load` unpacks an archive to a destination directory; `rollback_to_latest` looks for `<name>.latest.tar.gz` and unpacks in-place. Stateless struct (no fields) — all methods are static. Used by MemoryStore crash-recovery and by the CLI rollback command.",
+      "symbols": [
+        { "name": "SnapshotManager", "kind": "struct", "visibility": "pub" },
+        { "name": "SnapshotManager::save", "kind": "fn", "visibility": "pub", "signature": "fn save<P: AsRef<Path>>(source: P, tag: &str) -> Result<PathBuf>" },
+        { "name": "SnapshotManager::load", "kind": "fn", "visibility": "pub", "signature": "fn load<P: AsRef<Path>, Q: AsRef<Path>>(archive: P, dest: Q) -> Result<()>" },
+        { "name": "SnapshotManager::rollback_to_latest", "kind": "fn", "visibility": "pub", "signature": "fn rollback_to_latest<P: AsRef<Path>>(source: P) -> Result<()>" }
+      ],
+      "dependencies": ["flate2", "tar", "anyhow"],
+      "feature_gates": [],
+      "notes": "Convention: tag 'latest' is the designated rollback point."
+    },
+    {
+      "id": "source_trust",
+      "label": "source_trust",
+      "file": "src/source_trust.rs",
+      "kind": "module",
+      "language": "rust",
+      "summary": "Bayesian source credibility tracking using Beta distribution (Beta(alpha,beta)). `SourceTrustProfile` maintains per-source alpha/beta counts; corroboration increments alpha, contradiction increments beta, posterior mean alpha/(alpha+beta) is the trust score. `SourceTrustRegistry` is a HashMap<String, SourceTrustProfile> registry with get-or-create semantics, bulk decay, admin override, and geometric-mean trust-weighting of raw confidence scores. Sources start at neutral 0.5 (Beta(1,1) uniform prior). Decay exponentially regresses alpha/beta toward 1.0 for sources inactive beyond max_days. Designed to be held behind Arc<RwLock<>>.",
+      "symbols": [
+        { "name": "SourceCategory", "kind": "enum", "visibility": "pub", "variants": ["User","LLM","System","Sensor","External","Unknown"] },
+        { "name": "SourceTrustProfile", "kind": "struct", "visibility": "pub", "fields": ["source_id","trust_score","alpha","beta","observation_count","corroboration_count","contradiction_count","first_seen","last_updated","category"] },
+        { "name": "SourceTrustProfile::new", "kind": "fn", "visibility": "pub" },
+        { "name": "SourceTrustProfile::recompute_trust", "kind": "fn", "visibility": "pub" },
+        { "name": "SourceTrustProfile::record_corroboration", "kind": "fn", "visibility": "pub" },
+        { "name": "SourceTrustProfile::record_contradiction", "kind": "fn", "visibility": "pub" },
+        { "name": "SourceTrustProfile::decay_if_stale", "kind": "fn", "visibility": "pub" },
+        { "name": "SourceTrustRegistry", "kind": "struct", "visibility": "pub" },
+        { "name": "SourceTrustRegistry::get_or_create", "kind": "fn", "visibility": "pub" },
+        { "name": "SourceTrustRegistry::get_trust", "kind": "fn", "visibility": "pub" },
+        { "name": "SourceTrustRegistry::is_trusted", "kind": "fn", "visibility": "pub" },
+        { "name": "SourceTrustRegistry::trust_weighted_score", "kind": "fn", "visibility": "pub" },
+        { "name": "SourceTrustRegistry::decay_all_stale", "kind": "fn", "visibility": "pub" },
+        { "name": "SourceTrustRegistry::override_trust", "kind": "fn", "visibility": "pub" }
+      ],
+      "dependencies": ["chrono", "serde"],
+      "feature_gates": [],
+      "notes": "Anti-adversarial memory injection guard. Integrates with search result weighting via trust_weighted_score (geometric mean). 7 unit tests cover neutral, corroboration, contradiction, decay, override, bounded trust, and listing."
+    },
+    {
+      "id": "temporal_fsm_backend",
+      "label": "temporal_fsm_backend",
+      "file": "src/temporal_fsm_backend.rs",
+      "kind": "module",
+      "language": "rust",
+      "summary": "File does not exist on disk. Declared in CLAUDE.md as the backing trait for ProceduralCache FSM state persistence (`TemporalFSMBackend`). Referenced from `procedural_cache` as its storage abstraction. Likely implemented via `src/backends/rustfsm_backend.rs`.",
+      "symbols": [],
+      "dependencies": ["procedural_cache"],
+      "feature_gates": [],
+      "notes": "NOT FOUND on disk — may be declared inside procedural_cache.rs or moved to backends/rustfsm_backend.rs. Edge added as declared dependency."
+    },
+    {
+      "id": "web_server",
+      "label": "web_server",
+      "file": "src/web_server.rs",
+      "kind": "module",
+      "language": "rust",
+      "summary": "Axum 0.6 REST API server (feature `web-server`). Wires all HipCortex subsystems into a single `AppState<B>` and exposes ~60 routes across 9 functional groups. Entry points: `run(addr)` (symbolic-only), `run_with_memory(addr, store)`, `run_with_state(addr, state)` (full intelligence layer). API key auth parsed from `HIPCORTEX_API_KEYS` env (format `key:tier,...`). Three tiers: Free (10K rec/mo), Pro (1M rec/mo), Team (unlimited + GDPR).\n\nRoute groups:\n- Memory CRUD: POST /memory/add, /memory/bulk, /memory/embed, /memory/ingest (zero-config), GET /memory/query, /memory/latest, PATCH /memory/update/:id, DELETE /memory/:id\n- Memory search: POST /memory/search (embedding+keyword), GET /memory/search-flat, /memory/search/related (PageRank), /memory/context, /memory/live_beliefs\n- Memory lifecycle: /memory/consolidate, /memory/export, /memory/forget/:actor (GDPR), /memory/quarantine/:id, /memory/restore/:id, /memory/corroborate/:id, /memory/contradict/:id\n- Memory graph: POST /memory/link, GET /memory/neighbors/:id\n- Memory reflexion: POST /memory/reflect, /memory/hypotheses, /memory/hypotheses/reset\n- Graph store: GET/POST /graph, /graph/node, /graph/edge, /graph/search, DELETE /graph/node/:id, GET /node/:id\n- World model: GET /worldmodel/status, /worldmodel/states, /worldmodel/transitions, /worldmodel/uncertainty, /worldmodel/entities, POST /worldmodel/observe, /worldmodel/predict, /worldmodel/rollout, /worldmodel/entity, /worldmodel/causal, /worldmodel/causal/edge, /worldmodel/causal/intervention, /worldmodel/causal/counterfactual, GET /predict/entity/:id\n- Coherence: GET /coherence/status, /coherence/inconsistencies, POST /coherence/check, /coherence/resolve/:id\n- Self-model: GET /self/health, /self/capabilities, /self/can-execute, POST /decide/batch\n- Topological memory: POST /topo/ppr, /topo/check-edge, /topo/deconstruct, /topo/apply-hyp\n- Audit: GET /audit/verify, /audit/export\n- Webhooks: GET/POST /webhooks, DELETE /webhooks/:id\n- Regulatory: GET/POST /regulatory/hold, DELETE /regulatory/hold/:actor\n- Meta: GET /health, /health/summary, /metrics, /stats, /tier, /pricing, /openapi.json, /ns",
+      "symbols": [
+        { "name": "AppState", "kind": "struct", "visibility": "pub", "fields": ["memory_store","symbolic_store","world_model","aureus","self_model","coherence","topo_graph"] },
+        { "name": "ApiTier", "kind": "enum", "visibility": "pub", "variants": ["Free","Pro","Team"] },
+        { "name": "run", "kind": "fn", "visibility": "pub", "signature": "async fn run(addr: SocketAddr)" },
+        { "name": "run_with_memory", "kind": "fn", "visibility": "pub", "signature": "async fn run_with_memory<B: MemoryBackend + Send + Sync + 'static>(addr: SocketAddr, memory_store: Arc<Mutex<MemoryStore<B>>>)" },
+        { "name": "run_with_state", "kind": "fn", "visibility": "pub", "signature": "async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(addr: SocketAddr, state: AppState<B>)" },
+        { "name": "load_api_keys", "kind": "fn", "visibility": "pub(crate)" },
+        { "name": "AddMemoryRequest", "kind": "struct", "visibility": "pub" },
+        { "name": "SearchMemoryRequest", "kind": "struct", "visibility": "pub" },
+        { "name": "IngestRequest", "kind": "struct", "visibility": "pub" },
+        { "name": "BulkAddRequest", "kind": "struct", "visibility": "pub" },
+        { "name": "UpdateMemoryRequest", "kind": "struct", "visibility": "pub" },
+        { "name": "MemoryRecordResponse", "kind": "struct", "visibility": "pub" },
+        { "name": "ForgetActorResponse", "kind": "struct", "visibility": "pub" },
+        { "name": "CoherenceStatusResponse", "kind": "struct", "visibility": "pub" }
+      ],
+      "dependencies": ["axum", "memory_store", "symbolic_store", "temporal_indexer", "safety_guardrail", "coherence", "world_model_enhanced", "aureus_bridge", "self_model", "topological_memory", "openapi_spec"],
+      "feature_gates": ["web-server"],
+      "notes": "4755 lines. Largest file in the codebase. AppState fields are all Arc<Mutex<>> or Arc<RwLock<>> for handler concurrency. Tier enforcement via HIPCORTEX_API_KEYS env. GDPR forget endpoint gated to Team tier."
+    },
+    {
+      "id": "backends_petgraph_backend",
+      "label": "backends/petgraph_backend",
+      "file": "src/backends/petgraph_backend.rs",
+      "kind": "module",
+      "language": "rust",
+      "summary": "Thin type alias: `PetgraphBackend = InMemoryGraph`. Provides backward-compatibility re-export of `symbolic_store::InMemoryGraph` under the backends namespace. The actual petgraph-based graph implementation lives in `symbolic_store`. No additional logic.",
+      "symbols": [
+        { "name": "PetgraphBackend", "kind": "type_alias", "visibility": "pub", "target": "crate::symbolic_store::InMemoryGraph" }
+      ],
+      "dependencies": ["symbolic_store"],
+      "feature_gates": ["petgraph_backend"],
+      "notes": "All real graph logic is in symbolic_store::InMemoryGraph. This module is a compatibility shim only."
+    },
+    {
+      "id": "backends_mod",
+      "label": "backends/mod",
+      "file": "src/backends/mod.rs",
+      "kind": "module",
+      "language": "rust",
+      "summary": "Backends directory exists but mod.rs was not found as a standalone file. Backend modules discovered on disk: petgraph_backend.rs, neo4j_backend.rs, postgres_backend.rs, rustfsm_backend.rs, temporal_backend.rs. All are gated behind feature flags as declared in src/lib.rs. Default backend is petgraph (in-memory via InMemoryGraph alias).",
+      "symbols": [],
+      "dependencies": [],
+      "feature_gates": [],
+      "notes": "mod.rs not present as separate file — backend module declarations are inline in src/lib.rs per CLAUDE.md architecture notes. Additional backends: neo4j (feature neo4j), postgres (feature postgres), rustfsm (FSM backend), temporal (temporal indexer backend)."
+    },
+    {
+      "id": "coherence_mod",
+      "label": "coherence/mod",
+      "file": "src/modules/coherence/mod.rs",
+      "kind": "module",
+      "language": "rust",
+      "summary": "Cross-module consistency coordinator for the HipCortex intelligence layer. Four components: (1) CoherenceChecker — central coordinator running a background 60s check cycle, gates writes, exposes metrics; (2) ConsistencyChecker — detects 5 inconsistency types (TemporalSymbolicConflict, ProceduralWorldConflict, CausalInconsistency, EntityPermanenceViolation, BeliefSymbolicInconsistency); (3) ConflictResolver — 3 strategies (Consensus/majority vote, Recency/newest wins, Confidence/highest score wins) plus manual override; (4) SystemInvariants — enforces 4 mathematical invariants: Memory Consistency (temporal_count==symbolic_count, critical), Decay Monotonicity (activation non-increasing, non-critical), Graph Acyclicity (DAG enforcement, critical), Conservation (created-deleted==net_change, non-critical). State held via Arc<RwLock<>>; locking order must be respected. Critical invariant violations halt operations.",
+      "symbols": [
+        { "name": "CoherenceChecker", "kind": "struct", "visibility": "pub" },
+        { "name": "CoherenceChecker::new", "kind": "fn", "visibility": "pub" },
+        { "name": "CoherenceChecker::check_entity", "kind": "fn", "visibility": "pub" },
+        { "name": "CoherenceChecker::check_consistency", "kind": "fn", "visibility": "pub" },
+        { "name": "CoherenceChecker::resolve_all", "kind": "fn", "visibility": "pub" },
+        { "name": "CoherenceChecker::enforce_invariants", "kind": "fn", "visibility": "pub" },
+        { "name": "CoherenceChecker::gate_write", "kind": "fn", "visibility": "pub" },
+        { "name": "CoherenceChecker::get_metrics", "kind": "fn", "visibility": "pub" },
+        { "name": "ConsistencyChecker", "kind": "struct", "visibility": "pub" },
+        { "name": "ConflictResolver", "kind": "struct", "visibility": "pub" },
+        { "name": "ResolutionStrategy", "kind": "enum", "visibility": "pub", "variants": ["Consensus","Recency","Confidence"] },
+        { "name": "SystemInvariants", "kind": "struct", "visibility": "pub" }
+      ],
+      "dependencies": ["temporal_indexer", "symbolic_store", "world_model_enhanced", "procedural_cache"],
+      "feature_gates": [],
+      "notes": "626 lines total. CoT block at top of file (canonical shape per CLAUDE.md). Arc<RwLock<>> shared state — deadlock risk if locking order not respected. Exposed via /coherence/* REST endpoints in web_server."
+    }
+  ],
+  "edges": [
+    {
+      "from": "web_server",
+      "to": "memory_store",
+      "relation": "calls",
+      "weight": 0.8,
+      "notes": "AppState.memory_store: Arc<Mutex<MemoryStore<B>>>; all memory CRUD routes delegate to it"
+    },
+    {
+      "from": "web_server",
+      "to": "symbolic_store",
+      "relation": "calls",
+      "weight": 0.8,
+      "notes": "AppState.symbolic_store: Arc<Mutex<SymbolicStore<InMemoryGraph>>>; /graph/* and /node/* routes"
+    },
+    {
+      "from": "web_server",
+      "to": "temporal_indexer",
+      "relation": "calls",
+      "weight": 0.8,
+      "notes": "Indirect via memory_store and coherence; /memory/query uses temporal ordering"
+    },
+    {
+      "from": "web_server",
+      "to": "safety_guardrail",
+      "relation": "calls",
+      "weight": 0.8,
+      "notes": "All mutation routes must call SafetyGuardrail::check_precondition per CLAUDE.md safety rule"
+    },
+    {
+      "from": "web_server",
+      "to": "coherence_mod",
+      "relation": "calls",
+      "weight": 0.85,
+      "notes": "AppState.coherence: Arc<CoherenceChecker>; /coherence/* endpoints, gate_write called on mutating routes"
+    },
+    {
+      "from": "web_server",
+      "to": "world_model_enhanced",
+      "relation": "calls",
+      "weight": 0.8,
+      "notes": "AppState.world_model: Arc<RwLock<WorldModelEnhanced>>; /worldmodel/* endpoints"
+    },
+    {
+      "from": "web_server",
+      "to": "aureus_bridge",
+      "relation": "calls",
+      "weight": 0.8,
+      "notes": "AppState.aureus: Arc<Mutex<AureusBridge>>; /memory/reflect and /memory/hypotheses routes"
+    },
+    {
+      "from": "web_server",
+      "to": "self_model",
+      "relation": "calls",
+      "weight": 0.8,
+      "notes": "AppState.self_model: Arc<SelfModel>; /self/* and /decide/batch routes"
+    },
+    {
+      "from": "temporal_fsm_backend",
+      "to": "procedural_cache",
+      "relation": "implements",
+      "weight": 0.8,
+      "notes": "TemporalFSMBackend trait is the storage abstraction consumed by ProceduralCache for FSM state persistence"
+    },
+    {
+      "from": "backends_petgraph_backend",
+      "to": "symbolic_store",
+      "relation": "implements",
+      "weight": 0.9,
+      "notes": "PetgraphBackend = InMemoryGraph (type alias); the actual graph implementation lives in symbolic_store"
+    },
+    {
+      "from": "source_trust",
+      "to": "memory_record",
+      "relation": "depends_on",
+      "weight": 0.6,
+      "notes": "trust_weighted_score uses base_confidence from MemoryRecord fields; integrates with search result ranking"
+    },
+    {
+      "from": "snapshot_manager",
+      "to": "memory_store",
+      "relation": "depends_on",
+      "weight": 0.75,
+      "notes": "Used by MemoryStore for snapshot/rollback of JSONL persistence files"
+    },
+    {
+      "from": "semantic_compression",
+      "to": "perception_adapter",
+      "relation": "depends_on",
+      "weight": 0.65,
+      "notes": "compress_embedding used by PerceptionAdapter for PCA decorrelation output compression"
+    },
+    {
+      "from": "coherence_mod",
+      "to": "symbolic_store",
+      "relation": "depends_on",
+      "weight": 0.85,
+      "notes": "ConsistencyChecker reads symbolic node counts; SystemInvariants enforces graph acyclicity"
+    },
+    {
+      "from": "coherence_mod",
+      "to": "temporal_indexer",
+      "relation": "depends_on",
+      "weight": 0.85,
+      "notes": "Memory Consistency invariant compares temporal_count(e) == symbolic_count(e)"
+    },
+    {
+      "from": "coherence_mod",
+      "to": "world_model_enhanced",
+      "relation": "depends_on",
+      "weight": 0.75,
+      "notes": "ProceduralWorldConflict detection compares FSM state against world-model prediction"
+    }
+  ]
+}

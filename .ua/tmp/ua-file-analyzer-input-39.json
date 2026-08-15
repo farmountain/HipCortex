@@ -1,0 +1,13 @@
+{
+  "projectRoot": "D:/all_projects/hipcortex",
+  "batchFiles": [
+    {"path": "src/memory_diff.rs", "language": "rust", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "src/memory_record.rs", "language": "rust", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "src/memory_store.rs", "language": "rust", "sizeLines": 0, "fileCategory": "code"}
+  ],
+  "batchImportData": {
+    "src/memory_diff.rs": ["src/memory_record.rs"],
+    "src/memory_record.rs": [],
+    "src/memory_store.rs": ["src/memory_record.rs","src/persistence.rs"]
+  }
+}

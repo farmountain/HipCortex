@@ -21,11 +21,7 @@ pub fn ppr_search(
 }
 
 /// Weighted PPR using edge strength×confidence (graph.ppr API).
-pub fn ppr_weighted(
-    graph: &CausalTopoGraph,
-    seed_id: &str,
-    limit: usize,
-) -> Vec<(String, f64)> {
+pub fn ppr_weighted(graph: &CausalTopoGraph, seed_id: &str, limit: usize) -> Vec<(String, f64)> {
     graph.ppr(seed_id, limit, 0.85, 20)
 }
 

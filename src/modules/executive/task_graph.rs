@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use petgraph::graph::{DiGraph, NodeIndex};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TaskState {
@@ -55,9 +55,10 @@ impl TaskGraph {
         goal_state: HashMap<String, String>,
         available_actions: &[TaskNode],
     ) -> Result<Self, String> {
-        let initial_unmet = goal_state.iter().filter(|(gk, gv)| {
-            current_state.get(*gk) != Some(*gv)
-        }).count();
+        let initial_unmet = goal_state
+            .iter()
+            .filter(|(gk, gv)| current_state.get(*gk) != Some(*gv))
+            .count();
 
         let mut open_set = vec![PlanningState {
             current_beliefs: current_state.clone(),
@@ -68,11 +69,18 @@ impl TaskGraph {
 
         let mut max_iterations = 1000;
 
-        while let Some(best_idx) = open_set.iter().enumerate().min_by(|(_, a), (_, b)| {
-            let score_a = a.path_cost + a.unmet_goals_count as f64;
-            let score_b = b.path_cost + b.unmet_goals_count as f64;
-            score_a.partial_cmp(&score_b).unwrap_or(std::cmp::Ordering::Equal)
-        }).map(|(i, _)| i) {
+        while let Some(best_idx) = open_set
+            .iter()
+            .enumerate()
+            .min_by(|(_, a), (_, b)| {
+                let score_a = a.path_cost + a.unmet_goals_count as f64;
+                let score_b = b.path_cost + b.unmet_goals_count as f64;
+                score_a
+                    .partial_cmp(&score_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .map(|(i, _)| i)
+        {
             if max_iterations == 0 {
                 return Err("Planning iteration limit exceeded".to_string());
             }

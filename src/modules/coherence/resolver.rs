@@ -6,19 +6,19 @@
 // 3. Confidence: Select value with highest confidence score
 
 use super::checker::{InconsistencyReport, InconsistencyType};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
-use serde::{Serialize, Deserialize};
 
 /// Resolution strategies for conflict resolution
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ResolutionStrategy {
     /// Select value that appears in majority of modules
     Consensus,
-    
+
     /// Select most recently observed value based on timestamps
     Recency,
-    
+
     /// Select value with highest confidence score
     Confidence,
 }
@@ -28,25 +28,25 @@ pub enum ResolutionStrategy {
 pub struct ResolutionResult {
     /// Unique identifier for the resolution
     pub id: String,
-    
+
     /// ID of the inconsistency being resolved
     pub inconsistency_id: String,
-    
+
     /// Strategy used for resolution
     pub strategy: ResolutionStrategy,
-    
+
     /// Whether resolution succeeded
     pub success: bool,
-    
+
     /// Chosen value (if successful)
     pub chosen_value: Option<serde_json::Value>,
-    
+
     /// All candidate values considered
     pub candidates: Vec<CandidateValue>,
-    
+
     /// Rationale for the choice
     pub rationale: String,
-    
+
     /// Resolution timestamp (Unix epoch millis)
     pub resolved_at: u64,
 }
@@ -56,13 +56,13 @@ pub struct ResolutionResult {
 pub struct CandidateValue {
     /// The value itself
     pub value: serde_json::Value,
-    
+
     /// Source module
     pub source: String,
-    
+
     /// Timestamp when observed (Unix epoch millis)
     pub timestamp: u64,
-    
+
     /// Confidence score [0.0, 1.0]
     pub confidence: f64,
 }
@@ -72,25 +72,25 @@ pub struct CandidateValue {
 pub struct ResolutionHistory {
     /// Resolution ID
     pub id: String,
-    
+
     /// Inconsistency ID that was resolved
     pub inconsistency_id: String,
-    
+
     /// Inconsistency type
     pub inconsistency_type: InconsistencyType,
-    
+
     /// Strategy used
     pub strategy: ResolutionStrategy,
-    
+
     /// Success status
     pub success: bool,
-    
+
     /// Chosen value
     pub chosen_value: Option<serde_json::Value>,
-    
+
     /// Timestamp
     pub timestamp: u64,
-    
+
     /// Operator who manually overrode (if any)
     pub manual_override_by: Option<String>,
 }
@@ -99,19 +99,27 @@ pub struct ResolutionHistory {
 pub struct ConflictResolver {
     /// Resolution history (for audit)
     history: Vec<ResolutionHistory>,
-    
+
     /// Manual overrides (inconsistency_id -> disabled auto-resolution)
     manual_overrides: HashMap<String, String>,
-    
+
     /// Consensus threshold (fraction of modules that must agree)
     consensus_threshold: f64,
 
     /// Optional symbolic store for label/entity candidates
-    symbolic: Option<std::sync::Arc<std::sync::Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>>,
+    symbolic: Option<
+        std::sync::Arc<
+            std::sync::Mutex<
+                crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>,
+            >,
+        >,
+    >,
     /// Optional world model for tracked entity candidates
     world_model: Option<std::sync::Arc<crate::world_model_enhanced::WorldModelEnhanced>>,
     /// Optional temporal indexer (UUID-keyed traces) for recency candidates
-    temporal: Option<std::sync::Arc<std::sync::Mutex<crate::temporal_indexer::TemporalIndexer<uuid::Uuid>>>>,
+    temporal: Option<
+        std::sync::Arc<std::sync::Mutex<crate::temporal_indexer::TemporalIndexer<uuid::Uuid>>>,
+    >,
 }
 
 impl ConflictResolver {
@@ -141,7 +149,11 @@ impl ConflictResolver {
 
     pub fn with_symbolic(
         mut self,
-        store: std::sync::Arc<std::sync::Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>,
+        store: std::sync::Arc<
+            std::sync::Mutex<
+                crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>,
+            >,
+        >,
     ) -> Self {
         self.symbolic = Some(store);
         self
@@ -165,12 +177,19 @@ impl ConflictResolver {
 
     pub fn set_symbolic(
         &mut self,
-        store: std::sync::Arc<std::sync::Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>,
+        store: std::sync::Arc<
+            std::sync::Mutex<
+                crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>,
+            >,
+        >,
     ) {
         self.symbolic = Some(store);
     }
 
-    pub fn set_world_model(&mut self, wm: std::sync::Arc<crate::world_model_enhanced::WorldModelEnhanced>) {
+    pub fn set_world_model(
+        &mut self,
+        wm: std::sync::Arc<crate::world_model_enhanced::WorldModelEnhanced>,
+    ) {
         self.world_model = Some(wm);
     }
 
@@ -201,7 +220,7 @@ impl ConflictResolver {
 
         // Get candidate values (in real implementation, query modules)
         let candidates = self.get_candidate_values(inconsistency)?;
-        
+
         if candidates.is_empty() {
             return Ok(self.create_failed_result(
                 inconsistency,
@@ -232,10 +251,8 @@ impl ConflictResolver {
         operator: &str,
     ) -> Result<(), String> {
         // Record manual override
-        self.manual_overrides.insert(
-            inconsistency_id.to_string(),
-            operator.to_string(),
-        );
+        self.manual_overrides
+            .insert(inconsistency_id.to_string(), operator.to_string());
 
         // Create resolution result for history
         let now = SystemTime::now()
@@ -286,12 +303,13 @@ impl ConflictResolver {
     ) -> Result<ResolutionResult, String> {
         // Count occurrences of each value
         let mut value_counts: HashMap<String, (usize, CandidateValue)> = HashMap::new();
-        
+
         for candidate in &candidates {
             let key = serde_json::to_string(&candidate.value)
                 .unwrap_or_else(|_| format!("{:?}", candidate.value));
-            
-            value_counts.entry(key.clone())
+
+            value_counts
+                .entry(key.clone())
                 .and_modify(|(count, _)| *count += 1)
                 .or_insert((1, candidate.clone()));
         }
@@ -310,7 +328,7 @@ impl ConflictResolver {
 
         // Check if consensus threshold met
         let consensus_fraction = max_count as f64 / total_candidates as f64;
-        
+
         if consensus_fraction < self.consensus_threshold {
             return Ok(self.create_failed_result(
                 inconsistency,
@@ -318,7 +336,8 @@ impl ConflictResolver {
                 candidates,
                 format!(
                     "No consensus reached: {}/{} votes ({:.2}%) < threshold ({:.2}%)",
-                    max_count, total_candidates,
+                    max_count,
+                    total_candidates,
                     consensus_fraction * 100.0,
                     self.consensus_threshold * 100.0
                 ),
@@ -333,7 +352,9 @@ impl ConflictResolver {
             chosen_candidate.value.clone(),
             format!(
                 "Consensus reached: {}/{} modules agree ({:.2}%)",
-                max_count, total_candidates, consensus_fraction * 100.0
+                max_count,
+                total_candidates,
+                consensus_fraction * 100.0
             ),
         ))
     }
@@ -344,10 +365,11 @@ impl ConflictResolver {
         inconsistency: &InconsistencyReport,
         candidates: Vec<CandidateValue>,
     ) -> Result<ResolutionResult, String> {
-        let most_recent = candidates.iter()
+        let most_recent = candidates
+            .iter()
             .max_by_key(|c| c.timestamp)
             .ok_or_else(|| "No candidates available".to_string())?;
-        
+
         let value = most_recent.value.clone();
         let source = most_recent.source.clone();
         let timestamp = most_recent.timestamp;
@@ -370,10 +392,11 @@ impl ConflictResolver {
         inconsistency: &InconsistencyReport,
         candidates: Vec<CandidateValue>,
     ) -> Result<ResolutionResult, String> {
-        let highest_confidence = candidates.iter()
+        let highest_confidence = candidates
+            .iter()
             .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap())
             .ok_or_else(|| "No candidates available".to_string())?;
-        
+
         let value = highest_confidence.value.clone();
         let source = highest_confidence.source.clone();
         let confidence = highest_confidence.confidence;
@@ -472,7 +495,10 @@ impl ConflictResolver {
                     for tr in idx.get_recent(40) {
                         let id_s = tr.id.to_string();
                         let data_s = tr.data.to_string();
-                        if id_s.contains(entity) || data_s.contains(entity) || entity.contains(&id_s) {
+                        if id_s.contains(entity)
+                            || data_s.contains(entity)
+                            || entity.contains(&id_s)
+                        {
                             let ts = tr
                                 .timestamp
                                 .duration_since(std::time::UNIX_EPOCH)
@@ -637,8 +663,8 @@ mod tests {
 
     #[test]
     fn test_get_candidates_with_temporal_source() {
-        use crate::temporal_indexer::{TemporalIndexer, TemporalTrace};
         use crate::decay::DecayType;
+        use crate::temporal_indexer::{TemporalIndexer, TemporalTrace};
         use std::sync::{Arc, Mutex};
         use std::time::{Duration, SystemTime};
 
@@ -682,10 +708,12 @@ mod tests {
         let resolver = ConflictResolver::new();
         let inconsistency = create_test_inconsistency();
         let candidates = create_test_candidates();
-        
+
         // value_A appears 2/3 times (66%), should reach consensus
-        let result = resolver.resolve_by_consensus(&inconsistency, candidates).unwrap();
-        
+        let result = resolver
+            .resolve_by_consensus(&inconsistency, candidates)
+            .unwrap();
+
         assert!(result.success);
         assert_eq!(result.chosen_value, Some(serde_json::json!("value_A")));
         assert!(result.rationale.contains("Consensus reached"));
@@ -696,10 +724,12 @@ mod tests {
         let resolver = ConflictResolver::with_consensus_threshold(0.8);
         let inconsistency = create_test_inconsistency();
         let candidates = create_test_candidates();
-        
+
         // value_A: 2/3 = 66% < 80% threshold
-        let result = resolver.resolve_by_consensus(&inconsistency, candidates).unwrap();
-        
+        let result = resolver
+            .resolve_by_consensus(&inconsistency, candidates)
+            .unwrap();
+
         assert!(!result.success);
         assert_eq!(result.chosen_value, None);
         assert!(result.rationale.contains("No consensus reached"));
@@ -710,10 +740,12 @@ mod tests {
         let resolver = ConflictResolver::new();
         let inconsistency = create_test_inconsistency();
         let candidates = create_test_candidates();
-        
+
         // Most recent is world_model at timestamp 1200
-        let result = resolver.resolve_by_recency(&inconsistency, candidates).unwrap();
-        
+        let result = resolver
+            .resolve_by_recency(&inconsistency, candidates)
+            .unwrap();
+
         assert!(result.success);
         assert_eq!(result.chosen_value, Some(serde_json::json!("value_B")));
         assert!(result.rationale.contains("most recent"));
@@ -725,10 +757,12 @@ mod tests {
         let resolver = ConflictResolver::new();
         let inconsistency = create_test_inconsistency();
         let candidates = create_test_candidates();
-        
+
         // Highest confidence is symbolic at 0.9
-        let result = resolver.resolve_by_confidence(&inconsistency, candidates).unwrap();
-        
+        let result = resolver
+            .resolve_by_confidence(&inconsistency, candidates)
+            .unwrap();
+
         assert!(result.success);
         assert_eq!(result.chosen_value, Some(serde_json::json!("value_A")));
         assert!(result.rationale.contains("highest confidence"));
@@ -740,16 +774,14 @@ mod tests {
         let mut resolver = ConflictResolver::new();
         let inconsistency_id = "test_inconsistency";
         let override_value = serde_json::json!("manual_value");
-        
-        resolver.apply_manual_override(
-            inconsistency_id,
-            override_value.clone(),
-            "operator123",
-        ).unwrap();
-        
+
+        resolver
+            .apply_manual_override(inconsistency_id, override_value.clone(), "operator123")
+            .unwrap();
+
         // Check override recorded
         assert!(resolver.manual_overrides.contains_key(inconsistency_id));
-        
+
         // Check history recorded
         assert_eq!(resolver.history.len(), 1);
         let history = &resolver.history[0];
@@ -761,16 +793,15 @@ mod tests {
     fn test_resolve_with_manual_override_blocks_auto() {
         let mut resolver = ConflictResolver::new();
         let inconsistency = create_test_inconsistency();
-        
+
         // Apply manual override
-        resolver.manual_overrides.insert(
-            inconsistency.id.clone(),
-            "operator".to_string(),
-        );
-        
+        resolver
+            .manual_overrides
+            .insert(inconsistency.id.clone(), "operator".to_string());
+
         // Try auto-resolution (should fail)
         let result = resolver.resolve(&inconsistency, ResolutionStrategy::Consensus);
-        
+
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("manual override"));
     }
@@ -778,14 +809,12 @@ mod tests {
     #[test]
     fn test_resolution_history_tracking() {
         let mut resolver = ConflictResolver::new();
-        
+
         // Apply manual override
-        resolver.apply_manual_override(
-            "inconsistency1",
-            serde_json::json!("value1"),
-            "operator1",
-        ).unwrap();
-        
+        resolver
+            .apply_manual_override("inconsistency1", serde_json::json!("value1"), "operator1")
+            .unwrap();
+
         let history = resolver.get_history().unwrap();
         assert_eq!(history.len(), 1);
         assert_eq!(history[0].inconsistency_id, "inconsistency1");
@@ -795,9 +824,9 @@ mod tests {
     fn test_empty_candidates_recency() {
         let resolver = ConflictResolver::new();
         let inconsistency = create_test_inconsistency();
-        
+
         let result = resolver.resolve_by_recency(&inconsistency, Vec::new());
-        
+
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("No candidates"));
     }
@@ -806,9 +835,9 @@ mod tests {
     fn test_empty_candidates_confidence() {
         let resolver = ConflictResolver::new();
         let inconsistency = create_test_inconsistency();
-        
+
         let result = resolver.resolve_by_confidence(&inconsistency, Vec::new());
-        
+
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("No candidates"));
     }
@@ -825,7 +854,7 @@ mod tests {
             rationale: "Test rationale".to_string(),
             resolved_at: 1000,
         };
-        
+
         let json = serde_json::to_string(&result).unwrap();
         assert!(json.contains("Consensus"));
         assert!(json.contains("Test rationale"));
@@ -839,69 +868,120 @@ mod tests {
             timestamp: 1234567890,
             confidence: 0.95,
         };
-        
+
         assert_eq!(candidate.confidence, 0.95);
         assert_eq!(candidate.source, "test_module");
-#[test]
-    fn test_consensus_boundary_exact_threshold() {
-        let resolver = ConflictResolver::with_consensus_threshold(0.5);
-        let inconsistency = create_test_inconsistency();
-        let candidates = vec![
-            CandidateValue { value: serde_json::json!("X"), source: "a".to_string(), timestamp: 1, confidence: 0.5 },
-            CandidateValue { value: serde_json::json!("X"), source: "b".to_string(), timestamp: 2, confidence: 0.5 },
-            CandidateValue { value: serde_json::json!("Y"), source: "c".to_string(), timestamp: 3, confidence: 0.5 },
-            CandidateValue { value: serde_json::json!("Z"), source: "d".to_string(), timestamp: 4, confidence: 0.5 },
-        ];
-        let result = resolver.resolve_by_consensus(&inconsistency, candidates).unwrap();
-        assert!(result.success, "2/4 = 0.5 meets threshold of 0.5");
-        assert_eq!(result.chosen_value, Some(serde_json::json!("X")));
-    }
+        #[test]
+        fn test_consensus_boundary_exact_threshold() {
+            let resolver = ConflictResolver::with_consensus_threshold(0.5);
+            let inconsistency = create_test_inconsistency();
+            let candidates = vec![
+                CandidateValue {
+                    value: serde_json::json!("X"),
+                    source: "a".to_string(),
+                    timestamp: 1,
+                    confidence: 0.5,
+                },
+                CandidateValue {
+                    value: serde_json::json!("X"),
+                    source: "b".to_string(),
+                    timestamp: 2,
+                    confidence: 0.5,
+                },
+                CandidateValue {
+                    value: serde_json::json!("Y"),
+                    source: "c".to_string(),
+                    timestamp: 3,
+                    confidence: 0.5,
+                },
+                CandidateValue {
+                    value: serde_json::json!("Z"),
+                    source: "d".to_string(),
+                    timestamp: 4,
+                    confidence: 0.5,
+                },
+            ];
+            let result = resolver
+                .resolve_by_consensus(&inconsistency, candidates)
+                .unwrap();
+            assert!(result.success, "2/4 = 0.5 meets threshold of 0.5");
+            assert_eq!(result.chosen_value, Some(serde_json::json!("X")));
+        }
 
-    #[test]
-    fn test_consensus_all_disagree() {
-        let resolver = ConflictResolver::with_consensus_threshold(0.5);
-        let inconsistency = create_test_inconsistency();
-        let candidates = vec![
-            CandidateValue { value: serde_json::json!("A"), source: "a".to_string(), timestamp: 1, confidence: 0.5 },
-            CandidateValue { value: serde_json::json!("B"), source: "b".to_string(), timestamp: 2, confidence: 0.5 },
-            CandidateValue { value: serde_json::json!("C"), source: "c".to_string(), timestamp: 3, confidence: 0.5 },
-        ];
-        let result = resolver.resolve_by_consensus(&inconsistency, candidates).unwrap();
-        assert!(!result.success, "1/3 = 0.33 < 0.5 threshold");
-        assert_eq!(result.chosen_value, None);
-        assert!(result.rationale.contains("No consensus reached"));
-    }
+        #[test]
+        fn test_consensus_all_disagree() {
+            let resolver = ConflictResolver::with_consensus_threshold(0.5);
+            let inconsistency = create_test_inconsistency();
+            let candidates = vec![
+                CandidateValue {
+                    value: serde_json::json!("A"),
+                    source: "a".to_string(),
+                    timestamp: 1,
+                    confidence: 0.5,
+                },
+                CandidateValue {
+                    value: serde_json::json!("B"),
+                    source: "b".to_string(),
+                    timestamp: 2,
+                    confidence: 0.5,
+                },
+                CandidateValue {
+                    value: serde_json::json!("C"),
+                    source: "c".to_string(),
+                    timestamp: 3,
+                    confidence: 0.5,
+                },
+            ];
+            let result = resolver
+                .resolve_by_consensus(&inconsistency, candidates)
+                .unwrap();
+            assert!(!result.success, "1/3 = 0.33 < 0.5 threshold");
+            assert_eq!(result.chosen_value, None);
+            assert!(result.rationale.contains("No consensus reached"));
+        }
 
-    #[test]
-    fn test_resolution_failure_produces_failed_result() {
-        let mut resolver = ConflictResolver::new();
-        let inconsistency = create_test_inconsistency();
-        let result = resolver.resolve(&inconsistency, ResolutionStrategy::Consensus);
-        match result {
-            Ok(r) => {
-                assert!(!r.success);
-                assert_eq!(r.chosen_value, None);
-                assert!(!r.rationale.is_empty());
-            }
-            Err(e) => {
-                assert!(!e.is_empty());
+        #[test]
+        fn test_resolution_failure_produces_failed_result() {
+            let mut resolver = ConflictResolver::new();
+            let inconsistency = create_test_inconsistency();
+            let result = resolver.resolve(&inconsistency, ResolutionStrategy::Consensus);
+            match result {
+                Ok(r) => {
+                    assert!(!r.success);
+                    assert_eq!(r.chosen_value, None);
+                    assert!(!r.rationale.is_empty());
+                }
+                Err(e) => {
+                    assert!(!e.is_empty());
+                }
             }
         }
-    }
 
-    #[test]
-    fn test_failed_resolution_recorded_in_history() {
-        let mut resolver = ConflictResolver::new();
-        let inconsistency = create_test_inconsistency();
-        let candidates = vec![
-            CandidateValue { value: serde_json::json!("A"), source: "a".to_string(), timestamp: 1, confidence: 0.5 },
-            CandidateValue { value: serde_json::json!("B"), source: "b".to_string(), timestamp: 2, confidence: 0.5 },
-        ];
-        let result = resolver.resolve_by_consensus(&inconsistency, candidates).unwrap();
-        assert!(!result.success);
-        assert_eq!(result.chosen_value, None);
-        assert!(!result.id.is_empty());
-        assert!(!result.rationale.is_empty());
-    }
+        #[test]
+        fn test_failed_resolution_recorded_in_history() {
+            let mut resolver = ConflictResolver::new();
+            let inconsistency = create_test_inconsistency();
+            let candidates = vec![
+                CandidateValue {
+                    value: serde_json::json!("A"),
+                    source: "a".to_string(),
+                    timestamp: 1,
+                    confidence: 0.5,
+                },
+                CandidateValue {
+                    value: serde_json::json!("B"),
+                    source: "b".to_string(),
+                    timestamp: 2,
+                    confidence: 0.5,
+                },
+            ];
+            let result = resolver
+                .resolve_by_consensus(&inconsistency, candidates)
+                .unwrap();
+            assert!(!result.success);
+            assert_eq!(result.chosen_value, None);
+            assert!(!result.id.is_empty());
+            assert!(!result.rationale.is_empty());
+        }
     }
 }

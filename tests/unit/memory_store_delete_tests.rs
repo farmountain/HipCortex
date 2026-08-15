@@ -48,7 +48,11 @@ fn delete_by_id_rebuilds_actor_index() {
     store.delete_by_id(id_r1);
 
     let alice_records = store.find_by_actor("alice");
-    assert_eq!(alice_records.len(), 1, "actor index must be consistent after delete");
+    assert_eq!(
+        alice_records.len(),
+        1,
+        "actor index must be consistent after delete"
+    );
     assert_eq!(alice_records[0].target, "task_b");
 }
 

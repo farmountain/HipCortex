@@ -1,0 +1,3602 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 3,
+  "filesSkipped": [],
+  "analysisOutcomes": {
+    "structure": {
+      "succeeded": 3,
+      "failed": 0
+    },
+    "callGraph": {
+      "succeeded": 3,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "results": [
+    {
+      "path": "src/memory_diff.rs",
+      "language": "rust",
+      "fileCategory": "code",
+      "totalLines": 112,
+      "nonEmptyLines": 103,
+      "functions": [
+        {
+          "name": "diff_snapshots",
+          "startLine": 5,
+          "endLine": 24,
+          "params": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "name": "compute_diff",
+          "startLine": 45,
+          "endLine": 82,
+          "params": [
+            "from",
+            "to"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "FieldChange",
+          "startLine": 27,
+          "endLine": 31,
+          "methods": [],
+          "properties": [
+            "field",
+            "old_value",
+            "new_value"
+          ]
+        },
+        {
+          "name": "StateDiff",
+          "startLine": 34,
+          "endLine": 42,
+          "methods": [],
+          "properties": [
+            "record_id",
+            "from_version",
+            "to_version",
+            "field_changes",
+            "confidence_delta",
+            "status_change",
+            "react_iterations_delta"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "diff_snapshots",
+          "line": 5,
+          "isDefault": false
+        },
+        {
+          "name": "FieldChange",
+          "line": 27,
+          "isDefault": false
+        },
+        {
+          "name": "StateDiff",
+          "line": 34,
+          "isDefault": false
+        },
+        {
+          "name": "compute_diff",
+          "line": 45,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "diff_snapshots",
+          "callee": "Vec::new",
+          "lineNumber": 9
+        },
+        {
+          "caller": "diff_snapshots",
+          "callee": "Vec::new",
+          "lineNumber": 10
+        },
+        {
+          "caller": "diff_snapshots",
+          "callee": "a.iter().map(|r| r.id).collect",
+          "lineNumber": 11
+        },
+        {
+          "caller": "diff_snapshots",
+          "callee": "a.iter().map",
+          "lineNumber": 11
+        },
+        {
+          "caller": "diff_snapshots",
+          "callee": "a.iter",
+          "lineNumber": 11
+        },
+        {
+          "caller": "diff_snapshots",
+          "callee": "b.iter().map(|r| r.id).collect",
+          "lineNumber": 12
+        },
+        {
+          "caller": "diff_snapshots",
+          "callee": "b.iter().map",
+          "lineNumber": 12
+        },
+        {
+          "caller": "diff_snapshots",
+          "callee": "b.iter",
+          "lineNumber": 12
+        },
+        {
+          "caller": "diff_snapshots",
+          "callee": "ids_a.contains",
+          "lineNumber": 14
+        },
+        {
+          "caller": "diff_snapshots",
+          "callee": "added.push",
+          "lineNumber": 15
+        },
+        {
+          "caller": "diff_snapshots",
+          "callee": "rec.clone",
+          "lineNumber": 15
+        },
+        {
+          "caller": "diff_snapshots",
+          "callee": "ids_b.contains",
+          "lineNumber": 19
+        },
+        {
+          "caller": "diff_snapshots",
+          "callee": "removed.push",
+          "lineNumber": 20
+        },
+        {
+          "caller": "diff_snapshots",
+          "callee": "rec.clone",
+          "lineNumber": 20
+        },
+        {
+          "caller": "compute_diff",
+          "callee": "Vec::new",
+          "lineNumber": 46
+        },
+        {
+          "caller": "compute_diff",
+          "callee": "Some",
+          "lineNumber": 75
+        },
+        {
+          "caller": "compute_diff",
+          "callee": "from.status.clone",
+          "lineNumber": 75
+        },
+        {
+          "caller": "compute_diff",
+          "callee": "to.status.clone",
+          "lineNumber": 75
+        },
+        {
+          "caller": "compute_diff",
+          "callee": "to.react_iteration.unwrap_or(0).saturating_sub",
+          "lineNumber": 79
+        },
+        {
+          "caller": "compute_diff",
+          "callee": "to.react_iteration.unwrap_or",
+          "lineNumber": 79
+        },
+        {
+          "caller": "compute_diff",
+          "callee": "from.react_iteration.unwrap_or",
+          "lineNumber": 80
+        },
+        {
+          "caller": "diff_basic",
+          "callee": "MemoryRecord::new",
+          "lineNumber": 91
+        },
+        {
+          "caller": "diff_basic",
+          "callee": "\"a\".into",
+          "lineNumber": 93
+        },
+        {
+          "caller": "diff_basic",
+          "callee": "\"b\".into",
+          "lineNumber": 94
+        },
+        {
+          "caller": "diff_basic",
+          "callee": "\"c\".into",
+          "lineNumber": 95
+        },
+        {
+          "caller": "diff_basic",
+          "callee": "MemoryRecord::new",
+          "lineNumber": 98
+        },
+        {
+          "caller": "diff_basic",
+          "callee": "\"x\".into",
+          "lineNumber": 100
+        },
+        {
+          "caller": "diff_basic",
+          "callee": "\"y\".into",
+          "lineNumber": 101
+        },
+        {
+          "caller": "diff_basic",
+          "callee": "\"z\".into",
+          "lineNumber": 102
+        },
+        {
+          "caller": "diff_basic",
+          "callee": "diff_snapshots",
+          "lineNumber": 107
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 4,
+        "functionCount": 2,
+        "classCount": 2
+      }
+    },
+    {
+      "path": "src/memory_record.rs",
+      "language": "rust",
+      "fileCategory": "code",
+      "totalLines": 237,
+      "nonEmptyLines": 212,
+      "functions": [
+        {
+          "name": "default_status",
+          "startLine": 76,
+          "endLine": 78,
+          "params": []
+        },
+        {
+          "name": "default_relevance",
+          "startLine": 80,
+          "endLine": 82,
+          "params": []
+        },
+        {
+          "name": "default_confidence",
+          "startLine": 84,
+          "endLine": 86,
+          "params": []
+        },
+        {
+          "name": "default_priority",
+          "startLine": 88,
+          "endLine": 90,
+          "params": []
+        },
+        {
+          "name": "new",
+          "startLine": 93,
+          "endLine": 129,
+          "params": [
+            "record_type",
+            "actor",
+            "action",
+            "target",
+            "metadata"
+          ]
+        },
+        {
+          "name": "compute_hash",
+          "startLine": 131,
+          "endLine": 141,
+          "params": []
+        },
+        {
+          "name": "mark_accessed",
+          "startLine": 144,
+          "endLine": 147,
+          "params": []
+        },
+        {
+          "name": "update_relevance_score",
+          "startLine": 150,
+          "endLine": 152,
+          "params": [
+            "new_score"
+          ]
+        },
+        {
+          "name": "calculate_decay_factor",
+          "startLine": 155,
+          "endLine": 164,
+          "params": [
+            "base_decay"
+          ]
+        },
+        {
+          "name": "get_metadata_field",
+          "startLine": 167,
+          "endLine": 172,
+          "params": [
+            "key"
+          ]
+        },
+        {
+          "name": "set_metadata_field",
+          "startLine": 175,
+          "endLine": 193,
+          "params": [
+            "key",
+            "value"
+          ]
+        },
+        {
+          "name": "should_prune",
+          "startLine": 196,
+          "endLine": 204,
+          "params": [
+            "min_access_threshold",
+            "max_age_days"
+          ]
+        },
+        {
+          "name": "similarity_score",
+          "startLine": 207,
+          "endLine": 236,
+          "params": [
+            "other"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "MemoryType",
+          "startLine": 7,
+          "endLine": 16,
+          "methods": [],
+          "properties": [
+            "Temporal",
+            "Symbolic",
+            "Procedural",
+            "Reflexion",
+            "Perception",
+            "Goal",
+            "Skill",
+            "Belief"
+          ]
+        },
+        {
+          "name": "MemoryRecord",
+          "startLine": 19,
+          "endLine": 74,
+          "methods": [
+            "new",
+            "compute_hash",
+            "mark_accessed",
+            "update_relevance_score",
+            "calculate_decay_factor",
+            "get_metadata_field",
+            "set_metadata_field",
+            "should_prune",
+            "similarity_score"
+          ],
+          "properties": [
+            "id",
+            "record_type",
+            "timestamp",
+            "actor",
+            "action",
+            "target",
+            "metadata",
+            "integrity",
+            "access_count",
+            "last_accessed",
+            "relevance_score",
+            "content_hash",
+            "expires_at",
+            "confidence",
+            "source",
+            "version",
+            "tags",
+            "priority",
+            "status",
+            "evidence",
+            "derived_from",
+            "react_iteration"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "MemoryType",
+          "line": 7,
+          "isDefault": false
+        },
+        {
+          "name": "MemoryRecord",
+          "line": 19,
+          "isDefault": false
+        },
+        {
+          "name": "new",
+          "line": 93,
+          "isDefault": false
+        },
+        {
+          "name": "compute_hash",
+          "line": 131,
+          "isDefault": false
+        },
+        {
+          "name": "mark_accessed",
+          "line": 144,
+          "isDefault": false
+        },
+        {
+          "name": "update_relevance_score",
+          "line": 150,
+          "isDefault": false
+        },
+        {
+          "name": "calculate_decay_factor",
+          "line": 155,
+          "isDefault": false
+        },
+        {
+          "name": "get_metadata_field",
+          "line": 167,
+          "isDefault": false
+        },
+        {
+          "name": "set_metadata_field",
+          "line": 175,
+          "isDefault": false
+        },
+        {
+          "name": "should_prune",
+          "line": 196,
+          "isDefault": false
+        },
+        {
+          "name": "similarity_score",
+          "line": 207,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "default_status",
+          "callee": "\"active\".to_string",
+          "lineNumber": 77
+        },
+        {
+          "caller": "default_priority",
+          "callee": "\"normal\".to_string",
+          "lineNumber": 89
+        },
+        {
+          "caller": "new",
+          "callee": "Utc::now",
+          "lineNumber": 100
+        },
+        {
+          "caller": "new",
+          "callee": "Uuid::new_v4",
+          "lineNumber": 102
+        },
+        {
+          "caller": "new",
+          "callee": "Vec::new",
+          "lineNumber": 118
+        },
+        {
+          "caller": "new",
+          "callee": "\"normal\".to_string",
+          "lineNumber": 119
+        },
+        {
+          "caller": "new",
+          "callee": "\"active\".to_string",
+          "lineNumber": 120
+        },
+        {
+          "caller": "new",
+          "callee": "Vec::new",
+          "lineNumber": 121
+        },
+        {
+          "caller": "new",
+          "callee": "rec.compute_hash",
+          "lineNumber": 125
+        },
+        {
+          "caller": "new",
+          "callee": "Some",
+          "lineNumber": 126
+        },
+        {
+          "caller": "new",
+          "callee": "hash.clone",
+          "lineNumber": 126
+        },
+        {
+          "caller": "new",
+          "callee": "Some",
+          "lineNumber": 127
+        },
+        {
+          "caller": "compute_hash",
+          "callee": "self.clone",
+          "lineNumber": 133
+        },
+        {
+          "caller": "compute_hash",
+          "callee": "serde_json::to_vec(&clone).unwrap",
+          "lineNumber": 138
+        },
+        {
+          "caller": "compute_hash",
+          "callee": "serde_json::to_vec",
+          "lineNumber": 138
+        },
+        {
+          "caller": "compute_hash",
+          "callee": "Sha256::digest",
+          "lineNumber": 139
+        },
+        {
+          "caller": "compute_hash",
+          "callee": "hex::encode",
+          "lineNumber": 140
+        },
+        {
+          "caller": "mark_accessed",
+          "callee": "Utc::now",
+          "lineNumber": 146
+        },
+        {
+          "caller": "update_relevance_score",
+          "callee": "new_score.clamp",
+          "lineNumber": 151
+        },
+        {
+          "caller": "calculate_decay_factor",
+          "callee": "Utc::now",
+          "lineNumber": 156
+        },
+        {
+          "caller": "calculate_decay_factor",
+          "callee": "(now - self.timestamp).num_seconds",
+          "lineNumber": 157
+        },
+        {
+          "caller": "calculate_decay_factor",
+          "callee": "(-age_seconds / 86400.0 * base_decay).exp",
+          "lineNumber": 161
+        },
+        {
+          "caller": "calculate_decay_factor",
+          "callee": "(time_factor * access_factor * self.relevance_score).clamp",
+          "lineNumber": 163
+        },
+        {
+          "caller": "get_metadata_field",
+          "callee": "self.metadata.get(key).and_then",
+          "lineNumber": 171
+        },
+        {
+          "caller": "get_metadata_field",
+          "callee": "self.metadata.get",
+          "lineNumber": 171
+        },
+        {
+          "caller": "get_metadata_field",
+          "callee": "serde_json::from_value(v.clone()).ok",
+          "lineNumber": 171
+        },
+        {
+          "caller": "get_metadata_field",
+          "callee": "serde_json::from_value",
+          "lineNumber": 171
+        },
+        {
+          "caller": "get_metadata_field",
+          "callee": "v.clone",
+          "lineNumber": 171
+        },
+        {
+          "caller": "set_metadata_field",
+          "callee": "map.insert",
+          "lineNumber": 180
+        },
+        {
+          "caller": "set_metadata_field",
+          "callee": "key.to_string",
+          "lineNumber": 180
+        },
+        {
+          "caller": "set_metadata_field",
+          "callee": "serde_json::to_value",
+          "lineNumber": 180
+        },
+        {
+          "caller": "set_metadata_field",
+          "callee": "serde_json::Map::new",
+          "lineNumber": 182
+        },
+        {
+          "caller": "set_metadata_field",
+          "callee": "map.insert",
+          "lineNumber": 183
+        },
+        {
+          "caller": "set_metadata_field",
+          "callee": "key.to_string",
+          "lineNumber": 183
+        },
+        {
+          "caller": "set_metadata_field",
+          "callee": "serde_json::to_value",
+          "lineNumber": 183
+        },
+        {
+          "caller": "set_metadata_field",
+          "callee": "serde_json::Value::Object",
+          "lineNumber": 184
+        },
+        {
+          "caller": "set_metadata_field",
+          "callee": "self.compute_hash",
+          "lineNumber": 188
+        },
+        {
+          "caller": "set_metadata_field",
+          "callee": "Some",
+          "lineNumber": 189
+        },
+        {
+          "caller": "set_metadata_field",
+          "callee": "new_hash.clone",
+          "lineNumber": 189
+        },
+        {
+          "caller": "set_metadata_field",
+          "callee": "Some",
+          "lineNumber": 190
+        },
+        {
+          "caller": "set_metadata_field",
+          "callee": "Ok",
+          "lineNumber": 192
+        },
+        {
+          "caller": "should_prune",
+          "callee": "Utc::now",
+          "lineNumber": 197
+        },
+        {
+          "caller": "should_prune",
+          "callee": "(now - self.timestamp).num_days",
+          "lineNumber": 198
+        },
+        {
+          "caller": "should_prune",
+          "callee": "(now - self.last_accessed).num_days",
+          "lineNumber": 199
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 11,
+        "functionCount": 13,
+        "classCount": 2
+      }
+    },
+    {
+      "path": "src/memory_store.rs",
+      "language": "rust",
+      "fileCategory": "code",
+      "totalLines": 861,
+      "nonEmptyLines": 785,
+      "functions": [
+        {
+          "name": "new",
+          "startLine": 35,
+          "endLine": 37,
+          "params": [
+            "path"
+          ]
+        },
+        {
+          "name": "new_with_options",
+          "startLine": 39,
+          "endLine": 62,
+          "params": [
+            "path",
+            "batch",
+            "compress"
+          ]
+        },
+        {
+          "name": "new_encrypted",
+          "startLine": 64,
+          "endLine": 83,
+          "params": [
+            "path",
+            "key"
+          ]
+        },
+        {
+          "name": "new_encrypted_envelope",
+          "startLine": 85,
+          "endLine": 108,
+          "params": [
+            "path",
+            "master_key"
+          ]
+        },
+        {
+          "name": "new_in_memory",
+          "startLine": 121,
+          "endLine": 136,
+          "params": []
+        },
+        {
+          "name": "new_rocksdb",
+          "startLine": 141,
+          "endLine": 159,
+          "params": [
+            "path",
+            "batch"
+          ]
+        },
+        {
+          "name": "load",
+          "startLine": 163,
+          "endLine": 186,
+          "params": []
+        },
+        {
+          "name": "rebuild_indices",
+          "startLine": 191,
+          "endLine": 209,
+          "params": []
+        },
+        {
+          "name": "purge_expired",
+          "startLine": 214,
+          "endLine": 224,
+          "params": []
+        },
+        {
+          "name": "delete_by_id",
+          "startLine": 229,
+          "endLine": 239,
+          "params": [
+            "id"
+          ]
+        },
+        {
+          "name": "add",
+          "startLine": 241,
+          "endLine": 272,
+          "params": [
+            "record"
+          ]
+        },
+        {
+          "name": "flush",
+          "startLine": 274,
+          "endLine": 280,
+          "params": []
+        },
+        {
+          "name": "all",
+          "startLine": 282,
+          "endLine": 284,
+          "params": []
+        },
+        {
+          "name": "find_by_actor",
+          "startLine": 286,
+          "endLine": 292,
+          "params": [
+            "actor"
+          ]
+        },
+        {
+          "name": "find_by_action",
+          "startLine": 294,
+          "endLine": 300,
+          "params": [
+            "action"
+          ]
+        },
+        {
+          "name": "find_by_target",
+          "startLine": 302,
+          "endLine": 308,
+          "params": [
+            "target"
+          ]
+        },
+        {
+          "name": "find_by_tags",
+          "startLine": 311,
+          "endLine": 318,
+          "params": [
+            "tags"
+          ]
+        },
+        {
+          "name": "find_by_actors",
+          "startLine": 321,
+          "endLine": 326,
+          "params": [
+            "actors"
+          ]
+        },
+        {
+          "name": "set_status",
+          "startLine": 329,
+          "endLine": 340,
+          "params": [
+            "id",
+            "status"
+          ]
+        },
+        {
+          "name": "corroborate",
+          "startLine": 344,
+          "endLine": 360,
+          "params": [
+            "id"
+          ]
+        },
+        {
+          "name": "contradict",
+          "startLine": 365,
+          "endLine": 383,
+          "params": [
+            "id"
+          ]
+        },
+        {
+          "name": "compute_decay",
+          "startLine": 408,
+          "endLine": 430,
+          "params": [
+            "rec"
+          ]
+        },
+        {
+          "name": "search_semantic",
+          "startLine": 438,
+          "endLine": 505,
+          "params": [
+            "query_embedding",
+            "query_text",
+            "limit",
+            "include_quarantined"
+          ]
+        },
+        {
+          "name": "in_namespace",
+          "startLine": 509,
+          "endLine": 517,
+          "params": []
+        },
+        {
+          "name": "find_by_actor_ns",
+          "startLine": 520,
+          "endLine": 529,
+          "params": [
+            "actor"
+          ]
+        },
+        {
+          "name": "list_namespaces",
+          "startLine": 532,
+          "endLine": 540,
+          "params": []
+        },
+        {
+          "name": "namespace_counts",
+          "startLine": 543,
+          "endLine": 553,
+          "params": []
+        },
+        {
+          "name": "find_trusted",
+          "startLine": 557,
+          "endLine": 566,
+          "params": [
+            "actor",
+            "trust_threshold"
+          ]
+        },
+        {
+          "name": "with_namespace",
+          "startLine": 571,
+          "endLine": 574,
+          "params": [
+            "ns"
+          ]
+        },
+        {
+          "name": "with_embedding_provider",
+          "startLine": 577,
+          "endLine": 580,
+          "params": [
+            "provider"
+          ]
+        },
+        {
+          "name": "embed_and_add",
+          "startLine": 584,
+          "endLine": 596,
+          "params": [
+            "record",
+            "text_to_embed"
+          ]
+        },
+        {
+          "name": "delete_by_actor",
+          "startLine": 601,
+          "endLine": 641,
+          "params": [
+            "actor"
+          ]
+        },
+        {
+          "name": "find_by_id",
+          "startLine": 644,
+          "endLine": 646,
+          "params": [
+            "id"
+          ]
+        },
+        {
+          "name": "update_record",
+          "startLine": 650,
+          "endLine": 690,
+          "params": [
+            "id",
+            "new_target",
+            "new_action",
+            "new_confidence",
+            "new_source",
+            "new_metadata"
+          ]
+        },
+        {
+          "name": "find_latest",
+          "startLine": 695,
+          "endLine": 721,
+          "params": [
+            "actor",
+            "action",
+            "limit"
+          ]
+        },
+        {
+          "name": "audit_verify",
+          "startLine": 724,
+          "endLine": 729,
+          "params": []
+        },
+        {
+          "name": "audit_export",
+          "startLine": 732,
+          "endLine": 734,
+          "params": []
+        },
+        {
+          "name": "clear",
+          "startLine": 736,
+          "endLine": 742,
+          "params": []
+        },
+        {
+          "name": "snapshot",
+          "startLine": 744,
+          "endLine": 753,
+          "params": [
+            "path"
+          ]
+        },
+        {
+          "name": "rollback",
+          "startLine": 755,
+          "endLine": 800,
+          "params": [
+            "path"
+          ]
+        },
+        {
+          "name": "drop",
+          "startLine": 804,
+          "endLine": 806,
+          "params": []
+        },
+        {
+          "name": "cosine_similarity",
+          "startLine": 837,
+          "endLine": 846,
+          "params": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "name": "keyword_score",
+          "startLine": 850,
+          "endLine": 861,
+          "params": [
+            "query",
+            "rec"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "MemoryStore",
+          "startLine": 15,
+          "endLine": 32,
+          "methods": [],
+          "properties": [
+            "backend",
+            "records",
+            "audit",
+            "buffer",
+            "batch_size",
+            "index_actor",
+            "index_action",
+            "index_target",
+            "source_trust",
+            "embedding_provider",
+            "namespace"
+          ]
+        },
+        {
+          "name": "BulkAddError",
+          "startLine": 113,
+          "endLine": 117,
+          "methods": [],
+          "properties": [
+            "index",
+            "actor",
+            "reason"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "MemoryStore",
+          "line": 15,
+          "isDefault": false
+        },
+        {
+          "name": "new",
+          "line": 35,
+          "isDefault": false
+        },
+        {
+          "name": "new_with_options",
+          "line": 39,
+          "isDefault": false
+        },
+        {
+          "name": "new_encrypted",
+          "line": 64,
+          "isDefault": false
+        },
+        {
+          "name": "new_encrypted_envelope",
+          "line": 85,
+          "isDefault": false
+        },
+        {
+          "name": "BulkAddError",
+          "line": 113,
+          "isDefault": false
+        },
+        {
+          "name": "new_in_memory",
+          "line": 121,
+          "isDefault": false
+        },
+        {
+          "name": "new_rocksdb",
+          "line": 141,
+          "isDefault": false
+        },
+        {
+          "name": "purge_expired",
+          "line": 214,
+          "isDefault": false
+        },
+        {
+          "name": "delete_by_id",
+          "line": 229,
+          "isDefault": false
+        },
+        {
+          "name": "add",
+          "line": 241,
+          "isDefault": false
+        },
+        {
+          "name": "flush",
+          "line": 274,
+          "isDefault": false
+        },
+        {
+          "name": "all",
+          "line": 282,
+          "isDefault": false
+        },
+        {
+          "name": "find_by_actor",
+          "line": 286,
+          "isDefault": false
+        },
+        {
+          "name": "find_by_action",
+          "line": 294,
+          "isDefault": false
+        },
+        {
+          "name": "find_by_target",
+          "line": 302,
+          "isDefault": false
+        },
+        {
+          "name": "find_by_tags",
+          "line": 311,
+          "isDefault": false
+        },
+        {
+          "name": "find_by_actors",
+          "line": 321,
+          "isDefault": false
+        },
+        {
+          "name": "set_status",
+          "line": 329,
+          "isDefault": false
+        },
+        {
+          "name": "corroborate",
+          "line": 344,
+          "isDefault": false
+        },
+        {
+          "name": "contradict",
+          "line": 365,
+          "isDefault": false
+        },
+        {
+          "name": "search_semantic",
+          "line": 438,
+          "isDefault": false
+        },
+        {
+          "name": "in_namespace",
+          "line": 509,
+          "isDefault": false
+        },
+        {
+          "name": "find_by_actor_ns",
+          "line": 520,
+          "isDefault": false
+        },
+        {
+          "name": "list_namespaces",
+          "line": 532,
+          "isDefault": false
+        },
+        {
+          "name": "namespace_counts",
+          "line": 543,
+          "isDefault": false
+        },
+        {
+          "name": "find_trusted",
+          "line": 557,
+          "isDefault": false
+        },
+        {
+          "name": "with_namespace",
+          "line": 571,
+          "isDefault": false
+        },
+        {
+          "name": "with_embedding_provider",
+          "line": 577,
+          "isDefault": false
+        },
+        {
+          "name": "embed_and_add",
+          "line": 584,
+          "isDefault": false
+        },
+        {
+          "name": "delete_by_actor",
+          "line": 601,
+          "isDefault": false
+        },
+        {
+          "name": "find_by_id",
+          "line": 644,
+          "isDefault": false
+        },
+        {
+          "name": "update_record",
+          "line": 650,
+          "isDefault": false
+        },
+        {
+          "name": "find_latest",
+          "line": 695,
+          "isDefault": false
+        },
+        {
+          "name": "audit_verify",
+          "line": 724,
+          "isDefault": false
+        },
+        {
+          "name": "audit_export",
+          "line": 732,
+          "isDefault": false
+        },
+        {
+          "name": "clear",
+          "line": 736,
+          "isDefault": false
+        },
+        {
+          "name": "snapshot",
+          "line": 744,
+          "isDefault": false
+        },
+        {
+          "name": "rollback",
+          "line": 755,
+          "isDefault": false
+        },
+        {
+          "name": "cosine_similarity",
+          "line": 837,
+          "isDefault": false
+        },
+        {
+          "name": "keyword_score",
+          "line": 850,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "new",
+          "callee": "Self::new_with_options",
+          "lineNumber": 36
+        },
+        {
+          "caller": "new_with_options",
+          "callee": "FileBackend::new_compressed",
+          "lineNumber": 41
+        },
+        {
+          "caller": "new_with_options",
+          "callee": "FileBackend::new",
+          "lineNumber": 43
+        },
+        {
+          "caller": "new_with_options",
+          "callee": "path.as_ref().with_extension",
+          "lineNumber": 45
+        },
+        {
+          "caller": "new_with_options",
+          "callee": "path.as_ref",
+          "lineNumber": 45
+        },
+        {
+          "caller": "new_with_options",
+          "callee": "Vec::new",
+          "lineNumber": 48
+        },
+        {
+          "caller": "new_with_options",
+          "callee": "AuditLog::new",
+          "lineNumber": 49
+        },
+        {
+          "caller": "new_with_options",
+          "callee": "VecDeque::new",
+          "lineNumber": 50
+        },
+        {
+          "caller": "new_with_options",
+          "callee": "IndexMap::new",
+          "lineNumber": 52
+        },
+        {
+          "caller": "new_with_options",
+          "callee": "IndexMap::new",
+          "lineNumber": 54
+        },
+        {
+          "caller": "new_with_options",
+          "callee": "IndexMap::new",
+          "lineNumber": 55
+        },
+        {
+          "caller": "new_with_options",
+          "callee": "SourceTrustRegistry::new",
+          "lineNumber": 56
+        },
+        {
+          "caller": "new_with_options",
+          "callee": "store.load",
+          "lineNumber": 60
+        },
+        {
+          "caller": "new_with_options",
+          "callee": "Ok",
+          "lineNumber": 61
+        },
+        {
+          "caller": "new_encrypted",
+          "callee": "FileBackend::new_encrypted",
+          "lineNumber": 65
+        },
+        {
+          "caller": "new_encrypted",
+          "callee": "path.as_ref().with_extension",
+          "lineNumber": 66
+        },
+        {
+          "caller": "new_encrypted",
+          "callee": "path.as_ref",
+          "lineNumber": 66
+        },
+        {
+          "caller": "new_encrypted",
+          "callee": "Vec::new",
+          "lineNumber": 69
+        },
+        {
+          "caller": "new_encrypted",
+          "callee": "AuditLog::new",
+          "lineNumber": 70
+        },
+        {
+          "caller": "new_encrypted",
+          "callee": "VecDeque::new",
+          "lineNumber": 71
+        },
+        {
+          "caller": "new_encrypted",
+          "callee": "IndexMap::new",
+          "lineNumber": 73
+        },
+        {
+          "caller": "new_encrypted",
+          "callee": "IndexMap::new",
+          "lineNumber": 75
+        },
+        {
+          "caller": "new_encrypted",
+          "callee": "IndexMap::new",
+          "lineNumber": 76
+        },
+        {
+          "caller": "new_encrypted",
+          "callee": "SourceTrustRegistry::new",
+          "lineNumber": 77
+        },
+        {
+          "caller": "new_encrypted",
+          "callee": "store.load",
+          "lineNumber": 81
+        },
+        {
+          "caller": "new_encrypted",
+          "callee": "Ok",
+          "lineNumber": 82
+        },
+        {
+          "caller": "new_encrypted_envelope",
+          "callee": "path.as_ref().exists",
+          "lineNumber": 86
+        },
+        {
+          "caller": "new_encrypted_envelope",
+          "callee": "path.as_ref",
+          "lineNumber": 86
+        },
+        {
+          "caller": "new_encrypted_envelope",
+          "callee": "FileBackend::open_encrypted_envelope",
+          "lineNumber": 87
+        },
+        {
+          "caller": "new_encrypted_envelope",
+          "callee": "FileBackend::new_encrypted_envelope",
+          "lineNumber": 89
+        },
+        {
+          "caller": "new_encrypted_envelope",
+          "callee": "path.as_ref().with_extension",
+          "lineNumber": 91
+        },
+        {
+          "caller": "new_encrypted_envelope",
+          "callee": "path.as_ref",
+          "lineNumber": 91
+        },
+        {
+          "caller": "new_encrypted_envelope",
+          "callee": "Vec::new",
+          "lineNumber": 94
+        },
+        {
+          "caller": "new_encrypted_envelope",
+          "callee": "AuditLog::new",
+          "lineNumber": 95
+        },
+        {
+          "caller": "new_encrypted_envelope",
+          "callee": "VecDeque::new",
+          "lineNumber": 96
+        },
+        {
+          "caller": "new_encrypted_envelope",
+          "callee": "IndexMap::new",
+          "lineNumber": 98
+        },
+        {
+          "caller": "new_encrypted_envelope",
+          "callee": "IndexMap::new",
+          "lineNumber": 100
+        },
+        {
+          "caller": "new_encrypted_envelope",
+          "callee": "IndexMap::new",
+          "lineNumber": 101
+        },
+        {
+          "caller": "new_encrypted_envelope",
+          "callee": "SourceTrustRegistry::new",
+          "lineNumber": 102
+        },
+        {
+          "caller": "new_encrypted_envelope",
+          "callee": "store.load",
+          "lineNumber": 106
+        },
+        {
+          "caller": "new_encrypted_envelope",
+          "callee": "Ok",
+          "lineNumber": 107
+        },
+        {
+          "caller": "new_in_memory",
+          "callee": "InMemoryBackend::new",
+          "lineNumber": 122
+        },
+        {
+          "caller": "new_in_memory",
+          "callee": "Vec::new",
+          "lineNumber": 125
+        },
+        {
+          "caller": "new_in_memory",
+          "callee": "AuditLog::new_sink",
+          "lineNumber": 126
+        },
+        {
+          "caller": "new_in_memory",
+          "callee": "VecDeque::new",
+          "lineNumber": 127
+        },
+        {
+          "caller": "new_in_memory",
+          "callee": "IndexMap::new",
+          "lineNumber": 129
+        },
+        {
+          "caller": "new_in_memory",
+          "callee": "IndexMap::new",
+          "lineNumber": 130
+        },
+        {
+          "caller": "new_in_memory",
+          "callee": "IndexMap::new",
+          "lineNumber": 131
+        },
+        {
+          "caller": "new_in_memory",
+          "callee": "SourceTrustRegistry::new",
+          "lineNumber": 132
+        },
+        {
+          "caller": "new_rocksdb",
+          "callee": "RocksDbBackend::new",
+          "lineNumber": 142
+        },
+        {
+          "caller": "new_rocksdb",
+          "callee": "path.as_ref().with_extension",
+          "lineNumber": 143
+        },
+        {
+          "caller": "new_rocksdb",
+          "callee": "path.as_ref",
+          "lineNumber": 143
+        },
+        {
+          "caller": "new_rocksdb",
+          "callee": "Vec::new",
+          "lineNumber": 146
+        },
+        {
+          "caller": "new_rocksdb",
+          "callee": "AuditLog::new",
+          "lineNumber": 147
+        },
+        {
+          "caller": "new_rocksdb",
+          "callee": "VecDeque::new",
+          "lineNumber": 148
+        },
+        {
+          "caller": "new_rocksdb",
+          "callee": "IndexMap::new",
+          "lineNumber": 150
+        },
+        {
+          "caller": "new_rocksdb",
+          "callee": "IndexMap::new",
+          "lineNumber": 151
+        },
+        {
+          "caller": "new_rocksdb",
+          "callee": "IndexMap::new",
+          "lineNumber": 152
+        },
+        {
+          "caller": "new_rocksdb",
+          "callee": "SourceTrustRegistry::new",
+          "lineNumber": 153
+        },
+        {
+          "caller": "new_rocksdb",
+          "callee": "store.load",
+          "lineNumber": 157
+        },
+        {
+          "caller": "new_rocksdb",
+          "callee": "Ok",
+          "lineNumber": 158
+        },
+        {
+          "caller": "load",
+          "callee": "self.backend.load",
+          "lineNumber": 164
+        },
+        {
+          "caller": "load",
+          "callee": "self.index_actor.clear",
+          "lineNumber": 165
+        },
+        {
+          "caller": "load",
+          "callee": "self.index_action.clear",
+          "lineNumber": 167
+        },
+        {
+          "caller": "load",
+          "callee": "self.index_target.clear",
+          "lineNumber": 168
+        },
+        {
+          "caller": "load",
+          "callee": "self.records.iter().enumerate",
+          "lineNumber": 170
+        },
+        {
+          "caller": "load",
+          "callee": "self.records.iter",
+          "lineNumber": 170
+        },
+        {
+          "caller": "load",
+          "callee": "self.index_actor\r\n                .entry(rec.actor.clone())\r\n                .or_default().push",
+          "lineNumber": 171
+        },
+        {
+          "caller": "load",
+          "callee": "self.index_actor\r\n                .entry(rec.actor.clone()).or_default",
+          "lineNumber": 171
+        },
+        {
+          "caller": "load",
+          "callee": "self.index_actor.entry",
+          "lineNumber": 171
+        },
+        {
+          "caller": "load",
+          "callee": "rec.actor.clone",
+          "lineNumber": 172
+        },
+        {
+          "caller": "load",
+          "callee": "self.index_action\r\n                .entry(rec.action.clone())\r\n                .or_default().push",
+          "lineNumber": 176
+        },
+        {
+          "caller": "load",
+          "callee": "self.index_action\r\n                .entry(rec.action.clone()).or_default",
+          "lineNumber": 176
+        },
+        {
+          "caller": "load",
+          "callee": "self.index_action.entry",
+          "lineNumber": 176
+        },
+        {
+          "caller": "load",
+          "callee": "rec.action.clone",
+          "lineNumber": 177
+        },
+        {
+          "caller": "load",
+          "callee": "self.index_target\r\n                .entry(rec.target.clone())\r\n                .or_default().push",
+          "lineNumber": 180
+        },
+        {
+          "caller": "load",
+          "callee": "self.index_target\r\n                .entry(rec.target.clone()).or_default",
+          "lineNumber": 180
+        },
+        {
+          "caller": "load",
+          "callee": "self.index_target.entry",
+          "lineNumber": 180
+        },
+        {
+          "caller": "load",
+          "callee": "rec.target.clone",
+          "lineNumber": 181
+        },
+        {
+          "caller": "load",
+          "callee": "Ok",
+          "lineNumber": 185
+        },
+        {
+          "caller": "rebuild_indices",
+          "callee": "self.index_actor.clear",
+          "lineNumber": 192
+        },
+        {
+          "caller": "rebuild_indices",
+          "callee": "self.index_action.clear",
+          "lineNumber": 193
+        },
+        {
+          "caller": "rebuild_indices",
+          "callee": "self.index_target.clear",
+          "lineNumber": 194
+        },
+        {
+          "caller": "rebuild_indices",
+          "callee": "self.records.iter().enumerate",
+          "lineNumber": 195
+        },
+        {
+          "caller": "rebuild_indices",
+          "callee": "self.records.iter",
+          "lineNumber": 195
+        },
+        {
+          "caller": "rebuild_indices",
+          "callee": "self.index_actor\r\n                .entry(rec.actor.clone())\r\n                .or_default().push",
+          "lineNumber": 196
+        },
+        {
+          "caller": "rebuild_indices",
+          "callee": "self.index_actor\r\n                .entry(rec.actor.clone()).or_default",
+          "lineNumber": 196
+        },
+        {
+          "caller": "rebuild_indices",
+          "callee": "self.index_actor.entry",
+          "lineNumber": 196
+        },
+        {
+          "caller": "rebuild_indices",
+          "callee": "rec.actor.clone",
+          "lineNumber": 197
+        },
+        {
+          "caller": "rebuild_indices",
+          "callee": "self.index_action\r\n                .entry(rec.action.clone())\r\n                .or_default().push",
+          "lineNumber": 200
+        },
+        {
+          "caller": "rebuild_indices",
+          "callee": "self.index_action\r\n                .entry(rec.action.clone()).or_default",
+          "lineNumber": 200
+        },
+        {
+          "caller": "rebuild_indices",
+          "callee": "self.index_action.entry",
+          "lineNumber": 200
+        },
+        {
+          "caller": "rebuild_indices",
+          "callee": "rec.action.clone",
+          "lineNumber": 201
+        },
+        {
+          "caller": "rebuild_indices",
+          "callee": "self.index_target\r\n                .entry(rec.target.clone())\r\n                .or_default().push",
+          "lineNumber": 204
+        },
+        {
+          "caller": "rebuild_indices",
+          "callee": "self.index_target\r\n                .entry(rec.target.clone()).or_default",
+          "lineNumber": 204
+        },
+        {
+          "caller": "rebuild_indices",
+          "callee": "self.index_target.entry",
+          "lineNumber": 204
+        },
+        {
+          "caller": "rebuild_indices",
+          "callee": "rec.target.clone",
+          "lineNumber": 205
+        },
+        {
+          "caller": "purge_expired",
+          "callee": "chrono::Utc::now().timestamp",
+          "lineNumber": 215
+        },
+        {
+          "caller": "purge_expired",
+          "callee": "chrono::Utc::now",
+          "lineNumber": 215
+        },
+        {
+          "caller": "purge_expired",
+          "callee": "self.records.len",
+          "lineNumber": 216
+        },
+        {
+          "caller": "purge_expired",
+          "callee": "self.records.retain",
+          "lineNumber": 217
+        },
+        {
+          "caller": "purge_expired",
+          "callee": "r.expires_at.map_or",
+          "lineNumber": 218
+        },
+        {
+          "caller": "purge_expired",
+          "callee": "self.records.len",
+          "lineNumber": 219
+        },
+        {
+          "caller": "purge_expired",
+          "callee": "self.rebuild_indices",
+          "lineNumber": 221
+        },
+        {
+          "caller": "delete_by_id",
+          "callee": "self.records.len",
+          "lineNumber": 230
+        },
+        {
+          "caller": "delete_by_id",
+          "callee": "self.records.retain",
+          "lineNumber": 231
+        },
+        {
+          "caller": "delete_by_id",
+          "callee": "self.records.len",
+          "lineNumber": 232
+        },
+        {
+          "caller": "delete_by_id",
+          "callee": "self.rebuild_indices",
+          "lineNumber": 234
+        },
+        {
+          "caller": "add",
+          "callee": "record.tags.contains",
+          "lineNumber": 245
+        },
+        {
+          "caller": "add",
+          "callee": "record.tags.push",
+          "lineNumber": 246
+        },
+        {
+          "caller": "add",
+          "callee": "self.records.push",
+          "lineNumber": 249
+        },
+        {
+          "caller": "add",
+          "callee": "record.clone",
+          "lineNumber": 249
+        },
+        {
+          "caller": "add",
+          "callee": "self.buffer.push_back",
+          "lineNumber": 250
+        },
+        {
+          "caller": "add",
+          "callee": "record.clone",
+          "lineNumber": 250
+        },
+        {
+          "caller": "add",
+          "callee": "self.records.len",
+          "lineNumber": 251
+        },
+        {
+          "caller": "add",
+          "callee": "self.index_actor\r\n            .entry(record.actor.clone())\r\n            .or_default().push",
+          "lineNumber": 252
+        },
+        {
+          "caller": "add",
+          "callee": "self.index_actor\r\n            .entry(record.actor.clone()).or_default",
+          "lineNumber": 252
+        },
+        {
+          "caller": "add",
+          "callee": "self.index_actor.entry",
+          "lineNumber": 252
+        },
+        {
+          "caller": "add",
+          "callee": "record.actor.clone",
+          "lineNumber": 253
+        },
+        {
+          "caller": "add",
+          "callee": "self.index_action\r\n            .entry(record.action.clone())\r\n            .or_default().push",
+          "lineNumber": 257
+        },
+        {
+          "caller": "add",
+          "callee": "self.index_action\r\n            .entry(record.action.clone()).or_default",
+          "lineNumber": 257
+        },
+        {
+          "caller": "add",
+          "callee": "self.index_action.entry",
+          "lineNumber": 257
+        },
+        {
+          "caller": "add",
+          "callee": "record.action.clone",
+          "lineNumber": 258
+        },
+        {
+          "caller": "add",
+          "callee": "self.index_target\r\n            .entry(record.target.clone())\r\n            .or_default().push",
+          "lineNumber": 261
+        },
+        {
+          "caller": "add",
+          "callee": "self.index_target\r\n            .entry(record.target.clone()).or_default",
+          "lineNumber": 261
+        },
+        {
+          "caller": "add",
+          "callee": "self.index_target.entry",
+          "lineNumber": 261
+        },
+        {
+          "caller": "add",
+          "callee": "record.target.clone",
+          "lineNumber": 262
+        },
+        {
+          "caller": "add",
+          "callee": "self.audit.append",
+          "lineNumber": 266
+        },
+        {
+          "caller": "add",
+          "callee": "self.buffer.len",
+          "lineNumber": 268
+        },
+        {
+          "caller": "add",
+          "callee": "self.flush",
+          "lineNumber": 269
+        },
+        {
+          "caller": "add",
+          "callee": "Ok",
+          "lineNumber": 271
+        },
+        {
+          "caller": "flush",
+          "callee": "self.buffer.pop_front",
+          "lineNumber": 275
+        },
+        {
+          "caller": "flush",
+          "callee": "self.backend.append",
+          "lineNumber": 276
+        },
+        {
+          "caller": "flush",
+          "callee": "self.backend.flush",
+          "lineNumber": 278
+        },
+        {
+          "caller": "flush",
+          "callee": "Ok",
+          "lineNumber": 279
+        },
+        {
+          "caller": "find_by_actor",
+          "callee": "self.index_actor.get",
+          "lineNumber": 287
+        },
+        {
+          "caller": "find_by_actor",
+          "callee": "ids.iter().filter_map(|&i| self.records.get(i)).collect",
+          "lineNumber": 288
+        },
+        {
+          "caller": "find_by_actor",
+          "callee": "ids.iter().filter_map",
+          "lineNumber": 288
+        },
+        {
+          "caller": "find_by_actor",
+          "callee": "ids.iter",
+          "lineNumber": 288
+        },
+        {
+          "caller": "find_by_actor",
+          "callee": "self.records.get",
+          "lineNumber": 288
+        },
+        {
+          "caller": "find_by_actor",
+          "callee": "Vec::new",
+          "lineNumber": 290
+        },
+        {
+          "caller": "find_by_action",
+          "callee": "self.index_action.get",
+          "lineNumber": 295
+        },
+        {
+          "caller": "find_by_action",
+          "callee": "ids.iter().filter_map(|&i| self.records.get(i)).collect",
+          "lineNumber": 296
+        },
+        {
+          "caller": "find_by_action",
+          "callee": "ids.iter().filter_map",
+          "lineNumber": 296
+        },
+        {
+          "caller": "find_by_action",
+          "callee": "ids.iter",
+          "lineNumber": 296
+        },
+        {
+          "caller": "find_by_action",
+          "callee": "self.records.get",
+          "lineNumber": 296
+        },
+        {
+          "caller": "find_by_action",
+          "callee": "Vec::new",
+          "lineNumber": 298
+        },
+        {
+          "caller": "find_by_target",
+          "callee": "self.index_target.get",
+          "lineNumber": 303
+        },
+        {
+          "caller": "find_by_target",
+          "callee": "ids.iter().filter_map(|&i| self.records.get(i)).collect",
+          "lineNumber": 304
+        },
+        {
+          "caller": "find_by_target",
+          "callee": "ids.iter().filter_map",
+          "lineNumber": 304
+        },
+        {
+          "caller": "find_by_target",
+          "callee": "ids.iter",
+          "lineNumber": 304
+        },
+        {
+          "caller": "find_by_target",
+          "callee": "self.records.get",
+          "lineNumber": 304
+        },
+        {
+          "caller": "find_by_target",
+          "callee": "Vec::new",
+          "lineNumber": 306
+        },
+        {
+          "caller": "find_by_tags",
+          "callee": "tags.is_empty",
+          "lineNumber": 312
+        },
+        {
+          "caller": "find_by_tags",
+          "callee": "Vec::new",
+          "lineNumber": 313
+        },
+        {
+          "caller": "find_by_tags",
+          "callee": "self.records.iter()\r\n            .filter(|r| tags.iter().any(|t| r.tags.contains(&t.to_string()))).collect",
+          "lineNumber": 315
+        },
+        {
+          "caller": "find_by_tags",
+          "callee": "self.records.iter().filter",
+          "lineNumber": 315
+        },
+        {
+          "caller": "find_by_tags",
+          "callee": "self.records.iter",
+          "lineNumber": 315
+        },
+        {
+          "caller": "find_by_tags",
+          "callee": "tags.iter().any",
+          "lineNumber": 316
+        },
+        {
+          "caller": "find_by_tags",
+          "callee": "tags.iter",
+          "lineNumber": 316
+        },
+        {
+          "caller": "find_by_tags",
+          "callee": "r.tags.contains",
+          "lineNumber": 316
+        },
+        {
+          "caller": "find_by_tags",
+          "callee": "t.to_string",
+          "lineNumber": 316
+        },
+        {
+          "caller": "find_by_actors",
+          "callee": "actors.is_empty",
+          "lineNumber": 322
+        },
+        {
+          "caller": "find_by_actors",
+          "callee": "Vec::new",
+          "lineNumber": 322
+        },
+        {
+          "caller": "find_by_actors",
+          "callee": "self.records.iter()\r\n            .filter(|r| actors.contains(&r.actor.as_str())).collect",
+          "lineNumber": 323
+        },
+        {
+          "caller": "find_by_actors",
+          "callee": "self.records.iter().filter",
+          "lineNumber": 323
+        },
+        {
+          "caller": "find_by_actors",
+          "callee": "self.records.iter",
+          "lineNumber": 323
+        },
+        {
+          "caller": "find_by_actors",
+          "callee": "actors.contains",
+          "lineNumber": 324
+        },
+        {
+          "caller": "find_by_actors",
+          "callee": "r.actor.as_str",
+          "lineNumber": 324
+        },
+        {
+          "caller": "set_status",
+          "callee": "self.records.iter().position(|r| r.id == id).ok_or_else",
+          "lineNumber": 330
+        },
+        {
+          "caller": "set_status",
+          "callee": "self.records.iter().position",
+          "lineNumber": 330
+        },
+        {
+          "caller": "set_status",
+          "callee": "self.records.iter",
+          "lineNumber": 330
+        },
+        {
+          "caller": "set_status",
+          "callee": "status.to_string",
+          "lineNumber": 332
+        },
+        {
+          "caller": "set_status",
+          "callee": "Some",
+          "lineNumber": 333
+        },
+        {
+          "caller": "set_status",
+          "callee": "self.records[idx].compute_hash",
+          "lineNumber": 333
+        },
+        {
+          "caller": "set_status",
+          "callee": "self.backend.clear",
+          "lineNumber": 335
+        },
+        {
+          "caller": "set_status",
+          "callee": "self.records.clone",
+          "lineNumber": 336
+        },
+        {
+          "caller": "set_status",
+          "callee": "self.backend.append",
+          "lineNumber": 337
+        },
+        {
+          "caller": "set_status",
+          "callee": "self.backend.flush",
+          "lineNumber": 338
+        },
+        {
+          "caller": "set_status",
+          "callee": "Ok",
+          "lineNumber": 339
+        },
+        {
+          "caller": "corroborate",
+          "callee": "self.records.iter().position(|r| r.id == id).ok_or_else",
+          "lineNumber": 345
+        },
+        {
+          "caller": "corroborate",
+          "callee": "self.records.iter().position",
+          "lineNumber": 345
+        },
+        {
+          "caller": "corroborate",
+          "callee": "self.records.iter",
+          "lineNumber": 345
+        },
+        {
+          "caller": "corroborate",
+          "callee": "(before + 0.10).min",
+          "lineNumber": 348
+        },
+        {
+          "caller": "corroborate",
+          "callee": "Some",
+          "lineNumber": 350
+        },
+        {
+          "caller": "corroborate",
+          "callee": "self.records[idx].compute_hash",
+          "lineNumber": 350
+        },
+        {
+          "caller": "corroborate",
+          "callee": "self.source_trust.record_corroboration",
+          "lineNumber": 353
+        },
+        {
+          "caller": "corroborate",
+          "callee": "self.backend.clear",
+          "lineNumber": 355
+        },
+        {
+          "caller": "corroborate",
+          "callee": "self.records.clone",
+          "lineNumber": 356
+        },
+        {
+          "caller": "corroborate",
+          "callee": "self.backend.append",
+          "lineNumber": 357
+        },
+        {
+          "caller": "corroborate",
+          "callee": "self.backend.flush",
+          "lineNumber": 358
+        },
+        {
+          "caller": "corroborate",
+          "callee": "Ok",
+          "lineNumber": 359
+        },
+        {
+          "caller": "contradict",
+          "callee": "self.records.iter().position(|r| r.id == id).ok_or_else",
+          "lineNumber": 366
+        },
+        {
+          "caller": "contradict",
+          "callee": "self.records.iter().position",
+          "lineNumber": 366
+        },
+        {
+          "caller": "contradict",
+          "callee": "self.records.iter",
+          "lineNumber": 366
+        },
+        {
+          "caller": "contradict",
+          "callee": "(before - 0.15).max",
+          "lineNumber": 369
+        },
+        {
+          "caller": "contradict",
+          "callee": "\"quarantine\".to_string",
+          "lineNumber": 372
+        },
+        {
+          "caller": "contradict",
+          "callee": "Some",
+          "lineNumber": 373
+        },
+        {
+          "caller": "contradict",
+          "callee": "self.records[idx].compute_hash",
+          "lineNumber": 373
+        },
+        {
+          "caller": "contradict",
+          "callee": "self.source_trust.record_contradiction",
+          "lineNumber": 376
+        },
+        {
+          "caller": "contradict",
+          "callee": "self.backend.clear",
+          "lineNumber": 378
+        },
+        {
+          "caller": "contradict",
+          "callee": "self.records.clone",
+          "lineNumber": 379
+        },
+        {
+          "caller": "contradict",
+          "callee": "self.backend.append",
+          "lineNumber": 380
+        },
+        {
+          "caller": "contradict",
+          "callee": "self.backend.flush",
+          "lineNumber": 381
+        },
+        {
+          "caller": "contradict",
+          "callee": "Ok",
+          "lineNumber": 382
+        },
+        {
+          "caller": "compute_decay",
+          "callee": "(chrono::Utc::now().timestamp() - rec.timestamp.timestamp()).max",
+          "lineNumber": 409
+        },
+        {
+          "caller": "compute_decay",
+          "callee": "chrono::Utc::now().timestamp",
+          "lineNumber": 409
+        },
+        {
+          "caller": "compute_decay",
+          "callee": "chrono::Utc::now",
+          "lineNumber": 409
+        },
+        {
+          "caller": "compute_decay",
+          "callee": "rec.timestamp.timestamp",
+          "lineNumber": 409
+        },
+        {
+          "caller": "compute_decay",
+          "callee": "rec\r\n            .metadata\r\n            .get(\"decay_factor\")\r\n            .and_then(|v| v.as_f64())\r\n            .unwrap_or(1.0).clamp",
+          "lineNumber": 414
+        },
+        {
+          "caller": "compute_decay",
+          "callee": "rec\r\n            .metadata\r\n            .get(\"decay_factor\")\r\n            .and_then(|v| v.as_f64()).unwrap_or",
+          "lineNumber": 414
+        },
+        {
+          "caller": "compute_decay",
+          "callee": "rec\r\n            .metadata\r\n            .get(\"decay_factor\").and_then",
+          "lineNumber": 414
+        },
+        {
+          "caller": "compute_decay",
+          "callee": "rec\r\n            .metadata.get",
+          "lineNumber": 414
+        },
+        {
+          "caller": "compute_decay",
+          "callee": "v.as_f64",
+          "lineNumber": 417
+        },
+        {
+          "caller": "compute_decay",
+          "callee": "rec\r\n            .metadata\r\n            .get(\"decay_half_life_secs\")\r\n            .and_then(|v| v.as_f64())\r\n            .unwrap_or(2_592_000.0).max",
+          "lineNumber": 423
+        },
+        {
+          "caller": "compute_decay",
+          "callee": "rec\r\n            .metadata\r\n            .get(\"decay_half_life_secs\")\r\n            .and_then(|v| v.as_f64()).unwrap_or",
+          "lineNumber": 423
+        },
+        {
+          "caller": "compute_decay",
+          "callee": "rec\r\n            .metadata\r\n            .get(\"decay_half_life_secs\").and_then",
+          "lineNumber": 423
+        },
+        {
+          "caller": "compute_decay",
+          "callee": "rec\r\n            .metadata.get",
+          "lineNumber": 423
+        },
+        {
+          "caller": "compute_decay",
+          "callee": "v.as_f64",
+          "lineNumber": 426
+        },
+        {
+          "caller": "compute_decay",
+          "callee": "(-lambda * elapsed_secs / half_life).exp",
+          "lineNumber": 429
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "chrono::Utc::now().timestamp",
+          "lineNumber": 445
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "chrono::Utc::now",
+          "lineNumber": 445
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "self\r\n            .records\r\n            .iter()\r\n            .filter(|r| {\r\n                r.priority != \"pinned\"\r\n                    && (include_quarantined || r.status != \"quarantine\")\r\n                    && r.status != \"archived\"\r\n                    && r.expires_at.map_or(true, |exp| exp > now_ts)\r\n            })\r\n            .map(|rec| {\r\n                let base_score = if let Some(qe) = query_embedding {\r\n                    let doc_vec: Option<Vec<f64>> = rec\r\n                        .metadata\r\n                        .get(\"embedding\")\r\n                        .and_then(|v| serde_json::from_value(v.clone()).ok());\r\n                    if let Some(dv) = doc_vec {\r\n                        cosine_similarity(qe, &dv)\r\n                    } else {\r\n                        keyword_score(query_text, rec)\r\n                    }\r\n                } else {\r\n                    keyword_score(query_text, rec)\r\n                };\r\n                // Trust-weighted score: multiply by source credibility\r\n                let trust = rec.source.as_deref()\r\n                    .map(|s| self.source_trust.get_trust(s) as f64)\r\n                    .unwrap_or(0.5);\r\n                // Priority multiplier: high=1.5×, low=0.5×, normal/pinned=1.0×\r\n                // Note: pinned records take a separate code path (score 2.0 override).\r\n                let priority_mult: f64 = match rec.priority.as_str() {\r\n                    \"high\" => 1.5,\r\n                    \"low\"  => 0.5,\r\n                    _      => 1.0,\r\n                };\r\n                let weighted = base_score * (0.5 + 0.5 * trust) * priority_mult * Self::compute_decay(rec);\r\n                (rec, weighted)\r\n            })\r\n            .filter(|(_, s)| *s > 0.0).collect",
+          "lineNumber": 446
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "self\r\n            .records\r\n            .iter()\r\n            .filter(|r| {\r\n                r.priority != \"pinned\"\r\n                    && (include_quarantined || r.status != \"quarantine\")\r\n                    && r.status != \"archived\"\r\n                    && r.expires_at.map_or(true, |exp| exp > now_ts)\r\n            })\r\n            .map(|rec| {\r\n                let base_score = if let Some(qe) = query_embedding {\r\n                    let doc_vec: Option<Vec<f64>> = rec\r\n                        .metadata\r\n                        .get(\"embedding\")\r\n                        .and_then(|v| serde_json::from_value(v.clone()).ok());\r\n                    if let Some(dv) = doc_vec {\r\n                        cosine_similarity(qe, &dv)\r\n                    } else {\r\n                        keyword_score(query_text, rec)\r\n                    }\r\n                } else {\r\n                    keyword_score(query_text, rec)\r\n                };\r\n                // Trust-weighted score: multiply by source credibility\r\n                let trust = rec.source.as_deref()\r\n                    .map(|s| self.source_trust.get_trust(s) as f64)\r\n                    .unwrap_or(0.5);\r\n                // Priority multiplier: high=1.5×, low=0.5×, normal/pinned=1.0×\r\n                // Note: pinned records take a separate code path (score 2.0 override).\r\n                let priority_mult: f64 = match rec.priority.as_str() {\r\n                    \"high\" => 1.5,\r\n                    \"low\"  => 0.5,\r\n                    _      => 1.0,\r\n                };\r\n                let weighted = base_score * (0.5 + 0.5 * trust) * priority_mult * Self::compute_decay(rec);\r\n                (rec, weighted)\r\n            }).filter",
+          "lineNumber": 446
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "self\r\n            .records\r\n            .iter()\r\n            .filter(|r| {\r\n                r.priority != \"pinned\"\r\n                    && (include_quarantined || r.status != \"quarantine\")\r\n                    && r.status != \"archived\"\r\n                    && r.expires_at.map_or(true, |exp| exp > now_ts)\r\n            }).map",
+          "lineNumber": 446
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "self\r\n            .records\r\n            .iter().filter",
+          "lineNumber": 446
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "self\r\n            .records.iter",
+          "lineNumber": 446
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "r.expires_at.map_or",
+          "lineNumber": 453
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "rec\r\n                        .metadata\r\n                        .get(\"embedding\").and_then",
+          "lineNumber": 457
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "rec\r\n                        .metadata.get",
+          "lineNumber": 457
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "serde_json::from_value(v.clone()).ok",
+          "lineNumber": 460
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "serde_json::from_value",
+          "lineNumber": 460
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "v.clone",
+          "lineNumber": 460
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "cosine_similarity",
+          "lineNumber": 462
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "keyword_score",
+          "lineNumber": 464
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "keyword_score",
+          "lineNumber": 467
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "rec.source.as_deref()\r\n                    .map(|s| self.source_trust.get_trust(s) as f64).unwrap_or",
+          "lineNumber": 470
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "rec.source.as_deref().map",
+          "lineNumber": 470
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "rec.source.as_deref",
+          "lineNumber": 470
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "self.source_trust.get_trust",
+          "lineNumber": 471
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "rec.priority.as_str",
+          "lineNumber": 475
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "Self::compute_decay",
+          "lineNumber": 480
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "scored.sort_by",
+          "lineNumber": 485
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "b.1.partial_cmp(&a.1).unwrap_or",
+          "lineNumber": 485
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "b.1.partial_cmp",
+          "lineNumber": 485
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "self.records.iter()\r\n            .filter(|r| {\r\n                r.priority == \"pinned\"\r\n                    && (include_quarantined || r.status != \"quarantine\")\r\n                    && r.status != \"archived\"\r\n                    && r.expires_at.map_or(true, |exp| exp > now_ts)\r\n            })\r\n            .map(|r| (r, 2.0f64)).collect",
+          "lineNumber": 490
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "self.records.iter()\r\n            .filter(|r| {\r\n                r.priority == \"pinned\"\r\n                    && (include_quarantined || r.status != \"quarantine\")\r\n                    && r.status != \"archived\"\r\n                    && r.expires_at.map_or(true, |exp| exp > now_ts)\r\n            }).map",
+          "lineNumber": 490
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "self.records.iter().filter",
+          "lineNumber": 490
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "self.records.iter",
+          "lineNumber": 490
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "r.expires_at.map_or",
+          "lineNumber": 495
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "pinned.sort_by",
+          "lineNumber": 499
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "b.0.timestamp.cmp",
+          "lineNumber": 499
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "scored.iter().map(|(r, _)| r.id).collect",
+          "lineNumber": 500
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "scored.iter().map",
+          "lineNumber": 500
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "scored.iter",
+          "lineNumber": 500
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "pinned.retain",
+          "lineNumber": 501
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "scored_ids.contains",
+          "lineNumber": 501
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "pinned.extend",
+          "lineNumber": 502
+        },
+        {
+          "caller": "search_semantic",
+          "callee": "pinned.truncate",
+          "lineNumber": 503
+        },
+        {
+          "caller": "in_namespace",
+          "callee": "self.records.iter().filter(|r| r.tags.contains(&tag)).collect",
+          "lineNumber": 513
+        },
+        {
+          "caller": "in_namespace",
+          "callee": "self.records.iter().filter",
+          "lineNumber": 513
+        },
+        {
+          "caller": "in_namespace",
+          "callee": "self.records.iter",
+          "lineNumber": 513
+        },
+        {
+          "caller": "in_namespace",
+          "callee": "r.tags.contains",
+          "lineNumber": 513
+        },
+        {
+          "caller": "in_namespace",
+          "callee": "self.records.iter().collect",
+          "lineNumber": 515
+        },
+        {
+          "caller": "in_namespace",
+          "callee": "self.records.iter",
+          "lineNumber": 515
+        },
+        {
+          "caller": "find_by_actor_ns",
+          "callee": "self.find_by_actor",
+          "lineNumber": 521
+        },
+        {
+          "caller": "find_by_actor_ns",
+          "callee": "candidates.into_iter().filter(|r| r.tags.contains(&tag)).collect",
+          "lineNumber": 525
+        },
+        {
+          "caller": "find_by_actor_ns",
+          "callee": "candidates.into_iter().filter",
+          "lineNumber": 525
+        },
+        {
+          "caller": "find_by_actor_ns",
+          "callee": "candidates.into_iter",
+          "lineNumber": 525
+        },
+        {
+          "caller": "find_by_actor_ns",
+          "callee": "r.tags.contains",
+          "lineNumber": 525
+        },
+        {
+          "caller": "list_namespaces",
+          "callee": "self.records.iter()\r\n            .filter_map(|r| r.tags.iter().find(|t| t.starts_with(\"ns:\")))\r\n            .map(|t| t[3..].to_string()).collect",
+          "lineNumber": 533
+        },
+        {
+          "caller": "list_namespaces",
+          "callee": "self.records.iter()\r\n            .filter_map(|r| r.tags.iter().find(|t| t.starts_with(\"ns:\"))).map",
+          "lineNumber": 533
+        },
+        {
+          "caller": "list_namespaces",
+          "callee": "self.records.iter().filter_map",
+          "lineNumber": 533
+        },
+        {
+          "caller": "list_namespaces",
+          "callee": "self.records.iter",
+          "lineNumber": 533
+        },
+        {
+          "caller": "list_namespaces",
+          "callee": "r.tags.iter().find",
+          "lineNumber": 534
+        },
+        {
+          "caller": "list_namespaces",
+          "callee": "r.tags.iter",
+          "lineNumber": 534
+        },
+        {
+          "caller": "list_namespaces",
+          "callee": "t.starts_with",
+          "lineNumber": 534
+        },
+        {
+          "caller": "list_namespaces",
+          "callee": "t[3..].to_string",
+          "lineNumber": 535
+        },
+        {
+          "caller": "list_namespaces",
+          "callee": "namespaces.sort",
+          "lineNumber": 537
+        },
+        {
+          "caller": "list_namespaces",
+          "callee": "namespaces.dedup",
+          "lineNumber": 538
+        },
+        {
+          "caller": "namespace_counts",
+          "callee": "std::collections::HashMap::new",
+          "lineNumber": 544
+        },
+        {
+          "caller": "namespace_counts",
+          "callee": "tag.strip_prefix",
+          "lineNumber": 547
+        },
+        {
+          "caller": "namespace_counts",
+          "callee": "counts.entry(ns.to_string()).or_insert",
+          "lineNumber": 548
+        },
+        {
+          "caller": "namespace_counts",
+          "callee": "counts.entry",
+          "lineNumber": 548
+        },
+        {
+          "caller": "namespace_counts",
+          "callee": "ns.to_string",
+          "lineNumber": 548
+        },
+        {
+          "caller": "find_trusted",
+          "callee": "self.find_by_actor(actor)\r\n            .into_iter()\r\n            .filter(|r| {\r\n                r.source.as_deref()\r\n                    .map(|s| self.source_trust.is_trusted(s, trust_threshold))\r\n                    .unwrap_or(false) // records without source are not trusted\r\n            }).collect",
+          "lineNumber": 558
+        },
+        {
+          "caller": "find_trusted",
+          "callee": "self.find_by_actor(actor)\r\n            .into_iter().filter",
+          "lineNumber": 558
+        },
+        {
+          "caller": "find_trusted",
+          "callee": "self.find_by_actor(actor).into_iter",
+          "lineNumber": 558
+        },
+        {
+          "caller": "find_trusted",
+          "callee": "self.find_by_actor",
+          "lineNumber": 558
+        },
+        {
+          "caller": "find_trusted",
+          "callee": "r.source.as_deref()\r\n                    .map(|s| self.source_trust.is_trusted(s, trust_threshold)).unwrap_or",
+          "lineNumber": 561
+        },
+        {
+          "caller": "find_trusted",
+          "callee": "r.source.as_deref().map",
+          "lineNumber": 561
+        },
+        {
+          "caller": "find_trusted",
+          "callee": "r.source.as_deref",
+          "lineNumber": 561
+        },
+        {
+          "caller": "find_trusted",
+          "callee": "self.source_trust.is_trusted",
+          "lineNumber": 562
+        },
+        {
+          "caller": "with_namespace",
+          "callee": "Some",
+          "lineNumber": 572
+        },
+        {
+          "caller": "with_embedding_provider",
+          "callee": "Some",
+          "lineNumber": 578
+        },
+        {
+          "caller": "embed_and_add",
+          "callee": "provider.embed(text_to_embed)\r\n                .into_iter()\r\n                .map(|v| v as f64).collect",
+          "lineNumber": 586
+        },
+        {
+          "caller": "embed_and_add",
+          "callee": "provider.embed(text_to_embed)\r\n                .into_iter().map",
+          "lineNumber": 586
+        },
+        {
+          "caller": "embed_and_add",
+          "callee": "provider.embed(text_to_embed).into_iter",
+          "lineNumber": 586
+        },
+        {
+          "caller": "embed_and_add",
+          "callee": "provider.embed",
+          "lineNumber": 586
+        },
+        {
+          "caller": "embed_and_add",
+          "callee": "rec.set_metadata_field(\"embedding\", embedding).ok",
+          "lineNumber": 591
+        },
+        {
+          "caller": "embed_and_add",
+          "callee": "rec.set_metadata_field",
+          "lineNumber": 591
+        },
+        {
+          "caller": "embed_and_add",
+          "callee": "self.add",
+          "lineNumber": 592
+        },
+        {
+          "caller": "embed_and_add",
+          "callee": "self.add",
+          "lineNumber": 594
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.records.iter()\r\n            .filter(|r| r.actor == actor)\r\n            .map(|r| r.id).collect",
+          "lineNumber": 602
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.records.iter()\r\n            .filter(|r| r.actor == actor).map",
+          "lineNumber": 602
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.records.iter().filter",
+          "lineNumber": 602
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.records.iter",
+          "lineNumber": 602
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "deleted_ids.is_empty",
+          "lineNumber": 607
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "Ok",
+          "lineNumber": 608
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.records.retain",
+          "lineNumber": 612
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.buffer.retain",
+          "lineNumber": 613
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.index_actor.clear",
+          "lineNumber": 616
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.index_action.clear",
+          "lineNumber": 617
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.index_target.clear",
+          "lineNumber": 618
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.records.iter().enumerate",
+          "lineNumber": 619
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.records.iter",
+          "lineNumber": 619
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.index_actor.entry(rec.actor.clone()).or_default().push",
+          "lineNumber": 620
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.index_actor.entry(rec.actor.clone()).or_default",
+          "lineNumber": 620
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.index_actor.entry",
+          "lineNumber": 620
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "rec.actor.clone",
+          "lineNumber": 620
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.index_action.entry(rec.action.clone()).or_default().push",
+          "lineNumber": 621
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.index_action.entry(rec.action.clone()).or_default",
+          "lineNumber": 621
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.index_action.entry",
+          "lineNumber": 621
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "rec.action.clone",
+          "lineNumber": 621
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.index_target.entry(rec.target.clone()).or_default().push",
+          "lineNumber": 622
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.index_target.entry(rec.target.clone()).or_default",
+          "lineNumber": 622
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.index_target.entry",
+          "lineNumber": 622
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "rec.target.clone",
+          "lineNumber": 622
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.backend.clear",
+          "lineNumber": 626
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.records.clone",
+          "lineNumber": 627
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.backend.append",
+          "lineNumber": 629
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.backend.flush",
+          "lineNumber": 631
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "self.audit.append",
+          "lineNumber": 634
+        },
+        {
+          "caller": "delete_by_actor",
+          "callee": "Ok",
+          "lineNumber": 640
+        },
+        {
+          "caller": "find_by_id",
+          "callee": "self.records.iter().find",
+          "lineNumber": 645
+        },
+        {
+          "caller": "find_by_id",
+          "callee": "self.records.iter",
+          "lineNumber": 645
+        },
+        {
+          "caller": "update_record",
+          "callee": "self.records.iter().position(|r| r.id == id).ok_or_else",
+          "lineNumber": 659
+        },
+        {
+          "caller": "update_record",
+          "callee": "self.records.iter().position",
+          "lineNumber": 659
+        },
+        {
+          "caller": "update_record",
+          "callee": "self.records.iter",
+          "lineNumber": 659
+        },
+        {
+          "caller": "update_record",
+          "callee": "t.to_string",
+          "lineNumber": 663
+        },
+        {
+          "caller": "update_record",
+          "callee": "a.to_string",
+          "lineNumber": 664
+        },
+        {
+          "caller": "update_record",
+          "callee": "c.clamp",
+          "lineNumber": 665
+        },
+        {
+          "caller": "update_record",
+          "callee": "Some",
+          "lineNumber": 666
+        },
+        {
+          "caller": "update_record",
+          "callee": "s.to_string",
+          "lineNumber": 666
+        },
+        {
+          "caller": "update_record",
+          "callee": "Some",
+          "lineNumber": 670
+        },
+        {
+          "caller": "update_record",
+          "callee": "self.records[idx].compute_hash",
+          "lineNumber": 670
+        },
+        {
+          "caller": "update_record",
+          "callee": "self.backend.clear",
+          "lineNumber": 673
+        },
+        {
+          "caller": "update_record",
+          "callee": "self.records.clone",
+          "lineNumber": 674
+        },
+        {
+          "caller": "update_record",
+          "callee": "self.backend.append",
+          "lineNumber": 676
+        },
+        {
+          "caller": "update_record",
+          "callee": "self.backend.flush",
+          "lineNumber": 678
+        },
+        {
+          "caller": "update_record",
+          "callee": "self.records[idx].actor.clone",
+          "lineNumber": 681
+        },
+        {
+          "caller": "update_record",
+          "callee": "self.audit.append",
+          "lineNumber": 683
+        },
+        {
+          "caller": "update_record",
+          "callee": "Ok",
+          "lineNumber": 689
+        },
+        {
+          "caller": "find_latest",
+          "callee": "chrono::Utc::now().timestamp",
+          "lineNumber": 701
+        },
+        {
+          "caller": "find_latest",
+          "callee": "chrono::Utc::now",
+          "lineNumber": 701
+        },
+        {
+          "caller": "find_latest",
+          "callee": "self.records.iter()\r\n            .filter(|r| {\r\n                actor.map_or(true, |a| r.actor == a) &&\r\n                action.map_or(true, |ac| r.action == ac) &&\r\n                r.expires_at.map_or(true, |exp| exp > now_ts)\r\n            }).collect",
+          "lineNumber": 703
+        },
+        {
+          "caller": "find_latest",
+          "callee": "self.records.iter().filter",
+          "lineNumber": 703
+        },
+        {
+          "caller": "find_latest",
+          "callee": "self.records.iter",
+          "lineNumber": 703
+        },
+        {
+          "caller": "find_latest",
+          "callee": "actor.map_or",
+          "lineNumber": 705
+        },
+        {
+          "caller": "find_latest",
+          "callee": "action.map_or",
+          "lineNumber": 706
+        },
+        {
+          "caller": "find_latest",
+          "callee": "r.expires_at.map_or",
+          "lineNumber": 707
+        },
+        {
+          "caller": "find_latest",
+          "callee": "candidates.sort_by",
+          "lineNumber": 712
+        },
+        {
+          "caller": "find_latest",
+          "callee": "b.timestamp.cmp",
+          "lineNumber": 712
+        },
+        {
+          "caller": "find_latest",
+          "callee": "std::collections::HashSet::new",
+          "lineNumber": 715
+        },
+        {
+          "caller": "find_latest",
+          "callee": "candidates.into_iter()\r\n            .filter(|r| seen.insert((r.actor.clone(), r.action.clone()))).collect",
+          "lineNumber": 716
+        },
+        {
+          "caller": "find_latest",
+          "callee": "candidates.into_iter().filter",
+          "lineNumber": 716
+        },
+        {
+          "caller": "find_latest",
+          "callee": "candidates.into_iter",
+          "lineNumber": 716
+        },
+        {
+          "caller": "find_latest",
+          "callee": "seen.insert",
+          "lineNumber": 717
+        },
+        {
+          "caller": "find_latest",
+          "callee": "r.actor.clone",
+          "lineNumber": 717
+        },
+        {
+          "caller": "find_latest",
+          "callee": "r.action.clone",
+          "lineNumber": 717
+        },
+        {
+          "caller": "find_latest",
+          "callee": "deduplicated.into_iter().take(limit).collect",
+          "lineNumber": 720
+        },
+        {
+          "caller": "find_latest",
+          "callee": "deduplicated.into_iter().take",
+          "lineNumber": 720
+        },
+        {
+          "caller": "find_latest",
+          "callee": "deduplicated.into_iter",
+          "lineNumber": 720
+        },
+        {
+          "caller": "audit_verify",
+          "callee": "self.audit.export",
+          "lineNumber": 725
+        },
+        {
+          "caller": "audit_verify",
+          "callee": "entries.len",
+          "lineNumber": 726
+        },
+        {
+          "caller": "audit_verify",
+          "callee": "self.audit.verify",
+          "lineNumber": 727
+        },
+        {
+          "caller": "audit_verify",
+          "callee": "Ok",
+          "lineNumber": 728
+        },
+        {
+          "caller": "audit_export",
+          "callee": "self.audit.export",
+          "lineNumber": 733
+        },
+        {
+          "caller": "clear",
+          "callee": "self.records.clear",
+          "lineNumber": 737
+        },
+        {
+          "caller": "clear",
+          "callee": "self.index_actor.clear",
+          "lineNumber": 738
+        },
+        {
+          "caller": "clear",
+          "callee": "self.index_action.clear",
+          "lineNumber": 739
+        },
+        {
+          "caller": "clear",
+          "callee": "self.index_target.clear",
+          "lineNumber": 740
+        },
+        {
+          "caller": "clear",
+          "callee": "self.backend.clear",
+          "lineNumber": 741
+        },
+        {
+          "caller": "snapshot",
+          "callee": "self.flush",
+          "lineNumber": 745
+        },
+        {
+          "caller": "snapshot",
+          "callee": "std::fs::File::create",
+          "lineNumber": 747
+        },
+        {
+          "caller": "snapshot",
+          "callee": "serde_json::to_writer",
+          "lineNumber": 749
+        },
+        {
+          "caller": "snapshot",
+          "callee": "file.write_all",
+          "lineNumber": 750
+        },
+        {
+          "caller": "snapshot",
+          "callee": "Ok",
+          "lineNumber": 752
+        },
+        {
+          "caller": "rollback",
+          "callee": "std::fs::File::open",
+          "lineNumber": 756
+        },
+        {
+          "caller": "rollback",
+          "callee": "std::io::BufReader::new",
+          "lineNumber": 757
+        },
+        {
+          "caller": "rollback",
+          "callee": "Vec::new",
+          "lineNumber": 758
+        },
+        {
+          "caller": "rollback",
+          "callee": "reader.lines",
+          "lineNumber": 759
+        },
+        {
+          "caller": "rollback",
+          "callee": "line.trim().is_empty",
+          "lineNumber": 761
+        },
+        {
+          "caller": "rollback",
+          "callee": "line.trim",
+          "lineNumber": 761
+        },
+        {
+          "caller": "rollback",
+          "callee": "serde_json::from_str",
+          "lineNumber": 764
+        },
+        {
+          "caller": "rollback",
+          "callee": "rec.compute_hash",
+          "lineNumber": 766
+        },
+        {
+          "caller": "rollback",
+          "callee": "Err",
+          "lineNumber": 767
+        },
+        {
+          "caller": "rollback",
+          "callee": "records.push",
+          "lineNumber": 770
+        },
+        {
+          "caller": "rollback",
+          "callee": "records.clone",
+          "lineNumber": 772
+        },
+        {
+          "caller": "rollback",
+          "callee": "self.index_actor.clear",
+          "lineNumber": 773
+        },
+        {
+          "caller": "rollback",
+          "callee": "self.index_action.clear",
+          "lineNumber": 775
+        },
+        {
+          "caller": "rollback",
+          "callee": "self.index_target.clear",
+          "lineNumber": 776
+        },
+        {
+          "caller": "rollback",
+          "callee": "self.records.iter().enumerate",
+          "lineNumber": 778
+        },
+        {
+          "caller": "rollback",
+          "callee": "self.records.iter",
+          "lineNumber": 778
+        },
+        {
+          "caller": "rollback",
+          "callee": "self.index_actor\r\n                .entry(rec.actor.clone())\r\n                .or_default().push",
+          "lineNumber": 779
+        },
+        {
+          "caller": "rollback",
+          "callee": "self.index_actor\r\n                .entry(rec.actor.clone()).or_default",
+          "lineNumber": 779
+        },
+        {
+          "caller": "rollback",
+          "callee": "self.index_actor.entry",
+          "lineNumber": 779
+        },
+        {
+          "caller": "rollback",
+          "callee": "rec.actor.clone",
+          "lineNumber": 780
+        },
+        {
+          "caller": "rollback",
+          "callee": "self.index_action\r\n                .entry(rec.action.clone())\r\n                .or_default().push",
+          "lineNumber": 784
+        },
+        {
+          "caller": "rollback",
+          "callee": "self.index_action\r\n                .entry(rec.action.clone()).or_default",
+          "lineNumber": 784
+        },
+        {
+          "caller": "rollback",
+          "callee": "self.index_action.entry",
+          "lineNumber": 784
+        },
+        {
+          "caller": "rollback",
+          "callee": "rec.action.clone",
+          "lineNumber": 785
+        },
+        {
+          "caller": "rollback",
+          "callee": "self.index_target\r\n                .entry(rec.target.clone())\r\n                .or_default().push",
+          "lineNumber": 788
+        },
+        {
+          "caller": "rollback",
+          "callee": "self.index_target\r\n                .entry(rec.target.clone()).or_default",
+          "lineNumber": 788
+        },
+        {
+          "caller": "rollback",
+          "callee": "self.index_target.entry",
+          "lineNumber": 788
+        },
+        {
+          "caller": "rollback",
+          "callee": "rec.target.clone",
+          "lineNumber": 789
+        },
+        {
+          "caller": "rollback",
+          "callee": "self.backend.clear",
+          "lineNumber": 793
+        },
+        {
+          "caller": "rollback",
+          "callee": "self.backend.append",
+          "lineNumber": 795
+        },
+        {
+          "caller": "rollback",
+          "callee": "self.backend.flush",
+          "lineNumber": 797
+        },
+        {
+          "caller": "rollback",
+          "callee": "self.audit.append",
+          "lineNumber": 798
+        },
+        {
+          "caller": "rollback",
+          "callee": "Ok",
+          "lineNumber": 799
+        },
+        {
+          "caller": "drop",
+          "callee": "self.flush",
+          "lineNumber": 805
+        },
+        {
+          "caller": "add_and_read",
+          "callee": "std::fs::remove_file",
+          "lineNumber": 816
+        },
+        {
+          "caller": "add_and_read",
+          "callee": "MemoryStore::new(path).unwrap",
+          "lineNumber": 817
+        },
+        {
+          "caller": "add_and_read",
+          "callee": "MemoryStore::new",
+          "lineNumber": 817
+        },
+        {
+          "caller": "add_and_read",
+          "callee": "MemoryRecord::new",
+          "lineNumber": 818
+        },
+        {
+          "caller": "add_and_read",
+          "callee": "\"a\".into",
+          "lineNumber": 820
+        },
+        {
+          "caller": "add_and_read",
+          "callee": "\"b\".into",
+          "lineNumber": 821
+        },
+        {
+          "caller": "add_and_read",
+          "callee": "\"c\".into",
+          "lineNumber": 822
+        },
+        {
+          "caller": "add_and_read",
+          "callee": "store.add(rec).unwrap",
+          "lineNumber": 825
+        },
+        {
+          "caller": "add_and_read",
+          "callee": "store.add",
+          "lineNumber": 825
+        },
+        {
+          "caller": "add_and_read",
+          "callee": "drop",
+          "lineNumber": 827
+        },
+        {
+          "caller": "add_and_read",
+          "callee": "std::fs::remove_file(path).unwrap",
+          "lineNumber": 828
+        },
+        {
+          "caller": "add_and_read",
+          "callee": "std::fs::remove_file",
+          "lineNumber": 828
+        },
+        {
+          "caller": "cosine_similarity",
+          "callee": "a.len().min",
+          "lineNumber": 838
+        },
+        {
+          "caller": "cosine_similarity",
+          "callee": "a.len",
+          "lineNumber": 838
+        },
+        {
+          "caller": "cosine_similarity",
+          "callee": "b.len",
+          "lineNumber": 838
+        },
+        {
+          "caller": "cosine_similarity",
+          "callee": "a[..len].iter().zip(b[..len].iter()).map(|(x, y)| x * y).sum",
+          "lineNumber": 842
+        },
+        {
+          "caller": "cosine_similarity",
+          "callee": "a[..len].iter().zip(b[..len].iter()).map",
+          "lineNumber": 842
+        },
+        {
+          "caller": "cosine_similarity",
+          "callee": "a[..len].iter().zip",
+          "lineNumber": 842
+        },
+        {
+          "caller": "cosine_similarity",
+          "callee": "a[..len].iter",
+          "lineNumber": 842
+        },
+        {
+          "caller": "cosine_similarity",
+          "callee": "b[..len].iter",
+          "lineNumber": 842
+        },
+        {
+          "caller": "cosine_similarity",
+          "callee": "a[..len].iter().map(|x| x * x).sum::<f64>().sqrt",
+          "lineNumber": 843
+        },
+        {
+          "caller": "cosine_similarity",
+          "callee": "a[..len].iter().map(|x| x * x).sum::<f64>",
+          "lineNumber": 843
+        },
+        {
+          "caller": "cosine_similarity",
+          "callee": "a[..len].iter().map",
+          "lineNumber": 843
+        },
+        {
+          "caller": "cosine_similarity",
+          "callee": "a[..len].iter",
+          "lineNumber": 843
+        },
+        {
+          "caller": "cosine_similarity",
+          "callee": "b[..len].iter().map(|x| x * x).sum::<f64>().sqrt",
+          "lineNumber": 844
+        },
+        {
+          "caller": "cosine_similarity",
+          "callee": "b[..len].iter().map(|x| x * x).sum::<f64>",
+          "lineNumber": 844
+        },
+        {
+          "caller": "cosine_similarity",
+          "callee": "b[..len].iter().map",
+          "lineNumber": 844
+        },
+        {
+          "caller": "cosine_similarity",
+          "callee": "b[..len].iter",
+          "lineNumber": 844
+        },
+        {
+          "caller": "keyword_score",
+          "callee": "query.is_empty",
+          "lineNumber": 851
+        },
+        {
+          "caller": "keyword_score",
+          "callee": "format!(\"{} {} {}\", rec.actor, rec.action, rec.target).to_lowercase",
+          "lineNumber": 854
+        },
+        {
+          "caller": "keyword_score",
+          "callee": "query.split_whitespace().collect",
+          "lineNumber": 855
+        },
+        {
+          "caller": "keyword_score",
+          "callee": "query.split_whitespace",
+          "lineNumber": 855
+        },
+        {
+          "caller": "keyword_score",
+          "callee": "tokens.is_empty",
+          "lineNumber": 856
+        },
+        {
+          "caller": "keyword_score",
+          "callee": "tokens.iter().filter(|t| haystack.contains(&t.to_lowercase())).count",
+          "lineNumber": 859
+        },
+        {
+          "caller": "keyword_score",
+          "callee": "tokens.iter().filter",
+          "lineNumber": 859
+        },
+        {
+          "caller": "keyword_score",
+          "callee": "tokens.iter",
+          "lineNumber": 859
+        },
+        {
+          "caller": "keyword_score",
+          "callee": "haystack.contains",
+          "lineNumber": 859
+        },
+        {
+          "caller": "keyword_score",
+          "callee": "t.to_lowercase",
+          "lineNumber": 859
+        },
+        {
+          "caller": "keyword_score",
+          "callee": "tokens.len",
+          "lineNumber": 860
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 41,
+        "functionCount": 43,
+        "classCount": 2
+      }
+    }
+  ]
+}

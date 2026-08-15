@@ -191,18 +191,30 @@ impl SessionContext {
             return 0;
         }
 
-        let seeds: Vec<String> = self.paged_items.iter().map(|item| item.entity_id.to_string()).collect();
+        let seeds: Vec<String> = self
+            .paged_items
+            .iter()
+            .map(|item| item.entity_id.to_string())
+            .collect();
         let pr_scores = topo_graph.personalized_pagerank(&seeds, 0.85, 20);
         let now = SystemTime::now();
 
         self.paged_items.sort_by(|a, b| {
             let pr_a = *pr_scores.get(&a.entity_id.to_string()).unwrap_or(&0.0) as f64;
             let pr_b = *pr_scores.get(&b.entity_id.to_string()).unwrap_or(&0.0) as f64;
-            let age_a = now.duration_since(a.last_accessed).unwrap_or(Duration::ZERO).as_secs_f64();
-            let age_b = now.duration_since(b.last_accessed).unwrap_or(Duration::ZERO).as_secs_f64();
+            let age_a = now
+                .duration_since(a.last_accessed)
+                .unwrap_or(Duration::ZERO)
+                .as_secs_f64();
+            let age_b = now
+                .duration_since(b.last_accessed)
+                .unwrap_or(Duration::ZERO)
+                .as_secs_f64();
             let score_a = 0.7 * pr_a + 0.3 * (-0.001 * age_a).exp();
             let score_b = 0.7 * pr_b + 0.3 * (-0.001 * age_b).exp();
-            score_a.partial_cmp(&score_b).unwrap_or(std::cmp::Ordering::Equal)
+            score_a
+                .partial_cmp(&score_b)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         let evict_count = items_to_evict.min(self.paged_items.len());

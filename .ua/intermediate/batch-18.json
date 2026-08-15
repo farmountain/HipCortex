@@ -1,0 +1,79 @@
+{
+  "batchIndex": 18,
+  "nodes": [
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/.openspec.yaml",
+      "type": "document",
+      "name": "Record Type Alias Mapping OpenSpec Metadata",
+      "filePath": "openspec/changes/archive/2026-07-09-record-type-alias-mapping/.openspec.yaml",
+      "summary": "Metadata file for the record-type-alias-mapping change spec, created 2026-07-08. Marks the change as using the spec-driven schema. Serves as the manifest anchor for the change set.",
+      "tags": ["openspec", "archive", "record-type", "alias", "metadata"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/proposal.md",
+      "type": "document",
+      "name": "Record Type Alias Mapping Proposal",
+      "filePath": "openspec/changes/archive/2026-07-09-record-type-alias-mapping/proposal.md",
+      "summary": "Proposes server-side normalization of cognitive-science memory tier names (Episodic, Semantic, LongTerm, ShortTerm, Working, Reflexive, Perceptual) to canonical Rust enum values. Fixes 400 errors when agents pass cognitive-science terminology to the REST API. No breaking changes — all existing canonical names continue to work. Affects web_server.rs, Python MCP server, and TypeScript SDK.",
+      "tags": ["openspec", "archive", "record-type", "alias", "memory-type", "sdk", "web-server"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/design.md",
+      "type": "document",
+      "name": "Record Type Alias Mapping Design",
+      "filePath": "openspec/changes/archive/2026-07-09-record-type-alias-mapping/design.md",
+      "summary": "Details the parse_record_type_alias helper function added to src/web_server.rs, mapping cognitive-science aliases to MemoryType enum values (e.g. Episodic/ShortTerm/Working to Temporal, Semantic/LongTerm to Symbolic). The helper is integrated into handle_add_memory and handle_bulk_add. Alias resolution is input-only; stored and returned values remain canonical.",
+      "tags": ["openspec", "archive", "record-type", "alias", "design", "web-server", "rust"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/tasks.md",
+      "type": "document",
+      "name": "Record Type Alias Mapping Tasks",
+      "filePath": "openspec/changes/archive/2026-07-09-record-type-alias-mapping/tasks.md",
+      "summary": "Completed task checklist for the record-type-alias-mapping change. Covers backend alias normalization (parse_record_type_alias in web_server.rs, handle_add_memory, handle_bulk_add) and client SDK updates (TypeScript JSDoc, Python MCP server schema). All tasks marked complete.",
+      "tags": ["openspec", "archive", "record-type", "alias", "tasks", "completed"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/.openspec.yaml",
+      "to": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/proposal.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/.openspec.yaml",
+      "to": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/design.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/.openspec.yaml",
+      "to": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/proposal.md",
+      "to": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/design.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/proposal.md",
+      "to": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/design.md",
+      "to": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    }
+  ]
+}

@@ -134,7 +134,10 @@ async fn worldmodel_observe_predict_rollout_and_self_surface() {
         .await
         .unwrap();
     assert!(
-        pred.get("error").is_none() || pred.get("distribution").is_some() || pred.get("predicted_state").is_some() || pred.get("probabilities").is_some(),
+        pred.get("error").is_none()
+            || pred.get("distribution").is_some()
+            || pred.get("predicted_state").is_some()
+            || pred.get("probabilities").is_some(),
         "predict: {}",
         pred
     );
@@ -181,11 +184,7 @@ async fn worldmodel_observe_predict_rollout_and_self_surface() {
         .json()
         .await
         .unwrap();
-    assert!(
-        mcts.get("best_action").is_some(),
-        "mcts rollout: {}",
-        mcts
-    );
+    assert!(mcts.get("best_action").is_some(), "mcts rollout: {}", mcts);
 
     // Live beliefs
     let beliefs: serde_json::Value = client

@@ -1,7 +1,7 @@
 use assert_cmd::Command;
-use hipcortex::symbolic_store::{SledGraph, SymbolicStore, SymbolicNode, SymbolicEdge};
-use tempfile::TempDir;
+use hipcortex::symbolic_store::{SledGraph, SymbolicEdge, SymbolicNode, SymbolicStore};
 use std::collections::HashMap;
+use tempfile::TempDir;
 
 #[test]
 fn cli_exports_graph() {
@@ -23,7 +23,12 @@ fn cli_exports_graph() {
         .args(["graph", "--db", db_path.to_str().unwrap()])
         .output()
         .unwrap();
-    let parsed: (Vec<SymbolicNode>, Vec<SymbolicEdge>) = serde_json::from_slice(&out.stdout).unwrap();
-    assert_eq!(parsed.0.len(), baseline + 2, "Should have 2 user nodes beyond the anchor");
+    let parsed: (Vec<SymbolicNode>, Vec<SymbolicEdge>) =
+        serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        parsed.0.len(),
+        baseline + 2,
+        "Should have 2 user nodes beyond the anchor"
+    );
     assert_eq!(parsed.1.len(), 1);
 }

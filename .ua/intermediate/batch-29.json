@@ -1,0 +1,111 @@
+{
+  "batchIndex": 29,
+  "nodes": [
+    {
+      "id": "vscode-extension/README.md",
+      "label": "README.md",
+      "type": "document",
+      "tags": ["vscode-extension", "typescript", "documentation"],
+      "path": "vscode-extension/README.md",
+      "summary": "User-facing documentation for the HipCortex VS Code extension v0.5.8. Covers zero-config onboarding (bundled multi-OS Rust webserver, no Docker/DB required), 10 LM tools (hipcortex_search, hipcortex_health, hipcortex_predict, hipcortex_rollout, hipcortex_graph_search, hipcortex_causal, hipcortex_topo_ppr, hipcortex_deconstruct, hipcortex_check_edge, hipcortex_can_execute), @hipcortex chat commands, Headroom/Caveman token optimization (59-88% savings), configuration settings, and local packaging instructions.",
+      "metadata": {
+        "version": "0.5.8",
+        "product_crate_version": "0.5.2",
+        "lm_tools_count": 10,
+        "token_savings": "59-88%",
+        "optimization_modes": ["headroom", "caveman"],
+        "features": [
+          "zero-config onboarding",
+          "bundled multi-OS webserver",
+          "dual /health endpoint",
+          "auto-recovery",
+          "chmod fix for Mac/Linux",
+          "local-first storage"
+        ],
+        "chat_commands": ["health", "add", "query", "status"]
+      }
+    },
+    {
+      "id": "vscode-extension/package.json",
+      "label": "package.json",
+      "type": "config",
+      "tags": ["vscode-extension", "typescript", "manifest"],
+      "path": "vscode-extension/package.json",
+      "summary": "VS Code extension manifest for hipcortex-memory v0.5.8 by publisher farmountain. Targets vscode ^1.90.0. Contributes 6 commands (addMemory, queryMemory, testExtension, healthCheck, predictState, restartServer), 1 chat participant with 8 slash commands (add, query, health, help, predict, coherence, link, mode), 10 languageModelTools, and configuration properties (apiUrl, apiKey, autoStart, optimizationMode, strictServerVersion). Main entry: ./dist/extension.js. Build: webpack production. Test: jest. Key deps: axios ^1.6.2; devDeps: typescript ^5.3.2, webpack ^5.89.0, ts-loader, eslint, ts-jest.",
+      "metadata": {
+        "name": "hipcortex-memory",
+        "version": "0.5.8",
+        "publisher": "farmountain",
+        "repository": "https://github.com/farmountain/HipCortex.git",
+        "engines": { "vscode": "^1.90.0" },
+        "categories": ["Machine Learning", "Data Science", "Other"],
+        "main": "./dist/extension.js",
+        "commands": [
+          "hipcortex.addMemory",
+          "hipcortex.queryMemory",
+          "hipcortex.testExtension",
+          "hipcortex.healthCheck",
+          "hipcortex.predictState",
+          "hipcortex.restartServer"
+        ],
+        "chat_participant_id": "hipcortex",
+        "chat_commands": ["add", "query", "health", "help", "predict", "coherence", "link", "mode"],
+        "lm_tools": [
+          "hipcortex_search",
+          "hipcortex_health",
+          "hipcortex_predict",
+          "hipcortex_graph_search",
+          "hipcortex_topo_ppr",
+          "hipcortex_deconstruct",
+          "hipcortex_check_edge",
+          "hipcortex_can_execute",
+          "hipcortex_rollout"
+        ],
+        "configuration_keys": [
+          "hipcortex.apiUrl",
+          "hipcortex.apiKey",
+          "hipcortex.autoStart",
+          "hipcortex.optimizationMode",
+          "hipcortex.strictServerVersion"
+        ],
+        "default_api_url": "http://127.0.0.1:3030",
+        "activation_events": ["onStartupFinished", "onCommand:workbench.action.chat.open"],
+        "dependencies": { "axios": "^1.6.2" },
+        "devDependencies": {
+          "typescript": "^5.3.2",
+          "webpack": "^5.89.0",
+          "jest": "^29.7.0",
+          "ts-jest": "^29.2.5",
+          "eslint": "^8.54.0"
+        },
+        "scripts": {
+          "compile": "tsc -p ./",
+          "package": "webpack --mode production --devtool hidden-source-map",
+          "test": "jest --config jest.config.js"
+        }
+      }
+    },
+    {
+      "id": "vscode-extension/tsconfig.json",
+      "label": "tsconfig.json",
+      "type": "config",
+      "tags": ["vscode-extension", "typescript", "build"],
+      "path": "vscode-extension/tsconfig.json",
+      "summary": "TypeScript compiler configuration for the VS Code extension. Targets ES2020/CommonJS, outputs to dist/, rootDir src/, strict mode enabled, sourceMap true, esModuleInterop true. Excludes node_modules, .vscode-test, and src/test/**.",
+      "metadata": {
+        "module": "commonjs",
+        "target": "ES2020",
+        "outDir": "dist",
+        "rootDir": "src",
+        "lib": ["ES2020", "DOM"],
+        "strict": true,
+        "sourceMap": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "exclude": ["node_modules", ".vscode-test", "src/test/**"]
+      }
+    }
+  ],
+  "edges": []
+}

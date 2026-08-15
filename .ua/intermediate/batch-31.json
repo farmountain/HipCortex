@@ -1,0 +1,314 @@
+{
+  "batchIndex": 31,
+  "nodes": [
+    {
+      "id": "file::build.rs",
+      "type": "file",
+      "path": "build.rs",
+      "label": "build.rs",
+      "summary": "Cargo build script. When the `grpc-server` feature is enabled, runs `tonic_build::configure()` to compile `proto/memory.proto` via prost/tonic, generating Rust client and server stubs in the build output directory. No-op for all other feature combinations.",
+      "symbols": ["main"],
+      "featureFlags": ["grpc-server"],
+      "language": "rust"
+    },
+    {
+      "id": "file::deploy/helm/hipcortex/Chart.yaml",
+      "type": "file",
+      "path": "deploy/helm/hipcortex/Chart.yaml",
+      "label": "Helm Chart.yaml",
+      "summary": "Helm chart metadata for HipCortex v0.2.0. Declares the chart as `application` type targeting the HipCortex AI Memory Engine. Keywords: ai, memory, agents, langchain, llm. Source and home point to farmountain/HipCortex on GitHub.",
+      "chartVersion": "0.2.0",
+      "appVersion": "0.2.0",
+      "language": "yaml"
+    },
+    {
+      "id": "file::deploy/helm/hipcortex/templates/_helpers.tpl",
+      "type": "file",
+      "path": "deploy/helm/hipcortex/templates/_helpers.tpl",
+      "label": "Helm _helpers.tpl",
+      "summary": "Helm template helpers defining three named templates: `hipcortex.fullname` (release-name prefixed), `hipcortex.labels` (standard k8s labels including app name, instance, chart version), and `hipcortex.selectorLabels` (name + instance only for pod selectors).",
+      "language": "yaml"
+    },
+    {
+      "id": "file::deploy/helm/hipcortex/values.yaml",
+      "type": "file",
+      "path": "deploy/helm/hipcortex/values.yaml",
+      "label": "Helm values.yaml",
+      "summary": "Default Helm values for HipCortex deployment. Key settings: image `hipcortex/hipcortex:0.2.0`, ClusterIP service on port 3030, 5Gi PVC persistence, resource limits (500m CPU / 512Mi RAM), liveness+readiness probes at `/health:3030`, env vars for RUST_LOG / OLLAMA_URL / OPENAI_API_KEY / ANTHROPIC_API_KEY / HIPCORTEX_API_KEYS / HIPCORTEX_ACTOR_MAX_RECORDS. API key tiers configured as comma-separated `key:tier` pairs in `apiKeys`.",
+      "servicePort": 3030,
+      "language": "yaml"
+    },
+    {
+      "id": "schema::proto/memory.proto",
+      "type": "schema",
+      "path": "proto/memory.proto",
+      "label": "memory.proto — gRPC schema",
+      "summary": "Proto3 schema for the `hipcortex` gRPC package. Defines `MemoryRecord` message (id, record_type, timestamp, actor, action, target, metadata). Two RPC methods on `MemoryService`: `AddRecord(AddRecordRequest) -> AddRecordResponse` and `ListRecords(ListRecordsRequest) -> ListRecordsResponse`. This schema is the source of truth compiled by `build.rs` via tonic_build.",
+      "messages": ["MemoryRecord", "AddRecordRequest", "AddRecordResponse", "ListRecordsRequest", "ListRecordsResponse"],
+      "service": "MemoryService",
+      "rpcs": ["AddRecord", "ListRecords"],
+      "language": "proto3"
+    },
+    {
+      "id": "file::sdk/python/pyproject.toml",
+      "type": "file",
+      "path": "sdk/python/pyproject.toml",
+      "label": "Python SDK pyproject.toml",
+      "summary": "Python package metadata for `hipcortex` v0.5.2. Runtime deps: `requests>=2.28`, `httpx>=0.27`. Optional extras: langchain, llamaindex, crewai, autogen, benchmark (mem0ai comparison), test. Entrypoint CLI: `hipcortex = hipcortex.cli:main`. Includes `hipcortex.install` package data (SKILL.md, templates, mcp_server.py). Build backend: setuptools.",
+      "version": "0.5.2",
+      "language": "toml"
+    },
+    {
+      "id": "file::sdk/python/README.md",
+      "type": "file",
+      "path": "sdk/python/README.md",
+      "label": "Python SDK README",
+      "summary": "User-facing documentation for the HipCortex Python SDK v0.5.2. Covers: multi-tier memory ingestion (Working→Temporal, Semantic→Symbolic), SelfModel capacity gates (`can_execute`), world-model rollout prediction (`/worldmodel/rollout`), topological context query (Personalized PageRank), and framework adapters for LangChain (`HipCortexMemory`), LlamaIndex (`HipCortexStorageContext`), CrewAI (`HipCortexRememberTool`/`HipCortexRecallTool`), AutoGen (`HipCortexAutoGenMemory`). Also documents `stats()` and GDPR `forget()`. Advertises 0.48–0.61ms p50 write latency and 59–88% Headroom token savings.",
+      "language": "markdown"
+    },
+    {
+      "id": "file::sdk/python/setup.py",
+      "type": "file",
+      "path": "sdk/python/setup.py",
+      "label": "Python SDK setup.py",
+      "summary": "Legacy setuptools setup.py for `hipcortex` v0.1.0 (older than pyproject.toml v0.5.2 — likely kept for compatibility). Declares same optional extras (langchain, llamaindex, crewai, autogen, benchmark). Primary packaging source is pyproject.toml.",
+      "language": "python"
+    },
+    {
+      "id": "file::src/bin/cli.rs",
+      "type": "file",
+      "path": "src/bin/cli.rs",
+      "label": "CLI binary entrypoint (src/bin/cli.rs)",
+      "summary": "Minimal binary entrypoint for the `hipcortex` CLI. Imports `hipcortex::memory_cli` and delegates entirely to `memory_cli::run()`. All subcommand logic (add, query, llm-generate, worldmodel-predict, safety-audit) lives in `src/memory_cli.rs`. Returns `anyhow::Result<()>`.",
+      "entryFn": "main",
+      "delegatesTo": "memory_cli::run",
+      "language": "rust"
+    },
+    {
+      "id": "file::src/bin/webserver.rs",
+      "type": "file",
+      "path": "src/bin/webserver.rs",
+      "label": "Web server binary entrypoint (src/bin/webserver.rs)",
+      "summary": "Async Tokio main for the `hipcortex` REST server. Reads PORT (default 3030) and DATA_DIR / HIPCORTEX_STORAGE env vars. Initialises: MemoryStore (JSONL at `data_dir/memory.jsonl`), WorldModelEnhanced (loaded from `worldmodel.json` or fresh), SelfModel with 15 registered capabilities (add_memory through perception_adapt), CoherenceChecker, CausalTopoGraph, SymbolicStore. Assembles AppState and calls `web_server::run_with_state`. Spawns background task flushing WorldModel to disk every 5 minutes. Handles graceful shutdown on Ctrl-C by flushing MemoryStore and saving WorldModel.",
+      "capabilities": ["add_memory","search_memory","query_memory","ingest","bulk_add","forget","reflect","context","predict","rollout","temporal_insert","symbolic_add_node","symbolic_add_edge","fsm_advance","perception_adapt"],
+      "defaultPort": 3030,
+      "language": "rust"
+    },
+    {
+      "id": "file::src/grpc_server.rs",
+      "type": "file",
+      "path": "src/grpc_server.rs",
+      "label": "gRPC server (src/grpc_server.rs)",
+      "summary": "Tonic-based gRPC server gated on `#[cfg(feature = \"grpc-server\")]`. Includes generated proto code via `tonic::include_proto!(\"hipcortex\")`. Implements `MemoryService` trait on `MemoryServiceImpl<B: MemoryBackend>` holding `Arc<Mutex<MemoryStore<B>>>`. `add_record`: maps proto record_type string to `MemoryType` enum, constructs `MemoryRecord`, computes SHA-256 integrity hash, appends to store. `list_records`: serialises all records to proto format. Public `serve<B>(addr, store)` fn starts a tonic transport server with a single `MemoryServiceServer` service.",
+      "featureFlag": "grpc-server",
+      "methods": ["add_record", "list_records"],
+      "language": "rust"
+    },
+    {
+      "id": "file::src/lib.rs",
+      "type": "file",
+      "path": "src/lib.rs",
+      "label": "Library root (src/lib.rs)",
+      "summary": "Crate-level module registry and public API surface. Uses `#[path]` annotations to map physical files under `src/modules/` to canonical module paths. Key public modules: memory_record, memory_store, safety_guardrail, audit_log, persistence, temporal_indexer, symbolic_store, procedural_cache, aureus_bridge, integration_layer, perception_adapter, self_model, world_model, world_model_enhanced, coherence, topological_memory, loop_engine, mcts_simulator, task_graph, executive_scheduler, continuation_checkpoint, session_context, lease_manager, working_set_broker, llm_clients, rag_adapter, retrieval_pipeline, memory_cli, memory_query, memory_diff. Feature-gated modules: async_memory_store (async-store), dashboard/openapi_spec/web_server (web-server), rocksdb_backend (rocksdb-backend), grpc_server (grpc-server), mcp_server (web-server+grpc-server), gui (gui), plugin_host (plugin), world_model_actor (tokio). Backend block: petgraph_backend (always), neo4j_backend (neo4j_backend), postgres_backend (postgres_backend), rustfsm_backend, temporal_backend. Re-exports: CausalTopoGraph, EdgeType, LoopEngine, InMemoryBackend, AsyncFileBackend, AsyncMemoryBackend.",
+      "featureFlags": ["async-store", "web-server", "grpc-server", "rocksdb-backend", "gui", "plugin", "tokio", "neo4j_backend", "postgres_backend"],
+      "language": "rust"
+    },
+    {
+      "id": "file::src/mcp_server.rs",
+      "type": "file",
+      "path": "src/mcp_server.rs",
+      "label": "Combined MCP server (src/mcp_server.rs)",
+      "summary": "Combined REST+gRPC server struct gated on `#[cfg(all(feature = \"web-server\", feature = \"grpc-server\"))]`. `McpServer<B>` holds Arc-wrapped: MemoryStore, SymbolicStore, TemporalIndexer, ProceduralCache, AureusBridge, IntegrationLayer (with optional PerceptionSession), plus optional SelfModel, WorldModelEnhanced, CoherenceChecker, CausalTopoGraph. Constructor conditionally wires intelligence layer when `HIPCORTEX_AGENT_DEFAULTS` env var is set. `serve(http_addr, grpc_addr)` concurrently spawns `grpc_server::serve` and `web_server::run_with_store` via tokio tasks. Exposes `store()` and `symbolic()` accessors.",
+      "featureFlag": "web-server+grpc-server",
+      "language": "rust"
+    },
+    {
+      "id": "file::src/memory_record.rs",
+      "type": "file",
+      "path": "src/memory_record.rs",
+      "label": "MemoryRecord (src/memory_record.rs)",
+      "summary": "Defines the core data model. `MemoryType` enum: Temporal, Symbolic, Procedural, Reflexion, Perception (serde + clap ValueEnum). `MemoryRecord` struct with fields: id (Uuid), record_type, timestamp (DateTime<Utc>), actor, action, target, metadata (serde_json::Value), integrity (SHA-256 hex Option<String>), access_count, last_accessed, relevance_score (default 1.0), content_hash, expires_at (unix secs), confidence (f32, default 1.0), source (Option<String>), version (u32), tags (Vec<String>), priority (default \"normal\"), status (default \"active\"). `new()` auto-computes SHA-256 hash on construction. Key methods: `compute_hash` (excludes integrity/content_hash/access_count from hash input), `mark_accessed`, `update_relevance_score`, `calculate_decay_factor`, `get/set_metadata_field`, `should_prune`, `similarity_score`.",
+      "structs": ["MemoryType", "MemoryRecord"],
+      "language": "rust"
+    },
+    {
+      "id": "file::src/memory_store.rs",
+      "type": "file",
+      "path": "src/memory_store.rs",
+      "label": "MemoryStore (src/memory_store.rs)",
+      "summary": "Generic `MemoryStore<B: MemoryBackend>` persistence facade. Constructors: `new` (plain JSONL FileBackend), `new_with_options` (with batch size and optional zstd compression), `new_encrypted` (AES-GCM per-record), `new_encrypted_envelope` (AES-GCM envelope with master key), `new_in_memory` (InMemoryBackend, zero I/O), `new_rocksdb` (RocksDB, feature-gated). Internal state: Vec<MemoryRecord>, AuditLog (Merkle-chained, tamper-evident), VecDeque write buffer, positional IndexMaps for actor/action/target. Key ops: `add` (namespace auto-tag, buffer flush on batch_size), `flush` (drain buffer to backend), `delete_by_actor` (GDPR forget, rewrites backend + audit entry), `delete_by_id`, `purge_expired`, `set_status`, `corroborate` (+0.10 confidence, SourceTrustRegistry), `contradict` (-0.15 confidence, auto-quarantine <0.30), `update_record` (versioned in-place update), `find_latest` (deduplicated most-recent per actor+action pair), `search_semantic` (cosine similarity or keyword fallback, decay-weighted, trust-weighted, pinned records score 2.0), `snapshot`/`rollback` (integrity-checked JSONL), `audit_verify`/`audit_export`. Free functions: `cosine_similarity`, `keyword_score`.",
+      "generics": ["B: MemoryBackend"],
+      "language": "rust"
+    },
+    {
+      "id": "file::src/safety_guardrail.rs",
+      "type": "file",
+      "path": "src/safety_guardrail.rs",
+      "label": "SafetyGuardrail (src/safety_guardrail.rs)",
+      "summary": "Content-safety gate for all mutations. `SafetyGuardrail` wraps a `SafetyClassifier` (semantic pattern matcher). `check_precondition(op_context)`: classifies content, returns `Err(reason)` if `Action::Block`, otherwise logs non-Safe categories and returns `Ok(())`. `check_precondition_with_threshold(op_context, block_threshold)`: custom numeric risk threshold variant. `check_postcondition`: post-mutation check. `classify`: read-only classification without side effects. Also manages: `violation_log` (HashMap<op_context, Vec<reason>>), `snapshots` (audit trail as JSON), `rollback` (eprintln hook). Global singleton `SAFETY_GUARDRAIL: Mutex<SafetyGuardrail>` via `lazy_static`.",
+      "struct": "SafetyGuardrail",
+      "methods": ["check_precondition", "check_precondition_with_threshold", "check_postcondition", "classify", "log_violation", "rollback", "audit_snapshot", "recent_snapshots", "violation_count", "reset"],
+      "globalSingleton": "SAFETY_GUARDRAIL",
+      "language": "rust"
+    },
+    {
+      "id": "file::src/web_server.rs",
+      "type": "file",
+      "path": "src/web_server.rs",
+      "label": "REST API web server (src/web_server.rs)",
+      "summary": "Axum 0.6 REST server gated on `#[cfg(feature = \"web-server\")]`. `AppState<B>` holds Arc-wrapped: MemoryStore, SymbolicStore, WorldModelEnhanced (RwLock), AureusBridge (Mutex), SelfModel, CoherenceChecker, CausalTopoGraph. Auth middleware (`api_key_middleware`): validates `X-Api-Key` header or `?api_key=` query param against `HIPCORTEX_API_KEYS` env, stamps `X-HipCortex-Tier` on responses, enforces per-tier write quotas (Free=10K, Pro=1M, Team=unlimited). API tiers: Free/Pro/Team. Background tasks: TTL eviction every 5 min, CoherenceChecker every 60s. Routes (70+ endpoints): Memory CRUD (POST /memory/add, /memory/bulk, /memory/ingest, /memory/embed, GET /memory/query, /memory/export, /memory/latest, /memory/search-flat, POST /memory/search, DELETE /memory/forget/:actor, DELETE /memory/:id, PATCH /memory/update/:id), Graph/topology (/graph, /graph/node, /graph/edge, /graph/search, /memory/link, /memory/neighbors/:id, /memory/search/related, /topo/ppr, /topo/check-edge, /topo/deconstruct, /topo/apply-hyp), Intelligence (/worldmodel/states, /worldmodel/transitions, /worldmodel/uncertainty, /worldmodel/observe, /worldmodel/predict, /worldmodel/rollout, /worldmodel/entities, /worldmodel/entity, /worldmodel/causal, /worldmodel/causal/edge, /worldmodel/causal/intervention, /worldmodel/causal/counterfactual, /predict/entity/:id), Self-model (/self/health, /self/capabilities, /self/can-execute, /decide/batch), Coherence (/coherence/status, /coherence/inconsistencies, /coherence/check, /coherence/resolve/:id), Reflexion (/memory/reflect, /memory/hypotheses, /memory/hypotheses/reset), Confidence ops (/memory/quarantine/:id, /memory/restore/:id, /memory/corroborate/:id, /memory/contradict/:id), Audit (/audit/verify, /audit/export), Info (/health, /stats, /metrics, /tier, /pricing, /openapi.json), Webhooks (/webhooks, /webhooks/:id), Namespace (/ns), Regulatory holds (/regulatory/hold, /regulatory/hold/:actor), Live beliefs (/memory/live_beliefs), Memory context (/memory/context), Memory consolidation (/memory/consolidate).",
+      "featureFlag": "web-server",
+      "framework": "axum 0.6",
+      "language": "rust"
+    }
+  ],
+  "edges": [
+    {
+      "from": "file::src/lib.rs",
+      "to": "file::src/memory_record.rs",
+      "relation": "exports",
+      "weight": 0.9
+    },
+    {
+      "from": "file::src/lib.rs",
+      "to": "file::src/memory_store.rs",
+      "relation": "exports",
+      "weight": 0.9
+    },
+    {
+      "from": "file::src/lib.rs",
+      "to": "file::src/safety_guardrail.rs",
+      "relation": "exports",
+      "weight": 0.9
+    },
+    {
+      "from": "file::src/lib.rs",
+      "to": "file::src/web_server.rs",
+      "relation": "exports_conditional",
+      "condition": "feature=web-server",
+      "weight": 0.9
+    },
+    {
+      "from": "file::src/lib.rs",
+      "to": "file::src/grpc_server.rs",
+      "relation": "exports_conditional",
+      "condition": "feature=grpc-server",
+      "weight": 0.9
+    },
+    {
+      "from": "file::src/lib.rs",
+      "to": "file::src/mcp_server.rs",
+      "relation": "exports_conditional",
+      "condition": "feature=web-server+grpc-server",
+      "weight": 0.9
+    },
+    {
+      "from": "file::src/web_server.rs",
+      "to": "file::src/memory_store.rs",
+      "relation": "calls",
+      "weight": 0.8
+    },
+    {
+      "from": "file::src/web_server.rs",
+      "to": "file::src/memory_record.rs",
+      "relation": "uses",
+      "weight": 0.8
+    },
+    {
+      "from": "file::src/grpc_server.rs",
+      "to": "schema::proto/memory.proto",
+      "relation": "implements_schema",
+      "weight": 0.9
+    },
+    {
+      "from": "file::build.rs",
+      "to": "schema::proto/memory.proto",
+      "relation": "compiles",
+      "weight": 0.9
+    },
+    {
+      "from": "file::build.rs",
+      "to": "file::src/grpc_server.rs",
+      "relation": "generates_code_for",
+      "weight": 0.8
+    },
+    {
+      "from": "file::src/grpc_server.rs",
+      "to": "file::src/memory_store.rs",
+      "relation": "calls",
+      "weight": 0.8
+    },
+    {
+      "from": "file::src/grpc_server.rs",
+      "to": "file::src/memory_record.rs",
+      "relation": "uses",
+      "weight": 0.8
+    },
+    {
+      "from": "file::src/web_server.rs",
+      "to": "file::src/safety_guardrail.rs",
+      "relation": "calls",
+      "weight": 0.7
+    },
+    {
+      "from": "file::src/grpc_server.rs",
+      "to": "file::src/safety_guardrail.rs",
+      "relation": "calls",
+      "weight": 0.7
+    },
+    {
+      "from": "file::src/mcp_server.rs",
+      "to": "file::src/grpc_server.rs",
+      "relation": "composes",
+      "weight": 0.8
+    },
+    {
+      "from": "file::src/mcp_server.rs",
+      "to": "file::src/web_server.rs",
+      "relation": "composes",
+      "weight": 0.8
+    },
+    {
+      "from": "file::src/mcp_server.rs",
+      "to": "file::src/memory_store.rs",
+      "relation": "uses",
+      "weight": 0.8
+    },
+    {
+      "from": "file::src/bin/webserver.rs",
+      "to": "file::src/web_server.rs",
+      "relation": "calls",
+      "weight": 0.9
+    },
+    {
+      "from": "file::src/bin/webserver.rs",
+      "to": "file::src/memory_store.rs",
+      "relation": "instantiates",
+      "weight": 0.8
+    },
+    {
+      "from": "file::src/bin/cli.rs",
+      "to": "file::src/lib.rs",
+      "relation": "uses",
+      "weight": 0.9
+    },
+    {
+      "from": "file::sdk/python/pyproject.toml",
+      "to": "file::src/web_server.rs",
+      "relation": "client_of",
+      "weight": 0.6
+    },
+    {
+      "from": "file::deploy/helm/hipcortex/values.yaml",
+      "to": "file::src/bin/webserver.rs",
+      "relation": "deploys",
+      "weight": 0.7
+    },
+    {
+      "from": "file::deploy/helm/hipcortex/Chart.yaml",
+      "to": "file::deploy/helm/hipcortex/values.yaml",
+      "relation": "describes",
+      "weight": 0.8
+    }
+  ]
+}

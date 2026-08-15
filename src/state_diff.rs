@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    persistence::MemoryBackend,
     memory_store::MemoryStore,
+    persistence::MemoryBackend,
     tx_log::{TxKind, TxLog},
 };
 
@@ -62,8 +62,12 @@ pub fn compute_tx_diff<B: MemoryBackend>(
     let mut ts_max = 0u64;
 
     for entry in &entries {
-        if entry.timestamp_ms < ts_min { ts_min = entry.timestamp_ms; }
-        if entry.timestamp_ms > ts_max { ts_max = entry.timestamp_ms; }
+        if entry.timestamp_ms < ts_min {
+            ts_min = entry.timestamp_ms;
+        }
+        if entry.timestamp_ms > ts_max {
+            ts_max = entry.timestamp_ms;
+        }
 
         match &entry.kind {
             TxKind::MemoryAdd | TxKind::BeliefAssert | TxKind::GoalCreate => {
@@ -105,7 +109,11 @@ pub fn compute_tx_diff<B: MemoryBackend>(
     }
 
     delta.net_delta = delta.added.len() as i64 - delta.archived.len() as i64;
-    let ts_range = if entries.is_empty() { (0, 0) } else { (ts_min, ts_max) };
+    let ts_range = if entries.is_empty() {
+        (0, 0)
+    } else {
+        (ts_min, ts_max)
+    };
 
     Ok(TxStateDiff {
         from_tx,

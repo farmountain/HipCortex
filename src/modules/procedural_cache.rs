@@ -7,7 +7,7 @@ use crate::backends::rustfsm_backend::RustFSMBackend;
 
 #[path = "procedural_cache/skill_compiler.rs"]
 pub mod skill_compiler;
-pub use skill_compiler::{SkillTemplate, SkillTemplateStep, SkillCompiler};
+pub use skill_compiler::{SkillCompiler, SkillTemplate, SkillTemplateStep};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum FSMState {
@@ -136,7 +136,10 @@ impl<B: FSMBackend> ProceduralCache<B> {
     }
 
     /// Attach world-model for state transition observation.
-    pub fn with_world_model(mut self, wm: Arc<crate::world_model_enhanced::WorldModelEnhanced>) -> Self {
+    pub fn with_world_model(
+        mut self,
+        wm: Arc<crate::world_model_enhanced::WorldModelEnhanced>,
+    ) -> Self {
         self.world_model = Some(wm);
         self
     }
@@ -193,7 +196,11 @@ impl<B: FSMBackend> ProceduralCache<B> {
             }
         }
 
-        let prev_state = self.backend.traces().get(&trace_id).map(|t| t.current_state.clone());
+        let prev_state = self
+            .backend
+            .traces()
+            .get(&trace_id)
+            .map(|t| t.current_state.clone());
         let start = Instant::now();
         let result = self.backend.advance(trace_id, condition);
         let elapsed = start.elapsed();
@@ -206,11 +213,7 @@ impl<B: FSMBackend> ProceduralCache<B> {
             if let (Some(ref prev), Some(ref next)) = (&prev_state, &result) {
                 let from = format!("{:?}", prev);
                 let to = format!("{:?}", next);
-                let _ = wm.observe_transition(
-                    from,
-                    format!("condition:{:?}", condition),
-                    to,
-                );
+                let _ = wm.observe_transition(from, format!("condition:{:?}", condition), to);
             }
         }
 
@@ -285,7 +288,10 @@ impl<B: FSMBackend> ProceduralCache<B> {
         {
             return;
         }
-        self.snapshot.insert(trace_id, self.maps.get(&trace_id).cloned().unwrap_or_default());
+        self.snapshot.insert(
+            trace_id,
+            self.maps.get(&trace_id).cloned().unwrap_or_default(),
+        );
         self.maps
             .entry(trace_id)
             .or_default()

@@ -1,0 +1,3 @@
+WorldModel: starting fresh (no D:\all_projects\HipCortex\.tmp-hc-data2/worldmodel.json found)
+HipCortex REST API  |  listening on http://0.0.0.0:13033
+Auth: open (set HIPCORTEX_API_KEYS to enable)

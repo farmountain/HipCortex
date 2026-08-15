@@ -16,17 +16,14 @@
 // U10: All modules report health correctly
 // U11: Complete cognitive workflow (perception → decision → action → learning → coherence)
 
-use hipcortex::coherence::{
-    CoherenceChecker, ResolutionStrategy, InvariantType,
+use hipcortex::coherence::{CoherenceChecker, InvariantType, ResolutionStrategy};
+use hipcortex::self_model::{
+    CapabilityDescriptor, CapabilityRegistry, DecisionContext, DecisionEngine, HealthAggregator,
+    ModuleHealth, OperationOutcome, PerformanceTracker, ResourceMonitor, ResourceUsage,
 };
 use hipcortex::world_model_enhanced::{
-    WorldModelEnhanced, EntityState, EntityObservation, StateTransition,
-    TransitionModel, CausalGraph,
-};
-use hipcortex::self_model::{
-    CapabilityDescriptor, CapabilityRegistry, DecisionEngine, DecisionContext,
-    ResourceMonitor, ResourceUsage, HealthAggregator, ModuleHealth,
-    PerformanceTracker, OperationOutcome,
+    CausalGraph, EntityObservation, EntityState, StateTransition, TransitionModel,
+    WorldModelEnhanced,
 };
 use std::collections::HashMap;
 use std::time::{Duration, Instant, SystemTime};
@@ -41,29 +38,44 @@ fn uat_self_model_health_monitoring() {
     let mut agg = HealthAggregator::new();
 
     // Simulate checking health of 3 modules
-    agg.report("temporal_indexer".to_string(), ModuleHealth {
-        latency_ms: 12.0,
-        error_rate: 0.001,
-        resource_usage: 0.3,
-    }).unwrap();
+    agg.report(
+        "temporal_indexer".to_string(),
+        ModuleHealth {
+            latency_ms: 12.0,
+            error_rate: 0.001,
+            resource_usage: 0.3,
+        },
+    )
+    .unwrap();
 
-    agg.report("symbolic_store".to_string(), ModuleHealth {
-        latency_ms: 8.0,
-        error_rate: 0.0,
-        resource_usage: 0.2,
-    }).unwrap();
+    agg.report(
+        "symbolic_store".to_string(),
+        ModuleHealth {
+            latency_ms: 8.0,
+            error_rate: 0.0,
+            resource_usage: 0.2,
+        },
+    )
+    .unwrap();
 
-    agg.report("procedural_cache".to_string(), ModuleHealth {
-        latency_ms: 25.0,
-        error_rate: 0.01,
-        resource_usage: 0.45,
-    }).unwrap();
+    agg.report(
+        "procedural_cache".to_string(),
+        ModuleHealth {
+            latency_ms: 25.0,
+            error_rate: 0.01,
+            resource_usage: 0.45,
+        },
+    )
+    .unwrap();
 
     // User expects: overall health score, per-module breakdown
     let health = agg.get_overall_health().unwrap();
 
-    assert!(health.overall >= 0.0 && health.overall <= 1.0,
-        "Overall health {} must be in [0, 1]", health.overall);
+    assert!(
+        health.overall >= 0.0 && health.overall <= 1.0,
+        "Overall health {} must be in [0, 1]",
+        health.overall
+    );
     assert_eq!(health.modules.len(), 3, "All 3 modules should report");
     assert!(health.modules.contains_key("temporal_indexer"));
     assert!(health.modules.contains_key("symbolic_store"));
@@ -82,13 +94,15 @@ fn uat_self_model_rejects_under_load() {
 
     // Register a capability that requires significant resources
     let mut registry = CapabilityRegistry::new();
-    registry.register(CapabilityDescriptor {
-        name: "heavy_computation".to_string(),
-        description: "CPU-intensive operation".to_string(),
-        required_cpu_percent: 80.0,
-        required_memory_mb: 2048.0,
-        limitations: vec![],
-    }).unwrap();
+    registry
+        .register(CapabilityDescriptor {
+            name: "heavy_computation".to_string(),
+            description: "CPU-intensive operation".to_string(),
+            required_cpu_percent: 80.0,
+            required_memory_mb: 2048.0,
+            limitations: vec![],
+        })
+        .unwrap();
 
     // Simulate high resource usage
     let high_usage = ResourceUsage {
@@ -116,10 +130,15 @@ fn uat_self_model_rejects_under_load() {
     );
 
     // Under high load with low health, confidence should be low or operation rejected
-    assert!(decision.confidence >= 0.0 && decision.confidence <= 1.0,
-        "Decision confidence {} must be in [0, 1]", decision.confidence);
-    assert!(!decision.rationale.is_empty(),
-        "User MUST receive rationale for the decision");
+    assert!(
+        decision.confidence >= 0.0 && decision.confidence <= 1.0,
+        "Decision confidence {} must be in [0, 1]",
+        decision.confidence
+    );
+    assert!(
+        !decision.rationale.is_empty(),
+        "User MUST receive rationale for the decision"
+    );
 }
 
 // ============================================================================
@@ -158,12 +177,16 @@ fn uat_self_model_performance_learning() {
     let later_metrics = tracker.predict("search").unwrap();
 
     // User expects: Success rate improves, variance decreases
-    assert!(later_metrics.success_rate >= initial_metrics.success_rate * 0.9,
-        "Success rate should not significantly degrade with more data");
+    assert!(
+        later_metrics.success_rate >= initial_metrics.success_rate * 0.9,
+        "Success rate should not significantly degrade with more data"
+    );
 
     // Later predictions should have lower or equal variance
-    assert!(later_metrics.latency_variance <= initial_metrics.latency_variance * 1.1,
-        "Variance should decrease with more consistent data");
+    assert!(
+        later_metrics.latency_variance <= initial_metrics.latency_variance * 1.1,
+        "Variance should decrease with more consistent data"
+    );
 }
 
 // ============================================================================
@@ -178,18 +201,22 @@ fn uat_world_model_accurate_prediction() {
     // Train on a consistent pattern: state A -> action X -> state B (90% of time)
     //                                          -> state C (10% of time)
     for _ in 0..90 {
-        model.record_transition(StateTransition {
-            from_state: "idle".to_string(),
-            action: "process".to_string(),
-            to_state: "busy".to_string(),
-        }).unwrap();
+        model
+            .record_transition(StateTransition {
+                from_state: "idle".to_string(),
+                action: "process".to_string(),
+                to_state: "busy".to_string(),
+            })
+            .unwrap();
     }
     for _ in 0..10 {
-        model.record_transition(StateTransition {
-            from_state: "idle".to_string(),
-            action: "process".to_string(),
-            to_state: "error".to_string(),
-        }).unwrap();
+        model
+            .record_transition(StateTransition {
+                from_state: "idle".to_string(),
+                action: "process".to_string(),
+                to_state: "error".to_string(),
+            })
+            .unwrap();
     }
 
     // Predict next state
@@ -197,13 +224,19 @@ fn uat_world_model_accurate_prediction() {
 
     // User expects: "busy" is the most likely outcome (>70% accuracy threshold)
     let busy_prob = *prediction.probabilities.get("busy").unwrap_or(&0.0);
-    assert!(busy_prob > 0.7,
-        "Prediction accuracy for dominant outcome should exceed 70%, got {:.1}%", busy_prob * 100.0);
+    assert!(
+        busy_prob > 0.7,
+        "Prediction accuracy for dominant outcome should exceed 70%, got {:.1}%",
+        busy_prob * 100.0
+    );
 
     // Entropy should be low for well-trained patterns
     let entropy = model.compute_entropy("idle", "process").unwrap();
-    assert!(entropy < 1.0,
-        "Entropy should be low for consistent patterns, got {}", entropy);
+    assert!(
+        entropy < 1.0,
+        "Entropy should be low for consistent patterns, got {}",
+        entropy
+    );
 }
 
 // ============================================================================
@@ -220,16 +253,30 @@ fn uat_world_model_counterfactual_reasoning() {
     let _ = graph.add_node("recovery".to_string());
     let _ = graph.add_node("side_effect".to_string());
 
-    graph.add_edge("drug_administered".to_string(), "recovery".to_string()).unwrap();
-    graph.add_edge("drug_administered".to_string(), "side_effect".to_string()).unwrap();
+    graph
+        .add_edge("drug_administered".to_string(), "recovery".to_string())
+        .unwrap();
+    graph
+        .add_edge("drug_administered".to_string(), "side_effect".to_string())
+        .unwrap();
 
     // User asks: "What if we didn't give the drug?"
     // Counterfactual: intervening to remove drug should break both paths
-    let paths_to_recovery = graph.has_path("drug_administered", "recovery").unwrap_or(false);
-    let paths_to_side_effect = graph.has_path("drug_administered", "side_effect").unwrap_or(false);
+    let paths_to_recovery = graph
+        .has_path("drug_administered", "recovery")
+        .unwrap_or(false);
+    let paths_to_side_effect = graph
+        .has_path("drug_administered", "side_effect")
+        .unwrap_or(false);
 
-    assert!(paths_to_recovery, "Causal path from drug to recovery must exist");
-    assert!(paths_to_side_effect, "Causal path from drug to side_effect must exist");
+    assert!(
+        paths_to_recovery,
+        "Causal path from drug to recovery must exist"
+    );
+    assert!(
+        paths_to_side_effect,
+        "Causal path from drug to side_effect must exist"
+    );
     assert!(graph.is_acyclic(), "Causal graph must remain acyclic");
 }
 
@@ -245,39 +292,51 @@ fn uat_world_model_entity_permanence() {
 
     // Register a tracked entity (e.g., a robot)
     let initial_state = EntityState {
-        properties: vec![10.0, 20.0, 5.0],  // x, y, velocity
+        properties: vec![10.0, 20.0, 5.0], // x, y, velocity
         covariance: vec![
             vec![1.0, 0.0, 0.0],
             vec![0.0, 1.0, 0.0],
             vec![0.0, 0.0, 0.5],
         ],
     };
-    wm.register_entity("robot_1".to_string(), initial_state.clone()).unwrap();
+    wm.register_entity("robot_1".to_string(), initial_state.clone())
+        .unwrap();
 
     // Feed an observation
-    wm.update_entity("robot_1", EntityObservation {
-        measured_properties: vec![10.5, 20.2, 5.1],
-        measurement_noise: vec![
-            vec![0.1, 0.0, 0.0],
-            vec![0.0, 0.1, 0.0],
-            vec![0.0, 0.0, 0.05],
-        ],
-        timestamp: Instant::now(),
-    }).unwrap();
+    wm.update_entity(
+        "robot_1",
+        EntityObservation {
+            measured_properties: vec![10.5, 20.2, 5.1],
+            measurement_noise: vec![
+                vec![0.1, 0.0, 0.0],
+                vec![0.0, 0.1, 0.0],
+                vec![0.0, 0.0, 0.05],
+            ],
+            timestamp: Instant::now(),
+        },
+    )
+    .unwrap();
 
     // Predict 3 steps into future (no new observations)
     let prediction = wm.predict_entity("robot_1", 3).unwrap();
 
     // User expects: Entity still exists and has valid state
-    assert_eq!(prediction.properties.len(), 3,
-        "Entity must maintain 3D state vector");
-    assert!(prediction.covariance[0][0] > 0.0,
-        "Uncertainty must be positive (reflecting prediction uncertainty)");
+    assert_eq!(
+        prediction.properties.len(),
+        3,
+        "Entity must maintain 3D state vector"
+    );
+    assert!(
+        prediction.covariance[0][0] > 0.0,
+        "Uncertainty must be positive (reflecting prediction uncertainty)"
+    );
 
     // Entity should be in the entity list
     let entities = wm.list_entities().unwrap();
-    assert!(entities.contains(&"robot_1".to_string()),
-        "Entity must persist across observations");
+    assert!(
+        entities.contains(&"robot_1".to_string()),
+        "Entity must persist across observations"
+    );
 }
 
 // ============================================================================
@@ -297,14 +356,18 @@ fn uat_coherence_inconsistency_detection() {
     // User expects: Coherence checker runs without crashing,
     // reports either 0 or N inconsistencies with full details
     let consistency_result = checker.check_consistency();
-    assert!(consistency_result.is_ok(),
-        "Consistency check should complete without error");
+    assert!(
+        consistency_result.is_ok(),
+        "Consistency check should complete without error"
+    );
 
     let reports = consistency_result.unwrap();
     // Even if no inconsistencies found, the response should be well-formed
     for report in &reports {
-        assert!(!report.description.is_empty(),
-            "Every inconsistency report must have a human-readable description");
+        assert!(
+            !report.description.is_empty(),
+            "Every inconsistency report must have a human-readable description"
+        );
     }
 }
 
@@ -366,22 +429,27 @@ fn uat_coherence_invariant_violations_halt() {
 
     // User expects: Violations are reported with severity levels
     for violation in &violations {
-        assert!(!violation.description.is_empty(),
-            "Violation must include description");
         assert!(
-            matches!(violation.invariant_type,
-                InvariantType::MemoryConsistency |
-                InvariantType::DecayMonotonicity |
-                InvariantType::GraphAcyclicity |
-                InvariantType::Conservation
+            !violation.description.is_empty(),
+            "Violation must include description"
+        );
+        assert!(
+            matches!(
+                violation.invariant_type,
+                InvariantType::MemoryConsistency
+                    | InvariantType::DecayMonotonicity
+                    | InvariantType::GraphAcyclicity
+                    | InvariantType::Conservation
             ),
             "Violation type must be valid"
         );
 
         // Critical violations should trigger alerts
         if violation.critical {
-            assert!(!violation.affected.is_empty(),
-                "Critical violation must identify affected entities");
+            assert!(
+                !violation.affected.is_empty(),
+                "Critical violation must identify affected entities"
+            );
         }
     }
 
@@ -393,8 +461,10 @@ fn uat_coherence_invariant_violations_halt() {
         }
         Err(rejection) => {
             // Gate blocked — user receives clear reason
-            assert!(!rejection.reason.is_empty(),
-                "Write rejection must include reason");
+            assert!(
+                !rejection.reason.is_empty(),
+                "Write rejection must include reason"
+            );
         }
     }
 }
@@ -421,25 +491,37 @@ fn uat_integration_all_modules_health() {
     ];
 
     for (i, name) in modules.iter().enumerate() {
-        agg.report(name.to_string(), ModuleHealth {
-            latency_ms: 5.0 + i as f64 * 2.0,
-            error_rate: 0.001 * (i as f64 + 1.0),
-            resource_usage: 0.1 + i as f64 * 0.05,
-        }).unwrap();
+        agg.report(
+            name.to_string(),
+            ModuleHealth {
+                latency_ms: 5.0 + i as f64 * 2.0,
+                error_rate: 0.001 * (i as f64 + 1.0),
+                resource_usage: 0.1 + i as f64 * 0.05,
+            },
+        )
+        .unwrap();
     }
 
     let health = agg.get_overall_health().unwrap();
 
     // User expects: All 8 modules present, overall health in valid range
-    assert_eq!(health.modules.len(), 8,
-        "All 8 modules must be present in health report");
-    assert!(health.overall >= 0.0 && health.overall <= 1.0,
-        "Overall health must be in [0, 1]");
+    assert_eq!(
+        health.modules.len(),
+        8,
+        "All 8 modules must be present in health report"
+    );
+    assert!(
+        health.overall >= 0.0 && health.overall <= 1.0,
+        "Overall health must be in [0, 1]"
+    );
 
     // Provider summary for the user
     for name in &modules {
-        assert!(health.modules.contains_key(*name),
-            "Module '{}' should be in health report", name);
+        assert!(
+            health.modules.contains_key(*name),
+            "Module '{}' should be in health report",
+            name
+        );
     }
 }
 
@@ -468,13 +550,15 @@ fn uat_end_to_end_cognitive_workflow() {
     // --- Decision: Check if we can execute ---
     let mut engine = DecisionEngine::new();
     let mut registry = CapabilityRegistry::new();
-    registry.register(CapabilityDescriptor {
-        name: "navigate".to_string(),
-        description: "Move agent to target".to_string(),
-        required_cpu_percent: 20.0,
-        required_memory_mb: 256.0,
-        limitations: vec![],
-    }).unwrap();
+    registry
+        .register(CapabilityDescriptor {
+            name: "navigate".to_string(),
+            description: "Move agent to target".to_string(),
+            required_cpu_percent: 20.0,
+            required_memory_mb: 256.0,
+            limitations: vec![],
+        })
+        .unwrap();
 
     let resources = ResourceUsage {
         cpu_percent: 15.0,
@@ -492,28 +576,38 @@ fn uat_end_to_end_cognitive_workflow() {
     };
 
     let decision = engine.evaluate("navigate", context, 0.95, resources, 0.85);
-    assert!(decision.confidence > 0.5,
-        "System should be confident under normal conditions");
+    assert!(
+        decision.confidence > 0.5,
+        "System should be confident under normal conditions"
+    );
 
     // --- Action: Record the transition ---
     let mut model = TransitionModel::new();
-    model.record_transition(StateTransition {
-        from_state: "position_a".to_string(),
-        action: "navigate".to_string(),
-        to_state: "position_b".to_string(),
-    }).unwrap();
+    model
+        .record_transition(StateTransition {
+            from_state: "position_a".to_string(),
+            action: "navigate".to_string(),
+            to_state: "position_b".to_string(),
+        })
+        .unwrap();
 
     // Observe entity update
-    wm.update_entity("agent", EntityObservation {
-        measured_properties: vec![1.8, 2.1],
-        measurement_noise: vec![vec![0.1, 0.0], vec![0.0, 0.1]],
-        timestamp: Instant::now(),
-    }).unwrap();
+    wm.update_entity(
+        "agent",
+        EntityObservation {
+            measured_properties: vec![1.8, 2.1],
+            measurement_noise: vec![vec![0.1, 0.0], vec![0.0, 0.1]],
+            timestamp: Instant::now(),
+        },
+    )
+    .unwrap();
 
     // --- Learning: Predict future state ---
     let pred = model.predict("position_a", "navigate").unwrap();
-    assert!(!pred.probabilities.is_empty(),
-        "Model should have learned from the transition");
+    assert!(
+        !pred.probabilities.is_empty(),
+        "Model should have learned from the transition"
+    );
 
     // --- Coherence: Verify consistency ---
     let checker = CoherenceChecker::new();
@@ -521,8 +615,10 @@ fn uat_end_to_end_cognitive_workflow() {
     let _consistency = checker.check_consistency().unwrap();
 
     // Pipeline complete: no crashes, all steps succeeded
-    assert!(wm.list_entities().unwrap().contains(&"agent".to_string()),
-        "Entity persists through full pipeline");
+    assert!(
+        wm.list_entities().unwrap().contains(&"agent".to_string()),
+        "Entity persists through full pipeline"
+    );
 }
 
 // ============================================================================
@@ -561,6 +657,8 @@ fn uat_coherence_metrics_tracking() {
     let metrics = checker.get_metrics().unwrap();
 
     // Metrics should reflect operations performed
-    assert!(metrics.total_checks > 0,
-        "Metrics should track total checks performed");
+    assert!(
+        metrics.total_checks > 0,
+        "Metrics should track total checks performed"
+    );
 }

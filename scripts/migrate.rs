@@ -40,5 +40,10 @@ fn main() {
             }
         }
     }
-    println!("migrated {} records → {} (skipped {})", ok, dst.display(), skip);
+    println!(
+        "migrated {} records → {} (skipped {})",
+        ok,
+        dst.display(),
+        skip
+    );
 }

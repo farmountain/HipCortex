@@ -1,0 +1,95 @@
+{
+  "nodes": [
+    {
+      "id": "file:src/actors/world_model_actor.rs",
+      "type": "file",
+      "name": "world_model_actor.rs",
+      "filePath": "src/actors/world_model_actor.rs",
+      "summary": "Tokio actor wrapping WorldModelEnhanced for async message-passing: defines a WorldModelMessage enum covering all world-model operations and a WorldModelActorClient struct that sends typed messages over an mpsc channel and awaits oneshot responses.",
+      "tags": ["service", "async", "actor-pattern", "middleware", "event-handler"],
+      "complexity": "complex",
+      "languageNotes": "Uses the Tokio mpsc + oneshot channel pattern (actor model): a background task owns the WorldModelEnhanced instance and processes messages sequentially, while callers hold only a cloneable sender handle — avoiding shared mutable state across async boundaries."
+    },
+    {
+      "id": "class:src/actors/world_model_actor.rs:WorldModelMessage",
+      "type": "class",
+      "name": "WorldModelMessage",
+      "filePath": "src/actors/world_model_actor.rs",
+      "lineRange": [12, 57],
+      "summary": "Enum defining the full message protocol for the world-model actor: nine variants covering action recording, state-transition observation, prediction, entity management, causal graph mutations, and counterfactual queries — each carrying its payload and an optional oneshot responder.",
+      "tags": ["event-handler", "type-definition", "actor-pattern"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:src/actors/world_model_actor.rs:WorldModelActorClient",
+      "type": "class",
+      "name": "WorldModelActorClient",
+      "filePath": "src/actors/world_model_actor.rs",
+      "lineRange": [61, 63],
+      "summary": "Cloneable async client handle for the world-model actor: holds the mpsc sender and exposes ten typed async methods that construct messages, open oneshot channels for responses, and await results — providing a clean interface over the underlying actor loop.",
+      "tags": ["service", "async", "actor-pattern", "middleware"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/actors/world_model_actor.rs:new",
+      "type": "function",
+      "name": "new",
+      "filePath": "src/actors/world_model_actor.rs",
+      "lineRange": [67, 114],
+      "summary": "Constructs a WorldModelActorClient by creating an mpsc channel, spawning a Tokio task that owns a WorldModelEnhanced instance and dispatches incoming messages in a receive loop, then returning the client handle backed by the sender.",
+      "tags": ["factory", "async", "actor-pattern"],
+      "complexity": "complex"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:src/actors/world_model_actor.rs",
+      "target": "file:src/modules/world_model_enhanced/mod.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/actors/world_model_actor.rs",
+      "target": "class:src/actors/world_model_actor.rs:WorldModelMessage",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/actors/world_model_actor.rs",
+      "target": "class:src/actors/world_model_actor.rs:WorldModelActorClient",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/actors/world_model_actor.rs",
+      "target": "function:src/actors/world_model_actor.rs:new",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/actors/world_model_actor.rs",
+      "target": "class:src/actors/world_model_actor.rs:WorldModelMessage",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "file:src/actors/world_model_actor.rs",
+      "target": "class:src/actors/world_model_actor.rs:WorldModelActorClient",
+      "type": "exports",
+      "direction": "forward",
+      "weight": 0.8
+    },
+    {
+      "source": "function:src/actors/world_model_actor.rs:new",
+      "target": "file:src/modules/world_model_enhanced/mod.rs",
+      "type": "calls",
+      "direction": "forward",
+      "weight": 0.8
+    }
+  ]
+}

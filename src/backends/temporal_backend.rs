@@ -75,7 +75,11 @@ impl FSMBackend for TemporalFSMBackend {
         self.advance_trace(trace_id, condition)
     }
 
-    fn advance_batch(&mut self, trace_ids: &[Uuid], condition: Option<&str>) -> Vec<Option<FSMState>> {
+    fn advance_batch(
+        &mut self,
+        trace_ids: &[Uuid],
+        condition: Option<&str>,
+    ) -> Vec<Option<FSMState>> {
         trace_ids
             .iter()
             .map(|id| self.advance_trace(*id, condition))

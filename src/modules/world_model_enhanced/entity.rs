@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 pub struct EntityState {
     /// State vector (position, velocity, etc.)
     pub properties: Vec<f64>,
-    
+
     /// Covariance matrix (uncertainty)
     pub covariance: Vec<Vec<f64>>,
 }
@@ -20,10 +20,10 @@ pub struct EntityState {
 pub struct EntityObservation {
     /// Observed properties
     pub measured_properties: Vec<f64>,
-    
+
     /// Measurement noise covariance
     pub measurement_noise: Vec<Vec<f64>>,
-    
+
     /// Timestamp
     pub timestamp: Instant,
 }
@@ -32,7 +32,7 @@ pub struct EntityObservation {
 #[derive(Debug, Clone)]
 pub struct Anomaly {
     pub severity: f64,  // Mahalanobis distance
-    pub threshold: f64,  // Detection threshold (typically 3σ)
+    pub threshold: f64, // Detection threshold (typically 3σ)
     pub description: String,
 }
 
@@ -44,25 +44,25 @@ pub struct Anomaly {
 pub struct EntityTracker {
     /// Current state estimate
     state: EntityState,
-    
+
     /// State transition matrix F (identity for now)
     transition_matrix: Vec<Vec<f64>>,
-    
+
     /// Process noise covariance Q
     process_noise: Vec<Vec<f64>>,
-    
+
     /// Observation matrix H (identity - direct observation)
     observation_matrix: Vec<Vec<f64>>,
-    
+
     /// Last update timestamp
     last_update: Instant,
-    
+
     /// Anomaly threshold (Mahalanobis distance)
     anomaly_threshold: f64,
-    
+
     /// Entity permanence timeout (seconds)
     permanence_timeout: Duration,
-    
+
     /// Detected anomalies
     anomalies: Vec<Anomaly>,
 }
@@ -79,14 +79,14 @@ impl EntityTracker {
     /// Create new tracker with initial state
     pub fn new(initial_state: EntityState) -> Self {
         let dim = initial_state.properties.len();
-        
+
         Self {
             state: initial_state,
             transition_matrix: identity_matrix(dim),
-            process_noise: diagonal_matrix(dim, 0.01),  // Small process noise
+            process_noise: diagonal_matrix(dim, 0.01), // Small process noise
             observation_matrix: identity_matrix(dim),
             last_update: Instant::now(),
-            anomaly_threshold: 3.0,  // 3σ threshold
+            anomaly_threshold: 3.0, // 3σ threshold
             permanence_timeout: Duration::from_secs(60),
             anomalies: Vec::new(),
         }
@@ -104,17 +104,17 @@ impl EntityTracker {
     /// Predict state N steps into future
     pub fn predict(&self, steps: usize) -> Result<EntityState, String> {
         let mut state = self.state.clone();
-        
+
         for _ in 0..steps {
             // x' = F × x
             state.properties = matrix_vector_multiply(&self.transition_matrix, &state.properties)?;
-            
+
             // P' = F × P × F^T + Q
             let fp = matrix_multiply(&self.transition_matrix, &state.covariance)?;
             let fpft = matrix_multiply(&fp, &matrix_transpose(&self.transition_matrix))?;
             state.covariance = matrix_add(&fpft, &self.process_noise)?;
         }
-        
+
         Ok(state)
     }
 
@@ -130,7 +130,9 @@ impl EntityTracker {
 
         // Innovation: y = z - H×x
         let hx = matrix_vector_multiply(&self.observation_matrix, &self.state.properties)?;
-        let innovation: Vec<f64> = observation.measured_properties.iter()
+        let innovation: Vec<f64> = observation
+            .measured_properties
+            .iter()
             .zip(hx.iter())
             .map(|(z, hx_i)| z - hx_i)
             .collect();
@@ -157,12 +159,18 @@ impl EntityTracker {
         }
 
         // Kalman gain: K = P×H^T × S^-1
-        let pht = matrix_multiply(&self.state.covariance, &matrix_transpose(&self.observation_matrix))?;
+        let pht = matrix_multiply(
+            &self.state.covariance,
+            &matrix_transpose(&self.observation_matrix),
+        )?;
         let kalman_gain = matrix_multiply(&pht, &inv_s)?;
 
         // State update: x = x + K×y
         let ky = matrix_vector_multiply(&kalman_gain, &innovation)?;
-        self.state.properties = self.state.properties.iter()
+        self.state.properties = self
+            .state
+            .properties
+            .iter()
             .zip(ky.iter())
             .map(|(x, ky_i)| x + ky_i)
             .collect();
@@ -170,20 +178,20 @@ impl EntityTracker {
         // Covariance update (Joseph form): P = (I - K×H)×P×(I - K×H)^T + K×R×K^T
         let kh = matrix_multiply(&kalman_gain, &self.observation_matrix)?;
         let i_minus_kh = matrix_subtract(&identity_matrix(self.state.properties.len()), &kh)?;
-        
+
         // Term 1: (I - KH) * P * (I - KH)^T
         let term1_part1 = matrix_multiply(&i_minus_kh, &self.state.covariance)?;
         let i_minus_kh_t = matrix_transpose(&i_minus_kh);
         let term1 = matrix_multiply(&term1_part1, &i_minus_kh_t)?;
-        
+
         // Term 2: K * R * K^T
         let kr = matrix_multiply(&kalman_gain, &observation.measurement_noise)?;
         let k_t = matrix_transpose(&kalman_gain);
         let term2 = matrix_multiply(&kr, &k_t)?;
-        
+
         // P = term1 + term2
         let mut p_new = matrix_add(&term1, &term2)?;
-        
+
         // Symmetrization: P = (P + P^T) / 2 to prevent float drift
         let n = p_new.len();
         for i in 0..n {
@@ -245,13 +253,13 @@ fn matrix_transpose(mat: &[Vec<f64>]) -> Vec<Vec<f64>> {
     let rows = mat.len();
     let cols = mat[0].len();
     let mut transposed = vec![vec![0.0; rows]; cols];
-    
+
     for i in 0..rows {
         for j in 0..cols {
             transposed[j][i] = mat[i][j];
         }
     }
-    
+
     transposed
 }
 
@@ -259,8 +267,9 @@ fn matrix_vector_multiply(mat: &[Vec<f64>], vec: &[f64]) -> Result<Vec<f64>, Str
     if mat[0].len() != vec.len() {
         return Err("Matrix-vector dimension mismatch".to_string());
     }
-    
-    Ok(mat.iter()
+
+    Ok(mat
+        .iter()
         .map(|row| row.iter().zip(vec.iter()).map(|(a, b)| a * b).sum())
         .collect())
 }
@@ -269,13 +278,13 @@ fn matrix_multiply(a: &[Vec<f64>], b: &[Vec<f64>]) -> Result<Vec<Vec<f64>>, Stri
     if a[0].len() != b.len() {
         return Err("Matrix dimension mismatch".to_string());
     }
-    
+
     let rows = a.len();
     let cols = b[0].len();
     let inner = b.len();
-    
+
     let mut result = vec![vec![0.0; cols]; rows];
-    
+
     for i in 0..rows {
         for j in 0..cols {
             for k in 0..inner {
@@ -283,7 +292,7 @@ fn matrix_multiply(a: &[Vec<f64>], b: &[Vec<f64>]) -> Result<Vec<Vec<f64>>, Stri
             }
         }
     }
-    
+
     Ok(result)
 }
 
@@ -291,15 +300,10 @@ fn matrix_add(a: &[Vec<f64>], b: &[Vec<f64>]) -> Result<Vec<Vec<f64>>, String> {
     if a.len() != b.len() || a[0].len() != b[0].len() {
         return Err("Matrix dimension mismatch".to_string());
     }
-    
+
     Ok(a.iter()
         .zip(b.iter())
-        .map(|(row_a, row_b)| {
-            row_a.iter()
-                .zip(row_b.iter())
-                .map(|(x, y)| x + y)
-                .collect()
-        })
+        .map(|(row_a, row_b)| row_a.iter().zip(row_b.iter()).map(|(x, y)| x + y).collect())
         .collect())
 }
 
@@ -307,15 +311,10 @@ fn matrix_subtract(a: &[Vec<f64>], b: &[Vec<f64>]) -> Result<Vec<Vec<f64>>, Stri
     if a.len() != b.len() || a[0].len() != b[0].len() {
         return Err("Matrix dimension mismatch".to_string());
     }
-    
+
     Ok(a.iter()
         .zip(b.iter())
-        .map(|(row_a, row_b)| {
-            row_a.iter()
-                .zip(row_b.iter())
-                .map(|(x, y)| x - y)
-                .collect()
-        })
+        .map(|(row_a, row_b)| row_a.iter().zip(row_b.iter()).map(|(x, y)| x - y).collect())
         .collect())
 }
 
@@ -324,7 +323,7 @@ fn matrix_inverse(mat: &[Vec<f64>]) -> Result<Vec<Vec<f64>>, String> {
     if n != mat[0].len() {
         return Err("Matrix must be square".to_string());
     }
-    
+
     // Simple 2x2 inverse for now
     if n == 2 {
         let det = mat[0][0] * mat[1][1] - mat[0][1] * mat[1][0];
@@ -336,11 +335,11 @@ fn matrix_inverse(mat: &[Vec<f64>]) -> Result<Vec<Vec<f64>>, String> {
             vec![-mat[1][0] / det, mat[0][0] / det],
         ]);
     }
-    
+
     // Gaussian elimination for larger matrices
     let mut aug = mat.to_vec();
     let mut inv = identity_matrix(n);
-    
+
     // Forward elimination
     for i in 0..n {
         // Find pivot
@@ -350,21 +349,21 @@ fn matrix_inverse(mat: &[Vec<f64>]) -> Result<Vec<Vec<f64>>, String> {
                 max_row = k;
             }
         }
-        
+
         aug.swap(i, max_row);
         inv.swap(i, max_row);
-        
+
         let pivot = aug[i][i];
         if pivot.abs() < 1e-10 {
             return Err("Matrix is singular".to_string());
         }
-        
+
         // Scale row
         for j in 0..n {
             aug[i][j] /= pivot;
             inv[i][j] /= pivot;
         }
-        
+
         // Eliminate column
         for k in 0..n {
             if k != i {
@@ -376,7 +375,7 @@ fn matrix_inverse(mat: &[Vec<f64>]) -> Result<Vec<Vec<f64>>, String> {
             }
         }
     }
-    
+
     Ok(inv)
 }
 
@@ -401,10 +400,7 @@ mod tests {
 
     #[test]
     fn test_matrix_transpose() {
-        let mat = vec![
-            vec![1.0, 2.0, 3.0],
-            vec![4.0, 5.0, 6.0],
-        ];
+        let mat = vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]];
         let transposed = matrix_transpose(&mat);
         assert_eq!(transposed.len(), 3);
         assert_eq!(transposed[0].len(), 2);
@@ -415,44 +411,32 @@ mod tests {
 
     #[test]
     fn test_matrix_vector_multiply() {
-        let mat = vec![
-            vec![1.0, 2.0],
-            vec![3.0, 4.0],
-        ];
+        let mat = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
         let vec = vec![5.0, 6.0];
         let result = matrix_vector_multiply(&mat, &vec).unwrap();
-        
+
         assert_eq!(result.len(), 2);
-        assert_eq!(result[0], 17.0);  // 1*5 + 2*6
-        assert_eq!(result[1], 39.0);  // 3*5 + 4*6
+        assert_eq!(result[0], 17.0); // 1*5 + 2*6
+        assert_eq!(result[1], 39.0); // 3*5 + 4*6
     }
 
     #[test]
     fn test_matrix_multiply() {
-        let a = vec![
-            vec![1.0, 2.0],
-            vec![3.0, 4.0],
-        ];
-        let b = vec![
-            vec![5.0, 6.0],
-            vec![7.0, 8.0],
-        ];
+        let a = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
+        let b = vec![vec![5.0, 6.0], vec![7.0, 8.0]];
         let result = matrix_multiply(&a, &b).unwrap();
-        
-        assert_eq!(result[0][0], 19.0);  // 1*5 + 2*7
-        assert_eq!(result[0][1], 22.0);  // 1*6 + 2*8
-        assert_eq!(result[1][0], 43.0);  // 3*5 + 4*7
-        assert_eq!(result[1][1], 50.0);  // 3*6 + 4*8
+
+        assert_eq!(result[0][0], 19.0); // 1*5 + 2*7
+        assert_eq!(result[0][1], 22.0); // 1*6 + 2*8
+        assert_eq!(result[1][0], 43.0); // 3*5 + 4*7
+        assert_eq!(result[1][1], 50.0); // 3*6 + 4*8
     }
 
     #[test]
     fn test_matrix_inverse_2x2() {
-        let mat = vec![
-            vec![4.0, 7.0],
-            vec![2.0, 6.0],
-        ];
+        let mat = vec![vec![4.0, 7.0], vec![2.0, 6.0]];
         let inv = matrix_inverse(&mat).unwrap();
-        
+
         // Verify A × A^-1 = I
         let product = matrix_multiply(&mat, &inv).unwrap();
         assert!((product[0][0] - 1.0).abs() < 1e-6);
@@ -467,7 +451,7 @@ mod tests {
             properties: vec![1.0, 2.0, 3.0],
             covariance: identity_matrix(3),
         };
-        
+
         let tracker = EntityTracker::new(initial_state);
         assert_eq!(tracker.get_state().properties.len(), 3);
     }
@@ -478,14 +462,14 @@ mod tests {
             properties: vec![1.0, 2.0],
             covariance: identity_matrix(2),
         };
-        
+
         let tracker = EntityTracker::new(initial_state);
         let predicted = tracker.predict(1).unwrap();
-        
+
         // With identity transition matrix, state shouldn't change much
         assert!((predicted.properties[0] - 1.0).abs() < 0.1);
         assert!((predicted.properties[1] - 2.0).abs() < 0.1);
-        
+
         // Covariance should increase (uncertainty grows)
         assert!(predicted.covariance[0][0] > 1.0);
     }
@@ -494,22 +478,22 @@ mod tests {
     fn test_update_reduces_uncertainty() {
         let initial_state = EntityState {
             properties: vec![0.0, 0.0],
-            covariance: vec![vec![10.0, 0.0], vec![0.0, 10.0]],  // High initial uncertainty
+            covariance: vec![vec![10.0, 0.0], vec![0.0, 10.0]], // High initial uncertainty
         };
-        
+
         let mut tracker = EntityTracker::new(initial_state);
-        
+
         let observation = EntityObservation {
             measured_properties: vec![1.0, 1.0],
-            measurement_noise: vec![vec![0.1, 0.0], vec![0.0, 0.1]],  // Low noise
+            measurement_noise: vec![vec![0.1, 0.0], vec![0.0, 0.1]], // Low noise
             timestamp: Instant::now(),
         };
-        
+
         tracker.update(observation).unwrap();
-        
+
         // State should move toward observation
         assert!((tracker.get_state().properties[0] - 1.0).abs() < 1.0);
-        
+
         // Covariance should decrease (uncertainty reduced)
         assert!(tracker.get_state().covariance[0][0] < 10.0);
     }
@@ -520,9 +504,9 @@ mod tests {
             properties: vec![0.0, 0.0],
             covariance: vec![vec![1.0, 0.0], vec![0.0, 1.0]],
         };
-        
+
         let mut tracker = EntityTracker::new(initial_state);
-        
+
         // Normal observation - no anomaly
         let normal_obs = EntityObservation {
             measured_properties: vec![0.5, 0.5],
@@ -531,15 +515,15 @@ mod tests {
         };
         tracker.update(normal_obs).unwrap();
         assert_eq!(tracker.get_anomalies().len(), 0);
-        
+
         // Anomalous observation - far from expected
         let anomalous_obs = EntityObservation {
-            measured_properties: vec![10.0, 10.0],  // 10σ away
+            measured_properties: vec![10.0, 10.0], // 10σ away
             measurement_noise: vec![vec![0.1, 0.0], vec![0.0, 0.1]],
             timestamp: Instant::now(),
         };
         tracker.update(anomalous_obs).unwrap();
-        
+
         let anomalies = tracker.get_anomalies();
         assert!(anomalies.len() > 0);
         assert!(anomalies[0].severity > 3.0);
@@ -551,10 +535,10 @@ mod tests {
             properties: vec![1.0, 2.0],
             covariance: identity_matrix(2),
         };
-        
+
         let tracker = EntityTracker::new(initial_state);
         let predicted = tracker.predict(5).unwrap();
-        
+
         // After 5 steps, uncertainty should have grown significantly
         assert!(predicted.covariance[0][0] > 1.0);
         assert!(predicted.covariance[1][1] > 1.0);
@@ -566,9 +550,9 @@ mod tests {
             properties: vec![1.0],
             covariance: vec![vec![1.0]],
         };
-        
+
         let tracker = EntityTracker::new(initial_state);
-        
+
         // Just created, should not be stale
         assert!(!tracker.is_stale());
     }
@@ -579,9 +563,9 @@ mod tests {
             properties: vec![0.0],
             covariance: vec![vec![1.0]],
         };
-        
+
         let mut tracker = EntityTracker::new(initial_state);
-        
+
         // Trigger anomaly
         let anomalous_obs = EntityObservation {
             measured_properties: vec![10.0],
@@ -589,9 +573,9 @@ mod tests {
             timestamp: Instant::now(),
         };
         tracker.update(anomalous_obs).unwrap();
-        
+
         assert!(tracker.get_anomalies().len() > 0);
-        
+
         tracker.clear_anomalies();
         assert_eq!(tracker.get_anomalies().len(), 0);
     }
@@ -604,7 +588,9 @@ mod tests {
         };
         // F = [[1,1],[0,1]] — constant-velocity model
         let f = vec![vec![1.0, 1.0], vec![0.0, 1.0]];
-        let config = EntityConfig { f_matrix: Some(f.clone()) };
+        let config = EntityConfig {
+            f_matrix: Some(f.clone()),
+        };
         let tracker = EntityTracker::with_config(initial_state, config);
         assert_eq!(tracker.transition_matrix, f);
         // One-step prediction: [1,0] -> F*[1,0] = [1,0]

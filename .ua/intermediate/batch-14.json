@@ -1,0 +1,67 @@
+{
+  "batchIndex": 14,
+  "nodes": [
+    {
+      "id": "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/.openspec.yaml",
+      "type": "document",
+      "name": "Improve Agent Experience Docs v1 OpenSpec",
+      "filePath": "openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/.openspec.yaml",
+      "summary": "Metadata file for the archived improve-agent-experience-docs-v1 openspec change, created 2026-06-25 using the spec-driven schema.",
+      "tags": ["openspec", "metadata", "archive", "docs", "agent-experience"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/proposal.md",
+      "type": "document",
+      "name": "Improve Agent Experience Docs Proposal",
+      "filePath": "openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/proposal.md",
+      "summary": "Identifies three documentation gaps hindering agent onboarding: missing pip install hipcortex instructions in README, undocumented SafetyGuardrail enforcement in architecture docs, and an incomplete MCP tools table missing the search_code tool. Proposes purely documentation-only fixes with no code changes.",
+      "tags": ["openspec", "proposal", "archive", "docs", "agent-experience", "readme", "safety-guardrail", "mcp", "search-code"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/design.md",
+      "type": "document",
+      "name": "Improve Agent Experience Docs Design",
+      "filePath": "openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/design.md",
+      "summary": "Specifies precise placement decisions for each documentation fix: pip install in README Quickstart, SafetyGuardrail in a dedicated section of docs/architecture.md, and a new search_code row in sdk/mcp/README.md. Notes documentation drift risk mitigated via PR checklist convention.",
+      "tags": ["openspec", "design", "archive", "docs", "readme", "architecture", "mcp", "safety-guardrail"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/tasks.md",
+      "type": "document",
+      "name": "Improve Agent Experience Docs Tasks",
+      "filePath": "openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/tasks.md",
+      "summary": "Three completed tasks: add pip install hipcortex to README.md, add Safety and Guardrails section to docs/architecture.md, and update the MCP tools table in sdk/mcp/README.md to include search_code. All tasks marked done.",
+      "tags": ["openspec", "tasks", "archive", "docs", "readme", "architecture", "mcp", "search-code"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/.openspec.yaml",
+      "target": "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/proposal.md",
+      "type": "related",
+      "label": "metadata → proposal"
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/proposal.md",
+      "target": "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/design.md",
+      "type": "related",
+      "label": "proposal → design"
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/design.md",
+      "target": "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/tasks.md",
+      "type": "related",
+      "label": "design → tasks"
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/proposal.md",
+      "target": "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/tasks.md",
+      "type": "related",
+      "label": "proposal → tasks"
+    }
+  ]
+}

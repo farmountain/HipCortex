@@ -1,0 +1,51 @@
+{
+  "batchIndex": 10,
+  "nodes": [
+    {
+      "id": "document:docs/superpowers/plans/2026-07-17-semantic-tag-auto-capture.md",
+      "type": "document",
+      "name": "Semantic Tag Auto-Capture Plan (v0.5.2)",
+      "filePath": "docs/superpowers/plans/2026-07-17-semantic-tag-auto-capture.md",
+      "summary": "Step-by-step TDD implementation plan for adding a 5-layer `extractSemanticTags()` function to the VS Code extension that automatically attaches meaningful semantic tags to every auto-captured memory record on file save. The plan covers helper functions (`withTimeout`, `getGitBranch`, `getDocumentSymbolTags`), wiring into `onDidSaveTextDocument` and the `hipcortex.addMemory` command palette, 10 new Jest tests, and a VSIX rebuild to v0.5.2. No backend changes required — the server already stores tags.",
+      "tags": ["planning", "vscode-extension", "semantic-tags", "auto-capture", "tdd", "typescript", "vsix"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-07-17-server-lifecycle-option-a.md",
+      "type": "document",
+      "name": "Server Lifecycle Option A Plan (v0.5.4)",
+      "filePath": "docs/superpowers/plans/2026-07-17-server-lifecycle-option-a.md",
+      "summary": "Detailed TDD plan for implementing robust VS Code extension local-server lifecycle management: dynamic port parsing from `apiUrl`, version-aware reuse/restart policy (strict vs major.minor), safe port reclaim via `killProcessOnPort`, and `deactivate()` child-process cleanup. Introduces `EXPECTED_SERVER_VERSION`, `extractPortFromBaseUrl`, `isServerVersionAcceptable`, and `shouldReuseRunningServer` as exported pure helpers, plus a rewrite of `doAutoStartServer`. Targets extension v0.5.4 VSIX with 11 new unit tests.",
+      "tags": ["planning", "vscode-extension", "server-lifecycle", "port-management", "version-policy", "tdd", "typescript", "vsix"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-07-18-cross-channel-ux-enhancement-plan.md",
+      "type": "document",
+      "name": "Cross-Channel UX Enhancement Plan (8-Phase)",
+      "filePath": "docs/superpowers/plans/2026-07-18-cross-channel-ux-enhancement-plan.md",
+      "summary": "Comprehensive 8-phase plan to unify HipCortex across all client channels (Claude Code, VS Code VSIX, pip, MCP, npm, agent frameworks) by introducing a project config file, a `hipcortex doctor` command, a single shared daemon attach model, an OpenAPI-derived capability matrix, idempotent install wizard v2, and host-specific installers for Antigravity, Hermes, OpenClaw, and Grok. Phases 0–8 are recorded as complete as of 2026-07-19. Success metrics target sub-5-minute first-recall time and exactly one server process per machine.",
+      "tags": ["planning", "ux", "cross-channel", "cli", "mcp", "vscode-extension", "daemon", "install-wizard", "capability-matrix", "multi-phase"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/superpowers/specs/2026-06-04-intelligence-layer-wiring-design.md",
+      "type": "document",
+      "name": "Intelligence Layer Wiring Design Spec",
+      "filePath": "docs/superpowers/specs/2026-06-04-intelligence-layer-wiring-design.md",
+      "summary": "Approved architecture design for connecting the previously isolated intelligence modules (WorldModelEnhanced, AureusBridge, SelfModel, CoherenceChecker) to the REST API via a new `AppState<B>` struct replacing the flat `run_with_both_stores` signature. Specifies 9 new REST endpoints, automatic WorldModel feeding on every memory add/ingest, JSON snapshot persistence for WorldModel (`worldmodel.json`) with atomic writes and periodic 5-minute flush, and advisory-only SelfModel gating. Documents key decisions: tuple-key encoding for HashMap serialization, RwLock vs Mutex choices, and out-of-scope items.",
+      "tags": ["spec", "architecture", "intelligence-layer", "world-model", "aureus-bridge", "self-model", "coherence", "rest-api", "persistence", "rust"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/superpowers/specs/2026-06-04-query-response-fields-design.md",
+      "type": "document",
+      "name": "Query Response Full Field Exposure Design Spec",
+      "filePath": "docs/superpowers/specs/2026-06-04-query-response-fields-design.md",
+      "summary": "Approved minimal design spec for expanding `MemoryRecordResponse` (used by `/memory/query`, `/memory/search`, `/memory/latest`) from 8 fields to 15 by adding `confidence`, `source`, `priority`, `tags`, `version`, `status`, and `expires_at`. Identifies all 4 struct construction sites in `web_server.rs` that need updating, including the export handler. Backward compatible — new fields are additive only.",
+      "tags": ["spec", "api", "rest", "memory-record", "query-response", "backward-compatible", "rust"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": []
+}

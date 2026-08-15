@@ -1,6 +1,6 @@
+use crate::memory_record::MemoryRecord;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::memory_record::MemoryRecord;
 
 pub fn diff_snapshots(
     a: &[MemoryRecord],
@@ -50,7 +50,8 @@ pub fn compute_diff(from: &MemoryRecord, to: &MemoryRecord) -> StateDiff {
             if from.$field != to.$field {
                 changes.push(FieldChange {
                     field: stringify!($field).to_string(),
-                    old_value: serde_json::to_value(&from.$field).unwrap_or(serde_json::Value::Null),
+                    old_value: serde_json::to_value(&from.$field)
+                        .unwrap_or(serde_json::Value::Null),
                     new_value: serde_json::to_value(&to.$field).unwrap_or(serde_json::Value::Null),
                 });
             }
@@ -76,7 +77,9 @@ pub fn compute_diff(from: &MemoryRecord, to: &MemoryRecord) -> StateDiff {
         } else {
             None
         },
-        react_iterations_delta: to.react_iteration.unwrap_or(0)
+        react_iterations_delta: to
+            .react_iteration
+            .unwrap_or(0)
             .saturating_sub(from.react_iteration.unwrap_or(0)),
     }
 }

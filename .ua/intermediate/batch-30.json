@@ -1,0 +1,157 @@
+{
+  "batchIndex": 30,
+  "nodes": [
+    {
+      "id": "document:.claude/PRPs/plans/hipcortex-saas-features.plan.md",
+      "type": "document",
+      "label": "Plan: HipCortex SaaS Features (P0+P1)",
+      "file": ".claude/PRPs/plans/hipcortex-saas-features.plan.md",
+      "summary": "Implementation plan for positioning HipCortex as a deployable AI-memory SaaS. P0: Python SDK (client, LangChain BaseChatMemory, LlamaIndex StorageContext, AutoGen hook, CrewAI BaseTool), REST endpoints (DELETE /memory/forget/:actor GDPR, GET /coherence/status), pip-installable package. P1: latency benchmark vs Mem0. Explicitly excludes persistent CoherenceChecker state, GDPR propagation into neo4j/postgres backends, full LlamaIndex KVStore, and auth on forget endpoint. Complexity: Large, ~12 files.",
+      "tags": ["plan", "saas", "sdk", "python", "langchain", "llamaindex", "autogen", "crewai", "gdpr", "rest"]
+    },
+    {
+      "id": "document:.claude/PRPs/plans/sim10-memory-gaps.plan.md",
+      "type": "document",
+      "label": "Plan: Sim #10 Memory Engine Gap Closure",
+      "file": ".claude/PRPs/plans/sim10-memory-gaps.plan.md",
+      "summary": "Gap-closure plan from MiroFish Sim #10 (100-persona UAT). Eight tasks: (1) add status field (active/quarantine/archived) to MemoryRecord; (2) multi-actor query via ?actors=a,b,c comma-separated param; (3) BulkAddError struct with {index, actor, reason}; (4) POST /memory/quarantine/:id + POST /memory/restore/:id endpoints; (5) POST /memory/context returns LLM-ready formatted context block; (6) Python SDK recall_with_metadata() with min_confidence filter; (7) P1 corroborate/contradict confidence endpoints (±0.1/0.15, auto-quarantine at <0.3); (8) integration tests in web_server_gaps_sit.rs. Complexity: Large, 5 files. Explicitly defers: semantic dedup, episode API, working memory promotion, federation, write signing, async bulk, memory diff.",
+      "tags": ["plan", "gap-closure", "memory-record", "web-server", "python-sdk", "integration-test", "quarantine", "multi-actor"]
+    },
+    {
+      "id": "config:.claude/settings.local.json",
+      "type": "config",
+      "label": "Claude Code local settings (settings.local.json)",
+      "file": ".claude/settings.local.json",
+      "summary": "Project-local Claude Code permissions allowlist. Contains 5 PowerShell allow-rules for worktree builds (cargo check with petgraph_backend feature, rust toolchain detection, rustup-init, VS BuildTools install, web_server.rs line-range reads) in the pedantic-edison-28b84c worktree context.",
+      "tags": ["claude-code", "permissions", "powershell", "worktree"]
+    },
+    {
+      "id": "config:Cargo.toml",
+      "type": "config",
+      "label": "Cargo.toml — crate manifest",
+      "file": "Cargo.toml",
+      "summary": "Rust crate manifest for hipcortex v0.5.2 (Apache-2.0, edition 2021). Default feature: petgraph_backend (in-memory, no external deps). Feature groups: web-server (axum 0.6 + tokio), gui (tauri 1), grpc-server (tonic 0.9 + prost + tonic-build), plugin (wasmtime + wat), async-store (tokio + async-trait), parallel (rayon), gpu (wgpu 0.16). Storage backends: petgraph_backend, rocksdb-backend, sqlite_backend (diesel), postgres_backend (tokio-postgres + diesel), neo4j_backend (neo4rs). Core always-on deps: uuid, serde/serde_json, chrono, clap, anyhow, sha2, aes-gcm, aead, rand, base64, zstd, lru, sled, reqwest (rustls-tls), nalgebra, petgraph (optional), regex, lazy_static. Dev deps: proptest, criterion 0.5, assert_cmd, mockito, axum-test 12, approx. Build dep: tonic-build (optional, grpc-server only). 8 Criterion benches (harness=false): temporal_indexer, symbolic_store, retrieval_quality, pipeline_latency, world_model, self_model, coherence, integration. Bins: webserver (web-server feature), migrate, import_trace. Release profile: opt-level=s, lto, strip, codegen-units=1.",
+      "tags": ["cargo", "rust", "features", "dependencies", "petgraph", "axum", "tonic", "diesel", "tokio"]
+    },
+    {
+      "id": "file:Cargo.lock",
+      "type": "file",
+      "label": "Cargo.lock — dependency lockfile",
+      "file": "Cargo.lock",
+      "summary": "Pinned dependency lockfile for reproducible builds. Skipped (too large). Contains exact resolved versions for all direct and transitive dependencies matching Cargo.toml.",
+      "tags": ["cargo", "lockfile", "skipped"]
+    },
+    {
+      "id": "file:build.rs",
+      "type": "file",
+      "label": "build.rs — Cargo build script",
+      "file": "build.rs",
+      "summary": "Minimal build script. Conditionally invokes tonic_build when the grpc-server feature is enabled: compiles proto/memory.proto with both client and server stubs (build_client=true). No-op for all other feature combinations. Entry point: fn main() -> Result<(), Box<dyn std::error::Error>>.",
+      "tags": ["build-script", "tonic", "grpc", "proto", "codegen"]
+    },
+    {
+      "id": "schema:proto/memory.proto",
+      "type": "schema",
+      "label": "memory.proto — gRPC service definition",
+      "file": "proto/memory.proto",
+      "summary": "proto3 schema for hipcortex package. Defines MemoryRecord message (id, record_type, timestamp, actor, action, target, metadata). Request/response pairs: AddRecordRequest/AddRecordResponse (bool ok), ListRecordsRequest/ListRecordsResponse (repeated MemoryRecord). Service MemoryService exposes two RPCs: AddRecord and ListRecords. Generated by build.rs via tonic_build when grpc-server feature is active.",
+      "tags": ["proto3", "grpc", "rpc", "memory-record", "tonic"]
+    },
+    {
+      "id": "config:deploy/helm/hipcortex/Chart.yaml",
+      "type": "config",
+      "label": "Helm Chart.yaml",
+      "file": "deploy/helm/hipcortex/Chart.yaml",
+      "summary": "Helm chart metadata for hipcortex v0.2.0 (apiVersion v2, type application). Describes the AI Memory Engine for AI agents. Keywords: ai, memory, agents, langchain, llm. Source and homepage: github.com/farmountain/HipCortex.",
+      "tags": ["helm", "kubernetes", "deploy", "chart"]
+    },
+    {
+      "id": "config:deploy/helm/hipcortex/values.yaml",
+      "type": "config",
+      "label": "Helm values.yaml",
+      "file": "deploy/helm/hipcortex/values.yaml",
+      "summary": "Default Helm values: 1 replica, image hipcortex/hipcortex:0.2.0, ClusterIP service on port 3030, ingress disabled (host hipcortex.local), resource limits 500m CPU/512Mi mem, requests 100m/128Mi. Persistence enabled: 5Gi RWO PVC at /app/data. API key tiers via apiKeys env var (free/pro/team). Env: RUST_LOG=info; optional OLLAMA_URL, OPENAI_API_KEY, ANTHROPIC_API_KEY, HIPCORTEX_ACTOR_MAX_RECORDS. Liveness/readiness probes on GET /health:3030.",
+      "tags": ["helm", "kubernetes", "deploy", "values", "ingress", "persistence", "resources"]
+    },
+    {
+      "id": "config:sdk/python/pyproject.toml",
+      "type": "config",
+      "label": "Python SDK pyproject.toml",
+      "file": "sdk/python/pyproject.toml",
+      "summary": "PEP 517 build config for hipcortex Python package v0.5.2 (Apache-2.0, Python >=3.9). Core deps: requests>=2.28, httpx>=0.27. Optional extras: langchain (langchain-core>=0.1), llamaindex (llama-index-core>=0.10), crewai (crewai>=0.28 + crewai-tools), autogen (pyautogen>=0.2), benchmark (mem0ai + tabulate), test (pytest + pytest-asyncio), all. CLI entrypoint: hipcortex = hipcortex.cli:main. Package data includes SKILL.md, templates/*.tmpl, mcp_server.py under hipcortex.install. pytest asyncio_mode=auto.",
+      "tags": ["python", "sdk", "pyproject", "pip", "langchain", "autogen", "crewai", "llamaindex"]
+    },
+    {
+      "id": "config:sdk/python/setup.py",
+      "type": "config",
+      "label": "Python SDK setup.py (legacy)",
+      "file": "sdk/python/setup.py",
+      "summary": "Legacy setuptools setup() for hipcortex Python SDK v0.1.0 (older version than pyproject.toml v0.5.2). Core dep: requests>=2.28 only (no httpx). Extras: langchain, llamaindex, crewai, autogen, benchmark, all. Python >=3.9. Note: version mismatch with pyproject.toml suggests this is a legacy stub — pyproject.toml is the canonical build config.",
+      "tags": ["python", "sdk", "setup.py", "legacy", "pip"]
+    },
+    {
+      "id": "document:sdk/python/README.md",
+      "type": "document",
+      "label": "Python SDK README",
+      "file": "sdk/python/README.md",
+      "summary": "User-facing documentation for hipcortex Python SDK v0.5.2. Features: persistent causal topological memory, Bayesian world-model rollout prediction (POST /worldmodel/rollout), FSM skill compilation, Merkle SHA-256 audit chains, Headroom context budgeting (59-88% token savings). Latency: 0.48-0.61ms p50 write against local Rust binary at :3030. Install flow: pip install hipcortex, hipcortex doctor, hipcortex install (MCP wizard, 18 tools). Multi-tier memory: Working→Temporal, Semantic→Symbolic/LongTerm, Causal. Framework integrations: LangChain (HipCortexMemory ConversationBufferMemory drop-in), LlamaIndex (HipCortexStorageContext), CrewAI (HipCortexRememberTool/HipCortexRecallTool), AutoGen (HipCortexAutoGenMemory register_hook). GDPR: client.forget(actor). Version matrix: pip/Cargo/MCP = 0.5.2, VSIX = 0.5.8.",
+      "tags": ["sdk", "python", "readme", "langchain", "autogen", "crewai", "llamaindex", "mcp", "gdpr", "world-model"]
+    }
+  ],
+  "edges": [
+    {
+      "from": "config:Cargo.toml",
+      "to": "file:build.rs",
+      "relation": "configures",
+      "note": "Cargo.toml declares build = 'build.rs' implicitly; tonic-build listed as optional build-dependency activated by grpc-server feature"
+    },
+    {
+      "from": "config:Cargo.toml",
+      "to": "file:Cargo.lock",
+      "relation": "locks_versions",
+      "note": "Cargo.lock pins all resolved transitive deps declared in Cargo.toml"
+    },
+    {
+      "from": "file:build.rs",
+      "to": "schema:proto/memory.proto",
+      "relation": "compiles",
+      "note": "build.rs invokes tonic_build::compile on proto/memory.proto when grpc-server feature is active"
+    },
+    {
+      "from": "schema:proto/memory.proto",
+      "to": "config:Cargo.toml",
+      "relation": "defines_schema",
+      "note": "proto schema defines gRPC wire types consumed by the tonic-gated grpc-server feature"
+    },
+    {
+      "from": "config:deploy/helm/hipcortex/values.yaml",
+      "to": "config:deploy/helm/hipcortex/Chart.yaml",
+      "relation": "configures",
+      "note": "values.yaml provides default configuration for the Helm chart defined in Chart.yaml"
+    },
+    {
+      "from": "config:sdk/python/pyproject.toml",
+      "to": "config:sdk/python/setup.py",
+      "relation": "supersedes",
+      "note": "pyproject.toml (v0.5.2, PEP 517) is canonical; setup.py (v0.1.0) is a legacy stub"
+    },
+    {
+      "from": "document:sdk/python/README.md",
+      "to": "config:sdk/python/pyproject.toml",
+      "relation": "documents",
+      "note": "README describes the Python SDK package defined in pyproject.toml"
+    },
+    {
+      "from": "document:.claude/PRPs/plans/hipcortex-saas-features.plan.md",
+      "to": "config:sdk/python/pyproject.toml",
+      "relation": "plans_creation_of",
+      "note": "SaaS features plan drives the Python SDK package and framework integrations"
+    },
+    {
+      "from": "document:.claude/PRPs/plans/sim10-memory-gaps.plan.md",
+      "to": "document:.claude/PRPs/plans/hipcortex-saas-features.plan.md",
+      "relation": "extends",
+      "note": "Sim #10 gap plan extends SaaS features plan with additional endpoints, quarantine, and Python SDK recall_with_metadata"
+    }
+  ]
+}

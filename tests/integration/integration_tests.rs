@@ -1,9 +1,9 @@
 use std::time::{Duration, SystemTime};
 use uuid::Uuid;
 
+use hipcortex::decay::DecayType;
 use hipcortex::procedural_cache::{FSMState, FSMTransition, ProceduralCache, ProceduralTrace};
 use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
-use hipcortex::decay::DecayType;
 
 #[test]
 fn test_temporal_indexer_insert_and_retrieve() {
@@ -15,7 +15,9 @@ fn test_temporal_indexer_insert_and_retrieve() {
         relevance: 1.0,
         decay_factor: 0.5,
         last_access: SystemTime::now(),
-        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
+        decay_type: DecayType::Exponential {
+            half_life: Duration::from_secs(1),
+        },
     };
     let trace2 = TemporalTrace {
         data: "trace2",
@@ -39,7 +41,9 @@ fn test_temporal_indexer_buffer_overflow() {
         relevance: 1.0,
         decay_factor: 0.5,
         last_access: SystemTime::now(),
-        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
+        decay_type: DecayType::Exponential {
+            half_life: Duration::from_secs(1),
+        },
     };
     let trace2 = TemporalTrace {
         data: "trace2",
@@ -62,7 +66,9 @@ fn test_temporal_indexer_decay_and_prune() {
         relevance: 1.0,
         decay_factor: 0.5,
         last_access: SystemTime::now() - Duration::from_secs(60),
-        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
+        decay_type: DecayType::Exponential {
+            half_life: Duration::from_secs(1),
+        },
     };
     indexer.insert(trace.clone());
     indexer.decay_and_prune();
@@ -80,7 +86,9 @@ fn test_temporal_indexer_remove_and_get() {
         relevance: 1.0,
         decay_factor: 1.0,
         last_access: SystemTime::now(),
-        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
+        decay_type: DecayType::Exponential {
+            half_life: Duration::from_secs(1),
+        },
     };
     indexer.insert(trace.clone());
     assert!(indexer.get_trace(trace.id).is_some());
@@ -98,7 +106,9 @@ fn test_temporal_indexer_decay_factor() {
         relevance: 1.0,
         decay_factor: 2.0, // decays twice as fast
         last_access: SystemTime::now() - Duration::from_secs(60),
-        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
+        decay_type: DecayType::Exponential {
+            half_life: Duration::from_secs(1),
+        },
     };
     let slow = TemporalTrace {
         id: Uuid::new_v4(),
@@ -107,7 +117,9 @@ fn test_temporal_indexer_decay_factor() {
         relevance: 1.0,
         decay_factor: 0.1, // very slow decay
         last_access: SystemTime::now() - Duration::from_secs(60),
-        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
+        decay_type: DecayType::Exponential {
+            half_life: Duration::from_secs(1),
+        },
     };
     indexer.insert(fast.clone());
     indexer.insert(slow.clone());

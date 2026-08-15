@@ -1,0 +1,138 @@
+{
+  "batchIndex": 34,
+  "nodes": [
+    {
+      "id": "document:openspec/specs/deterministic-slice-ordering/spec.md",
+      "type": "document",
+      "label": "Deterministic Slice Ordering Spec",
+      "properties": {
+        "path": "openspec/specs/deterministic-slice-ordering/spec.md",
+        "status": "active",
+        "origin": "archived from fix-memory-query-truncation",
+        "summary": "Memory query endpoints (GET /memory/query) and MemoryStore::search_semantic SHALL sort results by timestamp descending before enforcing limit ceilings, ensuring newest records are returned when total matches exceed limit. Pinned priority records in semantic search also sorted newest-first before truncation.",
+        "key_concepts": [
+          "GET /memory/query",
+          "timestamp descending sort",
+          "query limit truncation",
+          "MemoryStore::search_semantic",
+          "top_k_records",
+          "pinned records",
+          "deterministic newest-first"
+        ],
+        "requirements": [
+          "Deterministic Newest-First Truncation on Memory Queries",
+          "Deterministic Pinned Record Truncation in Semantic Search"
+        ]
+      }
+    },
+    {
+      "id": "document:openspec/specs/documentation-rewrite-v049/spec.md",
+      "type": "document",
+      "label": "Documentation Rewrite v0.4.9 Spec",
+      "properties": {
+        "path": "openspec/specs/documentation-rewrite-v049/spec.md",
+        "status": "active",
+        "summary": "Specifies comprehensive documentation for HipCortex v0.4.9 as Autonomous Cognitive OS. Root README must include Caveman Comparison Matrix (0.48-0.61ms local Rust vs 15-35ms Python vs 142ms cloud API) and tiktoken cl100k_base benchmark tables (Headroom -59% to -84%, Caveman -70% to -88%). VS Code extension README must document zero-config local binary management and @hipcortex chat commands. MCP multi-agent setup guide must cover Claude Code, Cursor, Windsurf, Grok Code, Hermes, OpenClaw, Cline, RooCode, OpenAI Codex CLI, Aider, Gemini CLI, Amazon Q Developer. Python/TypeScript SDK docs must show multi-tier memory insertion and self-model capability gates. CI workflow must validate token compression and latency benchmarks on every push.",
+        "key_concepts": [
+          "v0.4.9",
+          "Autonomous Cognitive OS",
+          "Caveman Comparison Matrix",
+          "Headroom Mode",
+          "Caveman Mode",
+          "token savings benchmarks",
+          "tiktoken cl100k_base",
+          "@hipcortex chat commands",
+          "zero-config binary management",
+          "MCP multi-agent setup",
+          "SDK documentation parity",
+          "CI token verification workflow"
+        ],
+        "requirements": [
+          "Root Repository README Rigorous Narrative and Caveman Matrix",
+          "VS Code Extension Marketplace and Antigravity IDE Zero-Config Onboarding",
+          "Universal MCP Multi-Agent Setup Guide",
+          "Python and TypeScript SDK Documentation Parity",
+          "Continuous CI/CD Token Optimization and Latency Verification",
+          "Interactive VS Code Extension Dynamic Mode Toggle (@hipcortex mode <headroom|caveman>)"
+        ]
+      }
+    },
+    {
+      "id": "document:openspec/specs/executive-cortex/spec.md",
+      "type": "document",
+      "label": "Executive Cortex Spec",
+      "properties": {
+        "path": "openspec/specs/executive-cortex/spec.md",
+        "status": "active",
+        "summary": "Hierarchical task graph planning solver, goal stack scheduling, and continuation checkpointing. TaskGraph uses petgraph::DiGraph<TaskNode,()> with A* search over belief state transitions. ExecutiveScheduler maintains goal_stack (Vec<StackFrame>) and ticks with SelfModel health and CoherenceChecker gate_write checks; pre-empts to Diagnostic StackFrame on fault. ContinuationCheckpoint serializes active stack frames as MemoryType::Reflexion records into MemoryStore<B>.",
+        "key_concepts": [
+          "TaskGraph",
+          "petgraph::DiGraph<TaskNode>",
+          "A* search",
+          "belief state transitions",
+          "ExecutiveScheduler",
+          "goal_stack",
+          "StackFrame",
+          "tick()",
+          "SelfModel::is_healthy()",
+          "CoherenceChecker::gate_write()",
+          "Diagnostic pre-emption",
+          "ContinuationCheckpoint",
+          "MemoryType::Reflexion",
+          "MemoryStore<B>",
+          "topological step progression"
+        ],
+        "requirements": [
+          "Hierarchical Task Graph State-Space Planning Solver",
+          "Active Goal Stack Scheduler with Pre-emptive Diagnostics",
+          "Continuation Checkpoint Persistence"
+        ]
+      }
+    },
+    {
+      "id": "document:openspec/specs/goal-memory/spec.md",
+      "type": "document",
+      "label": "Goal Memory Spec",
+      "properties": {
+        "path": "openspec/specs/goal-memory/spec.md",
+        "status": "not_found_on_disk",
+        "summary": "Spec file listed in task batch but does not exist on disk at time of analysis.",
+        "key_concepts": []
+      }
+    },
+    {
+      "id": "document:openspec/specs/query-optimization/spec.md",
+      "type": "document",
+      "label": "Query Optimization Spec",
+      "properties": {
+        "path": "openspec/specs/query-optimization/spec.md",
+        "status": "not_found_on_disk",
+        "summary": "Spec file listed in task batch but does not exist on disk at time of analysis.",
+        "key_concepts": []
+      }
+    },
+    {
+      "id": "document:openspec/specs/semantic-compression/spec.md",
+      "type": "document",
+      "label": "Semantic Compression Spec",
+      "properties": {
+        "path": "openspec/specs/semantic-compression/spec.md",
+        "status": "not_found_on_disk",
+        "summary": "Spec file listed in task batch but does not exist on disk at time of analysis.",
+        "key_concepts": []
+      }
+    },
+    {
+      "id": "document:openspec/specs/tool-result-memory/spec.md",
+      "type": "document",
+      "label": "Tool Result Memory Spec",
+      "properties": {
+        "path": "openspec/specs/tool-result-memory/spec.md",
+        "status": "not_found_on_disk",
+        "summary": "Spec file listed in task batch but does not exist on disk at time of analysis.",
+        "key_concepts": []
+      }
+    }
+  ],
+  "edges": []
+}

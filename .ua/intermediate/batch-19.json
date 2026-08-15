@@ -1,0 +1,79 @@
+{
+  "batchIndex": 19,
+  "nodes": [
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/.openspec.yaml",
+      "type": "document",
+      "name": "SDD Post-Session Hardening OpenSpec Metadata",
+      "filePath": "openspec/changes/archive/2026-07-09-sdd-post-session-hardening/.openspec.yaml",
+      "summary": "Metadata file for the sdd-post-session-hardening change spec, created 2026-07-07. Marks the change as using the spec-driven schema. Serves as the manifest anchor for the change set.",
+      "tags": ["openspec", "archive", "sdd", "hardening", "metadata"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/proposal.md",
+      "type": "document",
+      "name": "SDD Post-Session Hardening Proposal",
+      "filePath": "openspec/changes/archive/2026-07-09-sdd-post-session-hardening/proposal.md",
+      "summary": "Proposes fixing 6 permanently-failing integration tests (caused by System:Self seeding baseline mismatch), aligning the TypeScript SDK AddMemoryRequest with 5 missing server fields, tightening VS Code extension type annotations, and adding inline documentation for decay scoring invariants and PPR/pinned separation. All changes are non-behavioral with no Rust production logic modifications.",
+      "tags": ["openspec", "archive", "sdd", "hardening", "testing", "sdk", "typescript", "documentation"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/design.md",
+      "type": "document",
+      "name": "SDD Post-Session Hardening Design",
+      "filePath": "openspec/changes/archive/2026-07-09-sdd-post-session-hardening/design.md",
+      "summary": "Details design decisions for fixing test assertions using delta-relative counts (not backend bypass), extending the TypeScript SDK AddMemoryRequest with 6 optional fields matching Rust server types, tightening extension type annotations (record_type union literal, metadata Record type), and documenting the decay invariant and PPR/pinned separation in memory_store.rs and web_server.rs.",
+      "tags": ["openspec", "archive", "sdd", "hardening", "design", "integration-tests", "typescript", "rust"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/tasks.md",
+      "type": "document",
+      "name": "SDD Post-Session Hardening Tasks",
+      "filePath": "openspec/changes/archive/2026-07-09-sdd-post-session-hardening/tasks.md",
+      "summary": "Comprehensive completed task checklist covering 8 sections: fixing 5 intelligence hook integration tests, fixing the CLI world model test, adding decay invariant doc comment to memory_store.rs, documenting PPR/pinned separation in web_server.rs and openapi_spec.rs, aligning TypeScript SDK types, tightening extension type annotations, promoting the scoring spec, and final verification steps.",
+      "tags": ["openspec", "archive", "sdd", "hardening", "tasks", "completed", "integration-tests", "sdk"],
+      "complexity": "complex"
+    }
+  ],
+  "edges": [
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/.openspec.yaml",
+      "to": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/proposal.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/.openspec.yaml",
+      "to": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/design.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/.openspec.yaml",
+      "to": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/proposal.md",
+      "to": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/design.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/proposal.md",
+      "to": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/design.md",
+      "to": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    }
+  ]
+}

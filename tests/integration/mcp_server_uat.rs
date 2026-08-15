@@ -1,11 +1,12 @@
 #[cfg(all(feature = "web-server", feature = "grpc-server"))]
+use hipcortex::grpc_server::grpc::{
+    memory_service_client::MemoryServiceClient, AddRecordRequest, ListRecordsRequest,
+    MemoryRecord as ProtoRecord,
+};
+#[cfg(all(feature = "web-server", feature = "grpc-server"))]
 use hipcortex::mcp_server::McpServer;
 #[cfg(all(feature = "web-server", feature = "grpc-server"))]
 use hipcortex::memory_store::MemoryStore;
-#[cfg(all(feature = "web-server", feature = "grpc-server"))]
-use hipcortex::grpc_server::grpc::{
-    memory_service_client::MemoryServiceClient, AddRecordRequest, ListRecordsRequest, MemoryRecord as ProtoRecord,
-};
 #[cfg(all(feature = "web-server", feature = "grpc-server"))]
 use tokio::time::{sleep, Duration};
 #[cfg(all(feature = "web-server", feature = "grpc-server"))]
@@ -20,10 +21,14 @@ async fn user_launches_combined_mcp_server() {
     let server = McpServer::new(store);
     let http_addr: std::net::SocketAddr = "127.0.0.1:3241".parse().unwrap();
     let grpc_addr: std::net::SocketAddr = "127.0.0.1:5241".parse().unwrap();
-    let srv = tokio::spawn(async move { server.serve(http_addr, grpc_addr).await.unwrap(); });
+    let srv = tokio::spawn(async move {
+        server.serve(http_addr, grpc_addr).await.unwrap();
+    });
     sleep(Duration::from_millis(100)).await;
 
-    let mut client = MemoryServiceClient::connect("http://127.0.0.1:5241").await.unwrap();
+    let mut client = MemoryServiceClient::connect("http://127.0.0.1:5241")
+        .await
+        .unwrap();
     let req = AddRecordRequest {
         record: Some(ProtoRecord {
             id: Uuid::new_v4().to_string(),
@@ -36,7 +41,11 @@ async fn user_launches_combined_mcp_server() {
         }),
     };
     client.add_record(req).await.unwrap();
-    let resp = client.list_records(ListRecordsRequest {}).await.unwrap().into_inner();
+    let resp = client
+        .list_records(ListRecordsRequest {})
+        .await
+        .unwrap()
+        .into_inner();
     assert_eq!(resp.records.len(), 1);
 
     let resp = reqwest::get("http://127.0.0.1:3241/health").await.unwrap();

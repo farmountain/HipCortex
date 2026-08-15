@@ -19,7 +19,7 @@ pub struct TransitionPrediction {
     pub from_state: String,
     pub action: String,
     pub probabilities: HashMap<String, f64>,
-    pub entropy: f64,  // Shannon entropy H(P) = -Σ p log p
+    pub entropy: f64, // Shannon entropy H(P) = -Σ p log p
     pub observation_count: usize,
 }
 
@@ -77,10 +77,24 @@ impl TransitionModel {
     }
 
     /// Performs accelerated Bayesian Dirichlet update when high surprise (ε >= 0.12) is attributed to transition fault.
-    pub fn update_with_system_id(&mut self, state: &str, action: &str, actual_outcome: &str, booster_gamma: f64) {
-        let key = (state.to_string(), action.to_string(), actual_outcome.to_string());
+    pub fn update_with_system_id(
+        &mut self,
+        state: &str,
+        action: &str,
+        actual_outcome: &str,
+        booster_gamma: f64,
+    ) {
+        let key = (
+            state.to_string(),
+            action.to_string(),
+            actual_outcome.to_string(),
+        );
         let sa_key = (state.to_string(), action.to_string());
-        let boost = if booster_gamma < 1.0 { 1 } else { booster_gamma as usize };
+        let boost = if booster_gamma < 1.0 {
+            1
+        } else {
+            booster_gamma as usize
+        };
         *self.counts.entry(key).or_insert(0) += boost;
         *self.totals.entry(sa_key).or_insert(0) += boost;
     }
@@ -88,9 +102,11 @@ impl TransitionModel {
     /// Predict next state distribution given current state and action
     pub fn predict(&self, state: &str, action: &str) -> Result<TransitionPrediction, String> {
         let sa_key = (state.to_string(), action.to_string());
-        
+
         // Get all observed next states for this (state, action) pair
-        let next_states: Vec<String> = self.counts.keys()
+        let next_states: Vec<String> = self
+            .counts
+            .keys()
             .filter(|(s, a, _)| s == state && a == action)
             .map(|(_, _, ns)| ns.clone())
             .collect();
@@ -137,7 +153,8 @@ impl TransitionModel {
 
     /// Helper: compute entropy from probability distribution
     fn compute_entropy_from_probs(&self, probs: &HashMap<String, f64>) -> f64 {
-        probs.values()
+        probs
+            .values()
             .filter(|&&p| p > 0.0)
             .map(|&p| -p * p.log2())
             .sum()
@@ -156,7 +173,9 @@ impl TransitionModel {
 
     /// Get all observed states
     pub fn get_states(&self) -> Vec<String> {
-        let mut states: Vec<String> = self.counts.keys()
+        let mut states: Vec<String> = self
+            .counts
+            .keys()
             .flat_map(|(s, _, ns)| vec![s.clone(), ns.clone()])
             .collect();
         states.sort();
@@ -166,9 +185,7 @@ impl TransitionModel {
 
     /// Get all observed actions
     pub fn get_actions(&self) -> Vec<String> {
-        let mut actions: Vec<String> = self.counts.keys()
-            .map(|(_, a, _)| a.clone())
-            .collect();
+        let mut actions: Vec<String> = self.counts.keys().map(|(_, a, _)| a.clone()).collect();
         actions.sort();
         actions.dedup();
         actions
@@ -194,13 +211,13 @@ mod tests {
     #[test]
     fn test_record_transition() {
         let mut model = TransitionModel::new();
-        
+
         let transition = StateTransition {
             from_state: "S1".to_string(),
             action: "A1".to_string(),
             to_state: "S2".to_string(),
         };
-        
+
         assert!(model.record_transition(transition).is_ok());
         assert_eq!(model.observation_count(), 1);
     }
@@ -208,31 +225,37 @@ mod tests {
     #[test]
     fn test_laplace_smoothing() {
         let mut model = TransitionModel::new();
-        
+
         // Record: S1 --A1--> S2 (twice), S1 --A1--> S3 (once)
-        model.record_transition(StateTransition {
-            from_state: "S1".to_string(),
-            action: "A1".to_string(),
-            to_state: "S2".to_string(),
-        }).unwrap();
-        model.record_transition(StateTransition {
-            from_state: "S1".to_string(),
-            action: "A1".to_string(),
-            to_state: "S2".to_string(),
-        }).unwrap();
-        model.record_transition(StateTransition {
-            from_state: "S1".to_string(),
-            action: "A1".to_string(),
-            to_state: "S3".to_string(),
-        }).unwrap();
+        model
+            .record_transition(StateTransition {
+                from_state: "S1".to_string(),
+                action: "A1".to_string(),
+                to_state: "S2".to_string(),
+            })
+            .unwrap();
+        model
+            .record_transition(StateTransition {
+                from_state: "S1".to_string(),
+                action: "A1".to_string(),
+                to_state: "S2".to_string(),
+            })
+            .unwrap();
+        model
+            .record_transition(StateTransition {
+                from_state: "S1".to_string(),
+                action: "A1".to_string(),
+                to_state: "S3".to_string(),
+            })
+            .unwrap();
 
         let pred = model.predict("S1", "A1").unwrap();
-        
+
         // With smoothing α=1, global vocab_size=3 (S1, S2, S3):
         // P(S2|S1,A1) = (2+1)/(3+3) = 3/6 = 0.5
         // P(S3|S1,A1) = (1+1)/(3+3) = 2/6 = 0.333
         // P(S1|S1,A1) = (0+1)/(3+3) = 1/6 = 0.167
-        
+
         assert!((pred.probabilities["S2"] - 0.5).abs() < 0.001);
         assert!((pred.probabilities["S3"] - 0.333).abs() < 0.001);
         assert!((pred.probabilities["S1"] - 0.167).abs() < 0.001);
@@ -241,39 +264,43 @@ mod tests {
     #[test]
     fn test_uniform_distribution_high_entropy() {
         let mut model = TransitionModel::new();
-        
+
         // Create uniform distribution: 4 outcomes, each seen once
         for i in 1..=4 {
-            model.record_transition(StateTransition {
-                from_state: "S1".to_string(),
-                action: "A1".to_string(),
-                to_state: format!("S{}", i),
-            }).unwrap();
+            model
+                .record_transition(StateTransition {
+                    from_state: "S1".to_string(),
+                    action: "A1".to_string(),
+                    to_state: format!("S{}", i),
+                })
+                .unwrap();
         }
 
         let pred = model.predict("S1", "A1").unwrap();
-        
+
         // Uniform over 4 outcomes → entropy ≈ log₂(4) = 2.0 bits
         // With Laplace smoothing: entropy slightly less but still high
-        assert!(pred.entropy > 1.8);  // Close to 2.0
+        assert!(pred.entropy > 1.8); // Close to 2.0
         assert_eq!(pred.observation_count, 4);
     }
 
     #[test]
     fn test_deterministic_low_entropy() {
         let mut model = TransitionModel::new();
-        
+
         // Nearly deterministic: S1 --A1--> S2 (10 times)
         for _ in 0..10 {
-            model.record_transition(StateTransition {
-                from_state: "S1".to_string(),
-                action: "A1".to_string(),
-                to_state: "S2".to_string(),
-            }).unwrap();
+            model
+                .record_transition(StateTransition {
+                    from_state: "S1".to_string(),
+                    action: "A1".to_string(),
+                    to_state: "S2".to_string(),
+                })
+                .unwrap();
         }
 
         let pred = model.predict("S1", "A1").unwrap();
-        
+
         // Very skewed distribution → low entropy
         assert!(pred.entropy < 0.5);
         assert_eq!(pred.observation_count, 10);
@@ -282,24 +309,28 @@ mod tests {
     #[test]
     fn test_entropy_threshold() {
         let mut model = TransitionModel::new();
-        
+
         // Few observations → high uncertainty
-        model.record_transition(StateTransition {
-            from_state: "S1".to_string(),
-            action: "A1".to_string(),
-            to_state: "S2".to_string(),
-        }).unwrap();
-        model.record_transition(StateTransition {
-            from_state: "S1".to_string(),
-            action: "A1".to_string(),
-            to_state: "S3".to_string(),
-        }).unwrap();
+        model
+            .record_transition(StateTransition {
+                from_state: "S1".to_string(),
+                action: "A1".to_string(),
+                to_state: "S2".to_string(),
+            })
+            .unwrap();
+        model
+            .record_transition(StateTransition {
+                from_state: "S1".to_string(),
+                action: "A1".to_string(),
+                to_state: "S3".to_string(),
+            })
+            .unwrap();
 
         let pred = model.predict("S1", "A1").unwrap();
-        
+
         // With only 2 observations and 2 outcomes, entropy should be high (>1.0)
         assert!(pred.entropy > 0.8);
-        
+
         // Spec requires entropy >2.0 for <10 observations
         // Our case: 2 observations, 2 outcomes → entropy ≈ 1.0 (below threshold)
         // This matches spec: low observation count → high uncertainty signal
@@ -308,7 +339,7 @@ mod tests {
     #[test]
     fn test_unseen_state_action() {
         let model = TransitionModel::new();
-        
+
         let result = model.predict("unknown_state", "unknown_action");
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("No transitions observed"));
@@ -317,17 +348,21 @@ mod tests {
     #[test]
     fn test_get_states() {
         let mut model = TransitionModel::new();
-        
-        model.record_transition(StateTransition {
-            from_state: "S1".to_string(),
-            action: "A1".to_string(),
-            to_state: "S2".to_string(),
-        }).unwrap();
-        model.record_transition(StateTransition {
-            from_state: "S2".to_string(),
-            action: "A2".to_string(),
-            to_state: "S3".to_string(),
-        }).unwrap();
+
+        model
+            .record_transition(StateTransition {
+                from_state: "S1".to_string(),
+                action: "A1".to_string(),
+                to_state: "S2".to_string(),
+            })
+            .unwrap();
+        model
+            .record_transition(StateTransition {
+                from_state: "S2".to_string(),
+                action: "A2".to_string(),
+                to_state: "S3".to_string(),
+            })
+            .unwrap();
 
         let states = model.get_states();
         assert_eq!(states.len(), 3);
@@ -339,17 +374,21 @@ mod tests {
     #[test]
     fn test_get_actions() {
         let mut model = TransitionModel::new();
-        
-        model.record_transition(StateTransition {
-            from_state: "S1".to_string(),
-            action: "A1".to_string(),
-            to_state: "S2".to_string(),
-        }).unwrap();
-        model.record_transition(StateTransition {
-            from_state: "S1".to_string(),
-            action: "A2".to_string(),
-            to_state: "S3".to_string(),
-        }).unwrap();
+
+        model
+            .record_transition(StateTransition {
+                from_state: "S1".to_string(),
+                action: "A1".to_string(),
+                to_state: "S2".to_string(),
+            })
+            .unwrap();
+        model
+            .record_transition(StateTransition {
+                from_state: "S1".to_string(),
+                action: "A2".to_string(),
+                to_state: "S3".to_string(),
+            })
+            .unwrap();
 
         let actions = model.get_actions();
         assert_eq!(actions.len(), 2);
@@ -360,64 +399,76 @@ mod tests {
     #[test]
     fn test_is_confident() {
         let mut model = TransitionModel::new();
-        
+
         // Add 5 observations for S1-A1
         for i in 0..5 {
-            model.record_transition(StateTransition {
-                from_state: "S1".to_string(),
-                action: "A1".to_string(),
-                to_state: format!("S{}", i % 2 + 2),
-            }).unwrap();
+            model
+                .record_transition(StateTransition {
+                    from_state: "S1".to_string(),
+                    action: "A1".to_string(),
+                    to_state: format!("S{}", i % 2 + 2),
+                })
+                .unwrap();
         }
 
-        assert!(!model.is_confident("S1", "A1", 10));  // Need 10, have 5
-        assert!(model.is_confident("S1", "A1", 5));    // Have exactly 5
-        assert!(model.is_confident("S1", "A1", 3));    // Have more than 3
+        assert!(!model.is_confident("S1", "A1", 10)); // Need 10, have 5
+        assert!(model.is_confident("S1", "A1", 5)); // Have exactly 5
+        assert!(model.is_confident("S1", "A1", 3)); // Have more than 3
     }
 
     #[test]
     fn test_probability_sum_to_one() {
         let mut model = TransitionModel::new();
-        
-        model.record_transition(StateTransition {
-            from_state: "S1".to_string(),
-            action: "A1".to_string(),
-            to_state: "S2".to_string(),
-        }).unwrap();
-        model.record_transition(StateTransition {
-            from_state: "S1".to_string(),
-            action: "A1".to_string(),
-            to_state: "S3".to_string(),
-        }).unwrap();
-        model.record_transition(StateTransition {
-            from_state: "S1".to_string(),
-            action: "A1".to_string(),
-            to_state: "S4".to_string(),
-        }).unwrap();
+
+        model
+            .record_transition(StateTransition {
+                from_state: "S1".to_string(),
+                action: "A1".to_string(),
+                to_state: "S2".to_string(),
+            })
+            .unwrap();
+        model
+            .record_transition(StateTransition {
+                from_state: "S1".to_string(),
+                action: "A1".to_string(),
+                to_state: "S3".to_string(),
+            })
+            .unwrap();
+        model
+            .record_transition(StateTransition {
+                from_state: "S1".to_string(),
+                action: "A1".to_string(),
+                to_state: "S4".to_string(),
+            })
+            .unwrap();
 
         let pred = model.predict("S1", "A1").unwrap();
-        
+
         let sum: f64 = pred.probabilities.values().sum();
-        assert!((sum - 1.0).abs() < 1e-6);  // Sum should be 1.0
+        assert!((sum - 1.0).abs() < 1e-6); // Sum should be 1.0
     }
 
     #[test]
     fn test_custom_smoothing() {
         let mut model = TransitionModel::with_smoothing(0.5);
-        
-        model.record_transition(StateTransition {
-            from_state: "S1".to_string(),
-            action: "A1".to_string(),
-            to_state: "S2".to_string(),
-        }).unwrap();
-        model.record_transition(StateTransition {
-            from_state: "S1".to_string(),
-            action: "A1".to_string(),
-            to_state: "S2".to_string(),
-        }).unwrap();
+
+        model
+            .record_transition(StateTransition {
+                from_state: "S1".to_string(),
+                action: "A1".to_string(),
+                to_state: "S2".to_string(),
+            })
+            .unwrap();
+        model
+            .record_transition(StateTransition {
+                from_state: "S1".to_string(),
+                action: "A1".to_string(),
+                to_state: "S2".to_string(),
+            })
+            .unwrap();
 
         let pred = model.predict("S1", "A1").unwrap();
-        
+
         // With α=0.5 and global states (S1, S2): P(S2|S1,A1) = (2+0.5)/(2+0.5*2) = 2.5/3.0 = 0.833
         assert!((pred.probabilities["S2"] - 0.833).abs() < 0.001);
         assert!((pred.probabilities["S1"] - 0.167).abs() < 0.001);
@@ -426,35 +477,41 @@ mod tests {
     #[test]
     fn test_multiple_state_action_pairs() {
         let mut model = TransitionModel::new();
-        
+
         // S1-A1 → mostly S2
         for _ in 0..8 {
-            model.record_transition(StateTransition {
-                from_state: "S1".to_string(),
-                action: "A1".to_string(),
-                to_state: "S2".to_string(),
-            }).unwrap();
+            model
+                .record_transition(StateTransition {
+                    from_state: "S1".to_string(),
+                    action: "A1".to_string(),
+                    to_state: "S2".to_string(),
+                })
+                .unwrap();
         }
         for _ in 0..2 {
-            model.record_transition(StateTransition {
-                from_state: "S1".to_string(),
-                action: "A1".to_string(),
-                to_state: "S3".to_string(),
-            }).unwrap();
+            model
+                .record_transition(StateTransition {
+                    from_state: "S1".to_string(),
+                    action: "A1".to_string(),
+                    to_state: "S3".to_string(),
+                })
+                .unwrap();
         }
-        
+
         // S1-A2 → mostly S4
         for _ in 0..9 {
-            model.record_transition(StateTransition {
-                from_state: "S1".to_string(),
-                action: "A2".to_string(),
-                to_state: "S4".to_string(),
-            }).unwrap();
+            model
+                .record_transition(StateTransition {
+                    from_state: "S1".to_string(),
+                    action: "A2".to_string(),
+                    to_state: "S4".to_string(),
+                })
+                .unwrap();
         }
 
         let pred1 = model.predict("S1", "A1").unwrap();
         let pred2 = model.predict("S1", "A2").unwrap();
-        
+
         // Different actions should yield different distributions
         // P(S2|S1,A1) = (8+1)/(10+4) = 9/14 = 0.643 (> 0.6)
         // P(S4|S1,A2) = (9+1)/(9+4) = 10/13 = 0.769 (> 0.75)
@@ -465,13 +522,15 @@ mod tests {
     #[test]
     fn test_observation_count_total() {
         let mut model = TransitionModel::new();
-        
+
         for i in 0..15 {
-            model.record_transition(StateTransition {
-                from_state: "S1".to_string(),
-                action: "A1".to_string(),
-                to_state: format!("S{}", i % 3 + 2),
-            }).unwrap();
+            model
+                .record_transition(StateTransition {
+                    from_state: "S1".to_string(),
+                    action: "A1".to_string(),
+                    to_state: format!("S{}", i % 3 + 2),
+                })
+                .unwrap();
         }
 
         assert_eq!(model.observation_count(), 15);

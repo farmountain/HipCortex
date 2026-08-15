@@ -108,7 +108,11 @@ impl FSMBackend for RustFSMBackend {
                 let from = self.graph[edge.source()].clone();
                 let to = self.graph[edge.target()].clone();
                 let condition = edge.weight().clone();
-                transitions.push(FSMTransition { from, to, condition });
+                transitions.push(FSMTransition {
+                    from,
+                    to,
+                    condition,
+                });
             }
         }
         transitions

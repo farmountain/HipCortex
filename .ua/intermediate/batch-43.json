@@ -1,0 +1,30 @@
+{
+  "nodes": [
+    {
+      "id": "file:tests/integration/mod.rs",
+      "type": "file",
+      "name": "mod.rs",
+      "filePath": "tests/integration/mod.rs",
+      "summary": "Integration test module registry that declares all ~35 integration test submodules (SIT and UAT), with several conditionally compiled under feature flags such as `web-server` and `grpc-server`. Recently extended with `react_e2e_sit` for E2E goal-driven ReAct tests.",
+      "tags": ["test", "barrel", "entry-point", "integration"],
+      "complexity": "simple",
+      "languageNotes": "Pure `mod` declaration file — a Rust barrel that registers every sibling test file with the integration_suite binary. Feature-gated modules (`#[cfg(feature = ...)]`) are excluded from the minimal `petgraph_backend` build."
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:tests/integration/mod.rs",
+      "target": "file:tests/integration/react_e2e_sit.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/integration/mod.rs",
+      "target": "file:tests/integration/react_engine_sit.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    }
+  ]
+}

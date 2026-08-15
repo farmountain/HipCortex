@@ -10,12 +10,11 @@
 // 5. Decision confidence always ∈ [0, 1]
 // 6. Resource predictions never negative
 
-use proptest::prelude::*;
 use hipcortex::self_model::{
-    CapabilityDescriptor, CapabilityRegistry, DecisionContext, DecisionEngine,
-    HealthAggregator, ModuleHealth, OperationOutcome, PerformanceTracker,
-    ResourceMonitor, ResourceUsage,
+    CapabilityDescriptor, CapabilityRegistry, DecisionContext, DecisionEngine, HealthAggregator,
+    ModuleHealth, OperationOutcome, PerformanceTracker, ResourceMonitor, ResourceUsage,
 };
+use proptest::prelude::*;
 use std::time::{Duration, Instant};
 
 // ============================================================================
@@ -34,9 +33,9 @@ proptest! {
             error_rate,
             resource_usage,
         };
-        
+
         let score = health.compute_score();
-        
+
         prop_assert!(score >= 0.0, "Health score {} is negative", score);
         prop_assert!(score <= 1.0, "Health score {} exceeds 1.0", score);
     }
@@ -54,30 +53,30 @@ proptest! {
         res3 in 0.0f64..1.0,
     ) {
         let mut agg = HealthAggregator::new();
-        
+
         agg.report("module1".to_string(), ModuleHealth {
             latency_ms: latency1,
             error_rate: error1,
             resource_usage: res1,
         }).unwrap();
-        
+
         agg.report("module2".to_string(), ModuleHealth {
             latency_ms: latency2,
             error_rate: error2,
             resource_usage: res2,
         }).unwrap();
-        
+
         agg.report("module3".to_string(), ModuleHealth {
             latency_ms: latency3,
             error_rate: error3,
             resource_usage: res3,
         }).unwrap();
-        
+
         let health = agg.get_overall_health().unwrap();
-        
+
         prop_assert!(health.overall >= 0.0, "Overall health {} is negative", health.overall);
         prop_assert!(health.overall <= 1.0, "Overall health {} exceeds 1.0", health.overall);
-        
+
         // Check all module scores are also in [0, 1]
         for (module_name, score) in &health.modules {
             prop_assert!(*score >= 0.0, "Module {} health {} is negative", module_name, score);
@@ -99,7 +98,7 @@ proptest! {
         network_values in prop::collection::vec(0.0f64..1000.0, 10..50),
     ) {
         let mut monitor = ResourceMonitor::new();
-        
+
         // Record observations
         for i in 0..cpu_values.len().min(memory_values.len()).min(disk_values.len()).min(network_values.len()) {
             let usage = ResourceUsage {
@@ -111,7 +110,7 @@ proptest! {
             };
             let _ = monitor.record("test_op", usage);
         }
-        
+
         // Predict
         if let Ok(prediction) = monitor.predict("test_op") {
             prop_assert!(prediction.cpu_percent >= 0.0, "Predicted CPU {} is negative", prediction.cpu_percent);
@@ -134,7 +133,7 @@ proptest! {
         latencies in prop::collection::vec(1.0f64..1000.0, 20..100),
     ) {
         let mut tracker = PerformanceTracker::new();
-        
+
         // Record outcomes
         for latency in &latencies {
             let outcome = OperationOutcome {
@@ -145,20 +144,20 @@ proptest! {
             };
             let _ = tracker.record(outcome);
         }
-        
+
         // Get metrics
         if let Ok(metrics) = tracker.predict("test_op") {
             // EWMA should smooth, so latency should be within input range
             let min_latency = latencies.iter().cloned().fold(f64::INFINITY, f64::min);
             let max_latency = latencies.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-            
+
             // Allow some room for EWMA smoothing effects
             prop_assert!(
                 metrics.latency_ms >= min_latency * 0.5 && metrics.latency_ms <= max_latency * 1.5,
                 "EWMA latency {} is outside reasonable bounds [{}, {}]",
                 metrics.latency_ms, min_latency * 0.5, max_latency * 1.5
             );
-            
+
             // Variance should also be non-negative
             prop_assert!(metrics.latency_variance >= 0.0, "Latency variance {} is negative", metrics.latency_variance);
         }
@@ -175,7 +174,7 @@ proptest! {
         outcomes in prop::collection::vec(any::<bool>(), 10..100),
     ) {
         let mut tracker = PerformanceTracker::new();
-        
+
         // Record outcomes
         for success in &outcomes {
             let outcome = OperationOutcome {
@@ -186,18 +185,18 @@ proptest! {
             };
             let _ = tracker.record(outcome);
         }
-        
+
         // Check success rate
         if let Ok(rate) = tracker.get_success_rate("test_op") {
             prop_assert!(rate >= 0.0, "Success rate {} is negative", rate);
             prop_assert!(rate <= 1.0, "Success rate {} exceeds 1.0", rate);
         }
-        
+
         // Check metrics structure
         if let Ok(metrics) = tracker.predict("test_op") {
             prop_assert!(metrics.success_rate >= 0.0, "Metrics success rate {} is negative", metrics.success_rate);
             prop_assert!(metrics.success_rate <= 1.0, "Metrics success rate {} exceeds 1.0", metrics.success_rate);
-            
+
             // Credible intervals should also be in [0, 1]
             let (lower, upper) = metrics.success_credible_interval;
             prop_assert!(lower >= 0.0, "Lower credible interval {} is negative", lower);
@@ -221,14 +220,14 @@ proptest! {
         priority in 0.0f64..1.0,
     ) {
         let mut engine = DecisionEngine::new();
-        
+
         let context = DecisionContext {
             priority,
             deadline: None,
             user_facing: false,
             cascading_impact: false,
         };
-        
+
         let resources = ResourceUsage {
             cpu_percent: cpu,
             memory_mb: memory,
@@ -236,7 +235,7 @@ proptest! {
             network_io_mbps: 5.0,
             timestamp: Instant::now(),
         };
-        
+
         let decision = engine.evaluate(
             "test_op",
             context,
@@ -244,7 +243,7 @@ proptest! {
             resources,
             health_score,
         );
-        
+
         prop_assert!(
             decision.confidence >= 0.0,
             "Decision confidence {} is negative",
@@ -269,7 +268,7 @@ proptest! {
         memory_req in 0.0f64..8192.0,
     ) {
         let mut registry = CapabilityRegistry::new();
-        
+
         let descriptor = CapabilityDescriptor {
             name: "test_capability".to_string(),
             description: "Test".to_string(),
@@ -277,15 +276,15 @@ proptest! {
             required_memory_mb: memory_req,
             limitations: vec![],
         };
-        
+
         // Register should succeed
         prop_assert!(registry.register(descriptor.clone()).is_ok());
-        
+
         // Get should return same values
         let retrieved = registry.get("test_capability").unwrap();
         prop_assert!((retrieved.required_cpu_percent - cpu_req).abs() < 0.001);
         prop_assert!((retrieved.required_memory_mb - memory_req).abs() < 0.001);
-        
+
         // Update should succeed
         let updated = CapabilityDescriptor {
             name: "test_capability".to_string(),
@@ -295,7 +294,7 @@ proptest! {
             limitations: vec![],
         };
         prop_assert!(registry.update(updated).is_ok());
-        
+
         // Should be able to retrieve updated version
         let after_update = registry.get("test_capability").unwrap();
         prop_assert!((after_update.required_cpu_percent - cpu_req * 1.5).abs() < 0.001);
@@ -321,7 +320,7 @@ proptest! {
             network_io_mbps: 5.0,
             timestamp: Instant::now(),
         };
-        
+
         let usage2 = ResourceUsage {
             cpu_percent: cpu2,
             memory_mb: mem2,
@@ -329,11 +328,11 @@ proptest! {
             network_io_mbps: 8.0,
             timestamp: Instant::now(),
         };
-        
+
         // Combined usage should be the sum (for monitoring purposes)
         let total_cpu = usage1.cpu_percent + usage2.cpu_percent;
         let total_mem = usage1.memory_mb + usage2.memory_mb;
-        
+
         // Verify composition is well-defined
         prop_assert!(total_cpu >= cpu1 && total_cpu >= cpu2);
         prop_assert!(total_mem >= mem1 && total_mem >= mem2);
@@ -357,23 +356,23 @@ proptest! {
             error_rate: good_error,
             resource_usage: 0.3,
         };
-        
+
         let degraded = ModuleHealth {
             latency_ms: bad_latency,
             error_rate: bad_error,
             resource_usage: 0.9,
         };
-        
+
         let healthy_score = healthy.compute_score();
         let degraded_score = degraded.compute_score();
-        
+
         // Degraded should have lower score
         prop_assert!(
             degraded_score < healthy_score,
             "Degraded score {} should be < healthy score {}",
             degraded_score, healthy_score
         );
-        
+
         // Use the built-in methods
         prop_assert!(healthy.is_healthy() || good_error > 0.05 || good_latency > 50.0);
         prop_assert!(degraded.is_degraded() || (bad_error < 0.4 && bad_latency < 1000.0));

@@ -7,8 +7,8 @@ use crate::{
     archive_store::ArchiveStore,
     memory_record::{MemoryRecord, MemoryType},
     memory_store::MemoryStore,
-    symbolic_store::{GraphDatabase, SymbolicStore},
     persistence::MemoryBackend,
+    symbolic_store::{GraphDatabase, SymbolicStore},
     tx_log::{TxKind, TxLog},
 };
 
@@ -42,7 +42,10 @@ pub struct ConsolidationReport {
 }
 
 /// P_tx = hot_count / capacity_limit. Returns [0.0, ∞).
-pub fn compute_pressure<B: MemoryBackend>(store: &MemoryStore<B>, config: &ConsolidationConfig) -> f32 {
+pub fn compute_pressure<B: MemoryBackend>(
+    store: &MemoryStore<B>,
+    config: &ConsolidationConfig,
+) -> f32 {
     store.all().len() as f32 / config.capacity_limit as f32
 }
 
@@ -80,7 +83,10 @@ pub fn consolidate<B: MemoryBackend, G: GraphDatabase>(
     let mut summary_records_created = 0usize;
 
     // 3. Consolidate eligible groups.
-    for (_key, members) in groups.into_iter().filter(|(_, v)| v.len() >= config.min_group_size) {
+    for (_key, members) in groups
+        .into_iter()
+        .filter(|(_, v)| v.len() >= config.min_group_size)
+    {
         // 4a. Build SummaryRecord.
         let representative = &members[0];
         let summary_meta = serde_json::json!({

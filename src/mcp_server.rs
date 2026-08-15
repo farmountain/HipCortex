@@ -52,7 +52,11 @@ impl<B: MemoryBackend + Send + 'static> McpServer<B> {
         // instantiate loop_engine (omega) for mcp defaults + exposure in auto paths
         let _loop_exposure = crate::loop_engine::LoopEngine::new(CausalTopoGraph::new());
         let session = if std::env::var("HIPCORTEX_AGENT_DEFAULTS").is_ok() {
-            PerceptionSession::new().with_self_model(sm.clone()).with_world_model(wm.clone()).with_coherence(cc.clone()).with_topo(topo.clone())
+            PerceptionSession::new()
+                .with_self_model(sm.clone())
+                .with_world_model(wm.clone())
+                .with_coherence(cc.clone())
+                .with_topo(topo.clone())
         } else {
             PerceptionSession::new()
         };
@@ -81,11 +85,7 @@ impl<B: MemoryBackend + Send + 'static> McpServer<B> {
     }
 
     /// Start both the REST and gRPC servers concurrently.
-    pub async fn serve(
-        &self,
-        http_addr: SocketAddr,
-        grpc_addr: SocketAddr,
-    ) -> anyhow::Result<()> {
+    pub async fn serve(&self, http_addr: SocketAddr, grpc_addr: SocketAddr) -> anyhow::Result<()> {
         let store = self.store.clone();
         let grpc = tokio::spawn(async move {
             grpc_server::serve(grpc_addr, store).await.unwrap();

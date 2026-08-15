@@ -1,0 +1,114 @@
+{
+  "batchIndex": 4,
+  "nodes": [
+    {
+      "id": "config:.env.example",
+      "type": "config",
+      "name": ".env.example",
+      "filePath": ".env.example",
+      "summary": "Template environment file for Docker Compose deployment. Defines configuration for PostgreSQL, Redis, application settings (API port, memory limits), security keys (API key, JWT secret), feature flags, and Rust logging. Intended to be copied to .env and customized before deployment.",
+      "tags": ["env", "docker", "configuration", "postgres", "redis", "security", "feature-flags"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:AGENTS.md",
+      "type": "document",
+      "name": "AGENTS.md",
+      "filePath": "AGENTS.md",
+      "summary": "Behavioral guide for AI agents working in the HipCortex repo, mandating GitNexus impact analysis before any symbol edit, listing forbidden actions (no find-and-replace rename, no commit without change detection), and routing agents to the correct skill files and MCP resource URIs.",
+      "tags": ["documentation", "development", "code-intelligence", "impact-analysis", "workflow"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:BENCHMARK.md",
+      "type": "document",
+      "name": "BENCHMARK.md",
+      "filePath": "BENCHMARK.md",
+      "summary": "Latency benchmark results comparing HipCortex v0.4.9 against Mem0 cloud and local vector stores. Shows HipCortex achieves 0.61 ms p50 write on Linux (vs ~142 ms for Mem0 cloud), explains the architectural reason (causal graph indexing eliminates embedding inference), and provides reproduction steps plus a feature comparison matrix.",
+      "tags": ["benchmark", "performance", "latency", "mem0", "comparison", "petgraph"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:CLAUDE.md",
+      "type": "document",
+      "name": "CLAUDE.md",
+      "filePath": "CLAUDE.md",
+      "summary": "Master developer reference for the HipCortex Rust crate covering build and test commands for all feature combinations, the two-layer architecture (storage plus intelligence), subsystem responsibilities, module wiring and feature-gating conventions, testing layout, and embedded GitNexus code-intelligence rules for AI agents.",
+      "tags": ["documentation", "configuration", "build-system", "architecture", "conventions"],
+      "complexity": "complex"
+    },
+    {
+      "id": "config:CODEOWNERS",
+      "type": "config",
+      "name": "CODEOWNERS",
+      "filePath": "CODEOWNERS",
+      "summary": "GitHub CODEOWNERS file assigning @farmountain as the required reviewer for all files in the repository. Single-line wildcard rule covering the entire codebase.",
+      "tags": ["github", "code-review", "ownership", "governance"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:CONTRIBUTING.md",
+      "type": "document",
+      "name": "CONTRIBUTING.md",
+      "filePath": "CONTRIBUTING.md",
+      "summary": "Contributor guide for HipCortex covering development setup, coding style requirements (rustfmt, clippy, documentation, small modules), and the pull-request workflow. Refers readers to docs/contributing.md for full policies.",
+      "tags": ["contributing", "pull-request", "rustfmt", "clippy", "workflow"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:DEPLOY.md",
+      "type": "document",
+      "name": "DEPLOY.md",
+      "filePath": "DEPLOY.md",
+      "summary": "Deployment guide covering three paths: Fly.io managed hosting (~$1.94/month), Docker/Docker Compose self-hosted, and pre-built binary for edge/embedded targets. Documents all environment variables, API key tier limits (free/pro/team), Python SDK connection example, and health monitoring endpoints.",
+      "tags": ["deployment", "fly.io", "docker", "binary", "api-keys", "production"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:DEVELOPMENT.md",
+      "type": "document",
+      "name": "DEVELOPMENT.md",
+      "filePath": "DEVELOPMENT.md",
+      "summary": "Developer setup and workflow guide listing prerequisites (Rust 1.70+), build commands for all feature combinations, a feature-flag matrix with external dependencies, optional database setup (SQLite, PostgreSQL, Neo4j), and a contributor preflight checklist emphasising module attribute hoisting, execution trace review, and SafetyGuardrail compliance.",
+      "tags": ["development", "setup", "feature-flags", "build", "database", "checklist"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:Hipcortex_Env_Setup_Guide.md",
+      "type": "document",
+      "name": "Hipcortex_Env_Setup_Guide.md",
+      "filePath": "Hipcortex_Env_Setup_Guide.md",
+      "summary": "Comprehensive Windows-focused environment setup guide covering Rust toolchain installation, VS Build Tools, Node.js, database backends (PostgreSQL, Neo4j, RocksDB), LLM integration (OpenAI, Ollama), all build configurations, testing verification steps, IDE setup, and a testing status summary. Contains unresolved git merge conflict markers from a branch merge.",
+      "tags": ["setup", "windows", "environment", "database", "llm", "vscode", "troubleshooting"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:LICENSE",
+      "type": "document",
+      "name": "LICENSE",
+      "filePath": "LICENSE",
+      "summary": "Apache License 2.0 full text. Copyright holder is Liew Keong Han (farmountain@gmail.com), dated 2025. Grants perpetual worldwide royalty-free rights to use, reproduce, distribute, and create derivative works subject to attribution and notice requirements.",
+      "tags": ["license", "apache-2.0", "legal", "open-source"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:PRODUCTION_READY_REPORT.md",
+      "type": "document",
+      "name": "PRODUCTION_READY_REPORT.md",
+      "filePath": "PRODUCTION_READY_REPORT.md",
+      "summary": "Production readiness assessment report (generated 2025-01-11) summarising completed optimisations across core engine, memory store, REST API, and VS Code extension. Covers performance benchmarks, quality assurance (31/31 unit tests passing), security posture, business impact metrics for Developer/Student/Researcher personas, and a future roadmap. Concludes with a recommendation to proceed with production deployment.",
+      "tags": ["production", "report", "benchmarks", "qa", "vscode-extension", "roadmap", "personas"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:QUICK_START_GUIDE.md",
+      "type": "document",
+      "name": "QUICK_START_GUIDE.md",
+      "filePath": "QUICK_START_GUIDE.md",
+      "summary": "End-user quick start guide offering two installation paths: Docker/Podman containerised deployment (with Docker Compose full-stack example including PostgreSQL and Redis) and VS Code extension installation from VSIX or source. Covers environment variables, extension commands, configuration options, testing the setup, and troubleshooting common issues.",
+      "tags": ["quick-start", "docker", "podman", "vscode-extension", "installation", "configuration"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": []
+}

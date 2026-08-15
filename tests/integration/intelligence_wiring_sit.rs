@@ -1,25 +1,25 @@
+use hipcortex::aureus_bridge::AureusBridge;
+use hipcortex::coherence::CoherenceChecker;
 /// SIT tests for intelligence layer wiring (requires web-server feature — gated in mod.rs)
 use hipcortex::memory_record::{MemoryRecord, MemoryType};
 use hipcortex::memory_store::MemoryStore;
 use hipcortex::persistence::InMemoryBackend;
+use hipcortex::self_model::SelfModel;
+use hipcortex::symbolic_store::{InMemoryGraph, SymbolicStore};
 use hipcortex::web_server::AppState;
 use hipcortex::world_model_enhanced::WorldModelEnhanced;
-use hipcortex::aureus_bridge::AureusBridge;
-use hipcortex::self_model::SelfModel;
-use hipcortex::coherence::CoherenceChecker;
-use hipcortex::symbolic_store::{InMemoryGraph, SymbolicStore};
 use hipcortex::CausalTopoGraph;
 use std::sync::{Arc, Mutex, RwLock};
 
 pub fn make_app_state() -> AppState<InMemoryBackend> {
     AppState {
-        memory_store:   Arc::new(Mutex::new(MemoryStore::new_in_memory())),
+        memory_store: Arc::new(Mutex::new(MemoryStore::new_in_memory())),
         symbolic_store: Arc::new(Mutex::new(SymbolicStore::new())),
-        world_model:    Arc::new(RwLock::new(WorldModelEnhanced::new())),
-        aureus:         Arc::new(Mutex::new(AureusBridge::new())),
-        self_model:     Arc::new(SelfModel::new()),
-        coherence:      Arc::new(CoherenceChecker::new()),
-        topo_graph:     Arc::new(Mutex::new(CausalTopoGraph::new())),
+        world_model: Arc::new(RwLock::new(WorldModelEnhanced::new())),
+        aureus: Arc::new(Mutex::new(AureusBridge::new())),
+        self_model: Arc::new(SelfModel::new()),
+        coherence: Arc::new(CoherenceChecker::new()),
+        topo_graph: Arc::new(Mutex::new(CausalTopoGraph::new())),
     }
 }
 
@@ -37,7 +37,13 @@ pub fn make_record(actor: &str, action: &str, target: &str) -> MemoryRecord {
 fn test_app_state_constructs() {
     let state = make_app_state();
     assert!(state.self_model.is_healthy().is_ok());
-    assert!(state.world_model.read().unwrap().list_entities().unwrap().is_empty());
+    assert!(state
+        .world_model
+        .read()
+        .unwrap()
+        .list_entities()
+        .unwrap()
+        .is_empty());
 }
 
 #[test]
@@ -53,9 +59,12 @@ fn test_world_model_save_load_roundtrip() {
     let state = make_app_state();
     {
         let mut wm = state.world_model.write().unwrap();
-        wm.observe_transition("S1".into(), "A1".into(), "S2".into()).unwrap();
-        wm.observe_transition("S1".into(), "A1".into(), "S2".into()).unwrap();
-        wm.observe_transition("S1".into(), "A1".into(), "S3".into()).unwrap();
+        wm.observe_transition("S1".into(), "A1".into(), "S2".into())
+            .unwrap();
+        wm.observe_transition("S1".into(), "A1".into(), "S2".into())
+            .unwrap();
+        wm.observe_transition("S1".into(), "A1".into(), "S3".into())
+            .unwrap();
         wm.add_causal_edge("X".into(), "Y".into()).unwrap();
     }
     let tmp = std::env::temp_dir().join("wm_test_roundtrip.json");
@@ -94,8 +103,10 @@ fn test_world_model_transition_count() {
     assert_eq!(state.world_model.read().unwrap().transition_count(), 0);
     {
         let mut wm = state.world_model.write().unwrap();
-        wm.observe_transition("A".into(), "B".into(), "C".into()).unwrap();
-        wm.observe_transition("A".into(), "B".into(), "C".into()).unwrap();
+        wm.observe_transition("A".into(), "B".into(), "C".into())
+            .unwrap();
+        wm.observe_transition("A".into(), "B".into(), "C".into())
+            .unwrap();
     }
     assert_eq!(state.world_model.read().unwrap().transition_count(), 2);
 }
@@ -118,20 +129,30 @@ fn test_auto_feed_observe_transition() {
     let state = make_app_state();
     {
         let mut ms = state.memory_store.lock().unwrap();
-        ms.add(make_record("alice", "decided", "use_postgres")).unwrap();
-        ms.add(make_record("alice", "decided", "use_postgres")).unwrap();
-        ms.add(make_record("alice", "decided", "use_redis")).unwrap();
+        ms.add(make_record("alice", "decided", "use_postgres"))
+            .unwrap();
+        ms.add(make_record("alice", "decided", "use_postgres"))
+            .unwrap();
+        ms.add(make_record("alice", "decided", "use_redis"))
+            .unwrap();
     }
     // Simulate auto-feed: observe transitions for each add
     {
         let mut wm = state.world_model.write().unwrap();
-        wm.observe_transition("alice".into(), "decided".into(), "use_postgres".into()).unwrap();
-        wm.observe_transition("alice".into(), "decided".into(), "use_postgres".into()).unwrap();
-        wm.observe_transition("alice".into(), "decided".into(), "use_redis".into()).unwrap();
+        wm.observe_transition("alice".into(), "decided".into(), "use_postgres".into())
+            .unwrap();
+        wm.observe_transition("alice".into(), "decided".into(), "use_postgres".into())
+            .unwrap();
+        wm.observe_transition("alice".into(), "decided".into(), "use_redis".into())
+            .unwrap();
     }
     assert_eq!(state.world_model.read().unwrap().transition_count(), 3);
-    let pred = state.world_model.read().unwrap()
-        .predict_next_state("alice", "decided").unwrap();
+    let pred = state
+        .world_model
+        .read()
+        .unwrap()
+        .predict_next_state("alice", "decided")
+        .unwrap();
     assert!(pred.probabilities["use_postgres"] > pred.probabilities["use_redis"]);
 }
 
@@ -141,9 +162,15 @@ fn test_auto_feed_pinned_causal_edge() {
     // Simulate what handle_add_memory does for pinned Symbolic record
     {
         let mut wm = state.world_model.write().unwrap();
-        wm.add_causal_edge("alice".into(), "postgres".into()).unwrap();
+        wm.add_causal_edge("alice".into(), "postgres".into())
+            .unwrap();
     }
-    assert!(state.world_model.read().unwrap().has_causal_path("alice", "postgres").unwrap());
+    assert!(state
+        .world_model
+        .read()
+        .unwrap()
+        .has_causal_path("alice", "postgres")
+        .unwrap());
 }
 
 #[test]
@@ -151,8 +178,12 @@ fn test_wm_observe_predict_via_state() {
     let state = make_app_state();
     {
         let mut wm = state.world_model.write().unwrap();
-        for _ in 0..3 { wm.observe_transition("S1".into(), "A1".into(), "S2".into()).unwrap(); }
-        wm.observe_transition("S1".into(), "A1".into(), "S3".into()).unwrap();
+        for _ in 0..3 {
+            wm.observe_transition("S1".into(), "A1".into(), "S2".into())
+                .unwrap();
+        }
+        wm.observe_transition("S1".into(), "A1".into(), "S3".into())
+            .unwrap();
     }
     let wm = state.world_model.read().unwrap();
     let pred = wm.predict_next_state("S1", "A1").unwrap();
@@ -166,10 +197,18 @@ fn test_wm_register_entity_list() {
     let state = make_app_state();
     {
         let mut wm = state.world_model.write().unwrap();
-        wm.register_entity("robot_1".into(), EntityState {
-            properties: vec![0.0, 0.0, 0.0],
-            covariance: vec![vec![1.0,0.0,0.0],vec![0.0,1.0,0.0],vec![0.0,0.0,1.0]],
-        }).unwrap();
+        wm.register_entity(
+            "robot_1".into(),
+            EntityState {
+                properties: vec![0.0, 0.0, 0.0],
+                covariance: vec![
+                    vec![1.0, 0.0, 0.0],
+                    vec![0.0, 1.0, 0.0],
+                    vec![0.0, 0.0, 1.0],
+                ],
+            },
+        )
+        .unwrap();
     }
     let entities = state.world_model.read().unwrap().list_entities().unwrap();
     assert!(entities.contains(&"robot_1".to_string()));
@@ -193,7 +232,8 @@ fn test_wm_transition_count_after_feed() {
     assert_eq!(state.world_model.read().unwrap().transition_count(), 0);
     {
         let mut wm = state.world_model.write().unwrap();
-        wm.observe_transition("X".into(), "Y".into(), "Z".into()).unwrap();
+        wm.observe_transition("X".into(), "Y".into(), "Z".into())
+            .unwrap();
     }
     assert_eq!(state.world_model.read().unwrap().transition_count(), 1);
 }
@@ -204,8 +244,10 @@ fn test_reflect_on_memory_no_llm() {
     let state = make_app_state();
     {
         let mut ms = state.memory_store.lock().unwrap();
-        ms.add(make_record("alice", "decided", "use_postgres")).unwrap();
-        ms.add(make_record("alice", "decided", "avoid_redis")).unwrap();
+        ms.add(make_record("alice", "decided", "use_postgres"))
+            .unwrap();
+        ms.add(make_record("alice", "decided", "avoid_redis"))
+            .unwrap();
     }
     let hyp = {
         let mut au = state.aureus.lock().unwrap();
@@ -224,7 +266,8 @@ fn test_reflect_on_memory_with_mock_llm() {
     let state = make_app_state();
     {
         let mut ms = state.memory_store.lock().unwrap();
-        ms.add(make_record("alice", "decided", "use_postgres")).unwrap();
+        ms.add(make_record("alice", "decided", "use_postgres"))
+            .unwrap();
     }
     {
         let mut au = state.aureus.lock().unwrap();
@@ -249,13 +292,16 @@ fn test_self_model_capabilities_after_bootstrap() {
     let state = make_app_state();
     // Bootstrap (same as bin/webserver.rs does)
     for op in &["add_memory", "search_memory"] {
-        state.self_model.register_capability(CapabilityDescriptor {
-            name: op.to_string(),
-            description: format!("test {}", op),
-            required_cpu_percent: 5.0,
-            required_memory_mb: 50.0,
-            limitations: vec![],
-        }).unwrap();
+        state
+            .self_model
+            .register_capability(CapabilityDescriptor {
+                name: op.to_string(),
+                description: format!("test {}", op),
+                required_cpu_percent: 5.0,
+                required_memory_mb: 50.0,
+                limitations: vec![],
+            })
+            .unwrap();
     }
     assert!(state.self_model.get_capability("add_memory").is_ok());
     assert!(state.self_model.get_capability("search_memory").is_ok());
@@ -285,8 +331,10 @@ fn test_wm_get_states_after_transitions() {
     let state = make_app_state();
     {
         let mut wm = state.world_model.write().unwrap();
-        wm.observe_transition("S1".into(), "A1".into(), "S2".into()).unwrap();
-        wm.observe_transition("S2".into(), "A2".into(), "S3".into()).unwrap();
+        wm.observe_transition("S1".into(), "A1".into(), "S2".into())
+            .unwrap();
+        wm.observe_transition("S2".into(), "A2".into(), "S3".into())
+            .unwrap();
     }
     let wm = state.world_model.read().unwrap();
     let states = wm.get_states();
@@ -300,8 +348,10 @@ fn test_wm_get_actions_after_transitions() {
     let state = make_app_state();
     {
         let mut wm = state.world_model.write().unwrap();
-        wm.observe_transition("S1".into(), "A1".into(), "S2".into()).unwrap();
-        wm.observe_transition("S1".into(), "A2".into(), "S3".into()).unwrap();
+        wm.observe_transition("S1".into(), "A1".into(), "S2".into())
+            .unwrap();
+        wm.observe_transition("S1".into(), "A2".into(), "S3".into())
+            .unwrap();
     }
     let wm = state.world_model.read().unwrap();
     let actions = wm.get_actions();
@@ -314,8 +364,10 @@ fn test_wm_get_all_entropy() {
     let state = make_app_state();
     {
         let mut wm = state.world_model.write().unwrap();
-        wm.observe_transition("S1".into(), "A1".into(), "S2".into()).unwrap();
-        wm.observe_transition("S1".into(), "A1".into(), "S3".into()).unwrap();
+        wm.observe_transition("S1".into(), "A1".into(), "S2".into())
+            .unwrap();
+        wm.observe_transition("S1".into(), "A1".into(), "S3".into())
+            .unwrap();
     }
     let wm = state.world_model.read().unwrap();
     let entropy_list = wm.get_all_entropy();
@@ -360,14 +412,18 @@ fn test_wm_entity_with_initial_values() {
     let state = make_app_state();
     {
         let mut wm = state.world_model.write().unwrap();
-        wm.register_entity("sensor_1".into(), EntityState {
-            properties: vec![42.0, 7.5, 1.0],
-            covariance: vec![
-                vec![0.1, 0.0, 0.0],
-                vec![0.0, 0.1, 0.0],
-                vec![0.0, 0.0, 0.1],
-            ],
-        }).unwrap();
+        wm.register_entity(
+            "sensor_1".into(),
+            EntityState {
+                properties: vec![42.0, 7.5, 1.0],
+                covariance: vec![
+                    vec![0.1, 0.0, 0.0],
+                    vec![0.0, 0.1, 0.0],
+                    vec![0.0, 0.0, 0.1],
+                ],
+            },
+        )
+        .unwrap();
     }
     let entities = state.world_model.read().unwrap().list_entities().unwrap();
     assert!(entities.contains(&"sensor_1".to_string()));
@@ -392,8 +448,12 @@ fn test_coherence_check_consistency_no_panic() {
 fn test_self_can_execute_unknown_op() {
     use hipcortex::self_model::DecisionContext;
     let state = make_app_state();
-    let decision = state.self_model
-        .can_execute("completely_unknown_op_xyz", DecisionContext::default_context())
+    let decision = state
+        .self_model
+        .can_execute(
+            "completely_unknown_op_xyz",
+            DecisionContext::default_context(),
+        )
         .unwrap();
     assert!(!decision.should_execute);
     assert!(decision.rationale.contains("not registered"));
@@ -403,14 +463,18 @@ fn test_self_can_execute_unknown_op() {
 fn test_self_can_execute_registered_op() {
     use hipcortex::self_model::{CapabilityDescriptor, DecisionContext};
     let state = make_app_state();
-    state.self_model.register_capability(CapabilityDescriptor {
-        name: "test_exec_op".into(),
-        description: "test".into(),
-        required_cpu_percent: 5.0,
-        required_memory_mb: 50.0,
-        limitations: vec![],
-    }).unwrap();
-    let decision = state.self_model
+    state
+        .self_model
+        .register_capability(CapabilityDescriptor {
+            name: "test_exec_op".into(),
+            description: "test".into(),
+            required_cpu_percent: 5.0,
+            required_memory_mb: 50.0,
+            limitations: vec![],
+        })
+        .unwrap();
+    let decision = state
+        .self_model
         .can_execute("test_exec_op", DecisionContext::default_context())
         .unwrap();
     assert!(decision.confidence >= 0.0 && decision.confidence <= 1.0);

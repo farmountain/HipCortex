@@ -1,0 +1,134 @@
+import json
+
+def e(src, tgt, typ, w):
+    return {'source': src, 'target': tgt, 'type': typ, 'direction': 'forward', 'weight': w}
+
+nodes = [
+    {'id':'file:src/memory_diff.rs','type':'file','name':'memory_diff.rs','filePath':'src/memory_diff.rs','summary':'Provides structural diffing between two slices of MemoryRecord snapshots, exposing FieldChange and StateDiff types plus compute_diff and diff_snapshots functions for tracking record-level mutations including confidence deltas, status transitions, and ReAct iteration counts.','tags':['utility','data-model','serialization'],'complexity':'moderate'},
+    {'id':'class:src/memory_diff.rs:FieldChange','type':'class','name':'FieldChange','filePath':'src/memory_diff.rs','lineRange':[27,31],'summary':'Value-object struct recording a single field mutation: field name, old value, and new value as strings.','tags':['data-model','utility'],'complexity':'simple'},
+    {'id':'class:src/memory_diff.rs:StateDiff','type':'class','name':'StateDiff','filePath':'src/memory_diff.rs','lineRange':[34,42],'summary':'Aggregates all field-level changes between two versions of a MemoryRecord, including record ID, version bounds, collected FieldChange entries, confidence delta, status change, and ReAct iteration delta.','tags':['data-model','utility'],'complexity':'simple'},
+    {'id':'function:src/memory_diff.rs:diff_snapshots','type':'function','name':'diff_snapshots','filePath':'src/memory_diff.rs','lineRange':[5,24],'summary':'Compares two slices of MemoryRecords to identify added and removed records by ID set membership, returning separate added/removed vectors.','tags':['utility','data-model'],'complexity':'simple'},
+    {'id':'function:src/memory_diff.rs:compute_diff','type':'function','name':'compute_diff','filePath':'src/memory_diff.rs','lineRange':[45,82],'summary':'Produces a StateDiff between two MemoryRecord instances by comparing individual fields, computing confidence delta, detecting status transitions, and calculating ReAct iteration changes.','tags':['utility','data-model'],'complexity':'moderate'},
+    {'id':'file:src/memory_record.rs','type':'file','name':'memory_record.rs','filePath':'src/memory_record.rs','summary':'Defines the canonical MemoryRecord struct and MemoryType enum that form the core data model of the engine, including SHA-256 integrity hashing, temporal decay, access tracking, metadata management, pruning heuristics, and provenance fields (evidence, derived_from, react_iteration) for agentic workflows.','tags':['data-model','utility','serialization'],'complexity':'complex','languageNotes':'Uses serde derive macros for JSON serialization and sha2/hex for integrity hashing. The new Goal/Skill/Belief MemoryType variants and provenance fields enable ReAct agent traceability.'},
+    {'id':'class:src/memory_record.rs:MemoryType','type':'class','name':'MemoryType','filePath':'src/memory_record.rs','lineRange':[7,16],'summary':'Enum discriminating memory record kinds: Temporal, Symbolic, Procedural, Reflexion, Perception, and the recently added Goal, Skill, and Belief variants for metacognitive agent state.','tags':['data-model','type-definition'],'complexity':'simple'},
+    {'id':'class:src/memory_record.rs:MemoryRecord','type':'class','name':'MemoryRecord','filePath':'src/memory_record.rs','lineRange':[19,74],'summary':'Core memory record struct carrying identity (UUID), temporal metadata, actor/action/target triple, arbitrary JSON metadata, SHA-256 content hash for integrity, relevance score, confidence, priority/status/tag classification, and provenance fields evidence/derived_from/react_iteration.','tags':['data-model','serialization'],'complexity':'complex'},
+    {'id':'function:src/memory_record.rs:new','type':'function','name':'new','filePath':'src/memory_record.rs','lineRange':[93,129],'summary':'Constructor that initializes a MemoryRecord with a fresh UUID, current timestamp, default relevance/confidence/priority/status, computes the SHA-256 integrity hash, and sets the content_hash field.','tags':['factory','data-model'],'complexity':'moderate'},
+    {'id':'function:src/memory_record.rs:compute_hash','type':'function','name':'compute_hash','filePath':'src/memory_record.rs','lineRange':[131,141],'summary':'Clones the record with hash fields zeroed, serializes to JSON bytes via serde_json, and returns a hex-encoded SHA-256 digest for integrity verification.','tags':['utility','serialization'],'complexity':'simple'},
+    {'id':'function:src/memory_record.rs:calculate_decay_factor','type':'function','name':'calculate_decay_factor','filePath':'src/memory_record.rs','lineRange':[155,164],'summary':'Applies exponential time decay weighted by access frequency and current relevance score, returning a clamped 0-to-1 decay factor.','tags':['utility'],'complexity':'simple'},
+    {'id':'function:src/memory_record.rs:set_metadata_field','type':'function','name':'set_metadata_field','filePath':'src/memory_record.rs','lineRange':[175,193],'summary':'Inserts or updates a typed value in the JSON metadata map and recomputes the content hash and integrity hash to keep the record consistent.','tags':['utility','serialization'],'complexity':'simple'},
+    {'id':'function:src/memory_record.rs:should_prune','type':'function','name':'should_prune','filePath':'src/memory_record.rs','lineRange':[196,204],'summary':'Returns true when the record falls below an access-count threshold or exceeds a maximum age in days, enabling LRU-style pruning decisions.','tags':['utility'],'complexity':'simple'},
+    {'id':'function:src/memory_record.rs:similarity_score','type':'function','name':'similarity_score','filePath':'src/memory_record.rs','lineRange':[207,236],'summary':'Computes a multi-dimensional similarity score against another MemoryRecord, combining actor/action/target string equality, metadata field overlap, tag intersection, and confidence proximity.','tags':['utility'],'complexity':'moderate'},
+    {'id':'file:src/memory_store.rs','type':'file','name':'memory_store.rs','filePath':'src/memory_store.rs','summary':'The central persistence facade for MemoryRecord storage, providing pluggable backends (file JSONL, encrypted JSONL, in-memory, RocksDB), write-ahead buffering, inverted indices for actor/action/target lookup, trust-weighted semantic search with cosine similarity, namespace filtering, audit log integration, snapshot/rollback, and recently patched archive exclusion from default search results.','tags':['service','data-model','factory'],'complexity':'complex','languageNotes':'Uses IndexMap for ordered inverted indices and a VecDeque write-ahead buffer. The search_semantic method applies multi-factor ranking: cosine or keyword score x trust weight x priority multiplier x exponential time decay, with pinned records injected at the head.'},
+    {'id':'class:src/memory_store.rs:MemoryStore','type':'class','name':'MemoryStore','filePath':'src/memory_store.rs','lineRange':[15,32],'summary':'Main store struct holding the pluggable backend, in-memory record vector, audit log, write-ahead buffer, inverted indices for actor/action/target, source trust registry, optional embedding provider, and optional namespace.','tags':['service','data-model'],'complexity':'complex'},
+    {'id':'class:src/memory_store.rs:BulkAddError','type':'class','name':'BulkAddError','filePath':'src/memory_store.rs','lineRange':[113,117],'summary':'Error type for bulk-add operations, carrying the failing record index, actor name, and human-readable reason string.','tags':['data-model'],'complexity':'simple'},
+    {'id':'function:src/memory_store.rs:new_with_options','type':'function','name':'new_with_options','filePath':'src/memory_store.rs','lineRange':[39,62],'summary':'Constructs a MemoryStore backed by a JSONL file with optional zstd compression, initialising all indices, audit log, and WAL buffer before loading persisted records.','tags':['factory','service'],'complexity':'moderate'},
+    {'id':'function:src/memory_store.rs:new_encrypted','type':'function','name':'new_encrypted','filePath':'src/memory_store.rs','lineRange':[64,83],'summary':'Creates an AES-GCM encrypted JSONL-backed MemoryStore, deriving a per-file key directly from the provided 32-byte key slice.','tags':['factory','service','security'],'complexity':'moderate'},
+    {'id':'function:src/memory_store.rs:new_encrypted_envelope','type':'function','name':'new_encrypted_envelope','filePath':'src/memory_store.rs','lineRange':[85,108],'summary':'Opens or creates an envelope-encrypted MemoryStore where a master key wraps a randomly generated data-encryption key, supporting re-keying without re-encrypting all records.','tags':['factory','service','security'],'complexity':'moderate'},
+    {'id':'function:src/memory_store.rs:new_in_memory','type':'function','name':'new_in_memory','filePath':'src/memory_store.rs','lineRange':[121,136],'summary':'Instantiates a non-persistent in-memory MemoryStore backed by InMemoryBackend with a no-op audit sink, useful for testing and ephemeral agent sessions.','tags':['factory','service','test'],'complexity':'simple'},
+    {'id':'function:src/memory_store.rs:new_rocksdb','type':'function','name':'new_rocksdb','filePath':'src/memory_store.rs','lineRange':[141,159],'summary':'Constructs a MemoryStore using RocksDB as the backend for high-throughput persistent storage, requires the rocksdb feature flag.','tags':['factory','service'],'complexity':'moderate'},
+    {'id':'function:src/memory_store.rs:load','type':'function','name':'load','filePath':'src/memory_store.rs','lineRange':[163,186],'summary':'Reads all records from the backend, rebuilds the actor/action/target inverted indices, and populates the in-memory record vector.','tags':['service'],'complexity':'moderate'},
+    {'id':'function:src/memory_store.rs:rebuild_indices','type':'function','name':'rebuild_indices','filePath':'src/memory_store.rs','lineRange':[191,209],'summary':'Clears and reconstructs all three inverted index maps from the current in-memory record vector, used after mutations that change multiple records.','tags':['service','utility'],'complexity':'moderate'},
+    {'id':'function:src/memory_store.rs:purge_expired','type':'function','name':'purge_expired','filePath':'src/memory_store.rs','lineRange':[214,224],'summary':'Removes records whose expires_at timestamp has passed, rebuilds indices, and returns the count of purged records.','tags':['service','utility'],'complexity':'simple'},
+    {'id':'function:src/memory_store.rs:delete_by_id','type':'function','name':'delete_by_id','filePath':'src/memory_store.rs','lineRange':[229,239],'summary':'Removes the record with the given UUID from the in-memory vector and rebuilds indices, returning the count of deleted records.','tags':['service'],'complexity':'simple'},
+    {'id':'function:src/memory_store.rs:add','type':'function','name':'add','filePath':'src/memory_store.rs','lineRange':[241,272],'summary':'Appends a MemoryRecord to the in-memory store, updates all three inverted indices, appends to the audit log, buffers the record in the WAL, and flushes when the batch threshold is reached.','tags':['service'],'complexity':'moderate'},
+    {'id':'function:src/memory_store.rs:search_semantic','type':'function','name':'search_semantic','filePath':'src/memory_store.rs','lineRange':[438,505],'summary':'Ranks non-archived, non-expired records by a composite score of cosine similarity (when embeddings present) or keyword overlap, multiplied by source trust, priority, and exponential time decay; pinned records are injected at the head regardless of score.','tags':['service','utility'],'complexity':'complex'},
+    {'id':'function:src/memory_store.rs:set_status','type':'function','name':'set_status','filePath':'src/memory_store.rs','lineRange':[329,340],'summary':'Updates a record status string and recomputes its integrity hash, then rewrites the full backend to persist the change.','tags':['service'],'complexity':'simple'},
+    {'id':'function:src/memory_store.rs:corroborate','type':'function','name':'corroborate','filePath':'src/memory_store.rs','lineRange':[344,360],'summary':'Increases a record confidence by 0.1 capped at 1.0, recomputes its hash, notifies the source trust registry, and persists the change.','tags':['service'],'complexity':'moderate'},
+    {'id':'function:src/memory_store.rs:contradict','type':'function','name':'contradict','filePath':'src/memory_store.rs','lineRange':[365,383],'summary':'Decreases a record confidence by 0.15 floored at 0.0, moves its status to quarantine, notifies the source trust registry, and persists the change.','tags':['service'],'complexity':'moderate'},
+    {'id':'function:src/memory_store.rs:compute_decay','type':'function','name':'compute_decay','filePath':'src/memory_store.rs','lineRange':[408,430],'summary':'Reads per-record decay_factor and decay_half_life_secs from metadata and computes an exponential decay multiplier based on elapsed time since creation.','tags':['service','utility'],'complexity':'moderate'},
+    {'id':'function:src/memory_store.rs:find_by_actor_ns','type':'function','name':'find_by_actor_ns','filePath':'src/memory_store.rs','lineRange':[520,529],'summary':'Returns records matching a given actor filtered to only those tagged with the store active namespace prefix.','tags':['service'],'complexity':'simple'},
+    {'id':'function:src/memory_store.rs:namespace_counts','type':'function','name':'namespace_counts','filePath':'src/memory_store.rs','lineRange':[543,553],'summary':'Counts records per namespace by scanning all records for ns-prefixed tags and returning a HashMap of namespace to count.','tags':['service','utility'],'complexity':'simple'},
+    {'id':'function:src/memory_store.rs:find_trusted','type':'function','name':'find_trusted','filePath':'src/memory_store.rs','lineRange':[557,566],'summary':'Filters records for a given actor to those whose source meets or exceeds a trust_threshold according to the source trust registry.','tags':['service','security'],'complexity':'simple'},
+    {'id':'function:src/memory_store.rs:embed_and_add','type':'function','name':'embed_and_add','filePath':'src/memory_store.rs','lineRange':[584,596],'summary':'Calls the configured embedding provider to produce a float vector from the given text, stores it in the record metadata under the embedding key, then adds the record to the store.','tags':['service','utility'],'complexity':'simple'},
+    {'id':'function:src/memory_store.rs:delete_by_actor','type':'function','name':'delete_by_actor','filePath':'src/memory_store.rs','lineRange':[601,641],'summary':'Removes all records belonging to a given actor, rebuilds indices, rewrites the backend, and appends an audit log entry for the deletion.','tags':['service'],'complexity':'moderate'},
+    {'id':'function:src/memory_store.rs:update_record','type':'function','name':'update_record','filePath':'src/memory_store.rs','lineRange':[650,690],'summary':'Applies partial updates (target, action, confidence, source, metadata) to an existing record by ID, recomputes the hash, rewrites the backend, and logs the update to the audit trail.','tags':['service'],'complexity':'moderate'},
+    {'id':'function:src/memory_store.rs:find_latest','type':'function','name':'find_latest','filePath':'src/memory_store.rs','lineRange':[695,721],'summary':'Returns the most recent non-expired records matching optional actor/action filters, deduplicated by actor+action pair and limited to the requested count.','tags':['service'],'complexity':'moderate'},
+    {'id':'function:src/memory_store.rs:snapshot','type':'function','name':'snapshot','filePath':'src/memory_store.rs','lineRange':[744,753],'summary':'Flushes the WAL buffer then serializes the full in-memory record set to a JSON snapshot file at the given path.','tags':['service'],'complexity':'simple'},
+    {'id':'function:src/memory_store.rs:rollback','type':'function','name':'rollback','filePath':'src/memory_store.rs','lineRange':[755,800],'summary':'Restores the store state from a JSON snapshot file, verifying each record hash integrity before accepting it, then rebuilds indices, rewrites the backend, and logs the rollback event.','tags':['service'],'complexity':'complex'},
+    {'id':'function:src/memory_store.rs:cosine_similarity','type':'function','name':'cosine_similarity','filePath':'src/memory_store.rs','lineRange':[837,846],'summary':'Computes cosine similarity between two f64 embedding vectors, clamping to the shorter length and guarding against zero-magnitude vectors.','tags':['utility'],'complexity':'simple'},
+    {'id':'function:src/memory_store.rs:keyword_score','type':'function','name':'keyword_score','filePath':'src/memory_store.rs','lineRange':[850,861],'summary':'Computes a keyword overlap score between a query string and a MemoryRecord actor/action/target fields, returning the fraction of query tokens found in the concatenated haystack.','tags':['utility'],'complexity':'simple'},
+]
+
+edges = []
+
+# Import edges (3 total)
+edges.append(e('file:src/memory_diff.rs','file:src/memory_record.rs','imports',0.7))
+edges.append(e('file:src/memory_store.rs','file:src/memory_record.rs','imports',0.7))
+edges.append(e('file:src/memory_store.rs','file:src/persistence.rs','imports',0.7))
+
+# memory_diff.rs contains/exports
+for n in ['class:src/memory_diff.rs:FieldChange','class:src/memory_diff.rs:StateDiff',
+          'function:src/memory_diff.rs:diff_snapshots','function:src/memory_diff.rs:compute_diff']:
+    edges.append(e('file:src/memory_diff.rs', n, 'contains', 1.0))
+    edges.append(e('file:src/memory_diff.rs', n, 'exports', 0.8))
+
+# memory_record.rs contains/exports
+mr_nodes = [
+    'class:src/memory_record.rs:MemoryType','class:src/memory_record.rs:MemoryRecord',
+    'function:src/memory_record.rs:new','function:src/memory_record.rs:compute_hash',
+    'function:src/memory_record.rs:calculate_decay_factor','function:src/memory_record.rs:set_metadata_field',
+    'function:src/memory_record.rs:should_prune','function:src/memory_record.rs:similarity_score'
+]
+for n in mr_nodes:
+    edges.append(e('file:src/memory_record.rs', n, 'contains', 1.0))
+    edges.append(e('file:src/memory_record.rs', n, 'exports', 0.8))
+
+# MemoryRecord class contains its methods
+for n in ['function:src/memory_record.rs:new','function:src/memory_record.rs:compute_hash',
+          'function:src/memory_record.rs:calculate_decay_factor','function:src/memory_record.rs:set_metadata_field',
+          'function:src/memory_record.rs:should_prune','function:src/memory_record.rs:similarity_score']:
+    edges.append(e('class:src/memory_record.rs:MemoryRecord', n, 'contains', 1.0))
+
+# memory_store.rs contains all nodes
+ms_nodes = [
+    'class:src/memory_store.rs:MemoryStore','class:src/memory_store.rs:BulkAddError',
+    'function:src/memory_store.rs:new_with_options','function:src/memory_store.rs:new_encrypted',
+    'function:src/memory_store.rs:new_encrypted_envelope','function:src/memory_store.rs:new_in_memory',
+    'function:src/memory_store.rs:new_rocksdb','function:src/memory_store.rs:load',
+    'function:src/memory_store.rs:rebuild_indices','function:src/memory_store.rs:purge_expired',
+    'function:src/memory_store.rs:delete_by_id','function:src/memory_store.rs:add',
+    'function:src/memory_store.rs:search_semantic','function:src/memory_store.rs:set_status',
+    'function:src/memory_store.rs:corroborate','function:src/memory_store.rs:contradict',
+    'function:src/memory_store.rs:compute_decay','function:src/memory_store.rs:find_by_actor_ns',
+    'function:src/memory_store.rs:namespace_counts','function:src/memory_store.rs:find_trusted',
+    'function:src/memory_store.rs:embed_and_add','function:src/memory_store.rs:delete_by_actor',
+    'function:src/memory_store.rs:update_record','function:src/memory_store.rs:find_latest',
+    'function:src/memory_store.rs:snapshot','function:src/memory_store.rs:rollback',
+    'function:src/memory_store.rs:cosine_similarity','function:src/memory_store.rs:keyword_score'
+]
+ms_exports = [
+    'class:src/memory_store.rs:MemoryStore','class:src/memory_store.rs:BulkAddError',
+    'function:src/memory_store.rs:new_with_options','function:src/memory_store.rs:new_encrypted',
+    'function:src/memory_store.rs:new_encrypted_envelope','function:src/memory_store.rs:new_in_memory',
+    'function:src/memory_store.rs:new_rocksdb','function:src/memory_store.rs:purge_expired',
+    'function:src/memory_store.rs:delete_by_id','function:src/memory_store.rs:add',
+    'function:src/memory_store.rs:search_semantic','function:src/memory_store.rs:delete_by_actor',
+    'function:src/memory_store.rs:update_record','function:src/memory_store.rs:find_latest',
+    'function:src/memory_store.rs:rollback','function:src/memory_store.rs:snapshot'
+]
+for n in ms_nodes:
+    edges.append(e('file:src/memory_store.rs', n, 'contains', 1.0))
+for n in ms_exports:
+    edges.append(e('file:src/memory_store.rs', n, 'exports', 0.8))
+
+# MemoryStore class contains its method nodes
+for n in [x for x in ms_nodes if 'function:' in x]:
+    edges.append(e('class:src/memory_store.rs:MemoryStore', n, 'contains', 1.0))
+
+# Intra-file calls
+edges.append(e('function:src/memory_store.rs:search_semantic','function:src/memory_store.rs:cosine_similarity','calls',0.8))
+edges.append(e('function:src/memory_store.rs:search_semantic','function:src/memory_store.rs:keyword_score','calls',0.8))
+edges.append(e('function:src/memory_store.rs:search_semantic','function:src/memory_store.rs:compute_decay','calls',0.8))
+edges.append(e('function:src/memory_store.rs:embed_and_add','function:src/memory_store.rs:add','calls',0.8))
+edges.append(e('function:src/memory_store.rs:purge_expired','function:src/memory_store.rs:rebuild_indices','calls',0.8))
+edges.append(e('function:src/memory_store.rs:delete_by_id','function:src/memory_store.rs:rebuild_indices','calls',0.8))
+edges.append(e('function:src/memory_store.rs:find_trusted','function:src/memory_store.rs:find_by_actor_ns','calls',0.8))
+
+# Cross-file calls (memory_diff -> memory_record)
+edges.append(e('function:src/memory_diff.rs:compute_diff','class:src/memory_record.rs:MemoryRecord','calls',0.8))
+edges.append(e('function:src/memory_diff.rs:diff_snapshots','class:src/memory_record.rs:MemoryRecord','calls',0.8))
+
+out = {'nodes': nodes, 'edges': edges}
+with open('D:/all_projects/hipcortex/.ua/intermediate/batch-39.json', 'w') as f:
+    json.dump(out, f, indent=2)
+print('DONE nodes=%d edges=%d' % (len(nodes), len(edges)))

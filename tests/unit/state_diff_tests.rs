@@ -22,8 +22,20 @@ fn completeness_after_two_adds() {
     let log = TxLog::open(dir.path().join("tx.jsonl")).unwrap();
     let mut store = MemoryStore::new_in_memory();
 
-    let r1 = MemoryRecord::new(MemoryType::Temporal, "a".into(), "did".into(), "x".into(), serde_json::json!({}));
-    let r2 = MemoryRecord::new(MemoryType::Temporal, "a".into(), "did".into(), "y".into(), serde_json::json!({}));
+    let r1 = MemoryRecord::new(
+        MemoryType::Temporal,
+        "a".into(),
+        "did".into(),
+        "x".into(),
+        serde_json::json!({}),
+    );
+    let r2 = MemoryRecord::new(
+        MemoryType::Temporal,
+        "a".into(),
+        "did".into(),
+        "y".into(),
+        serde_json::json!({}),
+    );
     let id1 = r1.id;
     let id2 = r2.id;
 
@@ -34,8 +46,14 @@ fn completeness_after_two_adds() {
     store.add(r2).unwrap();
 
     let diff = compute_tx_diff(&log, tx_before + 1, log.current_tx(), &store).unwrap();
-    assert!(diff.memory_delta.added.contains(&id1), "id1 missing from delta");
-    assert!(diff.memory_delta.added.contains(&id2), "id2 missing from delta");
+    assert!(
+        diff.memory_delta.added.contains(&id1),
+        "id1 missing from delta"
+    );
+    assert!(
+        diff.memory_delta.added.contains(&id2),
+        "id2 missing from delta"
+    );
     assert_eq!(diff.memory_delta.net_delta, 2);
 }
 

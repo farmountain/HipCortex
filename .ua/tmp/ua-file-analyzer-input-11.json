@@ -1,0 +1,7 @@
+{
+  "projectRoot": "D:/all_projects/hipcortex",
+  "batchFiles": [
+    {"path": "docs/superpowers/specs/2026-08-13-hipcortex-gap-remediation-design.md", "language": "markdown", "sizeLines": 0, "fileCategory": "docs"}
+  ],
+  "batchImportData": {"docs/superpowers/specs/2026-08-13-hipcortex-gap-remediation-design.md": []}
+}

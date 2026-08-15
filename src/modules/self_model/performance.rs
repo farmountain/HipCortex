@@ -19,13 +19,13 @@ use std::time::{Duration, Instant};
 pub struct OperationOutcome {
     /// Operation name
     pub operation: String,
-    
+
     /// Duration it took to execute
     pub duration: Duration,
-    
+
     /// Whether it succeeded
     pub success: bool,
-    
+
     /// When it was executed
     pub timestamp: Instant,
 }
@@ -35,16 +35,16 @@ pub struct OperationOutcome {
 pub struct PerformanceMetrics {
     /// Predicted latency in milliseconds (EWMA)
     pub latency_ms: f64,
-    
+
     /// Latency variance (for confidence interval)
     pub latency_variance: f64,
-    
+
     /// Predicted success probability (Bayesian)
     pub success_rate: f64,
-    
+
     /// 95% credible interval for success rate [lower, upper]
     pub success_credible_interval: (f64, f64),
-    
+
     /// Number of observations
     pub sample_count: usize,
 }
@@ -54,19 +54,19 @@ pub struct PerformanceMetrics {
 struct OperationStats {
     /// EWMA latency in milliseconds
     ewma_latency_ms: f64,
-    
+
     /// EWMA variance for confidence intervals
     ewma_variance: f64,
-    
+
     /// Success count (Beta distribution α parameter)
     successes: u64,
-    
+
     /// Failure count (Beta distribution β parameter)
     failures: u64,
-    
+
     /// Total observation count
     total_count: usize,
-    
+
     /// EWMA smoothing parameter (default: 0.1)
     alpha: f64,
 }
@@ -94,9 +94,10 @@ impl OperationStats {
             // EWMA update: L_t = α·L_actual + (1-α)·L_{t-1}
             let delta = latency_ms - self.ewma_latency_ms;
             self.ewma_latency_ms += self.alpha * delta;
-            
+
             // EWMA variance: V_t = (1-α)·(V_{t-1} + α·δ²)
-            self.ewma_variance = (1.0 - self.alpha) * (self.ewma_variance + self.alpha * delta * delta);
+            self.ewma_variance =
+                (1.0 - self.alpha) * (self.ewma_variance + self.alpha * delta * delta);
         }
 
         // Update Beta distribution parameters
@@ -134,25 +135,25 @@ impl OperationStats {
     fn beta_credible_interval(alpha: f64, beta: f64, confidence: f64) -> (f64, f64) {
         let mean = alpha / (alpha + beta);
         let n = alpha + beta;
-        
+
         // For large samples, use normal approximation
         if n > 30.0 {
             let variance = (alpha * beta) / ((alpha + beta).powi(2) * (alpha + beta + 1.0));
             let std_error = variance.sqrt();
-            
+
             // 95% CI: mean ± 1.96 * SE
             let z = if confidence > 0.99 {
                 2.576 // 99%
             } else if confidence > 0.95 {
-                1.96  // 95%
+                1.96 // 95%
             } else {
                 1.645 // 90%
             };
-            
+
             let margin = z * std_error;
             let lower = (mean - margin).max(0.0);
             let upper = (mean + margin).min(1.0);
-            
+
             (lower, upper)
         } else {
             // For small samples, use simple conservative bounds
@@ -181,9 +182,11 @@ impl PerformanceTracker {
 
     /// Record an operation outcome
     pub fn record(&mut self, outcome: OperationOutcome) -> Result<(), String> {
-        let stats = self.stats.entry(outcome.operation.clone())
+        let stats = self
+            .stats
+            .entry(outcome.operation.clone())
             .or_insert_with(OperationStats::new);
-        
+
         stats.update(&outcome);
         Ok(())
     }
@@ -192,7 +195,9 @@ impl PerformanceTracker {
     ///
     /// Returns EWMA latency and Bayesian success rate
     pub fn predict(&self, operation: &str) -> Result<PerformanceMetrics, String> {
-        let stats = self.stats.get(operation)
+        let stats = self
+            .stats
+            .get(operation)
             .ok_or_else(|| format!("No performance data for operation '{}'", operation))?;
 
         if stats.total_count == 0 {
@@ -204,7 +209,8 @@ impl PerformanceTracker {
 
     /// Get observation count for an operation
     pub fn observation_count(&self, operation: &str) -> usize {
-        self.stats.get(operation)
+        self.stats
+            .get(operation)
             .map(|s| s.total_count)
             .unwrap_or(0)
     }
@@ -225,8 +231,14 @@ impl PerformanceTracker {
     /// Get latency estimate with confidence interval
     ///
     /// Returns (mean_ms, lower_bound_ms, upper_bound_ms)
-    pub fn get_latency_with_ci(&self, operation: &str, confidence: f64) -> Result<(f64, f64, f64), String> {
-        let stats = self.stats.get(operation)
+    pub fn get_latency_with_ci(
+        &self,
+        operation: &str,
+        confidence: f64,
+    ) -> Result<(f64, f64, f64), String> {
+        let stats = self
+            .stats
+            .get(operation)
             .ok_or_else(|| format!("No performance data for operation '{}'", operation))?;
 
         if stats.total_count == 0 {
@@ -235,12 +247,12 @@ impl PerformanceTracker {
 
         let mean = stats.ewma_latency_ms;
         let std_dev = stats.ewma_variance.sqrt();
-        
+
         // Z-score for confidence level
         let z = if confidence > 0.99 {
             2.576 // 99%
         } else if confidence > 0.95 {
-            1.96  // 95%
+            1.96 // 95%
         } else {
             1.645 // 90%
         };
@@ -322,7 +334,7 @@ mod tests {
 
         let metrics = tracker.predict("test_op");
         assert!(metrics.is_ok());
-        
+
         let m = metrics.unwrap();
         assert!(m.latency_ms > 0.0);
         assert!(m.success_rate > 0.8); // Should be high with all successes
@@ -340,7 +352,7 @@ mod tests {
         }
 
         let metrics = tracker.predict("test_op").unwrap();
-        
+
         // EWMA should smooth the values
         assert!(metrics.latency_ms > 100.0 && metrics.latency_ms < 120.0);
     }
@@ -357,7 +369,7 @@ mod tests {
         }
 
         let metrics = tracker.predict("test_op").unwrap();
-        
+
         // Should estimate around 80% success
         assert!((metrics.success_rate - 0.80).abs() < 0.05);
     }
@@ -374,7 +386,7 @@ mod tests {
 
         let metrics = tracker.predict("test_op").unwrap();
         let (lower, upper) = metrics.success_credible_interval;
-        
+
         // Should have high success rate with narrow interval
         assert!(metrics.success_rate > 0.95);
         assert!(lower > 0.9);
@@ -385,7 +397,7 @@ mod tests {
     #[test]
     fn test_beta_credible_interval_large_n() {
         let (lower, upper) = OperationStats::beta_credible_interval(80.0, 20.0, 0.95);
-        
+
         // 80% success rate with large sample
         assert!(lower > 0.7 && lower < 0.8);
         assert!(upper > 0.8 && upper < 0.9);
@@ -395,7 +407,7 @@ mod tests {
     #[test]
     fn test_beta_credible_interval_small_n() {
         let (lower, upper) = OperationStats::beta_credible_interval(3.0, 2.0, 0.95);
-        
+
         // 60% success rate with small sample - wider interval
         assert!(lower < upper);
         assert!(lower >= 0.0 && upper <= 1.0);
@@ -408,12 +420,16 @@ mod tests {
         assert!(!tracker.has_sufficient_data("test_op"));
 
         for i in 0..5 {
-            tracker.record(create_outcome("test_op", 100, true)).unwrap();
+            tracker
+                .record(create_outcome("test_op", 100, true))
+                .unwrap();
         }
         assert!(!tracker.has_sufficient_data("test_op"));
 
         for i in 0..10 {
-            tracker.record(create_outcome("test_op", 100, true)).unwrap();
+            tracker
+                .record(create_outcome("test_op", 100, true))
+                .unwrap();
         }
         assert!(tracker.has_sufficient_data("test_op"));
     }
@@ -425,7 +441,9 @@ mod tests {
         // 70% success
         for i in 0..100 {
             let success = i < 70;
-            tracker.record(create_outcome("test_op", 100, success)).unwrap();
+            tracker
+                .record(create_outcome("test_op", 100, success))
+                .unwrap();
         }
 
         let rate = tracker.get_success_rate("test_op").unwrap();
@@ -438,12 +456,14 @@ mod tests {
 
         // Record stable latencies around 100ms
         for _ in 0..50 {
-            tracker.record(create_outcome("test_op", 100, true)).unwrap();
+            tracker
+                .record(create_outcome("test_op", 100, true))
+                .unwrap();
         }
 
         let result = tracker.get_latency_with_ci("test_op", 0.95);
         assert!(result.is_ok());
-        
+
         let (mean, lower, upper) = result.unwrap();
         assert!((mean - 100.0).abs() < 10.0);
         assert!(lower <= mean);
@@ -471,14 +491,18 @@ mod tests {
 
         // Start with 100ms latency
         for _ in 0..10 {
-            tracker.record(create_outcome("test_op", 100, true)).unwrap();
+            tracker
+                .record(create_outcome("test_op", 100, true))
+                .unwrap();
         }
 
         let metrics1 = tracker.predict("test_op").unwrap();
 
         // Suddenly increase to 200ms
         for _ in 0..10 {
-            tracker.record(create_outcome("test_op", 200, true)).unwrap();
+            tracker
+                .record(create_outcome("test_op", 200, true))
+                .unwrap();
         }
 
         let metrics2 = tracker.predict("test_op").unwrap();
@@ -493,14 +517,18 @@ mod tests {
 
         // Start with high success
         for _ in 0..20 {
-            tracker.record(create_outcome("test_op", 100, true)).unwrap();
+            tracker
+                .record(create_outcome("test_op", 100, true))
+                .unwrap();
         }
 
         let metrics1 = tracker.predict("test_op").unwrap();
 
         // Add failures
         for _ in 0..10 {
-            tracker.record(create_outcome("test_op", 100, false)).unwrap();
+            tracker
+                .record(create_outcome("test_op", 100, false))
+                .unwrap();
         }
 
         let metrics2 = tracker.predict("test_op").unwrap();

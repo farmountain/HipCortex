@@ -154,7 +154,9 @@ impl PerceptionAdapter {
         }
         match input.modality {
             Modality::Text => {
-                let text = input.text.ok_or(AdapterError::InvalidInput("missing text"))?;
+                let text = input
+                    .text
+                    .ok_or(AdapterError::InvalidInput("missing text"))?;
                 let emb = text_to_embedding(&text, COMPRESS_DIM * 4);
                 let comp = pca_compress(&emb, COMPRESS_DIM);
                 let out = l2_normalize(comp);
@@ -195,12 +197,17 @@ impl PerceptionAdapter {
                 if input.tags.is_empty() {
                     Err(AdapterError::InvalidInput("empty tags"))
                 } else {
-                    println!("[PerceptionAdapter] Symbolic concept tags: {:?}", input.tags);
+                    println!(
+                        "[PerceptionAdapter] Symbolic concept tags: {:?}",
+                        input.tags
+                    );
                     Ok(Vec::new())
                 }
             }
             Modality::AgentMessage => {
-                let text = input.text.ok_or(AdapterError::InvalidInput("missing text"))?;
+                let text = input
+                    .text
+                    .ok_or(AdapterError::InvalidInput("missing text"))?;
                 let emb = text_to_embedding(&text, COMPRESS_DIM * 4);
                 let comp = pca_compress(&emb, COMPRESS_DIM);
                 let out = l2_normalize(comp);
@@ -236,18 +243,27 @@ impl PerceptionSession {
         self
     }
 
-    pub fn with_world_model(mut self, wm: std::sync::Arc<crate::world_model_enhanced::WorldModelEnhanced>) -> Self {
+    pub fn with_world_model(
+        mut self,
+        wm: std::sync::Arc<crate::world_model_enhanced::WorldModelEnhanced>,
+    ) -> Self {
         self.world_model = Some(wm);
         self
     }
 
-    pub fn with_coherence(mut self, cc: std::sync::Arc<crate::coherence::CoherenceChecker>) -> Self {
+    pub fn with_coherence(
+        mut self,
+        cc: std::sync::Arc<crate::coherence::CoherenceChecker>,
+    ) -> Self {
         self.coherence = Some(cc);
         self
     }
 
     /// Wire topological substrate (for loop/omega exposure in mcp/integration auto feeds)
-    pub fn with_topo(mut self, t: std::sync::Arc<std::sync::Mutex<crate::topological_memory::CausalTopoGraph>>) -> Self {
+    pub fn with_topo(
+        mut self,
+        t: std::sync::Arc<std::sync::Mutex<crate::topological_memory::CausalTopoGraph>>,
+    ) -> Self {
         self.topo = Some(t);
         self
     }

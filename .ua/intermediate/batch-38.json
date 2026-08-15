@@ -1,0 +1,72 @@
+{
+  "nodes": [
+    {
+      "id": "file:src/lib.rs",
+      "type": "file",
+      "name": "lib.rs",
+      "filePath": "src/lib.rs",
+      "summary": "HipCortex crate root that registers every public module via pub mod declarations (many with #[path] redirects into src/modules/), re-exports key types such as LoopEngine, ReactEngine, CausalTopoGraph, EdgeType, and InMemoryBackend, and applies feature flags to gate web-server, gRPC, async-store, GUI, RocksDB, and tokio-dependent surfaces. Recently extended with pub mod payloads, archive_store, cognitive_gc, and execution_gate, plus updated loop_engine re-exports.",
+      "tags": ["entry-point", "barrel", "module-registry", "feature-gating"],
+      "complexity": "complex",
+      "languageNotes": "Rust lib.rs uses #[path] to redirect module declarations to files under src/modules/ — adding a file there without a matching entry here leaves it invisible to the compiler. Feature-gated blocks (async-store, web-server, grpc-server, gui, rocksdb-backend, tokio) allow additive compilation without external dependencies on a clean machine."
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:src/lib.rs",
+      "target": "file:src/archive_store.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib.rs",
+      "target": "file:src/cognitive_gc.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib.rs",
+      "target": "file:src/execution_gate.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib.rs",
+      "target": "file:src/payloads.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib.rs",
+      "target": "file:src/modules/loop_engine.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib.rs",
+      "target": "file:src/memory_diff.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib.rs",
+      "target": "file:src/memory_record.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/lib.rs",
+      "target": "file:src/memory_store.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    }
+  ]
+}

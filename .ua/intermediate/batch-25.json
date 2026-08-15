@@ -1,0 +1,79 @@
+{
+  "batchIndex": 25,
+  "nodes": [
+    {
+      "id": "document:openspec/changes/sdk-tmf-surface-update/.openspec.yaml",
+      "type": "document",
+      "name": "sdk-tmf-surface-update openspec manifest",
+      "filePath": "openspec/changes/sdk-tmf-surface-update/.openspec.yaml",
+      "summary": "Openspec manifest for the active SDK and extension surface update for the Tiered Memory Foundation (TMF). File content was unreadable (encoding issue); serves as the machine-readable anchor for the sdk-tmf-surface-update change set.",
+      "tags": ["openspec", "active", "sdk", "tmf", "manifest"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:openspec/changes/sdk-tmf-surface-update/design.md",
+      "type": "document",
+      "name": "sdk-tmf-surface-update design",
+      "filePath": "openspec/changes/sdk-tmf-surface-update/design.md",
+      "summary": "Detailed design for surfacing six new TMF REST endpoints across all four distribution channels. Covers five design decisions: minor version bump strategy (0.3.x to 0.4.0) with Cargo.toml unchanged, VS Code extension scope limited to hipcortex_graph_search LM tool and @hipcortex /link chat command, MCP server additions of link_memories/get_neighbors/search_related/delete_memory tools with full input schemas, exact Python sync/async client method signatures, TypeScript type interfaces and client method signatures, and the full build/release pipeline for Python/npm/VSIX with a verification matrix.",
+      "tags": ["openspec", "active", "sdk", "tmf", "python", "typescript", "vscode-extension", "mcp", "graph-search", "version-bump"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:openspec/changes/sdk-tmf-surface-update/proposal.md",
+      "type": "document",
+      "name": "sdk-tmf-surface-update proposal",
+      "filePath": "openspec/changes/sdk-tmf-surface-update/proposal.md",
+      "summary": "Change proposal identifying that the tiered-memory-foundation merge (commit 3126373) added 6 new REST endpoints and 2 enhanced response fields that remain unexposed in all four SDK/extension surfaces. Describes new API methods across Python, TypeScript, MCP server, and VS Code extension for graph linking, neighborhood traversal, PPR-ranked related search, per-record deletion, expired record visibility, and active_records stat. Bumps all surfaces to version 0.4.0.",
+      "tags": ["openspec", "active", "sdk", "tmf", "graph", "ppr", "api", "version-bump", "mcp"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:openspec/changes/sdk-tmf-surface-update/tasks.md",
+      "type": "document",
+      "name": "sdk-tmf-surface-update tasks",
+      "filePath": "openspec/changes/sdk-tmf-surface-update/tasks.md",
+      "summary": "Fully checked-off 8-phase task list for the TMF surface update: version bumps across three package files, Python sync/async client additions (5 methods each), TypeScript types.ts interfaces and client.ts methods (12 items), MCP server tool handlers and dispatch wiring (6 items), VS Code extension package.json and extension.ts additions (7 items), build and package steps, deferred publish tasks, and smoke verification against a running server.",
+      "tags": ["openspec", "active", "sdk", "tmf", "tasks", "python", "typescript", "vscode-extension", "mcp", "publish"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:openspec/changes/sdk-tmf-surface-update/.openspec.yaml",
+      "target": "document:openspec/changes/sdk-tmf-surface-update/proposal.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/sdk-tmf-surface-update/.openspec.yaml",
+      "target": "document:openspec/changes/sdk-tmf-surface-update/design.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/sdk-tmf-surface-update/.openspec.yaml",
+      "target": "document:openspec/changes/sdk-tmf-surface-update/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/sdk-tmf-surface-update/proposal.md",
+      "target": "document:openspec/changes/sdk-tmf-surface-update/design.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/sdk-tmf-surface-update/design.md",
+      "target": "document:openspec/changes/sdk-tmf-surface-update/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/sdk-tmf-surface-update/proposal.md",
+      "target": "document:openspec/changes/sdk-tmf-surface-update/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    }
+  ]
+}

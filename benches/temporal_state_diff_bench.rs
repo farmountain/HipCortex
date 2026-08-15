@@ -24,12 +24,10 @@ fn bench_state_diff(c: &mut Criterion) {
     }
 
     let from_tx = 1u64;
-    let to_tx   = log.current_tx();
+    let to_tx = log.current_tx();
 
     c.bench_function("compute_tx_diff_1k", |b| {
-        b.iter(|| {
-            compute_tx_diff(&log, from_tx, to_tx, &store).unwrap()
-        })
+        b.iter(|| compute_tx_diff(&log, from_tx, to_tx, &store).unwrap())
     });
 
     // Gate 5: P95 < 5ms — Criterion samples many iterations so the median

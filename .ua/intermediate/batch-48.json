@@ -1,0 +1,183 @@
+{
+  "batchIndex": 48,
+  "nodes": [
+    {
+      "id": "config:vscode-extension/hipcortex-memory-0.4.9.vsix",
+      "type": "config",
+      "name": "0.4.9",
+      "filePath": "vscode-extension/hipcortex-memory-0.4.9.vsix",
+      "summary": "VS Code extension VSIX package for HipCortex Memory v0.4.9. Binary distribution artifact containing bundled server binaries for Windows/macOS/Linux.",
+      "tags": ["vsix", "vscode-extension", "binary", "release"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:vscode-extension/hipcortex-memory-0.5.0.vsix",
+      "type": "config",
+      "name": "0.5.0",
+      "filePath": "vscode-extension/hipcortex-memory-0.5.0.vsix",
+      "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.0. Binary distribution artifact containing bundled server binaries for Windows/macOS/Linux.",
+      "tags": ["vsix", "vscode-extension", "binary", "release"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:vscode-extension/hipcortex-memory-0.5.1.vsix",
+      "type": "config",
+      "name": "0.5.1",
+      "filePath": "vscode-extension/hipcortex-memory-0.5.1.vsix",
+      "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.1. Binary distribution artifact containing bundled server binaries for Windows/macOS/Linux.",
+      "tags": ["vsix", "vscode-extension", "binary", "release"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:vscode-extension/hipcortex-memory-0.5.2.vsix",
+      "type": "config",
+      "name": "0.5.2",
+      "filePath": "vscode-extension/hipcortex-memory-0.5.2.vsix",
+      "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.2. Binary distribution artifact containing bundled server binaries for Windows/macOS/Linux.",
+      "tags": ["vsix", "vscode-extension", "binary", "release"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:vscode-extension/hipcortex-memory-0.5.3.vsix",
+      "type": "config",
+      "name": "0.5.3",
+      "filePath": "vscode-extension/hipcortex-memory-0.5.3.vsix",
+      "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.3. Binary distribution artifact containing bundled server binaries for Windows/macOS/Linux.",
+      "tags": ["vsix", "vscode-extension", "binary", "release"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:vscode-extension/hipcortex-memory-0.5.4.vsix",
+      "type": "config",
+      "name": "0.5.4",
+      "filePath": "vscode-extension/hipcortex-memory-0.5.4.vsix",
+      "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.4. Binary distribution artifact containing bundled server binaries for Windows/macOS/Linux.",
+      "tags": ["vsix", "vscode-extension", "binary", "release"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:vscode-extension/hipcortex-memory-0.5.5.vsix",
+      "type": "config",
+      "name": "0.5.5",
+      "filePath": "vscode-extension/hipcortex-memory-0.5.5.vsix",
+      "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.5. Binary distribution artifact containing bundled server binaries for Windows/macOS/Linux.",
+      "tags": ["vsix", "vscode-extension", "binary", "release"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:vscode-extension/hipcortex-memory-0.5.6.vsix",
+      "type": "config",
+      "name": "0.5.6",
+      "filePath": "vscode-extension/hipcortex-memory-0.5.6.vsix",
+      "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.6. Binary distribution artifact containing bundled server binaries for Windows/macOS/Linux.",
+      "tags": ["vsix", "vscode-extension", "binary", "release"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:vscode-extension/hipcortex-memory-0.5.7.vsix",
+      "type": "config",
+      "name": "0.5.7",
+      "filePath": "vscode-extension/hipcortex-memory-0.5.7.vsix",
+      "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.7. Binary distribution artifact containing bundled server binaries for Windows/macOS/Linux.",
+      "tags": ["vsix", "vscode-extension", "binary", "release"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:vscode-extension/hipcortex-memory-0.5.8.vsix",
+      "type": "config",
+      "name": "0.5.8",
+      "filePath": "vscode-extension/hipcortex-memory-0.5.8.vsix",
+      "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.8. Binary distribution artifact containing bundled server binaries for Windows/macOS/Linux.",
+      "tags": ["vsix", "vscode-extension", "binary", "release"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:vscode-extension/src/extension.ts",
+      "type": "file",
+      "name": "extension.ts",
+      "filePath": "vscode-extension/src/extension.ts",
+      "language": "typescript",
+      "lines": 2025,
+      "summary": "Main VS Code extension entry point for HipCortex Memory. Implements the full extension lifecycle: activate/deactivate, auto-server management, LM tool registration, chat participant, and VS Code commands.\n\nKey subsystems:\n\n1. SERVER MANAGEMENT: HipCortexAPI.autoStartServer() resolves the server binary via a priority chain — bundled VSIX binary (server/<platform>/<name>), CLI install dir (~/.hipcortex/), user cache (~/.hipcortex-vscode/bin/), then GitHub Releases download. Uses an exclusive server.lock + hipcortex.pid file shared with the Python CLI daemon to prevent dual spawns. ensureUnixExecutable() applies chmod 0755 to bundled Mac/Linux binaries (or copies to writable cache on read-only installs). shouldReuseRunningServer() implements a semver major.minor accept policy (configurable strict mode).\n\n2. REST API CLIENT (HipCortexAPI): Wraps the Rust web server at http://127.0.0.1:3030 (configurable). Endpoints covered: GET /health, POST /memory/add, GET /memory/query, GET /memory/live_beliefs, POST /memory/reflect, POST /worldmodel/predict, POST /worldmodel/rollout, GET /memory/search/related, POST /memory/search, POST /memory/link, GET /self/can-execute, GET /worldmodel/causal, POST /worldmodel/causal/counterfactual, POST /worldmodel/causal/intervention, GET /topo/ppr, POST /topo/deconstruct, POST /topo/apply-hyp, POST /topo/check-edge. Bearer token auth via hipcortex.apiKey setting.\n\n3. LM TOOLS (vscode.lm.registerTool, VS Code 1.90+): 10 substrate-first tools for Copilot/agent harness:\n   - hipcortex_search: live_beliefs + reflect; substrate-first recall gate\n   - hipcortex_health: health summary + reflect loop\n   - hipcortex_predict: world model state prediction with SelfModel can-execute gate\n   - hipcortex_rollout: multi-step WM rollout (dirichlet / mcts modes, supports goal_state for UCB1)\n   - hipcortex_graph_search: PPR-ranked related memories by seed UUID\n   - hipcortex_causal: causal graph query (graph / counterfactual / intervention modes)\n   - hipcortex_topo_ppr: Personalized PageRank over CausalTopoGraph nodes\n   - hipcortex_deconstruct: parse hypothesis text into causal nodes/edges; apply=true writes to topo\n   - hipcortex_check_edge: validate causal edge addition for cycles/reversals\n   - hipcortex_can_execute: SelfModel gate for agent operations\n\n4. CHAT PARTICIPANT (@hipcortex): HipCortexChatParticipant routes text commands — add/record/store, query/find, search, health/status, link, mode (headroom/caveman). Token savings tracked via TokenTracker and shown in status bar and chat footer.\n\n5. AUTO-CAPTURE: onDidSaveTextDocument hook stores every file save as a Symbolic memory record. Enriches with extractSemanticTags() (5 layers: languageId, path hints, git branch slug, document symbols, error diagnostics) and WM prediction of next file edited.\n\n6. VS CODE COMMANDS: hipcortex.addMemory (input box flow), hipcortex.queryMemory (QuickPick with formatMemoryQuickPickItem / formatMemoryDetailMessage), hipcortex.testExtension (health ping), hipcortex.restartServer.\n\n7. UTILITY EXPORTS: buildPublishedBinaryName, sharedInstallDir, sharedDataDir, sharedPidPath, sharedLockPath, parseLockPid, shouldStealStaleLock, netstatLineMatchesListenPort, isValidServerBinary, ensureUnixExecutable, extractPortFromBaseUrl, parseHealthPayload, isServerVersionAcceptable, shouldReuseRunningServer, extractSemanticTags, formatMemoryQuickPickItem, formatMemoryDetailMessage.\n\nConfiguration settings consumed: hipcortex.apiUrl, hipcortex.apiKey, hipcortex.autoStart, hipcortex.strictServerVersion, hipcortex.optimizationMode (headroom|caveman).",
+      "tags": [
+        "vscode-extension",
+        "typescript",
+        "lm-tools",
+        "chat-participant",
+        "server-management",
+        "auto-capture",
+        "rest-client",
+        "world-model",
+        "causal-graph",
+        "self-model",
+        "token-optimization"
+      ],
+      "complexity": "high",
+      "exports": [
+        "buildPublishedBinaryName",
+        "sharedInstallDir",
+        "sharedDataDir",
+        "sharedPidPath",
+        "sharedLockPath",
+        "parseLockPid",
+        "shouldStealStaleLock",
+        "netstatLineMatchesListenPort",
+        "isValidServerBinary",
+        "ensureUnixExecutable",
+        "HARNESS_TOOL_DESCRIPTIONS",
+        "AddMemoryRequest",
+        "SelfModelOperation",
+        "EXPECTED_SERVER_VERSION",
+        "extractPortFromBaseUrl",
+        "parseHealthPayload",
+        "isServerVersionAcceptable",
+        "shouldReuseRunningServer",
+        "HipCortexAPI",
+        "extractSemanticTags",
+        "formatMemoryQuickPickItem",
+        "formatMemoryDetailMessage",
+        "activate",
+        "deactivate"
+      ],
+      "lmTools": [
+        "hipcortex_search",
+        "hipcortex_health",
+        "hipcortex_predict",
+        "hipcortex_rollout",
+        "hipcortex_graph_search",
+        "hipcortex_causal",
+        "hipcortex_topo_ppr",
+        "hipcortex_deconstruct",
+        "hipcortex_check_edge",
+        "hipcortex_can_execute"
+      ],
+      "vsCodeCommands": [
+        "hipcortex.addMemory",
+        "hipcortex.queryMemory",
+        "hipcortex.testExtension",
+        "hipcortex.restartServer"
+      ],
+      "apiEndpoints": [
+        "GET /health",
+        "POST /memory/add",
+        "GET /memory/query",
+        "GET /memory/live_beliefs",
+        "POST /memory/reflect",
+        "POST /worldmodel/predict",
+        "POST /worldmodel/rollout",
+        "GET /memory/search/related",
+        "POST /memory/search",
+        "POST /memory/link",
+        "GET /self/can-execute",
+        "GET /worldmodel/causal",
+        "POST /worldmodel/causal/counterfactual",
+        "POST /worldmodel/causal/intervention",
+        "GET /topo/ppr",
+        "POST /topo/deconstruct",
+        "POST /topo/apply-hyp",
+        "POST /topo/check-edge"
+      ]
+    }
+  ],
+  "edges": []
+}

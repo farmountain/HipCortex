@@ -13,12 +13,7 @@ pub struct ContradictionReport {
 }
 
 /// Would adding from→to with edge type create a contradiction?
-pub fn would_contradict(
-    graph: &CausalTopoGraph,
-    from: &str,
-    to: &str,
-    et: EdgeType,
-) -> bool {
+pub fn would_contradict(graph: &CausalTopoGraph, from: &str, to: &str, et: EdgeType) -> bool {
     graph.detect_contradiction(from.to_string(), to.to_string(), et)
 }
 

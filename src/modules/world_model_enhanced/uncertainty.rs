@@ -14,13 +14,13 @@ use std::collections::HashMap;
 pub struct ConfidenceInterval {
     /// Point estimate (mean)
     pub mean: f64,
-    
+
     /// Lower bound (2.5th percentile for 95% CI)
     pub lower: f64,
-    
+
     /// Upper bound (97.5th percentile for 95% CI)
     pub upper: f64,
-    
+
     /// Confidence level (e.g., 0.95)
     pub level: f64,
 }
@@ -30,13 +30,13 @@ pub struct ConfidenceInterval {
 pub struct CalibrationMetrics {
     /// Expected Calibration Error (target: < 0.1)
     pub ece: f64,
-    
+
     /// Maximum Calibration Error
     pub mce: f64,
-    
+
     /// Number of bins used
     pub num_bins: usize,
-    
+
     /// Per-bin statistics
     pub bin_stats: Vec<BinStats>,
 }
@@ -45,13 +45,13 @@ pub struct CalibrationMetrics {
 pub struct BinStats {
     /// Bin index
     pub bin: usize,
-    
+
     /// Average predicted probability in bin
     pub avg_confidence: f64,
-    
+
     /// Actual accuracy in bin
     pub avg_accuracy: f64,
-    
+
     /// Number of samples in bin
     pub count: usize,
 }
@@ -59,8 +59,8 @@ pub struct BinStats {
 /// Uncertainty estimator with calibration tracking
 pub struct UncertaintyEstimator {
     /// History of predictions and outcomes for calibration
-    prediction_history: Vec<(f64, bool)>,  // (predicted_prob, was_correct)
-    
+    prediction_history: Vec<(f64, bool)>, // (predicted_prob, was_correct)
+
     /// Number of calibration bins
     num_bins: usize,
 }
@@ -97,8 +97,9 @@ impl UncertaintyEstimator {
 
         // Compute uncertainty from entropy
         // High entropy → wide CI, Low entropy → narrow CI
-        let normalized_entropy = prediction.entropy / (prediction.probabilities.len() as f64).log2();
-        let ci_width = normalized_entropy * max_prob * 0.5;  // Scale down for narrower intervals
+        let normalized_entropy =
+            prediction.entropy / (prediction.probabilities.len() as f64).log2();
+        let ci_width = normalized_entropy * max_prob * 0.5; // Scale down for narrower intervals
 
         Ok(ConfidenceInterval {
             mean: *max_prob,
@@ -119,7 +120,7 @@ impl UncertaintyEstimator {
         let epistemic = if sample_count > 0 {
             1.0 / (sample_count as f64).sqrt()
         } else {
-            1.0  // Maximum uncertainty with no data
+            1.0 // Maximum uncertainty with no data
         };
 
         // Aleatoric uncertainty is derived from the statistical entropy of the transition distribution
@@ -150,7 +151,7 @@ impl UncertaintyEstimator {
 
         // Assign predictions to bins
         let mut bins: Vec<Vec<(f64, bool)>> = vec![Vec::new(); self.num_bins];
-        
+
         for &(prob, correct) in &self.prediction_history {
             let bin_idx = ((prob * self.num_bins as f64).floor() as usize).min(self.num_bins - 1);
             bins[bin_idx].push((prob, correct));
@@ -168,7 +169,8 @@ impl UncertaintyEstimator {
             }
 
             let avg_confidence: f64 = bin.iter().map(|(p, _)| p).sum::<f64>() / bin.len() as f64;
-            let avg_accuracy: f64 = bin.iter().filter(|(_, c)| *c).count() as f64 / bin.len() as f64;
+            let avg_accuracy: f64 =
+                bin.iter().filter(|(_, c)| *c).count() as f64 / bin.len() as f64;
             let calibration_error = (avg_confidence - avg_accuracy).abs();
 
             bin_stats.push(BinStats {
@@ -202,17 +204,13 @@ impl UncertaintyEstimator {
     /// Propagate uncertainty through multi-step prediction
     ///
     /// Covariance grows with number of steps: Σ_n ≈ n × Σ_1
-    pub fn propagate_uncertainty(
-        &self,
-        initial_variance: f64,
-        steps: usize,
-    ) -> ConfidenceInterval {
+    pub fn propagate_uncertainty(&self, initial_variance: f64, steps: usize) -> ConfidenceInterval {
         // Variance grows linearly with steps (simplified random walk)
         let final_variance = initial_variance * steps as f64;
         let std_dev = final_variance.sqrt();
 
         // 95% CI: mean ± 1.96 × std_dev
-        let mean = 0.5;  // Neutral point estimate
+        let mean = 0.5; // Neutral point estimate
         let margin = 1.96 * std_dev;
 
         ConfidenceInterval {
@@ -249,7 +247,7 @@ mod tests {
     #[test]
     fn test_confidence_interval_high_entropy() {
         let estimator = UncertaintyEstimator::new();
-        
+
         // Uniform distribution → high entropy
         let prediction = TransitionPrediction {
             from_state: "S1".to_string(),
@@ -263,12 +261,12 @@ mod tests {
             .iter()
             .cloned()
             .collect(),
-            entropy: 2.0,  // log2(4) = 2.0
+            entropy: 2.0, // log2(4) = 2.0
             observation_count: 100,
         };
 
         let ci = estimator.compute_confidence_interval(&prediction).unwrap();
-        
+
         // High entropy → wide interval
         assert!(ci.upper - ci.lower > 0.1);
     }
@@ -276,39 +274,38 @@ mod tests {
     #[test]
     fn test_confidence_interval_low_entropy() {
         let estimator = UncertaintyEstimator::new();
-        
+
         // Skewed distribution → low entropy
         let prediction = TransitionPrediction {
             from_state: "S1".to_string(),
             action: "A1".to_string(),
-            probabilities: [
-                ("S2".to_string(), 0.9),
-                ("S3".to_string(), 0.1),
-            ]
-            .iter()
-            .cloned()
-            .collect(),
-            entropy: 0.47,  // Low entropy
+            probabilities: [("S2".to_string(), 0.9), ("S3".to_string(), 0.1)]
+                .iter()
+                .cloned()
+                .collect(),
+            entropy: 0.47, // Low entropy
             observation_count: 100,
         };
 
         let ci = estimator.compute_confidence_interval(&prediction).unwrap();
-        
+
         // Low entropy → narrow interval
         assert!(ci.upper - ci.lower < 0.5);
-        assert!(ci.mean > 0.8);  // Should be close to max probability
+        assert!(ci.mean > 0.8); // Should be close to max probability
     }
 
     #[test]
     fn test_uncertainty_decomposition() {
         let estimator = UncertaintyEstimator::new();
-        
+
         // With no data, epistemic should be high
-        let (epistemic_before, _aleatoric_before) = estimator.decompose("S1", "A1", 0, 0.0).unwrap();
+        let (epistemic_before, _aleatoric_before) =
+            estimator.decompose("S1", "A1", 0, 0.0).unwrap();
         assert_eq!(epistemic_before, 1.0);
-        
+
         // With more data (e.g. 100 samples, low entropy), epistemic should decrease
-        let (epistemic_after, _aleatoric_after) = estimator.decompose("S1", "A1", 100, 0.2).unwrap();
+        let (epistemic_after, _aleatoric_after) =
+            estimator.decompose("S1", "A1", 100, 0.2).unwrap();
         assert!(epistemic_after < epistemic_before);
         assert!((epistemic_after - 0.1).abs() < 0.001); // 1.0 / sqrt(100) = 0.1
     }
@@ -316,7 +313,7 @@ mod tests {
     #[test]
     fn test_perfect_calibration() {
         let mut estimator = UncertaintyEstimator::new();
-        
+
         // Perfectly calibrated: 80% confident → 80% correct
         for _ in 0..80 {
             estimator.record_outcome(0.8, true);
@@ -326,7 +323,7 @@ mod tests {
         }
 
         let metrics = estimator.get_metrics();
-        
+
         // Should be very well calibrated
         assert!(metrics.ece < 0.05);
     }
@@ -334,7 +331,7 @@ mod tests {
     #[test]
     fn test_poor_calibration_overconfident() {
         let mut estimator = UncertaintyEstimator::new();
-        
+
         // Overconfident: 90% confident but only 50% correct
         for _ in 0..50 {
             estimator.record_outcome(0.9, true);
@@ -344,7 +341,7 @@ mod tests {
         }
 
         let metrics = estimator.get_metrics();
-        
+
         // Should show poor calibration
         assert!(metrics.ece > 0.1);
         assert!(!estimator.is_well_calibrated());
@@ -353,7 +350,7 @@ mod tests {
     #[test]
     fn test_poor_calibration_underconfident() {
         let mut estimator = UncertaintyEstimator::new();
-        
+
         // Underconfident: 50% confident but 90% correct
         for _ in 0..90 {
             estimator.record_outcome(0.5, true);
@@ -363,7 +360,7 @@ mod tests {
         }
 
         let metrics = estimator.get_metrics();
-        
+
         // Should show poor calibration
         assert!(metrics.ece > 0.1);
     }
@@ -371,7 +368,7 @@ mod tests {
     #[test]
     fn test_mce_tracks_worst_bin() {
         let mut estimator = UncertaintyEstimator::new();
-        
+
         // Most bins calibrated, one bin very miscalibrated
         // Bin 1: well calibrated
         for _ in 0..10 {
@@ -380,17 +377,17 @@ mod tests {
         for _ in 0..90 {
             estimator.record_outcome(0.1, false);
         }
-        
+
         // Bin 9: poorly calibrated
         for _ in 0..90 {
-            estimator.record_outcome(0.9, false);  // Very wrong
+            estimator.record_outcome(0.9, false); // Very wrong
         }
         for _ in 0..10 {
             estimator.record_outcome(0.9, true);
         }
 
         let metrics = estimator.get_metrics();
-        
+
         // MCE should be large due to worst bin
         assert!(metrics.mce > 0.5);
     }
@@ -398,37 +395,37 @@ mod tests {
     #[test]
     fn test_propagate_uncertainty() {
         let estimator = UncertaintyEstimator::new();
-        
+
         let ci_1_step = estimator.propagate_uncertainty(0.01, 1);
         let ci_10_steps = estimator.propagate_uncertainty(0.01, 10);
-        
+
         // Uncertainty should grow with steps
         let width_1 = ci_1_step.upper - ci_1_step.lower;
         let width_10 = ci_10_steps.upper - ci_10_steps.lower;
-        
+
         assert!(width_10 > width_1);
     }
 
     #[test]
     fn test_bin_stats() {
         let mut estimator = UncertaintyEstimator::with_bins(5);
-        
+
         // Add predictions across different confidence ranges
         for _ in 0..10 {
-            estimator.record_outcome(0.2, false);  // Bin 1
+            estimator.record_outcome(0.2, false); // Bin 1
         }
         for _ in 0..20 {
-            estimator.record_outcome(0.5, true);   // Bin 2
+            estimator.record_outcome(0.5, true); // Bin 2
         }
         for _ in 0..30 {
-            estimator.record_outcome(0.8, true);   // Bin 4
+            estimator.record_outcome(0.8, true); // Bin 4
         }
 
         let metrics = estimator.get_metrics();
-        
+
         // Should have 3 non-empty bins
         assert_eq!(metrics.bin_stats.len(), 3);
-        
+
         // Check counts
         assert_eq!(metrics.bin_stats[0].count, 10);
         assert_eq!(metrics.bin_stats[1].count, 20);
@@ -439,7 +436,7 @@ mod tests {
     fn test_empty_estimator_metrics() {
         let estimator = UncertaintyEstimator::new();
         let metrics = estimator.get_metrics();
-        
+
         assert_eq!(metrics.ece, 0.0);
         assert_eq!(metrics.mce, 0.0);
         assert_eq!(metrics.bin_stats.len(), 0);
@@ -448,7 +445,7 @@ mod tests {
     #[test]
     fn test_confidence_interval_bounds() {
         let estimator = UncertaintyEstimator::new();
-        
+
         let prediction = TransitionPrediction {
             from_state: "S1".to_string(),
             action: "A1".to_string(),
@@ -458,7 +455,7 @@ mod tests {
         };
 
         let ci = estimator.compute_confidence_interval(&prediction).unwrap();
-        
+
         // Bounds should be in [0, 1]
         assert!(ci.lower >= 0.0);
         assert!(ci.upper <= 1.0);
@@ -469,16 +466,16 @@ mod tests {
     #[test]
     fn test_calibration_convergence() {
         let mut estimator = UncertaintyEstimator::new();
-        
+
         // Simulate well-calibrated predictions over time
         for i in 0..1000 {
             let confidence = 0.7;
-            let correct = (i % 10) < 7;  // 70% correct → matches 70% confidence
+            let correct = (i % 10) < 7; // 70% correct → matches 70% confidence
             estimator.record_outcome(confidence, correct);
         }
 
         let metrics = estimator.get_metrics();
-        
+
         // With many samples, should converge to good calibration
         assert!(metrics.ece < 0.05);
         assert!(estimator.is_well_calibrated());

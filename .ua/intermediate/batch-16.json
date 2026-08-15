@@ -1,0 +1,67 @@
+{
+  "batchIndex": 16,
+  "nodes": [
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/.openspec.yaml",
+      "type": "document",
+      "name": "Implement Cognitive OS OpenSpec",
+      "filePath": "openspec/changes/archive/2026-07-09-implement-cognitive-os/.openspec.yaml",
+      "summary": "Metadata file for the archived implement-cognitive-os openspec change, created 2026-07-09 using the spec-driven schema.",
+      "tags": ["openspec", "metadata", "archive", "cognitive-os", "intelligence"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/proposal.md",
+      "type": "document",
+      "name": "Implement Cognitive OS Proposal",
+      "filePath": "openspec/changes/archive/2026-07-09-implement-cognitive-os/proposal.md",
+      "summary": "Proposes transitioning HipCortex into a full Cognitive Operating System by addressing four architectural bottlenecks: lack of HTN goal/task planning (ExecutiveScheduler), simplified causal math stubs in world model, basic FIFO context eviction with manual skill encoding, and Arc<RwLock<T>> lock contention under concurrent writes. Introduces executive-cortex, procedural-attention, actor-concurrency, and worldmodel-rollout capabilities.",
+      "tags": ["openspec", "proposal", "archive", "cognitive-os", "executive-cortex", "task-graph", "mcts", "skill-compiler", "actor-concurrency", "world-model", "causal", "rust"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/design.md",
+      "type": "document",
+      "name": "Implement Cognitive OS Design",
+      "filePath": "openspec/changes/archive/2026-07-09-implement-cognitive-os/design.md",
+      "summary": "Detailed design with five key decisions: petgraph DiGraph for TaskGraph with A* state-space search, exact Backdoor Adjustment over Dirichlet transition tables for do-calculus, linear SEM with exogenous noise abduction for counterfactuals, personalized PageRank plus exponential recency decay for context eviction, and dedicated tokio actor event loops for lockless WorldModelEnhanced concurrency. Includes risk mitigations for each.",
+      "tags": ["openspec", "design", "archive", "cognitive-os", "a-star", "backdoor-adjustment", "sem", "pagerank", "tokio-actor", "world-model-enhanced", "petgraph"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/tasks.md",
+      "type": "document",
+      "name": "Implement Cognitive OS Tasks",
+      "filePath": "openspec/changes/archive/2026-07-09-implement-cognitive-os/tasks.md",
+      "summary": "Six task groups all marked complete: Executive Cortex (TaskGraph A*, ExecutiveScheduler tick, ContinuationCheckpoint persistence), Deeper World Model (empirical intervention, SCM counterfactual, MctsSimulator), Advanced Attention (topological decay eviction, SkillCompiler parameterize and compile), Concurrency (WorldModelActorClient, CoherenceWriteActor, check_consistency_cow), Module Wiring (lib.rs exports), and CI feature flags.",
+      "tags": ["openspec", "tasks", "archive", "cognitive-os", "task-graph", "executive-scheduler", "mcts-simulator", "skill-compiler", "world-model-actor", "coherence-write-actor", "session-context"],
+      "complexity": "complex"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/.openspec.yaml",
+      "target": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/proposal.md",
+      "type": "related",
+      "label": "metadata → proposal"
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/proposal.md",
+      "target": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/design.md",
+      "type": "related",
+      "label": "proposal → design"
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/design.md",
+      "target": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/tasks.md",
+      "type": "related",
+      "label": "design → tasks"
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/proposal.md",
+      "target": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/tasks.md",
+      "type": "related",
+      "label": "proposal → tasks"
+    }
+  ]
+}

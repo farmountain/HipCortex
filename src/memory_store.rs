@@ -7,9 +7,9 @@ use crate::audit_log::AuditLog;
 use crate::embedding_provider::EmbeddingProvider;
 use crate::memory_record::MemoryRecord;
 use crate::persistence::{FileBackend, InMemoryBackend, MemoryBackend};
-use crate::source_trust::SourceTrustRegistry;
 #[cfg(feature = "rocksdb-backend")]
 use crate::rocksdb_backend::RocksDbBackend;
+use crate::source_trust::SourceTrustRegistry;
 use anyhow::Result;
 
 pub struct MemoryStore<B: MemoryBackend> {
@@ -312,29 +312,38 @@ impl<B: MemoryBackend> MemoryStore<B> {
         if tags.is_empty() {
             return Vec::new();
         }
-        self.records.iter()
+        self.records
+            .iter()
             .filter(|r| tags.iter().any(|t| r.tags.contains(&t.to_string())))
             .collect()
     }
 
     /// Find records matching any actor in `actors`. Returns empty vec for empty slice.
     pub fn find_by_actors(&self, actors: &[&str]) -> Vec<&MemoryRecord> {
-        if actors.is_empty() { return Vec::new(); }
-        self.records.iter()
+        if actors.is_empty() {
+            return Vec::new();
+        }
+        self.records
+            .iter()
             .filter(|r| actors.contains(&r.actor.as_str()))
             .collect()
     }
 
     /// Set `status` on a record by UUID. Returns error if not found.
     pub fn set_status(&mut self, id: uuid::Uuid, status: &str) -> Result<()> {
-        let idx = self.records.iter().position(|r| r.id == id)
+        let idx = self
+            .records
+            .iter()
+            .position(|r| r.id == id)
             .ok_or_else(|| anyhow::anyhow!("record not found: {}", id))?;
         self.records[idx].status = status.to_string();
         self.records[idx].integrity = Some(self.records[idx].compute_hash());
         // Rewrite backend
         self.backend.clear()?;
         let snap = self.records.clone();
-        for rec in &snap { self.backend.append(rec)?; }
+        for rec in &snap {
+            self.backend.append(rec)?;
+        }
         self.backend.flush()?;
         Ok(())
     }
@@ -342,7 +351,10 @@ impl<B: MemoryBackend> MemoryStore<B> {
     /// Boost confidence by 0.10 (clamped to 1.0). Returns (before, after).
     /// Also records corroboration in the source trust registry for this record's source.
     pub fn corroborate(&mut self, id: uuid::Uuid) -> Result<(f32, f32)> {
-        let idx = self.records.iter().position(|r| r.id == id)
+        let idx = self
+            .records
+            .iter()
+            .position(|r| r.id == id)
             .ok_or_else(|| anyhow::anyhow!("record not found: {}", id))?;
         let before = self.records[idx].confidence;
         let after = (before + 0.10).min(1.0);
@@ -354,7 +366,9 @@ impl<B: MemoryBackend> MemoryStore<B> {
         }
         self.backend.clear()?;
         let snap = self.records.clone();
-        for rec in &snap { self.backend.append(rec)?; }
+        for rec in &snap {
+            self.backend.append(rec)?;
+        }
         self.backend.flush()?;
         Ok((before, after))
     }
@@ -363,13 +377,18 @@ impl<B: MemoryBackend> MemoryStore<B> {
     /// Also records contradiction in the source trust registry for this record's source.
     /// Returns (before, after, was_quarantined).
     pub fn contradict(&mut self, id: uuid::Uuid) -> Result<(f32, f32, bool)> {
-        let idx = self.records.iter().position(|r| r.id == id)
+        let idx = self
+            .records
+            .iter()
+            .position(|r| r.id == id)
             .ok_or_else(|| anyhow::anyhow!("record not found: {}", id))?;
         let before = self.records[idx].confidence;
         let after = (before - 0.15).max(0.0);
         self.records[idx].confidence = after;
         let quarantined = after < 0.30;
-        if quarantined { self.records[idx].status = "quarantine".to_string(); }
+        if quarantined {
+            self.records[idx].status = "quarantine".to_string();
+        }
         self.records[idx].integrity = Some(self.records[idx].compute_hash());
         // Track source trust
         if let Some(ref source) = self.records[idx].source {
@@ -377,7 +396,9 @@ impl<B: MemoryBackend> MemoryStore<B> {
         }
         self.backend.clear()?;
         let snap = self.records.clone();
-        for rec in &snap { self.backend.append(rec)?; }
+        for rec in &snap {
+            self.backend.append(rec)?;
+        }
         self.backend.flush()?;
         Ok((before, after, quarantined))
     }
@@ -406,7 +427,8 @@ impl<B: MemoryBackend> MemoryStore<B> {
     /// even when they are semantically relevant. To allow a memory to rank higher,
     /// ingest it with a higher `confidence` value.
     fn compute_decay(rec: &MemoryRecord) -> f64 {
-        let elapsed_secs = (chrono::Utc::now().timestamp() - rec.timestamp.timestamp()).max(0) as f64;
+        let elapsed_secs =
+            (chrono::Utc::now().timestamp() - rec.timestamp.timestamp()).max(0) as f64;
         let conf = rec.confidence as f64;
         if elapsed_secs < 1.0 {
             return conf;
@@ -467,17 +489,20 @@ impl<B: MemoryBackend> MemoryStore<B> {
                     keyword_score(query_text, rec)
                 };
                 // Trust-weighted score: multiply by source credibility
-                let trust = rec.source.as_deref()
+                let trust = rec
+                    .source
+                    .as_deref()
                     .map(|s| self.source_trust.get_trust(s) as f64)
                     .unwrap_or(0.5);
                 // Priority multiplier: high=1.5×, low=0.5×, normal/pinned=1.0×
                 // Note: pinned records take a separate code path (score 2.0 override).
                 let priority_mult: f64 = match rec.priority.as_str() {
                     "high" => 1.5,
-                    "low"  => 0.5,
-                    _      => 1.0,
+                    "low" => 0.5,
+                    _ => 1.0,
                 };
-                let weighted = base_score * (0.5 + 0.5 * trust) * priority_mult * Self::compute_decay(rec);
+                let weighted =
+                    base_score * (0.5 + 0.5 * trust) * priority_mult * Self::compute_decay(rec);
                 (rec, weighted)
             })
             .filter(|(_, s)| *s > 0.0)
@@ -487,7 +512,9 @@ impl<B: MemoryBackend> MemoryStore<B> {
         // Pinned records always surface at score 2.0 — they are excluded from the main
         // scored pipeline above so decay and priority_mult do not apply.
         // Non-expired, non-quarantined pinned records always appear first.
-        let mut pinned: Vec<(&MemoryRecord, f64)> = self.records.iter()
+        let mut pinned: Vec<(&MemoryRecord, f64)> = self
+            .records
+            .iter()
             .filter(|r| {
                 r.priority == "pinned"
                     && (include_quarantined || r.status != "quarantine")
@@ -497,7 +524,8 @@ impl<B: MemoryBackend> MemoryStore<B> {
             .map(|r| (r, 2.0f64))
             .collect();
         pinned.sort_by(|a, b| b.0.timestamp.cmp(&a.0.timestamp));
-        let scored_ids: std::collections::HashSet<uuid::Uuid> = scored.iter().map(|(r, _)| r.id).collect();
+        let scored_ids: std::collections::HashSet<uuid::Uuid> =
+            scored.iter().map(|(r, _)| r.id).collect();
         pinned.retain(|(r, _)| !scored_ids.contains(&r.id));
         pinned.extend(scored);
         pinned.truncate(limit);
@@ -510,7 +538,10 @@ impl<B: MemoryBackend> MemoryStore<B> {
         match self.namespace {
             Some(ref ns) => {
                 let tag = format!("ns:{}", ns);
-                self.records.iter().filter(|r| r.tags.contains(&tag)).collect()
+                self.records
+                    .iter()
+                    .filter(|r| r.tags.contains(&tag))
+                    .collect()
             }
             None => self.records.iter().collect(),
         }
@@ -522,7 +553,10 @@ impl<B: MemoryBackend> MemoryStore<B> {
         match self.namespace {
             Some(ref ns) => {
                 let tag = format!("ns:{}", ns);
-                candidates.into_iter().filter(|r| r.tags.contains(&tag)).collect()
+                candidates
+                    .into_iter()
+                    .filter(|r| r.tags.contains(&tag))
+                    .collect()
             }
             None => candidates,
         }
@@ -530,7 +564,9 @@ impl<B: MemoryBackend> MemoryStore<B> {
 
     /// List all unique namespaces from record tags.
     pub fn list_namespaces(&self) -> Vec<String> {
-        let mut namespaces: Vec<String> = self.records.iter()
+        let mut namespaces: Vec<String> = self
+            .records
+            .iter()
             .filter_map(|r| r.tags.iter().find(|t| t.starts_with("ns:")))
             .map(|t| t[3..].to_string())
             .collect();
@@ -558,7 +594,8 @@ impl<B: MemoryBackend> MemoryStore<B> {
         self.find_by_actor(actor)
             .into_iter()
             .filter(|r| {
-                r.source.as_deref()
+                r.source
+                    .as_deref()
                     .map(|s| self.source_trust.is_trusted(s, trust_threshold))
                     .unwrap_or(false) // records without source are not trusted
             })
@@ -574,7 +611,10 @@ impl<B: MemoryBackend> MemoryStore<B> {
     }
 
     /// Set an embedding provider for zero-config auto-embedding.
-    pub fn with_embedding_provider(mut self, provider: std::sync::Arc<dyn EmbeddingProvider>) -> Self {
+    pub fn with_embedding_provider(
+        mut self,
+        provider: std::sync::Arc<dyn EmbeddingProvider>,
+    ) -> Self {
         self.embedding_provider = Some(provider);
         self
     }
@@ -583,7 +623,8 @@ impl<B: MemoryBackend> MemoryStore<B> {
     /// The embedding is stored in `metadata.embedding` for later semantic search.
     pub fn embed_and_add(&mut self, record: MemoryRecord, text_to_embed: &str) -> Result<()> {
         if let Some(ref provider) = self.embedding_provider {
-            let embedding: Vec<f64> = provider.embed(text_to_embed)
+            let embedding: Vec<f64> = provider
+                .embed(text_to_embed)
                 .into_iter()
                 .map(|v| v as f64)
                 .collect();
@@ -599,7 +640,9 @@ impl<B: MemoryBackend> MemoryStore<B> {
     /// file without them, and append a deletion entry to the audit log.
     /// Returns the UUIDs of deleted records.
     pub fn delete_by_actor(&mut self, actor: &str) -> Result<Vec<uuid::Uuid>> {
-        let deleted_ids: Vec<uuid::Uuid> = self.records.iter()
+        let deleted_ids: Vec<uuid::Uuid> = self
+            .records
+            .iter()
             .filter(|r| r.actor == actor)
             .map(|r| r.id)
             .collect();
@@ -617,9 +660,18 @@ impl<B: MemoryBackend> MemoryStore<B> {
         self.index_action.clear();
         self.index_target.clear();
         for (i, rec) in self.records.iter().enumerate() {
-            self.index_actor.entry(rec.actor.clone()).or_default().push(i);
-            self.index_action.entry(rec.action.clone()).or_default().push(i);
-            self.index_target.entry(rec.target.clone()).or_default().push(i);
+            self.index_actor
+                .entry(rec.actor.clone())
+                .or_default()
+                .push(i);
+            self.index_action
+                .entry(rec.action.clone())
+                .or_default()
+                .push(i);
+            self.index_target
+                .entry(rec.target.clone())
+                .or_default()
+                .push(i);
         }
 
         // Rewrite backend: clear the file then re-append all remaining records
@@ -656,15 +708,28 @@ impl<B: MemoryBackend> MemoryStore<B> {
         new_source: Option<&str>,
         new_metadata: Option<serde_json::Value>,
     ) -> Result<uuid::Uuid> {
-        let idx = self.records.iter().position(|r| r.id == id)
+        let idx = self
+            .records
+            .iter()
+            .position(|r| r.id == id)
             .ok_or_else(|| anyhow::anyhow!("record not found: {}", id))?;
 
         // Apply partial updates
-        if let Some(t) = new_target  { self.records[idx].target = t.to_string(); }
-        if let Some(a) = new_action  { self.records[idx].action = a.to_string(); }
-        if let Some(c) = new_confidence { self.records[idx].confidence = c.clamp(0.0, 1.0); }
-        if let Some(s) = new_source  { self.records[idx].source = Some(s.to_string()); }
-        if let Some(m) = new_metadata { self.records[idx].metadata = m; }
+        if let Some(t) = new_target {
+            self.records[idx].target = t.to_string();
+        }
+        if let Some(a) = new_action {
+            self.records[idx].action = a.to_string();
+        }
+        if let Some(c) = new_confidence {
+            self.records[idx].confidence = c.clamp(0.0, 1.0);
+        }
+        if let Some(s) = new_source {
+            self.records[idx].source = Some(s.to_string());
+        }
+        if let Some(m) = new_metadata {
+            self.records[idx].metadata = m;
+        }
         self.records[idx].version += 1;
         // Recompute integrity hash after update
         self.records[idx].integrity = Some(self.records[idx].compute_hash());
@@ -700,11 +765,13 @@ impl<B: MemoryBackend> MemoryStore<B> {
     ) -> Vec<&MemoryRecord> {
         let now_ts = chrono::Utc::now().timestamp();
         // Collect non-expired candidates
-        let mut candidates: Vec<&MemoryRecord> = self.records.iter()
+        let mut candidates: Vec<&MemoryRecord> = self
+            .records
+            .iter()
             .filter(|r| {
-                actor.map_or(true, |a| r.actor == a) &&
-                action.map_or(true, |ac| r.action == ac) &&
-                r.expires_at.map_or(true, |exp| exp > now_ts)
+                actor.map_or(true, |a| r.actor == a)
+                    && action.map_or(true, |ac| r.action == ac)
+                    && r.expires_at.map_or(true, |exp| exp > now_ts)
             })
             .collect();
 
@@ -712,8 +779,10 @@ impl<B: MemoryBackend> MemoryStore<B> {
         candidates.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
 
         // Deduplicate: keep only the most recent per (actor, action) pair
-        let mut seen: std::collections::HashSet<(String, String)> = std::collections::HashSet::new();
-        let deduplicated: Vec<&MemoryRecord> = candidates.into_iter()
+        let mut seen: std::collections::HashSet<(String, String)> =
+            std::collections::HashSet::new();
+        let deduplicated: Vec<&MemoryRecord> = candidates
+            .into_iter()
             .filter(|r| seen.insert((r.actor.clone(), r.action.clone())))
             .collect();
 
@@ -839,10 +908,18 @@ pub fn cosine_similarity(a: &[f64], b: &[f64]) -> f64 {
     if len == 0 {
         return 0.0;
     }
-    let dot: f64    = a[..len].iter().zip(b[..len].iter()).map(|(x, y)| x * y).sum();
-    let mag_a: f64  = a[..len].iter().map(|x| x * x).sum::<f64>().sqrt();
-    let mag_b: f64  = b[..len].iter().map(|x| x * x).sum::<f64>().sqrt();
-    if mag_a == 0.0 || mag_b == 0.0 { 0.0 } else { dot / (mag_a * mag_b) }
+    let dot: f64 = a[..len]
+        .iter()
+        .zip(b[..len].iter())
+        .map(|(x, y)| x * y)
+        .sum();
+    let mag_a: f64 = a[..len].iter().map(|x| x * x).sum::<f64>().sqrt();
+    let mag_b: f64 = b[..len].iter().map(|x| x * x).sum::<f64>().sqrt();
+    if mag_a == 0.0 || mag_b == 0.0 {
+        0.0
+    } else {
+        dot / (mag_a * mag_b)
+    }
 }
 
 /// Simple keyword score: fraction of whitespace-split query tokens found in the
@@ -856,6 +933,9 @@ pub fn keyword_score(query: &str, rec: &crate::memory_record::MemoryRecord) -> f
     if tokens.is_empty() {
         return 0.0;
     }
-    let hits = tokens.iter().filter(|t| haystack.contains(&t.to_lowercase())).count();
+    let hits = tokens
+        .iter()
+        .filter(|t| haystack.contains(&t.to_lowercase()))
+        .count();
     hits as f64 / tokens.len() as f64
 }

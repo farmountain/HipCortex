@@ -1,4 +1,6 @@
-use hipcortex::world_model_enhanced::constraint::{Constraint, ConstraintEngine, ConstraintSeverity};
+use hipcortex::world_model_enhanced::constraint::{
+    Constraint, ConstraintEngine, ConstraintSeverity,
+};
 
 #[test]
 fn test_constraint_boundary_evaluation() {
@@ -18,7 +20,13 @@ fn test_constraint_boundary_evaluation() {
         severity: ConstraintSeverity::SoftPenalty(15.0),
     });
 
-    assert_eq!(engine.evaluate("memory_mb", 5000.0), Some(ConstraintSeverity::HardTermination));
-    assert_eq!(engine.evaluate("latency_ms", 120.0), Some(ConstraintSeverity::SoftPenalty(15.0)));
+    assert_eq!(
+        engine.evaluate("memory_mb", 5000.0),
+        Some(ConstraintSeverity::HardTermination)
+    );
+    assert_eq!(
+        engine.evaluate("latency_ms", 120.0),
+        Some(ConstraintSeverity::SoftPenalty(15.0))
+    );
     assert_eq!(engine.evaluate("memory_mb", 1024.0), None);
 }

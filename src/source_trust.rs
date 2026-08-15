@@ -4,8 +4,8 @@
 // Unknown sources start at trust=0.5 (neutral), corroboration increases
 // trust, contradiction decreases it. Trust decays for inactive sources.
 
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 
 /// How to categorize a memory source.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -110,7 +110,9 @@ impl SourceTrustRegistry {
     pub fn get_or_create(&mut self, source_id: &str) -> &mut SourceTrustProfile {
         self.sources
             .entry(source_id.to_string())
-            .or_insert_with(|| SourceTrustProfile::new(source_id.to_string(), SourceCategory::Unknown))
+            .or_insert_with(|| {
+                SourceTrustProfile::new(source_id.to_string(), SourceCategory::Unknown)
+            })
     }
 
     /// Get the trust score for a source. Returns 0.5 for unknown sources.
@@ -219,7 +221,10 @@ mod tests {
         let mut registry = SourceTrustRegistry::new();
         // Neutral source: confidence * sqrt(0.5)
         let neutral = registry.trust_weighted_score(0.8, "unknown");
-        assert!(neutral < 0.8, "weighted score should be less than raw confidence for neutral source");
+        assert!(
+            neutral < 0.8,
+            "weighted score should be less than raw confidence for neutral source"
+        );
 
         // Build trust
         for _ in 0..20 {

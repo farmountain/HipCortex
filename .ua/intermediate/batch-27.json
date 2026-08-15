@@ -1,0 +1,128 @@
+{
+  "batchIndex": 27,
+  "nodes": [
+    {
+      "id": "document:sdk/typescript/README.md",
+      "type": "document",
+      "label": "TypeScript SDK README",
+      "file": "sdk/typescript/README.md",
+      "tags": ["documentation", "typescript", "sdk", "npm"],
+      "properties": {
+        "sdk_version": "0.5.2",
+        "server_target": "http://127.0.0.1:3030",
+        "server_version_compat": "0.5.2",
+        "vscode_extension_version": "0.5.8",
+        "zero_external_deps": true,
+        "transport": "native fetch / HTTP",
+        "write_latency_p50_ms": "0.48-0.61",
+        "key_methods": [
+          "addMemory",
+          "queryMemory",
+          "canExecute",
+          "rollout",
+          "linkMemories",
+          "searchRelated",
+          "stats",
+          "forget"
+        ],
+        "record_types": ["Working", "Semantic", "Temporal"],
+        "memory_tiers": 5,
+        "features": [
+          "multi-tier memory ingestion",
+          "world model trajectory rollout (POST /worldmodel/rollout)",
+          "causal topological graph (Personalized PageRank α=0.85)",
+          "SelfModel execution capacity gates",
+          "SHA-256 Merkle audit chains",
+          "GDPR right-to-forget",
+          "Headroom context budgeting (59-88% token savings)"
+        ],
+        "install_note": "Python CLI is canonical installer; this package is HTTP client only",
+        "description": "TypeScript/Node.js SDK for HipCortex. Wraps the Rust binary REST API. Documents multi-tier memory ingestion, world model rollout prediction, causal PPR graph search, and GDPR forget. Integrates with Vercel AI SDK / streamText pattern."
+      }
+    },
+    {
+      "id": "config:sdk/typescript/package.json",
+      "type": "config",
+      "label": "TypeScript SDK package.json",
+      "file": "sdk/typescript/package.json",
+      "tags": ["npm", "package-config", "typescript", "sdk"],
+      "properties": {
+        "name": "hipcortex",
+        "version": "0.5.2",
+        "license": "Apache-2.0",
+        "main": "dist/index.js",
+        "types": "dist/index.d.ts",
+        "registry": "https://registry.npmjs.org/",
+        "repository": "https://github.com/farmountain/HipCortex.git",
+        "scripts": {
+          "build": "tsc",
+          "test": "jest",
+          "prepublishOnly": "npm run build"
+        },
+        "dev_dependencies": {
+          "typescript": "^5.0.0",
+          "jest": "^29.0.0",
+          "ts-jest": "^29.0.0",
+          "@types/node": "^20.0.0",
+          "@types/jest": "^29.0.0"
+        },
+        "keywords": ["ai", "memory", "langchain", "autogen", "llm", "agents", "rag", "hipcortex"],
+        "description": "npm package manifest for the hipcortex TypeScript SDK. Zero production dependencies; dev-only TypeScript + Jest toolchain. Publishes dist/ with declaration maps."
+      }
+    },
+    {
+      "id": "config:sdk/typescript/tsconfig.json",
+      "type": "config",
+      "label": "TypeScript SDK tsconfig.json",
+      "file": "sdk/typescript/tsconfig.json",
+      "tags": ["typescript", "compiler-config", "sdk"],
+      "properties": {
+        "target": "ES2020",
+        "module": "commonjs",
+        "lib": ["ES2020"],
+        "outDir": "dist",
+        "rootDir": "src",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "declaration": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        "excludes": ["node_modules", "dist", "**/*.test.ts"],
+        "description": "TypeScript compiler config for the SDK. Targets ES2020/CommonJS, emits full declarations + source maps, strict mode on."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:sdk/typescript/README.md",
+      "target": "config:sdk/typescript/package.json",
+      "relation": "documents",
+      "description": "README describes the npm package published by package.json (name=hipcortex, version=0.5.2)."
+    },
+    {
+      "source": "config:sdk/typescript/package.json",
+      "target": "config:sdk/typescript/tsconfig.json",
+      "relation": "uses",
+      "description": "package.json build script invokes tsc, which reads tsconfig.json for compiler options."
+    },
+    {
+      "source": "document:sdk/typescript/README.md",
+      "target": "schema:schemas/temporal_memory.json",
+      "relation": "references",
+      "description": "SDK addMemory with record_type=Temporal maps to TemporalEvent schema on the Rust server side."
+    },
+    {
+      "source": "document:sdk/typescript/README.md",
+      "target": "schema:schemas/symbolic_graph.json",
+      "relation": "references",
+      "description": "SDK addMemory with record_type=Semantic maps to the Symbolic/LongTerm tier backed by SymbolicGraph schema."
+    },
+    {
+      "source": "document:sdk/typescript/README.md",
+      "target": "schema:schemas/world_model.json",
+      "relation": "references",
+      "description": "SDK rollout() calls POST /worldmodel/rollout, which operates on world model state records defined by WorldModel schema."
+    }
+  ]
+}

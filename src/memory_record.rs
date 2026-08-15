@@ -133,8 +133,8 @@ impl MemoryRecord {
         let mut clone = self.clone();
         clone.integrity = None;
         clone.content_hash = None;
-        clone.access_count = 0;  // Exclude access tracking from hash
-        clone.last_accessed = self.timestamp;  // Use original timestamp for consistency
+        clone.access_count = 0; // Exclude access tracking from hash
+        clone.last_accessed = self.timestamp; // Use original timestamp for consistency
         let data = serde_json::to_vec(&clone).unwrap();
         let hash = Sha256::digest(&data);
         hex::encode(hash)
@@ -155,11 +155,11 @@ impl MemoryRecord {
     pub fn calculate_decay_factor(&self, base_decay: f64) -> f64 {
         let now = Utc::now();
         let age_seconds = (now - self.timestamp).num_seconds() as f64;
-        
+
         // Slower decay for frequently accessed memories
         let access_factor = 1.0 + (self.access_count as f64 * 0.1);
         let time_factor = (-age_seconds / 86400.0 * base_decay).exp(); // Daily decay
-        
+
         (time_factor * access_factor * self.relevance_score).clamp(0.0, 1.0)
     }
 
@@ -168,7 +168,9 @@ impl MemoryRecord {
     where
         T: serde::de::DeserializeOwned,
     {
-        self.metadata.get(key).and_then(|v| serde_json::from_value(v.clone()).ok())
+        self.metadata
+            .get(key)
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
     }
 
     /// Set metadata field with type safety
@@ -183,12 +185,12 @@ impl MemoryRecord {
             map.insert(key.to_string(), serde_json::to_value(value)?);
             self.metadata = serde_json::Value::Object(map);
         }
-        
+
         // Recompute hash after metadata change
         let new_hash = self.compute_hash();
         self.integrity = Some(new_hash.clone());
         self.content_hash = Some(new_hash);
-        
+
         Ok(())
     }
 
@@ -197,10 +199,10 @@ impl MemoryRecord {
         let now = Utc::now();
         let age_days = (now - self.timestamp).num_days();
         let last_access_days = (now - self.last_accessed).num_days();
-        
-        (self.access_count < min_access_threshold && age_days > max_age_days) ||
-        (last_access_days > max_age_days * 2) ||
-        (self.relevance_score < 0.1)
+
+        (self.access_count < min_access_threshold && age_days > max_age_days)
+            || (last_access_days > max_age_days * 2)
+            || (self.relevance_score < 0.1)
     }
 
     /// Calculate memory similarity based on content

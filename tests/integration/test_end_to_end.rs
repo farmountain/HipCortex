@@ -1,11 +1,11 @@
 use hipcortex::aureus_bridge::AureusBridge;
+use hipcortex::decay::DecayType;
 use hipcortex::llm_clients::mock::MockClient;
 use hipcortex::memory_store::MemoryStore;
 use hipcortex::procedural_cache::{FSMState, FSMTransition, ProceduralCache, ProceduralTrace};
 use hipcortex::snapshot_manager::SnapshotManager;
 use hipcortex::symbolic_store::SymbolicStore;
 use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
-use hipcortex::decay::DecayType;
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
 use uuid::Uuid;
@@ -25,7 +25,9 @@ fn full_memory_flow() {
         relevance: 1.0,
         decay_factor: 1.0,
         last_access: SystemTime::now(),
-        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
+        decay_type: DecayType::Exponential {
+            half_life: Duration::from_secs(1),
+        },
     };
     temporal.insert(trace);
 

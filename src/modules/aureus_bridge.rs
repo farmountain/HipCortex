@@ -79,7 +79,10 @@ impl AureusBridge {
     }
 
     /// Attach world-model for prediction as Bayesian prior.
-    pub fn with_world_model(mut self, wm: Arc<crate::world_model_enhanced::WorldModelEnhanced>) -> Self {
+    pub fn with_world_model(
+        mut self,
+        wm: Arc<crate::world_model_enhanced::WorldModelEnhanced>,
+    ) -> Self {
         self.world_model = Some(wm);
         self
     }
@@ -219,7 +222,11 @@ impl AureusBridge {
 
     /// Return top-K hypotheses by confidence (for REST exposure).
     pub fn top_hypotheses(&self, limit: usize) -> Vec<ReflexionHypothesis> {
-        self.graph.top_hypotheses(limit).into_iter().cloned().collect()
+        self.graph
+            .top_hypotheses(limit)
+            .into_iter()
+            .cloned()
+            .collect()
     }
 
     /// Number of hypothesis nodes in the graph.
@@ -249,14 +256,16 @@ impl AureusBridge {
         let (context, default_evidence, result_count) = {
             let results = store.search_semantic(None, query, 10, false);
             let count = results.len();
-            let evidence: Vec<String> = results.iter()
+            let evidence: Vec<String> = results
+                .iter()
                 .take(3)
                 .map(|(r, _)| format!("[{}] {}", r.action, r.target))
                 .collect();
             let ctx = if results.is_empty() {
                 format!("Query: {}. No relevant memories found.", query)
             } else {
-                let lines: Vec<String> = results.iter()
+                let lines: Vec<String> = results
+                    .iter()
                     .map(|(r, score)| format!("- [{:.2}] [{}] {}", score, r.action, r.target))
                     .collect();
                 format!("Query: {}\nRelevant memories:\n{}", query, lines.join("\n"))
@@ -272,8 +281,7 @@ impl AureusBridge {
             .unwrap_or_else(|| ReflexionHypothesis {
                 text: format!(
                     "No LLM configured. Found {} relevant memories for query: {}",
-                    result_count,
-                    query
+                    result_count, query
                 ),
                 confidence: 0.5,
                 evidence: default_evidence,

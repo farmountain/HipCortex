@@ -1,8 +1,8 @@
-/// Chain-of-Thought: append trace -> decay -> predict next state
-use crate::segmented_buffer::SegmentedRingBuffer;
 use crate::decay::{apply_decay, DecayType};
 use crate::markov::MarkovChain;
 use crate::poisson::PoissonBurst;
+/// Chain-of-Thought: append trace -> decay -> predict next state
+use crate::segmented_buffer::SegmentedRingBuffer;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
@@ -20,7 +20,7 @@ pub struct TemporalTrace<T> {
 pub struct TemporalIndexer<T> {
     buffer: SegmentedRingBuffer<TemporalTrace<T>>,
     _capacity: usize,
-    #[allow(dead_code)]  // Field reserved for future decay calculations
+    #[allow(dead_code)] // Field reserved for future decay calculations
     decay_half_life: Duration,
     markov: Option<MarkovChain<T>>,
     poisson: PoissonBurst,
@@ -69,7 +69,10 @@ impl<T: Clone> TemporalIndexer<T> {
     }
 
     /// Attach world-model for transition observation.
-    pub fn with_world_model(mut self, wm: Arc<crate::world_model_enhanced::WorldModelEnhanced>) -> Self {
+    pub fn with_world_model(
+        mut self,
+        wm: Arc<crate::world_model_enhanced::WorldModelEnhanced>,
+    ) -> Self {
         self.world_model = Some(wm);
         self
     }
@@ -94,15 +97,13 @@ impl<T: Clone> TemporalIndexer<T> {
                 }
                 Err(_) => {
                     // Capability not registered — auto-register on first use and proceed
-                    let _ = sm.register_capability(
-                        crate::self_model::CapabilityDescriptor {
-                            name: "temporal_insert".to_string(),
-                            description: "Insert temporal trace".to_string(),
-                            required_cpu_percent: 5.0,
-                            required_memory_mb: 10.0,
-                            limitations: vec![],
-                        }
-                    );
+                    let _ = sm.register_capability(crate::self_model::CapabilityDescriptor {
+                        name: "temporal_insert".to_string(),
+                        description: "Insert temporal trace".to_string(),
+                        required_cpu_percent: 5.0,
+                        required_memory_mb: 10.0,
+                        limitations: vec![],
+                    });
                 }
                 _ => {}
             }
@@ -170,11 +171,9 @@ impl<T: Clone> TemporalIndexer<T> {
                 trace.decay_factor
             };
             let profile = match trace.decay_type {
-                DecayType::Exponential { half_life } => {
-                    DecayType::Exponential {
-                        half_life: half_life.mul_f32(1.0 / factor),
-                    }
-                }
+                DecayType::Exponential { half_life } => DecayType::Exponential {
+                    half_life: half_life.mul_f32(1.0 / factor),
+                },
                 DecayType::Linear { duration } => DecayType::Linear {
                     duration: duration.mul_f32(1.0 / factor),
                 },
@@ -272,7 +271,9 @@ mod tests {
             relevance: 1.0,
             decay_factor: 1.0,
             last_access: SystemTime::now(),
-            decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
+            decay_type: DecayType::Exponential {
+                half_life: Duration::from_secs(1),
+            },
         };
         idx.insert(trace);
         assert_eq!(idx.get_recent(1).len(), 1);
@@ -289,7 +290,9 @@ mod tests {
                 relevance: 1.0,
                 decay_factor: 1.0,
                 last_access: SystemTime::now(),
-                decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
+                decay_type: DecayType::Exponential {
+                    half_life: Duration::from_secs(1),
+                },
             });
         }
         assert_eq!(idx.get_recent(5).len(), 3);

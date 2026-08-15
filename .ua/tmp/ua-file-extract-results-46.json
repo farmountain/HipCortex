@@ -1,0 +1,853 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 2,
+  "filesSkipped": [],
+  "analysisOutcomes": {
+    "structure": {
+      "succeeded": 2,
+      "failed": 0
+    },
+    "callGraph": {
+      "succeeded": 2,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "results": [
+    {
+      "path": "tests/unit/memory_store_tests.rs",
+      "language": "rust",
+      "fileCategory": "code",
+      "totalLines": 240,
+      "nonEmptyLines": 222,
+      "functions": [
+        {
+          "name": "test_archived_records_excluded_from_default_search",
+          "startLine": 6,
+          "endLine": 19,
+          "params": []
+        },
+        {
+          "name": "test_goal_payload_roundtrips_via_metadata",
+          "startLine": 22,
+          "endLine": 47,
+          "params": []
+        },
+        {
+          "name": "test_add_and_query_memory_store",
+          "startLine": 50,
+          "endLine": 66,
+          "params": []
+        },
+        {
+          "name": "test_find_by_actor_index",
+          "startLine": 69,
+          "endLine": 93,
+          "params": []
+        },
+        {
+          "name": "test_find_by_action_and_target",
+          "startLine": 96,
+          "endLine": 123,
+          "params": []
+        },
+        {
+          "name": "test_encrypted_memory_store",
+          "startLine": 127,
+          "endLine": 143,
+          "params": []
+        },
+        {
+          "name": "test_snapshot_and_rollback",
+          "startLine": 146,
+          "endLine": 174,
+          "params": []
+        },
+        {
+          "name": "test_envelope_encryption",
+          "startLine": 177,
+          "endLine": 198,
+          "params": []
+        },
+        {
+          "name": "test_rocksdb_backend",
+          "startLine": 203,
+          "endLine": 219,
+          "params": []
+        },
+        {
+          "name": "test_provenance_fields_do_not_change_hash_of_legacy_record",
+          "startLine": 222,
+          "endLine": 240,
+          "params": []
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "test_archived_records_excluded_from_default_search",
+          "callee": "MemoryStore::new_in_memory",
+          "lineNumber": 7
+        },
+        {
+          "caller": "test_archived_records_excluded_from_default_search",
+          "callee": "MemoryRecord::new",
+          "lineNumber": 9
+        },
+        {
+          "caller": "test_archived_records_excluded_from_default_search",
+          "callee": "\"a\".into",
+          "lineNumber": 9
+        },
+        {
+          "caller": "test_archived_records_excluded_from_default_search",
+          "callee": "\"act\".into",
+          "lineNumber": 9
+        },
+        {
+          "caller": "test_archived_records_excluded_from_default_search",
+          "callee": "\"t_active\".into",
+          "lineNumber": 9
+        },
+        {
+          "caller": "test_archived_records_excluded_from_default_search",
+          "callee": "MemoryRecord::new",
+          "lineNumber": 10
+        },
+        {
+          "caller": "test_archived_records_excluded_from_default_search",
+          "callee": "\"a\".into",
+          "lineNumber": 10
+        },
+        {
+          "caller": "test_archived_records_excluded_from_default_search",
+          "callee": "\"act\".into",
+          "lineNumber": 10
+        },
+        {
+          "caller": "test_archived_records_excluded_from_default_search",
+          "callee": "\"t_old\".into",
+          "lineNumber": 10
+        },
+        {
+          "caller": "test_archived_records_excluded_from_default_search",
+          "callee": "\"archived\".to_string",
+          "lineNumber": 11
+        },
+        {
+          "caller": "test_archived_records_excluded_from_default_search",
+          "callee": "store.add(active).unwrap",
+          "lineNumber": 13
+        },
+        {
+          "caller": "test_archived_records_excluded_from_default_search",
+          "callee": "store.add",
+          "lineNumber": 13
+        },
+        {
+          "caller": "test_archived_records_excluded_from_default_search",
+          "callee": "store.add(archived).unwrap",
+          "lineNumber": 14
+        },
+        {
+          "caller": "test_archived_records_excluded_from_default_search",
+          "callee": "store.add",
+          "lineNumber": 14
+        },
+        {
+          "caller": "test_archived_records_excluded_from_default_search",
+          "callee": "store.search_semantic",
+          "lineNumber": 16
+        },
+        {
+          "caller": "test_goal_payload_roundtrips_via_metadata",
+          "callee": "\"server healthy\".to_string",
+          "lineNumber": 26
+        },
+        {
+          "caller": "test_goal_payload_roundtrips_via_metadata",
+          "callee": "MemoryRecord::new",
+          "lineNumber": 34
+        },
+        {
+          "caller": "test_goal_payload_roundtrips_via_metadata",
+          "callee": "\"system\".to_string",
+          "lineNumber": 36
+        },
+        {
+          "caller": "test_goal_payload_roundtrips_via_metadata",
+          "callee": "\"achieve\".to_string",
+          "lineNumber": 37
+        },
+        {
+          "caller": "test_goal_payload_roundtrips_via_metadata",
+          "callee": "\"server healthy\".to_string",
+          "lineNumber": 38
+        },
+        {
+          "caller": "test_goal_payload_roundtrips_via_metadata",
+          "callee": "serde_json::to_value(&goal).unwrap",
+          "lineNumber": 39
+        },
+        {
+          "caller": "test_goal_payload_roundtrips_via_metadata",
+          "callee": "serde_json::to_value",
+          "lineNumber": 39
+        },
+        {
+          "caller": "test_goal_payload_roundtrips_via_metadata",
+          "callee": "serde_json::from_value(record.metadata.clone()).unwrap",
+          "lineNumber": 42
+        },
+        {
+          "caller": "test_goal_payload_roundtrips_via_metadata",
+          "callee": "serde_json::from_value",
+          "lineNumber": 42
+        },
+        {
+          "caller": "test_goal_payload_roundtrips_via_metadata",
+          "callee": "record.metadata.clone",
+          "lineNumber": 42
+        },
+        {
+          "caller": "test_add_and_query_memory_store",
+          "callee": "fs::remove_file",
+          "lineNumber": 52
+        },
+        {
+          "caller": "test_add_and_query_memory_store",
+          "callee": "MemoryStore::new(path).unwrap",
+          "lineNumber": 53
+        },
+        {
+          "caller": "test_add_and_query_memory_store",
+          "callee": "MemoryStore::new",
+          "lineNumber": 53
+        },
+        {
+          "caller": "test_add_and_query_memory_store",
+          "callee": "MemoryRecord::new",
+          "lineNumber": 54
+        },
+        {
+          "caller": "test_add_and_query_memory_store",
+          "callee": "\"user\".into",
+          "lineNumber": 56
+        },
+        {
+          "caller": "test_add_and_query_memory_store",
+          "callee": "\"is\".into",
+          "lineNumber": 57
+        },
+        {
+          "caller": "test_add_and_query_memory_store",
+          "callee": "\"tester\".into",
+          "lineNumber": 58
+        },
+        {
+          "caller": "test_add_and_query_memory_store",
+          "callee": "store.add(record.clone()).unwrap",
+          "lineNumber": 61
+        },
+        {
+          "caller": "test_add_and_query_memory_store",
+          "callee": "store.add",
+          "lineNumber": 61
+        },
+        {
+          "caller": "test_add_and_query_memory_store",
+          "callee": "record.clone",
+          "lineNumber": 61
+        },
+        {
+          "caller": "test_add_and_query_memory_store",
+          "callee": "store.all",
+          "lineNumber": 62
+        },
+        {
+          "caller": "test_add_and_query_memory_store",
+          "callee": "fs::remove_file(path).unwrap",
+          "lineNumber": 65
+        },
+        {
+          "caller": "test_add_and_query_memory_store",
+          "callee": "fs::remove_file",
+          "lineNumber": 65
+        },
+        {
+          "caller": "test_find_by_actor_index",
+          "callee": "fs::remove_file",
+          "lineNumber": 71
+        },
+        {
+          "caller": "test_find_by_actor_index",
+          "callee": "MemoryStore::new(path).unwrap",
+          "lineNumber": 72
+        },
+        {
+          "caller": "test_find_by_actor_index",
+          "callee": "MemoryStore::new",
+          "lineNumber": 72
+        },
+        {
+          "caller": "test_find_by_actor_index",
+          "callee": "MemoryRecord::new",
+          "lineNumber": 73
+        },
+        {
+          "caller": "test_find_by_actor_index",
+          "callee": "\"user1\".into",
+          "lineNumber": 75
+        },
+        {
+          "caller": "test_find_by_actor_index",
+          "callee": "\"a\".into",
+          "lineNumber": 76
+        },
+        {
+          "caller": "test_find_by_actor_index",
+          "callee": "\"b\".into",
+          "lineNumber": 77
+        },
+        {
+          "caller": "test_find_by_actor_index",
+          "callee": "MemoryRecord::new",
+          "lineNumber": 80
+        },
+        {
+          "caller": "test_find_by_actor_index",
+          "callee": "\"user2\".into",
+          "lineNumber": 82
+        },
+        {
+          "caller": "test_find_by_actor_index",
+          "callee": "\"a\".into",
+          "lineNumber": 83
+        },
+        {
+          "caller": "test_find_by_actor_index",
+          "callee": "\"b\".into",
+          "lineNumber": 84
+        },
+        {
+          "caller": "test_find_by_actor_index",
+          "callee": "store.add(r1).unwrap",
+          "lineNumber": 87
+        },
+        {
+          "caller": "test_find_by_actor_index",
+          "callee": "store.add",
+          "lineNumber": 87
+        },
+        {
+          "caller": "test_find_by_actor_index",
+          "callee": "store.add(r2).unwrap",
+          "lineNumber": 88
+        },
+        {
+          "caller": "test_find_by_actor_index",
+          "callee": "store.add",
+          "lineNumber": 88
+        },
+        {
+          "caller": "test_find_by_actor_index",
+          "callee": "store.find_by_actor",
+          "lineNumber": 89
+        },
+        {
+          "caller": "test_find_by_actor_index",
+          "callee": "fs::remove_file(path).unwrap",
+          "lineNumber": 92
+        },
+        {
+          "caller": "test_find_by_actor_index",
+          "callee": "fs::remove_file",
+          "lineNumber": 92
+        },
+        {
+          "caller": "test_find_by_action_and_target",
+          "callee": "fs::remove_file",
+          "lineNumber": 98
+        },
+        {
+          "caller": "test_find_by_action_and_target",
+          "callee": "MemoryStore::new(path).unwrap",
+          "lineNumber": 99
+        },
+        {
+          "caller": "test_find_by_action_and_target",
+          "callee": "MemoryStore::new",
+          "lineNumber": 99
+        },
+        {
+          "caller": "test_find_by_action_and_target",
+          "callee": "MemoryRecord::new",
+          "lineNumber": 100
+        },
+        {
+          "caller": "test_find_by_action_and_target",
+          "callee": "\"user1\".into",
+          "lineNumber": 102
+        },
+        {
+          "caller": "test_find_by_action_and_target",
+          "callee": "\"a\".into",
+          "lineNumber": 103
+        },
+        {
+          "caller": "test_find_by_action_and_target",
+          "callee": "\"b\".into",
+          "lineNumber": 104
+        },
+        {
+          "caller": "test_find_by_action_and_target",
+          "callee": "MemoryRecord::new",
+          "lineNumber": 107
+        },
+        {
+          "caller": "test_find_by_action_and_target",
+          "callee": "\"user2\".into",
+          "lineNumber": 109
+        },
+        {
+          "caller": "test_find_by_action_and_target",
+          "callee": "\"x\".into",
+          "lineNumber": 110
+        },
+        {
+          "caller": "test_find_by_action_and_target",
+          "callee": "\"y\".into",
+          "lineNumber": 111
+        },
+        {
+          "caller": "test_find_by_action_and_target",
+          "callee": "store.add(r1).unwrap",
+          "lineNumber": 114
+        },
+        {
+          "caller": "test_find_by_action_and_target",
+          "callee": "store.add",
+          "lineNumber": 114
+        },
+        {
+          "caller": "test_find_by_action_and_target",
+          "callee": "store.add(r2).unwrap",
+          "lineNumber": 115
+        },
+        {
+          "caller": "test_find_by_action_and_target",
+          "callee": "store.add",
+          "lineNumber": 115
+        },
+        {
+          "caller": "test_find_by_action_and_target",
+          "callee": "store.find_by_action",
+          "lineNumber": 116
+        },
+        {
+          "caller": "test_find_by_action_and_target",
+          "callee": "store.find_by_target",
+          "lineNumber": 119
+        },
+        {
+          "caller": "test_find_by_action_and_target",
+          "callee": "fs::remove_file(path).unwrap",
+          "lineNumber": 122
+        },
+        {
+          "caller": "test_find_by_action_and_target",
+          "callee": "fs::remove_file",
+          "lineNumber": 122
+        },
+        {
+          "caller": "test_encrypted_memory_store",
+          "callee": "fs::remove_file",
+          "lineNumber": 129
+        },
+        {
+          "caller": "test_encrypted_memory_store",
+          "callee": "MemoryStore::new_encrypted(path, key).unwrap",
+          "lineNumber": 131
+        },
+        {
+          "caller": "test_encrypted_memory_store",
+          "callee": "MemoryStore::new_encrypted",
+          "lineNumber": 131
+        },
+        {
+          "caller": "test_encrypted_memory_store",
+          "callee": "MemoryRecord::new",
+          "lineNumber": 132
+        },
+        {
+          "caller": "test_encrypted_memory_store",
+          "callee": "\"user\".into",
+          "lineNumber": 134
+        },
+        {
+          "caller": "test_encrypted_memory_store",
+          "callee": "\"is\".into",
+          "lineNumber": 135
+        },
+        {
+          "caller": "test_encrypted_memory_store",
+          "callee": "\"tester\".into",
+          "lineNumber": 136
+        },
+        {
+          "caller": "test_encrypted_memory_store",
+          "callee": "store.add(record).unwrap",
+          "lineNumber": 139
+        },
+        {
+          "caller": "test_encrypted_memory_store",
+          "callee": "store.add",
+          "lineNumber": 139
+        },
+        {
+          "caller": "test_encrypted_memory_store",
+          "callee": "drop",
+          "lineNumber": 141
+        },
+        {
+          "caller": "test_encrypted_memory_store",
+          "callee": "fs::remove_file(path).unwrap",
+          "lineNumber": 142
+        },
+        {
+          "caller": "test_encrypted_memory_store",
+          "callee": "fs::remove_file",
+          "lineNumber": 142
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "fs::remove_file",
+          "lineNumber": 149
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "MemoryStore::new(path).unwrap",
+          "lineNumber": 150
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "MemoryStore::new",
+          "lineNumber": 150
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "MemoryRecord::new",
+          "lineNumber": 151
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "\"a\".into",
+          "lineNumber": 153
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "\"b\".into",
+          "lineNumber": 154
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "\"c\".into",
+          "lineNumber": 155
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "store.add(rec).unwrap",
+          "lineNumber": 158
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "store.add",
+          "lineNumber": 158
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "store.snapshot(\"snap.bin\").unwrap",
+          "lineNumber": 159
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "store.snapshot",
+          "lineNumber": 159
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "store\r\n        .add(MemoryRecord::new(\r\n            MemoryType::Symbolic,\r\n            \"x\".into(),\r\n            \"y\".into(),\r\n            \"z\".into(),\r\n            serde_json::json!({}),\r\n        )).unwrap",
+          "lineNumber": 160
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "store.add",
+          "lineNumber": 160
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "MemoryRecord::new",
+          "lineNumber": 161
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "\"x\".into",
+          "lineNumber": 163
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "\"y\".into",
+          "lineNumber": 164
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "\"z\".into",
+          "lineNumber": 165
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "store.rollback(\"snap.bin\").unwrap",
+          "lineNumber": 170
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "store.rollback",
+          "lineNumber": 170
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "fs::remove_file(path).unwrap",
+          "lineNumber": 172
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "fs::remove_file",
+          "lineNumber": 172
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "fs::remove_file(\"snap.bin\").unwrap",
+          "lineNumber": 173
+        },
+        {
+          "caller": "test_snapshot_and_rollback",
+          "callee": "fs::remove_file",
+          "lineNumber": 173
+        },
+        {
+          "caller": "test_envelope_encryption",
+          "callee": "fs::remove_file",
+          "lineNumber": 179
+        },
+        {
+          "caller": "test_envelope_encryption",
+          "callee": "fs::remove_file",
+          "lineNumber": 180
+        },
+        {
+          "caller": "test_envelope_encryption",
+          "callee": "MemoryStore::new_encrypted_envelope(path, master).unwrap",
+          "lineNumber": 182
+        },
+        {
+          "caller": "test_envelope_encryption",
+          "callee": "MemoryStore::new_encrypted_envelope",
+          "lineNumber": 182
+        },
+        {
+          "caller": "test_envelope_encryption",
+          "callee": "store\r\n        .add(MemoryRecord::new(\r\n            MemoryType::Symbolic,\r\n            \"u\".into(),\r\n            \"v\".into(),\r\n            \"w\".into(),\r\n            serde_json::json!({}),\r\n        )).unwrap",
+          "lineNumber": 183
+        },
+        {
+          "caller": "test_envelope_encryption",
+          "callee": "store.add",
+          "lineNumber": 183
+        },
+        {
+          "caller": "test_envelope_encryption",
+          "callee": "MemoryRecord::new",
+          "lineNumber": 184
+        },
+        {
+          "caller": "test_envelope_encryption",
+          "callee": "\"u\".into",
+          "lineNumber": 186
+        },
+        {
+          "caller": "test_envelope_encryption",
+          "callee": "\"v\".into",
+          "lineNumber": 187
+        },
+        {
+          "caller": "test_envelope_encryption",
+          "callee": "\"w\".into",
+          "lineNumber": 188
+        },
+        {
+          "caller": "test_envelope_encryption",
+          "callee": "drop",
+          "lineNumber": 192
+        },
+        {
+          "caller": "test_envelope_encryption",
+          "callee": "MemoryStore::new_encrypted_envelope(path, master).unwrap",
+          "lineNumber": 193
+        },
+        {
+          "caller": "test_envelope_encryption",
+          "callee": "MemoryStore::new_encrypted_envelope",
+          "lineNumber": 193
+        },
+        {
+          "caller": "test_envelope_encryption",
+          "callee": "drop",
+          "lineNumber": 195
+        },
+        {
+          "caller": "test_envelope_encryption",
+          "callee": "fs::remove_file(path).unwrap",
+          "lineNumber": 196
+        },
+        {
+          "caller": "test_envelope_encryption",
+          "callee": "fs::remove_file",
+          "lineNumber": 196
+        },
+        {
+          "caller": "test_envelope_encryption",
+          "callee": "fs::remove_file(\"test_memory_env.sk\").unwrap",
+          "lineNumber": 197
+        },
+        {
+          "caller": "test_envelope_encryption",
+          "callee": "fs::remove_file",
+          "lineNumber": 197
+        },
+        {
+          "caller": "test_rocksdb_backend",
+          "callee": "std::fs::remove_dir_all",
+          "lineNumber": 205
+        },
+        {
+          "caller": "test_rocksdb_backend",
+          "callee": "MemoryStore::new_rocksdb(path, 1).unwrap",
+          "lineNumber": 206
+        },
+        {
+          "caller": "test_rocksdb_backend",
+          "callee": "MemoryStore::new_rocksdb",
+          "lineNumber": 206
+        },
+        {
+          "caller": "test_rocksdb_backend",
+          "callee": "store\r\n        .add(MemoryRecord::new(\r\n            MemoryType::Symbolic,\r\n            \"x\".into(),\r\n            \"y\".into(),\r\n            \"z\".into(),\r\n            serde_json::json!({}),\r\n        )).unwrap",
+          "lineNumber": 207
+        },
+        {
+          "caller": "test_rocksdb_backend",
+          "callee": "store.add",
+          "lineNumber": 207
+        },
+        {
+          "caller": "test_rocksdb_backend",
+          "callee": "MemoryRecord::new",
+          "lineNumber": 208
+        },
+        {
+          "caller": "test_rocksdb_backend",
+          "callee": "\"x\".into",
+          "lineNumber": 210
+        },
+        {
+          "caller": "test_rocksdb_backend",
+          "callee": "\"y\".into",
+          "lineNumber": 211
+        },
+        {
+          "caller": "test_rocksdb_backend",
+          "callee": "\"z\".into",
+          "lineNumber": 212
+        },
+        {
+          "caller": "test_rocksdb_backend",
+          "callee": "std::fs::remove_dir_all(path).unwrap",
+          "lineNumber": 217
+        },
+        {
+          "caller": "test_rocksdb_backend",
+          "callee": "std::fs::remove_dir_all",
+          "lineNumber": 217
+        },
+        {
+          "caller": "test_rocksdb_backend",
+          "callee": "std::fs::remove_file(\"rocks_test.audit.log\").unwrap",
+          "lineNumber": 218
+        },
+        {
+          "caller": "test_rocksdb_backend",
+          "callee": "std::fs::remove_file",
+          "lineNumber": 218
+        },
+        {
+          "caller": "test_provenance_fields_do_not_change_hash_of_legacy_record",
+          "callee": "MemoryRecord::new",
+          "lineNumber": 223
+        },
+        {
+          "caller": "test_provenance_fields_do_not_change_hash_of_legacy_record",
+          "callee": "\"actor\".to_string",
+          "lineNumber": 225
+        },
+        {
+          "caller": "test_provenance_fields_do_not_change_hash_of_legacy_record",
+          "callee": "\"action\".to_string",
+          "lineNumber": 226
+        },
+        {
+          "caller": "test_provenance_fields_do_not_change_hash_of_legacy_record",
+          "callee": "\"target\".to_string",
+          "lineNumber": 227
+        },
+        {
+          "caller": "test_provenance_fields_do_not_change_hash_of_legacy_record",
+          "callee": "record.compute_hash",
+          "lineNumber": 233
+        },
+        {
+          "caller": "test_provenance_fields_do_not_change_hash_of_legacy_record",
+          "callee": "record.compute_hash",
+          "lineNumber": 234
+        },
+        {
+          "caller": "test_provenance_fields_do_not_change_hash_of_legacy_record",
+          "callee": "serde_json::to_string(&record).unwrap",
+          "lineNumber": 236
+        },
+        {
+          "caller": "test_provenance_fields_do_not_change_hash_of_legacy_record",
+          "callee": "serde_json::to_string",
+          "lineNumber": 236
+        }
+      ],
+      "metrics": {
+        "importCount": 3,
+        "exportCount": 0,
+        "functionCount": 10,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "tests/unit/mod.rs",
+      "language": "rust",
+      "fileCategory": "code",
+      "totalLines": 54,
+      "nonEmptyLines": 52,
+      "metrics": {
+        "importCount": 4,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    }
+  ]
+}

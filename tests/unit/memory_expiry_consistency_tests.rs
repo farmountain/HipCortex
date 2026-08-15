@@ -40,7 +40,11 @@ fn export_logic_excludes_expired_by_default() {
         .filter(|r| r.expires_at.map_or(true, |exp| exp > now_ts))
         .collect();
 
-    assert_eq!(active.len(), 1, "default export should exclude expired records");
+    assert_eq!(
+        active.len(),
+        1,
+        "default export should exclude expired records"
+    );
     assert_eq!(active[0].target, "live_mem");
 }
 
@@ -52,7 +56,11 @@ fn export_logic_includes_expired_when_flag_set() {
 
     // Simulate include_expired = true: no expiry filter applied
     let all = store.all();
-    assert_eq!(all.len(), 2, "include_expired=true should return all records");
+    assert_eq!(
+        all.len(),
+        2,
+        "include_expired=true should return all records"
+    );
 }
 
 // ── Consolidate data-loss fix ─────────────────────────────────────────────────
@@ -80,7 +88,11 @@ fn consolidate_candidates_skip_expired_records() {
         .filter(|r| r.expires_at.map_or(true, |exp| exp > now_ts))
         .collect();
 
-    assert_eq!(candidates.len(), 1, "expired record must be excluded from consolidate candidates");
+    assert_eq!(
+        candidates.len(),
+        1,
+        "expired record must be excluded from consolidate candidates"
+    );
     assert_eq!(candidates[0].target, "use postgres for users");
 }
 

@@ -18,7 +18,10 @@ fn main() {
             println!("   {}: ✓ coherent", id);
         } else {
             for r in &reports {
-                println!("   {}: ✗ {:?} — {}", id, r.inconsistency_type, r.description);
+                println!(
+                    "   {}: ✗ {:?} — {}",
+                    id, r.inconsistency_type, r.description
+                );
             }
         }
     }
@@ -32,7 +35,10 @@ fn main() {
             } else {
                 println!("   Found {} inconsistencies:", reports.len());
                 for r in &reports {
-                    println!("     - [{:?}] {:?}: {}", r.inconsistency_type, r.affected_entities, r.description);
+                    println!(
+                        "     - [{:?}] {:?}: {}",
+                        r.inconsistency_type, r.affected_entities, r.description
+                    );
                 }
             }
         }
@@ -51,7 +57,9 @@ fn main() {
                 let succeeded = results.iter().filter(|r| r.success).count();
                 println!(
                     "   {:?}: {}/{} resolved",
-                    strategy, succeeded, results.len()
+                    strategy,
+                    succeeded,
+                    results.len()
                 );
             }
             Err(e) => println!("   {:?}: error — {}", strategy, e),
@@ -68,11 +76,15 @@ fn main() {
                 let critical = violations.iter().filter(|v| v.critical).count();
                 println!(
                     "   {} violations ({} critical):",
-                    violations.len(), critical
+                    violations.len(),
+                    critical
                 );
                 for v in &violations {
                     let severity = if v.critical { "CRITICAL" } else { "WARNING" };
-                    println!("     [{}] {:?}: {}", severity, v.invariant_type, v.description);
+                    println!(
+                        "     [{}] {:?}: {}",
+                        severity, v.invariant_type, v.description
+                    );
                 }
             }
         }
@@ -96,7 +108,10 @@ fn main() {
         Ok(metrics) => {
             println!("   Total checks:      {}", metrics.total_checks);
             println!("   Inconsistencies:   {}", metrics.inconsistencies_found);
-            println!("   Auto-resolved:     {}", metrics.auto_resolutions_succeeded);
+            println!(
+                "   Auto-resolved:     {}",
+                metrics.auto_resolutions_succeeded
+            );
             println!("   Resolution fails:  {}", metrics.auto_resolutions_failed);
             println!("   Invariants checked:{}", metrics.invariants_validated);
             println!("   Invariants violated:{}", metrics.invariants_violated);

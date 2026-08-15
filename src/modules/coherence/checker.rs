@@ -7,10 +7,10 @@
 // 4. EntityPermanenceViolation: Entity exists in world-model but deleted from symbolic
 // 5. GraphInconsistency: Symbolic DAG contradicts world-model causal graph
 
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::time::{SystemTime, UNIX_EPOCH};
-use serde::{Serialize, Deserialize};
 use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::topological_memory::{CausalTopoGraph, EdgeType};
 
@@ -19,16 +19,16 @@ use crate::topological_memory::{CausalTopoGraph, EdgeType};
 pub enum InconsistencyType {
     /// Event in temporal indexer references entity missing from symbolic store
     TemporalSymbolicMismatch,
-    
+
     /// Procedural FSM allows transition but world-model predicts P=0
     ProceduralWorldConflict,
-    
+
     /// Observed event sequence violates causal constraints
     CausalViolation,
-    
+
     /// Entity exists in world-model but has been deleted from symbolic store
     EntityPermanenceViolation,
-    
+
     /// Symbolic DAG contradicts world-model causal graph (edit distance > threshold)
     GraphInconsistency,
 }
@@ -38,22 +38,22 @@ pub enum InconsistencyType {
 pub struct InconsistencyReport {
     /// Unique identifier for this inconsistency
     pub id: String,
-    
+
     /// Type of inconsistency
     pub inconsistency_type: InconsistencyType,
-    
+
     /// Affected entity IDs
     pub affected_entities: Vec<String>,
-    
+
     /// Detection timestamp (Unix epoch millis)
     pub detected_at: u64,
-    
+
     /// Detailed description
     pub description: String,
-    
+
     /// Severity level (0-10, where 10 is critical)
     pub severity: u8,
-    
+
     /// Additional metadata
     pub metadata: HashMap<String, serde_json::Value>,
 }
@@ -69,13 +69,14 @@ impl InconsistencyReport {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_millis() as u64;
-        
-        let id = format!("{:?}_{}_{}",
+
+        let id = format!(
+            "{:?}_{}_{}",
             inconsistency_type,
             affected_entities.join("_"),
             now
         );
-        
+
         Self {
             id,
             inconsistency_type,
@@ -86,7 +87,7 @@ impl InconsistencyReport {
             metadata: HashMap::new(),
         }
     }
-    
+
     pub fn with_metadata(mut self, key: String, value: serde_json::Value) -> Self {
         self.metadata.insert(key, value);
         self
@@ -100,7 +101,7 @@ pub struct ConsistencyChecker {
 
     /// Probability threshold for procedural-world conflicts (P < threshold is conflict)
     pub probability_threshold: f64,
-    
+
     /// Entity count cache for efficiency
     entity_cache: HashMap<String, EntityCounts>,
 
@@ -112,7 +113,9 @@ pub struct ConsistencyChecker {
     topo: Option<CausalTopoGraph>,
 
     pub temporal_indexer: Option<Arc<Mutex<crate::temporal_indexer::TemporalIndexer<uuid::Uuid>>>>,
-    pub symbolic_store: Option<Arc<Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>>,
+    pub symbolic_store: Option<
+        Arc<Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>,
+    >,
     pub procedural_cache: Option<Arc<Mutex<crate::procedural_cache::ProceduralCache>>>,
     pub world_model: Option<Arc<crate::world_model_enhanced::WorldModelEnhanced>>,
 }
@@ -159,15 +162,26 @@ impl ConsistencyChecker {
         self.topo = Some(topo);
     }
 
-    pub fn set_temporal_indexer(&mut self, indexer: Arc<Mutex<crate::temporal_indexer::TemporalIndexer<uuid::Uuid>>>) {
+    pub fn set_temporal_indexer(
+        &mut self,
+        indexer: Arc<Mutex<crate::temporal_indexer::TemporalIndexer<uuid::Uuid>>>,
+    ) {
         self.temporal_indexer = Some(indexer);
     }
 
-    pub fn set_symbolic_store(&mut self, store: Arc<Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>) {
+    pub fn set_symbolic_store(
+        &mut self,
+        store: Arc<
+            Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>,
+        >,
+    ) {
         self.symbolic_store = Some(store);
     }
 
-    pub fn set_procedural_cache(&mut self, cache: Arc<Mutex<crate::procedural_cache::ProceduralCache>>) {
+    pub fn set_procedural_cache(
+        &mut self,
+        cache: Arc<Mutex<crate::procedural_cache::ProceduralCache>>,
+    ) {
         self.procedural_cache = Some(cache);
     }
 
@@ -182,28 +196,30 @@ impl ConsistencyChecker {
     /// Run all consistency checks across modules
     pub fn check_all(&mut self) -> Result<Vec<InconsistencyReport>, String> {
         let mut inconsistencies = Vec::new();
-        
+
         // 1. Check temporal-symbolic consistency
         inconsistencies.extend(self.check_temporal_symbolic()?);
-        
+
         // 2. Check procedural-world consistency
         inconsistencies.extend(self.check_procedural_world()?);
-        
+
         // 3. Check causal violations
         inconsistencies.extend(self.check_causal_violations()?);
-        
+
         // 4. Check entity permanence
         inconsistencies.extend(self.check_entity_permanence()?);
-        
+
         // 5. Check graph consistency
         inconsistencies.extend(self.check_graph_consistency()?);
-        
+
         Ok(inconsistencies)
     }
 
     /// Clone Arc smart pointer snapshots (temporal_indexer, symbolic_store, procedural_cache, CausalTopoGraph)
     /// and run long background verifications on an isolated thread.
-    pub fn check_consistency_cow(&self) -> std::thread::JoinHandle<Result<Vec<InconsistencyReport>, String>> {
+    pub fn check_consistency_cow(
+        &self,
+    ) -> std::thread::JoinHandle<Result<Vec<InconsistencyReport>, String>> {
         let temporal_clone = self.temporal_indexer.clone();
         let symbolic_clone = self.symbolic_store.clone();
         let procedural_clone = self.procedural_cache.clone();
@@ -231,10 +247,10 @@ impl ConsistencyChecker {
     /// Check consistency for specific entity (targeted check)
     pub fn check_entity(&mut self, entity_id: &str) -> Result<Vec<InconsistencyReport>, String> {
         let mut inconsistencies = Vec::new();
-        
+
         // Check if entity counts match across modules
         let counts = self.get_entity_counts(entity_id)?;
-        
+
         if counts.temporal_count != counts.symbolic_count {
             inconsistencies.push(InconsistencyReport::new(
                 InconsistencyType::TemporalSymbolicMismatch,
@@ -246,7 +262,7 @@ impl ConsistencyChecker {
                 7,
             ));
         }
-        
+
         if counts.world_model_count > 0 && counts.symbolic_count == 0 {
             inconsistencies.push(InconsistencyReport::new(
                 InconsistencyType::EntityPermanenceViolation,
@@ -258,7 +274,7 @@ impl ConsistencyChecker {
                 8,
             ));
         }
-        
+
         Ok(inconsistencies)
     }
 
@@ -268,13 +284,17 @@ impl ConsistencyChecker {
 
     fn check_temporal_symbolic(&mut self) -> Result<Vec<InconsistencyReport>, String> {
         let mut inconsistencies = Vec::new();
-        
-        if let (Some(ref indexer_arc), Some(ref store_arc)) = (&self.temporal_indexer, &self.symbolic_store) {
-            let indexer = indexer_arc.lock()
+
+        if let (Some(ref indexer_arc), Some(ref store_arc)) =
+            (&self.temporal_indexer, &self.symbolic_store)
+        {
+            let indexer = indexer_arc
+                .lock()
                 .map_err(|e| format!("Failed to lock indexer: {}", e))?;
-            let store = store_arc.lock()
+            let store = store_arc
+                .lock()
                 .map_err(|e| format!("Failed to lock store: {}", e))?;
-                
+
             let recent_traces = indexer.get_recent(100);
             for trace in recent_traces {
                 let entity_id = trace.data;
@@ -291,17 +311,19 @@ impl ConsistencyChecker {
                 }
             }
         }
-        
+
         Ok(inconsistencies)
     }
 
     fn check_procedural_world(&mut self) -> Result<Vec<InconsistencyReport>, String> {
         let mut inconsistencies = Vec::new();
-        
-        if let (Some(ref cache_arc), Some(ref wm_arc)) = (&self.procedural_cache, &self.world_model) {
-            let cache = cache_arc.lock()
+
+        if let (Some(ref cache_arc), Some(ref wm_arc)) = (&self.procedural_cache, &self.world_model)
+        {
+            let cache = cache_arc
+                .lock()
                 .map_err(|e| format!("Failed to lock procedural cache: {}", e))?;
-                
+
             let transitions = cache.get_transitions();
             for t in transitions {
                 let format_state = |state: &crate::procedural_cache::FSMState| -> String {
@@ -310,14 +332,18 @@ impl ConsistencyChecker {
                         other => format!("{:?}", other),
                     }
                 };
-                
+
                 let state_str = format_state(&t.from);
                 let next_state_str = format_state(&t.to);
                 let action_str = t.condition.clone().unwrap_or_else(|| "None".to_string());
-                
+
                 // Query world model transition probability
                 if let Ok(pred) = wm_arc.predict_next_state(&state_str, &action_str) {
-                    let prob = pred.probabilities.get(&next_state_str).cloned().unwrap_or(0.0);
+                    let prob = pred
+                        .probabilities
+                        .get(&next_state_str)
+                        .cloned()
+                        .unwrap_or(0.0);
                     if prob < self.probability_threshold {
                         inconsistencies.push(
                             InconsistencyReport::new(
@@ -338,7 +364,7 @@ impl ConsistencyChecker {
                 }
             }
         }
-        
+
         Ok(inconsistencies)
     }
 
@@ -357,7 +383,10 @@ impl ConsistencyChecker {
     }
 
     /// Internal impl: use topo APIs for contradiction and path based causal violations.
-    fn check_causal_violations_from_topo(&self, topo: &CausalTopoGraph) -> Result<Vec<InconsistencyReport>, String> {
+    fn check_causal_violations_from_topo(
+        &self,
+        topo: &CausalTopoGraph,
+    ) -> Result<Vec<InconsistencyReport>, String> {
         let mut inconsistencies = Vec::new();
 
         // Discover nodes (ppr with no seeds still populates ranks for entire graph)
@@ -391,7 +420,10 @@ impl ConsistencyChecker {
                             8,
                         )
                         .with_metadata("via_topo".to_string(), serde_json::json!(true))
-                        .with_metadata("method".to_string(), serde_json::json!("detect_contradiction+find_multi_hop_paths")),
+                        .with_metadata(
+                            "method".to_string(),
+                            serde_json::json!("detect_contradiction+find_multi_hop_paths"),
+                        ),
                     );
                 }
 
@@ -512,7 +544,10 @@ impl ConsistencyChecker {
                     7,
                 )
                 .with_metadata("conflict_count".into(), missing_reverse.into())
-                .with_metadata("threshold".into(), self.graph_edit_distance_threshold.into()),
+                .with_metadata(
+                    "threshold".into(),
+                    self.graph_edit_distance_threshold.into(),
+                ),
             );
         }
 
@@ -529,23 +564,24 @@ impl ConsistencyChecker {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         // Check cache (5 second TTL)
         if let Some(cached) = self.entity_cache.get(entity_id) {
             if now - cached.last_updated < 5 {
                 return Ok(cached.clone());
             }
         }
-        
+
         // Compute counts (in real implementation, query actual modules)
         let counts = EntityCounts {
-            temporal_count: 0,  // temporal_indexer.count_references(entity_id)
-            symbolic_count: 0,  // symbolic_store.count_references(entity_id)
-            world_model_count: 0,  // world_model.count_references(entity_id)
+            temporal_count: 0,    // temporal_indexer.count_references(entity_id)
+            symbolic_count: 0,    // symbolic_store.count_references(entity_id)
+            world_model_count: 0, // world_model.count_references(entity_id)
             last_updated: now,
         };
-        
-        self.entity_cache.insert(entity_id.to_string(), counts.clone());
+
+        self.entity_cache
+            .insert(entity_id.to_string(), counts.clone());
         Ok(counts)
     }
 
@@ -559,11 +595,11 @@ impl ConsistencyChecker {
     ) -> usize {
         let set1: HashSet<_> = edges1.iter().collect();
         let set2: HashSet<_> = edges2.iter().collect();
-        
+
         // Symmetric difference gives edges that need to be added/removed
         let diff1: Vec<_> = set1.difference(&set2).collect();
         let diff2: Vec<_> = set2.difference(&set1).collect();
-        
+
         diff1.len() + diff2.len()
     }
 }
@@ -602,8 +638,11 @@ mod tests {
             "Test inconsistency".to_string(),
             5,
         );
-        
-        assert_eq!(report.inconsistency_type, InconsistencyType::TemporalSymbolicMismatch);
+
+        assert_eq!(
+            report.inconsistency_type,
+            InconsistencyType::TemporalSymbolicMismatch
+        );
         assert_eq!(report.affected_entities, vec!["entity1".to_string()]);
         assert_eq!(report.severity, 5);
     }
@@ -618,7 +657,7 @@ mod tests {
         )
         .with_metadata("state".to_string(), "S1".into())
         .with_metadata("probability".to_string(), 0.001.into());
-        
+
         assert_eq!(report.metadata.len(), 2);
         assert!(report.metadata.contains_key("state"));
     }
@@ -630,7 +669,7 @@ mod tests {
             ("A".to_string(), "B".to_string()),
             ("B".to_string(), "C".to_string()),
         ];
-        
+
         let distance = checker.compute_graph_edit_distance(&edges, &edges);
         assert_eq!(distance, 0);
     }
@@ -646,7 +685,7 @@ mod tests {
             ("X".to_string(), "Y".to_string()),
             ("Y".to_string(), "Z".to_string()),
         ];
-        
+
         let distance = checker.compute_graph_edit_distance(&edges1, &edges2);
         assert_eq!(distance, 4); // Remove 2 edges, add 2 edges
     }
@@ -662,7 +701,7 @@ mod tests {
             ("A".to_string(), "B".to_string()),
             ("B".to_string(), "D".to_string()),
         ];
-        
+
         let distance = checker.compute_graph_edit_distance(&edges1, &edges2);
         assert_eq!(distance, 2); // Remove B->C, add B->D
     }
@@ -685,13 +724,13 @@ mod tests {
     #[test]
     fn test_entity_counts_caching() {
         let mut checker = ConsistencyChecker::new();
-        
+
         // First call populates cache
         let counts1 = checker.get_entity_counts("test").unwrap();
-        
+
         // Second call should hit cache
         let counts2 = checker.get_entity_counts("test").unwrap();
-        
+
         assert_eq!(counts1.last_updated, counts2.last_updated);
     }
 
@@ -703,7 +742,7 @@ mod tests {
             "Test violation".to_string(),
             9,
         );
-        
+
         let json = serde_json::to_string(&report).unwrap();
         assert!(json.contains("CausalViolation"));
     }
@@ -742,7 +781,7 @@ mod tests {
         let inconsistencies = checker.check_graph_consistency().unwrap();
         assert_eq!(inconsistencies.len(), 0);
     }
-#[test]
+    #[test]
     fn test_causal_violation_detected() {
         let mut checker = ConsistencyChecker::new();
         let violations = checker.check_all().unwrap();
@@ -761,43 +800,78 @@ mod tests {
     #[test]
     fn test_coherence_causal_via_topo() {
         let mut topo = CausalTopoGraph::new();
-        let _ = topo.add_node("cause".into(), [0.0; 128], HashMap::new()).unwrap();
-        let _ = topo.add_node("effect".into(), [0.0; 128], HashMap::new()).unwrap();
-        topo.add_edge("cause".into(), "effect".into(), EdgeType::Causal, 0.85, 0.9).unwrap();
+        let _ = topo
+            .add_node("cause".into(), [0.0; 128], HashMap::new())
+            .unwrap();
+        let _ = topo
+            .add_node("effect".into(), [0.0; 128], HashMap::new())
+            .unwrap();
+        topo.add_edge("cause".into(), "effect".into(), EdgeType::Causal, 0.85, 0.9)
+            .unwrap();
         // conflicting direction would be detected by topo.detect_contradiction
         let mut checker = ConsistencyChecker::new();
         checker.set_causal_topo(topo);
         let reports = checker.check_causal_violations().unwrap();
-        assert!(!reports.is_empty(), "expected at least one CausalViolation from topo reverse/contradiction");
-        assert!(reports.iter().any(|r| matches!(r.inconsistency_type, InconsistencyType::CausalViolation)));
-        assert!(reports.iter().any(|r| r.description.contains("topo") || r.description.contains("contradict") || r.description.contains("Causal")));
+        assert!(
+            !reports.is_empty(),
+            "expected at least one CausalViolation from topo reverse/contradiction"
+        );
+        assert!(reports
+            .iter()
+            .any(|r| matches!(r.inconsistency_type, InconsistencyType::CausalViolation)));
+        assert!(reports.iter().any(|r| r.description.contains("topo")
+            || r.description.contains("contradict")
+            || r.description.contains("Causal")));
     }
 
     #[test]
     fn test_coherence_entity_permanence_via_topo() {
         let mut topo = CausalTopoGraph::new();
-        let _ = topo.add_node("tracked_entity_from_topo".into(), [0.42; 128], HashMap::new()).unwrap();
+        let _ = topo
+            .add_node(
+                "tracked_entity_from_topo".into(),
+                [0.42; 128],
+                HashMap::new(),
+            )
+            .unwrap();
         let mut checker = ConsistencyChecker::new();
         checker.set_causal_topo(topo);
         let reports = checker.check_entity_permanence().unwrap();
-        assert!(!reports.is_empty(), "expected EntityPermanenceViolation using topo nodes as WM entities");
-        assert!(reports.iter().any(|r| matches!(r.inconsistency_type, InconsistencyType::EntityPermanenceViolation)));
+        assert!(
+            !reports.is_empty(),
+            "expected EntityPermanenceViolation using topo nodes as WM entities"
+        );
+        assert!(reports.iter().any(|r| matches!(
+            r.inconsistency_type,
+            InconsistencyType::EntityPermanenceViolation
+        )));
     }
 
     #[test]
     fn test_check_consistency_with_topo_influenced_reports() {
         let mut topo = CausalTopoGraph::new();
-        let _ = topo.add_node("a".into(), [0.0; 128], HashMap::new()).unwrap();
-        let _ = topo.add_node("b".into(), [0.0; 128], HashMap::new()).unwrap();
-        topo.add_edge("a".into(), "b".into(), EdgeType::Causal, 0.6, 0.7).unwrap();
+        let _ = topo
+            .add_node("a".into(), [0.0; 128], HashMap::new())
+            .unwrap();
+        let _ = topo
+            .add_node("b".into(), [0.0; 128], HashMap::new())
+            .unwrap();
+        topo.add_edge("a".into(), "b".into(), EdgeType::Causal, 0.6, 0.7)
+            .unwrap();
         let mut checker = ConsistencyChecker::new();
         checker.set_causal_topo(topo);
         let incs = checker.check_all().unwrap();
         // now that wired, should surface causal or entity from topo
         let has_relevant = incs.iter().any(|r| {
-            matches!(r.inconsistency_type, InconsistencyType::CausalViolation | InconsistencyType::EntityPermanenceViolation)
+            matches!(
+                r.inconsistency_type,
+                InconsistencyType::CausalViolation | InconsistencyType::EntityPermanenceViolation
+            )
         });
-        assert!(has_relevant, "check_consistency (via check_all) should return topo-driven reports");
+        assert!(
+            has_relevant,
+            "check_consistency (via check_all) should return topo-driven reports"
+        );
     }
 
     #[test]
@@ -808,20 +882,26 @@ mod tests {
         let coherence = CoherenceChecker::new();
         // gate should pass with no critical invariant violations
         let gate_res = coherence.gate_write("task6_topo_test");
-        assert!(gate_res.is_ok(), "gate_write should succeed when no critical invariants");
+        assert!(
+            gate_res.is_ok(),
+            "gate_write should succeed when no critical invariants"
+        );
         let violations = coherence.enforce_invariants().unwrap();
         // may be empty
         let _ = violations;
         // also exercise check_and_resolve path (uses check_consistency)
-        let resolve_res = coherence.check_and_resolve(crate::coherence::ResolutionStrategy::Recency);
+        let resolve_res =
+            coherence.check_and_resolve(crate::coherence::ResolutionStrategy::Recency);
         assert!(resolve_res.is_ok() || resolve_res.is_err()); // either way, no panic
     }
 
     #[test]
     fn test_temporal_symbolic_coherence_checking() {
-        let indexer = Arc::new(Mutex::new(crate::temporal_indexer::TemporalIndexer::new(100, 3600)));
+        let indexer = Arc::new(Mutex::new(crate::temporal_indexer::TemporalIndexer::new(
+            100, 3600,
+        )));
         let store = Arc::new(Mutex::new(crate::symbolic_store::SymbolicStore::new()));
-        
+
         let missing_id = uuid::Uuid::new_v4();
         let present_id = {
             let mut st = store.lock().unwrap();
@@ -838,9 +918,11 @@ mod tests {
                 relevance: 1.0,
                 decay_factor: 1.0,
                 last_access: std::time::SystemTime::now(),
-                decay_type: crate::decay::DecayType::Linear { duration: std::time::Duration::from_secs(3600) },
+                decay_type: crate::decay::DecayType::Linear {
+                    duration: std::time::Duration::from_secs(3600),
+                },
             });
-            
+
             // Add a trace for a present entity
             idx.insert(crate::temporal_indexer::TemporalTrace {
                 id: uuid::Uuid::new_v4(),
@@ -849,19 +931,23 @@ mod tests {
                 relevance: 1.0,
                 decay_factor: 1.0,
                 last_access: std::time::SystemTime::now(),
-                decay_type: crate::decay::DecayType::Linear { duration: std::time::Duration::from_secs(3600) },
+                decay_type: crate::decay::DecayType::Linear {
+                    duration: std::time::Duration::from_secs(3600),
+                },
             });
         }
-        
+
         let mut checker = ConsistencyChecker::new();
         checker.set_temporal_indexer(indexer);
         checker.set_symbolic_store(store);
-        
+
         let reports = checker.check_temporal_symbolic().unwrap();
         assert!(!reports.is_empty(), "expected a mismatch report");
         assert!(reports.iter().any(|r| {
-            matches!(r.inconsistency_type, InconsistencyType::TemporalSymbolicMismatch)
-                && r.affected_entities.contains(&missing_id.to_string())
+            matches!(
+                r.inconsistency_type,
+                InconsistencyType::TemporalSymbolicMismatch
+            ) && r.affected_entities.contains(&missing_id.to_string())
         }));
     }
 
@@ -869,7 +955,7 @@ mod tests {
     fn test_procedural_world_coherence_checking() {
         let cache = Arc::new(Mutex::new(crate::procedural_cache::ProceduralCache::new()));
         let wm = Arc::new(crate::world_model_enhanced::WorldModelEnhanced::new());
-        
+
         // Add FSM transitions
         {
             let mut c = cache.lock().unwrap();
@@ -884,19 +970,24 @@ mod tests {
                 condition: Some("go".to_string()),
             });
         }
-        
+
         // Let world model predict Step2 with P=0.8, Step3 is unobserved (P=0.0)
         let _ = wm.observe_transition("Start".to_string(), "go".to_string(), "Step2".to_string());
-        
+
         let mut checker = ConsistencyChecker::new();
         checker.set_procedural_cache(cache);
         checker.set_world_model(wm);
-        
+
         let reports = checker.check_procedural_world().unwrap();
-        assert!(!reports.is_empty(), "expected a procedural-world conflict report");
+        assert!(
+            !reports.is_empty(),
+            "expected a procedural-world conflict report"
+        );
         assert!(reports.iter().any(|r| {
-            matches!(r.inconsistency_type, InconsistencyType::ProceduralWorldConflict)
-                && r.description.contains("Step3")
+            matches!(
+                r.inconsistency_type,
+                InconsistencyType::ProceduralWorldConflict
+            ) && r.description.contains("Step3")
         }));
     }
 }

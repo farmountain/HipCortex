@@ -8,8 +8,8 @@
 // - Calibration improves with samples
 
 use hipcortex::world_model_enhanced::{
-    CausalGraph, EntityState, EntityTracker, TransitionModel, StateTransition,
-    UncertaintyEstimator, EntityObservation,
+    CausalGraph, EntityObservation, EntityState, EntityTracker, StateTransition, TransitionModel,
+    UncertaintyEstimator,
 };
 use proptest::prelude::*;
 use std::time::Instant;
@@ -32,7 +32,7 @@ proptest! {
         )
     ) {
         let mut model = TransitionModel::new();
-        
+
         // Record all transitions
         for (from, action, to) in &transitions {
             let transition = StateTransition {
@@ -42,7 +42,7 @@ proptest! {
             };
             model.record_transition(transition).ok();
         }
-        
+
         // Check predictions sum to 1.0 for each (state, action) pair
         for (from, action, _) in &transitions {
             if let Ok(pred) = model.predict(from, action) {
@@ -66,7 +66,7 @@ proptest! {
         )
     ) {
         let mut model = TransitionModel::new();
-        
+
         for (from, action, to) in &transitions {
             model.record_transition(StateTransition {
                 from_state: from.clone(),
@@ -74,7 +74,7 @@ proptest! {
                 to_state: to.clone(),
             }).ok();
         }
-        
+
         // Entropy should be non-negative and bounded by log2(vocab_size)
         for (from, action, _) in &transitions {
             if let Ok(entropy) = model.compute_entropy(from, action) {
@@ -102,14 +102,14 @@ proptest! {
         )
     ) {
         let mut graph = CausalGraph::new();
-        
+
         // Try to add all edges
         for (from, to) in &edges {
             if from != to {  // Skip self-loops
                 graph.add_edge(from.clone(), to.clone()).ok();
             }
         }
-        
+
         // Graph must remain acyclic
         prop_assert!(graph.is_acyclic(), "Graph became cyclic after edge additions");
     }
@@ -124,20 +124,20 @@ proptest! {
         )
     ) {
         let mut graph = CausalGraph::new();
-        
+
         for (from, to) in &edges {
             if from != to {
                 graph.add_edge(from.clone(), to.clone()).ok();
             }
         }
-        
+
         // If there's a path A→B and B→C, there should be a path A→C
         let nodes: Vec<String> = edges.iter()
             .flat_map(|(a, b)| vec![a.clone(), b.clone()])
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
             .collect();
-        
+
         for a in &nodes {
             for b in &nodes {
                 for c in &nodes {
@@ -174,9 +174,9 @@ proptest! {
                 vec![0.0, initial_variance],
             ],
         };
-        
+
         let mut tracker = EntityTracker::new(initial_state);
-        
+
         // Apply observations
         for obs_vec in observations {
             let observation = EntityObservation {
@@ -189,7 +189,7 @@ proptest! {
             };
             tracker.update(observation).ok();
         }
-        
+
         // Covariance diagonal elements must be non-negative
         let state = tracker.get_state();
         prop_assert!(state.covariance[0][0] >= 0.0, "Covariance[0][0] negative");
@@ -210,10 +210,10 @@ proptest! {
                 vec![0.0, initial_variance],
             ],
         };
-        
+
         let tracker = EntityTracker::new(initial_state.clone());
         let predicted = tracker.predict(steps).unwrap();
-        
+
         // Uncertainty must grow (or stay same) with prediction steps
         prop_assert!(
             predicted.covariance[0][0] >= initial_state.covariance[0][0],
@@ -237,18 +237,18 @@ proptest! {
         )
     ) {
         let mut estimator = UncertaintyEstimator::new();
-        
+
         // Record outcomes
         for (prob, correct) in &predictions {
             estimator.record_outcome(*prob, *correct);
         }
-        
+
         // Check all recorded predictions
         for (prob, _) in &predictions {
             // Confidence intervals should be in [0, 1]
             prop_assert!(*prob >= 0.0 && *prob <= 1.0, "Probability {} out of bounds", prob);
         }
-        
+
         // Calibration metrics should be valid
         let metrics = estimator.get_metrics();
         prop_assert!(metrics.ece >= 0.0 && metrics.ece <= 1.0, "ECE {} out of [0,1]", metrics.ece);
@@ -264,14 +264,14 @@ proptest! {
         step2 in 5usize..10
     ) {
         let estimator = UncertaintyEstimator::new();
-        
+
         // Uncertainty should grow monotonically with more prediction steps
         let ci1 = estimator.propagate_uncertainty(initial_variance, step1);
         let ci2 = estimator.propagate_uncertainty(initial_variance, step2);
-        
+
         let width1 = ci1.upper - ci1.lower;
         let width2 = ci2.upper - ci2.lower;
-        
+
         // More steps should give wider (or equal) confidence interval
         prop_assert!(
             width2 >= width1 - 1e-6,  // Allow small numerical error
@@ -292,23 +292,23 @@ proptest! {
         noise in 0.0f64..0.2,
     ) {
         let mut estimator = UncertaintyEstimator::new();
-        
+
         // Record partially calibrated predictions (confidence ± noise)
         for i in 0..100 {
             let is_correct = (i as f64 / 100.0) < (confidence + noise * (i as f64 / 50.0 - 1.0));
             estimator.record_outcome(confidence, is_correct);
         }
-        
+
         let metrics_100 = estimator.get_metrics();
-        
+
         // Add more well-calibrated data
         for i in 0..900 {
             let is_correct = (i as f64 / 900.0) < confidence;
             estimator.record_outcome(confidence, is_correct);
         }
-        
+
         let metrics_1000 = estimator.get_metrics();
-        
+
         // ECE should improve (decrease) or stay similar with more calibrated data
         // Allow small tolerance for randomness
         prop_assert!(
@@ -330,7 +330,7 @@ proptest! {
         action in prop::string::string_regex("A[0-9]").unwrap(),
     ) {
         let model = TransitionModel::new();
-        
+
         // Querying empty model should return error, not crash
         let result = model.predict(&state, &action);
         prop_assert!(result.is_err(), "Empty model should return error");
@@ -345,17 +345,17 @@ proptest! {
         to in prop::string::string_regex("[A-Z][0-9]").unwrap(),
     ) {
         let mut model = TransitionModel::new();
-        
+
         model.record_transition(StateTransition {
             from_state: from.clone(),
             action: action.clone(),
             to_state: to.clone(),
         }).unwrap();
-        
+
         // Single observation should still give valid prediction
         if let Ok(pred) = model.predict(&from, &action) {
             prop_assert!(pred.probabilities.len() > 0, "Prediction should have outcomes");
-            
+
             let sum: f64 = pred.probabilities.values().sum();
             prop_assert!((sum - 1.0).abs() < 1e-6, "Even single observation should sum to 1.0");
         }

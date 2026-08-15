@@ -1,0 +1,88 @@
+{
+  "batchIndex": 33,
+  "nodes": [
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/specs/worldmodel-rollout/spec.md",
+      "type": "document",
+      "label": "WorldModel Rollout Spec (archived)",
+      "properties": {
+        "path": "openspec/changes/archive/2026-07-09-implement-cognitive-os/specs/worldmodel-rollout/spec.md",
+        "archive_date": "2026-07-09",
+        "change": "implement-cognitive-os",
+        "summary": "Specifies multi-step WorldModel rollout via POST /worldmodel/rollout using MctsSimulator (UCB1) over Dirichlet TransitionModel. Requires: (1) CausalGraph.compute_empirical_intervention for backdoor adjustment P(Y|do(X)) marginalizing over parent states; (2) CausalGraph.compute_scm_counterfactual implementing Pearl's Abduction-Action-Prediction pipeline with linear SEM weights; (3) MCTS trajectory rollout simulator.",
+        "key_concepts": [
+          "MctsSimulator",
+          "CausalGraph",
+          "TransitionModel",
+          "Dirichlet transition counts",
+          "backdoor adjustment",
+          "compute_empirical_intervention",
+          "compute_scm_counterfactual",
+          "Pearl counterfactual",
+          "UCB1 rollout",
+          "POST /worldmodel/rollout"
+        ],
+        "status": "archived"
+      }
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/specs/mcp-add-memory/spec.md",
+      "type": "document",
+      "label": "MCP add_memory Schema Spec (archived)",
+      "properties": {
+        "path": "openspec/changes/archive/2026-07-09-python-server-endpoint-parity/specs/mcp-add-memory/spec.md",
+        "archive_date": "2026-07-09",
+        "change": "python-server-endpoint-parity",
+        "summary": "Python MCP server add_memory tool schema SHALL include all 5 cognitive tiers in record_type enum: Temporal, Symbolic, Procedural, Reflexion, Perception.",
+        "key_concepts": [
+          "add_memory",
+          "MCP tool schema",
+          "record_type enum",
+          "5 cognitive tiers",
+          "tools/list"
+        ],
+        "status": "archived"
+      }
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/specs/mcp-live-beliefs/spec.md",
+      "type": "document",
+      "label": "MCP get_live_beliefs Spec (archived)",
+      "properties": {
+        "path": "openspec/changes/archive/2026-07-09-python-server-endpoint-parity/specs/mcp-live-beliefs/spec.md",
+        "archive_date": "2026-07-09",
+        "change": "python-server-endpoint-parity",
+        "summary": "Python MCP server SHALL expose get_live_beliefs tool fetching unique beliefs per actor+action pair via GET /memory/live_beliefs, returning formatted results to agent via JSON-RPC.",
+        "key_concepts": [
+          "get_live_beliefs",
+          "MCP tool",
+          "GET /memory/live_beliefs",
+          "actor+action pair",
+          "JSON-RPC"
+        ],
+        "status": "archived"
+      }
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/specs/mcp-purge-expired/spec.md",
+      "type": "document",
+      "label": "MCP purge_expired Spec (archived)",
+      "properties": {
+        "path": "openspec/changes/archive/2026-07-09-python-server-endpoint-parity/specs/mcp-purge-expired/spec.md",
+        "archive_date": "2026-07-09",
+        "change": "python-server-endpoint-parity",
+        "summary": "Python MCP server SHALL expose purge_expired tool that triggers consolidation to clean up expired TTL memories and returns count of deleted records via JSON-RPC.",
+        "key_concepts": [
+          "purge_expired",
+          "MCP tool",
+          "TTL expiry",
+          "consolidation",
+          "JSON-RPC"
+        ],
+        "status": "archived",
+        "note": "Spec file found at mcp-purge-expired/ not listed in original batch; mcp-query-memory, mcp-search-memory, mcp-server-setup, python-sdk-* specs not present on disk"
+      }
+    }
+  ],
+  "edges": []
+}

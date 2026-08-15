@@ -33,7 +33,10 @@ impl AuditLog {
 
     /// No-op audit log for in-memory/test use. append() is a no-op.
     pub fn new_sink() -> Self {
-        Self { path: String::new(), last_hash: None }
+        Self {
+            path: String::new(),
+            last_hash: None,
+        }
     }
 
     fn load(&mut self) -> anyhow::Result<()> {
@@ -54,7 +57,9 @@ impl AuditLog {
     }
 
     pub fn append(&mut self, actor: &str, action: &str, outcome: &str) -> anyhow::Result<()> {
-        if self.path.is_empty() { return Ok(()); }  // sink mode
+        if self.path.is_empty() {
+            return Ok(());
+        } // sink mode
         let timestamp = Utc::now();
         let prev = self.last_hash.clone();
         let mut hasher = Sha256::new();
@@ -98,7 +103,9 @@ impl AuditLog {
         let mut entries = Vec::new();
         for line in reader.lines() {
             let line = line?;
-            if line.trim().is_empty() { continue; }
+            if line.trim().is_empty() {
+                continue;
+            }
             entries.push(serde_json::from_str::<AuditEntry>(&line)?);
         }
         Ok(entries)
@@ -230,5 +237,4 @@ impl AuditLog {
         }
         count
     }
-
 }

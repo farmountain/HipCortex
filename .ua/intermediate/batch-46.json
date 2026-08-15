@@ -1,0 +1,264 @@
+{
+  "nodes": [
+    {
+      "id": "file:tests/unit/memory_store_tests.rs",
+      "type": "file",
+      "name": "memory_store_tests.rs",
+      "filePath": "tests/unit/memory_store_tests.rs",
+      "summary": "Unit tests for MemoryStore covering CRUD, actor/action/target indexing, AES-GCM encryption, envelope encryption, snapshot/rollback, RocksDB backend, GoalPayload metadata roundtrip, archive exclusion from search, and provenance-field hash backward-compatibility.",
+      "tags": ["test", "memory-store", "persistence", "encryption"],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:tests/unit/memory_store_tests.rs:test_archived_records_excluded_from_default_search",
+      "type": "function",
+      "name": "test_archived_records_excluded_from_default_search",
+      "filePath": "tests/unit/memory_store_tests.rs",
+      "lineRange": [6, 19],
+      "summary": "Verifies that records with an 'archived' status tag are excluded from default semantic search results.",
+      "tags": ["test", "archive", "search-filter"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/unit/memory_store_tests.rs:test_goal_payload_roundtrips_via_metadata",
+      "type": "function",
+      "name": "test_goal_payload_roundtrips_via_metadata",
+      "filePath": "tests/unit/memory_store_tests.rs",
+      "lineRange": [22, 47],
+      "summary": "Tests that a GoalPayload serializes into a MemoryRecord's metadata field and round-trips back via serde_json without data loss.",
+      "tags": ["test", "serialization", "goal-payload"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/unit/memory_store_tests.rs:test_add_and_query_memory_store",
+      "type": "function",
+      "name": "test_add_and_query_memory_store",
+      "filePath": "tests/unit/memory_store_tests.rs",
+      "lineRange": [50, 66],
+      "summary": "Basic smoke test: adds a MemoryRecord to a file-backed store and verifies it is returned by store.all().",
+      "tags": ["test", "memory-store", "basic"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/unit/memory_store_tests.rs:test_find_by_actor_index",
+      "type": "function",
+      "name": "test_find_by_actor_index",
+      "filePath": "tests/unit/memory_store_tests.rs",
+      "lineRange": [69, 93],
+      "summary": "Confirms that find_by_actor returns only records belonging to the queried actor when multiple actors are stored.",
+      "tags": ["test", "indexing", "actor-query"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/unit/memory_store_tests.rs:test_find_by_action_and_target",
+      "type": "function",
+      "name": "test_find_by_action_and_target",
+      "filePath": "tests/unit/memory_store_tests.rs",
+      "lineRange": [96, 123],
+      "summary": "Tests action-based and target-based index queries, asserting correct subset filtering across multiple stored records.",
+      "tags": ["test", "indexing", "action-query"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/unit/memory_store_tests.rs:test_encrypted_memory_store",
+      "type": "function",
+      "name": "test_encrypted_memory_store",
+      "filePath": "tests/unit/memory_store_tests.rs",
+      "lineRange": [127, 143],
+      "summary": "Exercises MemoryStore::new_encrypted to confirm AES-GCM encrypted stores can accept records and flush without error.",
+      "tags": ["test", "encryption", "aes-gcm"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/unit/memory_store_tests.rs:test_snapshot_and_rollback",
+      "type": "function",
+      "name": "test_snapshot_and_rollback",
+      "filePath": "tests/unit/memory_store_tests.rs",
+      "lineRange": [146, 174],
+      "summary": "Verifies that a snapshot taken after an initial write can be used to roll back subsequent mutations, restoring the prior record count.",
+      "tags": ["test", "snapshot", "rollback"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/unit/memory_store_tests.rs:test_envelope_encryption",
+      "type": "function",
+      "name": "test_envelope_encryption",
+      "filePath": "tests/unit/memory_store_tests.rs",
+      "lineRange": [177, 198],
+      "summary": "Tests envelope encryption (DEK wrapped by master key): writes a record, drops the store, reopens with the same master key, and confirms successful reload.",
+      "tags": ["test", "encryption", "envelope-encryption"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/unit/memory_store_tests.rs:test_rocksdb_backend",
+      "type": "function",
+      "name": "test_rocksdb_backend",
+      "filePath": "tests/unit/memory_store_tests.rs",
+      "lineRange": [203, 219],
+      "summary": "Smoke test for the RocksDB-backed MemoryStore: adds a record via new_rocksdb and confirms no panics occur under the feature flag.",
+      "tags": ["test", "rocksdb", "backend"],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/unit/memory_store_tests.rs:test_provenance_fields_do_not_change_hash_of_legacy_record",
+      "type": "function",
+      "name": "test_provenance_fields_do_not_change_hash_of_legacy_record",
+      "filePath": "tests/unit/memory_store_tests.rs",
+      "lineRange": [222, 240],
+      "summary": "Backward-compatibility guard ensuring that adding provenance fields (source_agent, session_id, etc.) to a MemoryRecord does not alter its SHA-256 integrity hash.",
+      "tags": ["test", "backward-compatibility", "hash-integrity"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/unit/mod.rs",
+      "type": "file",
+      "name": "mod.rs",
+      "filePath": "tests/unit/mod.rs",
+      "summary": "Unit test registry that wires all unit test sub-modules — including archive_store_tests, cognitive_gc_tests, execution_gate_tests, and memory_diff_tests — into the unit_suite test binary.",
+      "tags": ["test", "barrel", "registry", "entry-point"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:tests/unit/memory_store_tests.rs",
+      "target": "file:src/memory_store.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/unit/memory_store_tests.rs",
+      "target": "file:src/memory_record.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/unit/memory_store_tests.rs",
+      "target": "file:src/payloads.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/unit/mod.rs",
+      "target": "file:tests/unit/archive_store_tests.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/unit/mod.rs",
+      "target": "file:tests/unit/cognitive_gc_tests.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/unit/mod.rs",
+      "target": "file:tests/unit/execution_gate_tests.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/unit/mod.rs",
+      "target": "file:tests/unit/memory_diff_tests.rs",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/unit/memory_store_tests.rs",
+      "target": "function:tests/unit/memory_store_tests.rs:test_archived_records_excluded_from_default_search",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/unit/memory_store_tests.rs",
+      "target": "function:tests/unit/memory_store_tests.rs:test_goal_payload_roundtrips_via_metadata",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/unit/memory_store_tests.rs",
+      "target": "function:tests/unit/memory_store_tests.rs:test_add_and_query_memory_store",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/unit/memory_store_tests.rs",
+      "target": "function:tests/unit/memory_store_tests.rs:test_find_by_actor_index",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/unit/memory_store_tests.rs",
+      "target": "function:tests/unit/memory_store_tests.rs:test_find_by_action_and_target",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/unit/memory_store_tests.rs",
+      "target": "function:tests/unit/memory_store_tests.rs:test_encrypted_memory_store",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/unit/memory_store_tests.rs",
+      "target": "function:tests/unit/memory_store_tests.rs:test_snapshot_and_rollback",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/unit/memory_store_tests.rs",
+      "target": "function:tests/unit/memory_store_tests.rs:test_envelope_encryption",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/unit/memory_store_tests.rs",
+      "target": "function:tests/unit/memory_store_tests.rs:test_rocksdb_backend",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:tests/unit/memory_store_tests.rs",
+      "target": "function:tests/unit/memory_store_tests.rs:test_provenance_fields_do_not_change_hash_of_legacy_record",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1.0
+    },
+    {
+      "source": "file:src/memory_store.rs",
+      "target": "file:tests/unit/memory_store_tests.rs",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/memory_record.rs",
+      "target": "file:tests/unit/memory_store_tests.rs",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/payloads.rs",
+      "target": "file:tests/unit/memory_store_tests.rs",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ]
+}

@@ -163,18 +163,34 @@ impl MemoryBackend for FileBackend {
             let mut dropped = 0u64;
             while let Some(last) = lines.last() {
                 let trimmed = last.trim();
-                if trimmed.is_empty() { lines.pop(); continue; }
-                if !trimmed.starts_with('{') { lines.pop(); dropped += 1; continue; }
+                if trimmed.is_empty() {
+                    lines.pop();
+                    continue;
+                }
+                if !trimmed.starts_with('{') {
+                    lines.pop();
+                    dropped += 1;
+                    continue;
+                }
                 let parse_ok = if self.cipher.is_some() {
                     #[derive(serde::Deserialize)]
-                    struct EncLine { nonce: String, data: String }
+                    struct EncLine {
+                        nonce: String,
+                        data: String,
+                    }
                     serde_json::from_str::<EncLine>(trimmed).is_ok()
                 } else if self.compress {
-                    base64::engine::general_purpose::STANDARD.decode(trimmed).is_ok()
+                    base64::engine::general_purpose::STANDARD
+                        .decode(trimmed)
+                        .is_ok()
                 } else {
                     serde_json::from_str::<MemoryRecord>(trimmed).is_ok()
                 };
-                if !parse_ok { lines.pop(); dropped += 1; continue; }
+                if !parse_ok {
+                    lines.pop();
+                    dropped += 1;
+                    continue;
+                }
                 break; // last line is valid
             }
 
@@ -183,7 +199,8 @@ impl MemoryBackend for FileBackend {
                 std::fs::write(&self.path, &fixed)?;
                 eprintln!(
                     "[MemoryStore] Crash recovery: dropped {} incomplete line(s) from {}",
-                    dropped, self.path.display()
+                    dropped,
+                    self.path.display()
                 );
             }
 
@@ -554,12 +571,16 @@ pub struct InMemoryBackend {
 
 impl InMemoryBackend {
     pub fn new() -> Self {
-        Self { records: Vec::new() }
+        Self {
+            records: Vec::new(),
+        }
     }
 }
 
 impl Default for InMemoryBackend {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MemoryBackend for InMemoryBackend {
@@ -570,7 +591,9 @@ impl MemoryBackend for InMemoryBackend {
         self.records.push(record.clone());
         Ok(())
     }
-    fn flush(&mut self) -> Result<()> { Ok(()) }
+    fn flush(&mut self) -> Result<()> {
+        Ok(())
+    }
     fn clear(&mut self) -> Result<()> {
         self.records.clear();
         Ok(())

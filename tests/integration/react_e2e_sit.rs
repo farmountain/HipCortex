@@ -5,7 +5,11 @@ mod tests {
     use hipcortex::memory_store::MemoryStore;
     use hipcortex::payloads::{GoalPayload, GoalStatus, SuccessFactor};
 
-    fn make_goal(criteria: Vec<String>, factors: Vec<SuccessFactor>, max_iter: u32) -> MemoryRecord {
+    fn make_goal(
+        criteria: Vec<String>,
+        factors: Vec<SuccessFactor>,
+        max_iter: u32,
+    ) -> MemoryRecord {
         let payload = GoalPayload {
             target_state: "test_target".to_string(),
             acceptance_criteria: criteria,
@@ -29,7 +33,11 @@ mod tests {
         let mut store = MemoryStore::new_in_memory();
         let goal = make_goal(
             vec!["done".to_string()],
-            vec![SuccessFactor { name: "done".into(), weight: 1.0, satisfied: true }],
+            vec![SuccessFactor {
+                name: "done".into(),
+                weight: 1.0,
+                satisfied: true,
+            }],
             5,
         );
         let goal_id = goal.id;
@@ -38,7 +46,11 @@ mod tests {
         let mut engine = ReactEngine::new();
         let status = engine.run(&mut store, goal_id, 1).unwrap();
 
-        assert!(matches!(status, GoalStatus::Succeeded), "Expected Succeeded, got {:?}", status);
+        assert!(
+            matches!(status, GoalStatus::Succeeded),
+            "Expected Succeeded, got {:?}",
+            status
+        );
 
         let updated = store.find_by_id(goal_id).unwrap();
         let payload: GoalPayload = serde_json::from_value(updated.metadata.clone()).unwrap();
@@ -51,7 +63,11 @@ mod tests {
         let mut store = MemoryStore::new_in_memory();
         let goal = make_goal(
             vec!["impossible".to_string()],
-            vec![SuccessFactor { name: "impossible".into(), weight: 1.0, satisfied: false }],
+            vec![SuccessFactor {
+                name: "impossible".into(),
+                weight: 1.0,
+                satisfied: false,
+            }],
             3,
         );
         let goal_id = goal.id;
@@ -60,7 +76,11 @@ mod tests {
         let mut engine = ReactEngine::new();
         let status = engine.run(&mut store, goal_id, 1).unwrap();
 
-        assert!(matches!(status, GoalStatus::Failed), "Expected Failed, got {:?}", status);
+        assert!(
+            matches!(status, GoalStatus::Failed),
+            "Expected Failed, got {:?}",
+            status
+        );
 
         let updated = store.find_by_id(goal_id).unwrap();
         let payload: GoalPayload = serde_json::from_value(updated.metadata.clone()).unwrap();
@@ -74,7 +94,11 @@ mod tests {
         let mut store = MemoryStore::new_in_memory();
         let goal = make_goal(
             vec![],
-            vec![SuccessFactor { name: "x".into(), weight: 1.0, satisfied: false }],
+            vec![SuccessFactor {
+                name: "x".into(),
+                weight: 1.0,
+                satisfied: false,
+            }],
             2,
         );
         let goal_id = goal.id;
@@ -85,27 +109,40 @@ mod tests {
 
         let all = store.all();
 
-        let temporal_obs: Vec<_> = all.iter().filter(|r| {
-            r.record_type == MemoryType::Temporal && r.derived_from == Some(goal_id)
-        }).collect();
-        let reflexion_obs: Vec<_> = all.iter().filter(|r| {
-            r.record_type == MemoryType::Reflexion && r.derived_from == Some(goal_id)
-        }).collect();
+        let temporal_obs: Vec<_> = all
+            .iter()
+            .filter(|r| r.record_type == MemoryType::Temporal && r.derived_from == Some(goal_id))
+            .collect();
+        let reflexion_obs: Vec<_> = all
+            .iter()
+            .filter(|r| r.record_type == MemoryType::Reflexion && r.derived_from == Some(goal_id))
+            .collect();
 
-        assert_eq!(temporal_obs.len(), 2,
-            "Expected 2 Temporal observations (one per iteration), got {}", temporal_obs.len());
-        assert_eq!(reflexion_obs.len(), 2,
-            "Expected 2 Reflexion critiques (one per failed iteration), got {}", reflexion_obs.len());
+        assert_eq!(
+            temporal_obs.len(),
+            2,
+            "Expected 2 Temporal observations (one per iteration), got {}",
+            temporal_obs.len()
+        );
+        assert_eq!(
+            reflexion_obs.len(),
+            2,
+            "Expected 2 Reflexion critiques (one per failed iteration), got {}",
+            reflexion_obs.len()
+        );
 
-        let mut iter_vals: Vec<u32> = temporal_obs.iter()
+        let mut iter_vals: Vec<u32> = temporal_obs
+            .iter()
             .filter_map(|r| r.react_iteration)
             .collect();
         iter_vals.sort();
         assert_eq!(iter_vals, vec![0, 1], "react_iteration must be 0 and 1");
 
         let search_results = store.search_semantic(None, "test_target", 100, false);
-        assert!(!search_results.iter().any(|(r, _)| r.status == "archived"),
-            "Archived records must not appear in default search");
+        assert!(
+            !search_results.iter().any(|(r, _)| r.status == "archived"),
+            "Archived records must not appear in default search"
+        );
     }
 
     /// E2E-4: GoalStatus progression — only one goal record exists after ReactEngine completes.
@@ -114,7 +151,11 @@ mod tests {
         let mut store = MemoryStore::new_in_memory();
         let goal = make_goal(
             vec!["unreachable".to_string()],
-            vec![SuccessFactor { name: "u".into(), weight: 1.0, satisfied: false }],
+            vec![SuccessFactor {
+                name: "u".into(),
+                weight: 1.0,
+                satisfied: false,
+            }],
             1,
         );
         let goal_id = goal.id;
@@ -125,14 +166,21 @@ mod tests {
 
         let updated = store.find_by_id(goal_id).unwrap();
         let payload: GoalPayload = serde_json::from_value(updated.metadata.clone()).unwrap();
-        assert!(matches!(payload.status, GoalStatus::Failed),
-            "Expected Failed after exhausted iterations");
+        assert!(
+            matches!(payload.status, GoalStatus::Failed),
+            "Expected Failed after exhausted iterations"
+        );
 
         let all = store.all();
-        let goal_records: Vec<_> = all.iter()
+        let goal_records: Vec<_> = all
+            .iter()
             .filter(|r| r.id == goal_id && r.record_type == MemoryType::Goal)
             .collect();
-        assert_eq!(goal_records.len(), 1, "Goal must not be duplicated by ReactEngine");
+        assert_eq!(
+            goal_records.len(),
+            1,
+            "Goal must not be duplicated by ReactEngine"
+        );
     }
 
     /// E2E-5: CognitiveGC — referenced obs gets Archive; unreferenced gets Delete.
@@ -148,13 +196,22 @@ mod tests {
 
         gc.register_reference(obs_id, goal_id);
 
-        assert_eq!(gc.gc_action(obs_id), GcAction::Archive,
-            "Referenced observation must be archived, not deleted");
-        assert_eq!(gc.gc_action(orphan_id), GcAction::Delete,
-            "Unreferenced observation must be deleted");
+        assert_eq!(
+            gc.gc_action(obs_id),
+            GcAction::Archive,
+            "Referenced observation must be archived, not deleted"
+        );
+        assert_eq!(
+            gc.gc_action(orphan_id),
+            GcAction::Delete,
+            "Unreferenced observation must be deleted"
+        );
 
         gc.deregister_referencing(goal_id);
-        assert_eq!(gc.gc_action(obs_id), GcAction::Delete,
-            "After goal removed, observation must be deletable");
+        assert_eq!(
+            gc.gc_action(obs_id),
+            GcAction::Delete,
+            "After goal removed, observation must be deletable"
+        );
     }
 }

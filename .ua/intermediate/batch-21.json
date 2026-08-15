@@ -1,0 +1,79 @@
+{
+  "batchIndex": 21,
+  "nodes": [
+    {
+      "id": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/.openspec.yaml",
+      "type": "document",
+      "name": "rewrite-docs-v049 openspec manifest",
+      "filePath": "openspec/changes/archive/2026-07-11-rewrite-docs-v049/.openspec.yaml",
+      "summary": "Minimal spec-driven manifest for the v0.4.9 documentation rewrite change, recording the creation date of 2026-07-11. Serves as the machine-readable anchor for the archive change set.",
+      "tags": ["openspec", "archive", "docs", "manifest"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/design.md",
+      "type": "document",
+      "name": "rewrite-docs-v049 design",
+      "filePath": "openspec/changes/archive/2026-07-11-rewrite-docs-v049/design.md",
+      "summary": "Design decisions for the v0.4.9 documentation rewrite, covering adoption of the Caveman Comparison Matrix with exact latency figures (0.48–0.61 ms local vs 142 ms cloud), standardisation on tiktoken cl100k_base token-reduction numbers (59–88% savings), and a universal agent setup matrix for 12 coding agents in sdk/mcp/README.md. Includes risk mitigations for outdated badges and marketplace description truncation.",
+      "tags": ["openspec", "archive", "docs", "benchmarks", "mcp", "vscode-extension", "token-optimization"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/proposal.md",
+      "type": "document",
+      "name": "rewrite-docs-v049 proposal",
+      "filePath": "openspec/changes/archive/2026-07-11-rewrite-docs-v049/proposal.md",
+      "summary": "Change proposal explaining why v0.4.9 documentation needed a full rewrite: outdated version badges, unvalidated latency claims, and missing onboarding for modern autonomous agents. Describes what changes across README.md, VS Code extension, MCP guide, and Python/TypeScript SDKs, and lists the new documentation-rewrite-v049 capability.",
+      "tags": ["openspec", "archive", "docs", "sdk", "vscode-extension", "mcp", "multi-agent"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/tasks.md",
+      "type": "document",
+      "name": "rewrite-docs-v049 tasks",
+      "filePath": "openspec/changes/archive/2026-07-11-rewrite-docs-v049/tasks.md",
+      "summary": "Fully checked-off task list for the v0.4.9 doc rewrite covering six sections: main README rewrite with benchmark tables, VS Code extension marketplace docs, Universal MCP multi-agent setup guide for 12 agents, Python and TypeScript SDK documentation parity, git commit and dissemination guide, and CI/CD token-optimization verification with interactive @hipcortex mode switching.",
+      "tags": ["openspec", "archive", "docs", "tasks", "ci-cd", "vscode-extension", "sdk"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/.openspec.yaml",
+      "target": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/proposal.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/.openspec.yaml",
+      "target": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/design.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/.openspec.yaml",
+      "target": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/proposal.md",
+      "target": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/design.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/design.md",
+      "target": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "source": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/proposal.md",
+      "target": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    }
+  ]
+}

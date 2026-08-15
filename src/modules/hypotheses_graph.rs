@@ -88,11 +88,13 @@ impl HypothesesGraph {
 
     /// Return all hypotheses sorted by descending confidence (top-K first).
     pub fn top_hypotheses(&self, limit: usize) -> Vec<&ReflexionHypothesis> {
-        let mut all: Vec<&ReflexionHypothesis> = self.graph
-            .node_weights()
-            .map(|n| &n.hypothesis)
-            .collect();
-        all.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
+        let mut all: Vec<&ReflexionHypothesis> =
+            self.graph.node_weights().map(|n| &n.hypothesis).collect();
+        all.sort_by(|a, b| {
+            b.confidence
+                .partial_cmp(&a.confidence)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         all.truncate(limit);
         all
     }

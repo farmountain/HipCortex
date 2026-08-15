@@ -1,0 +1,3333 @@
+{
+  "scriptCompleted": true,
+  "entryPointCandidates": [
+    {
+      "id": "file:src/lib.rs",
+      "score": 6,
+      "name": "lib.rs",
+      "type": "file",
+      "summary": "HipCortex crate root that registers every public module via pub mod declarations (many with #[path] redirects into src/modules/), re-exports key types such as LoopEngine, ReactEngine, CausalTopoGraph, EdgeType, and InMemoryBackend, and applies feature flags to gate web-server, gRPC, async-store, GUI, RocksDB, and tokio-dependent surfaces. Recently extended with pub mod payloads, archive_store, cognitive_gc, and execution_gate, plus updated loop_engine re-exports."
+    },
+    {
+      "id": "document:README.md",
+      "score": 5,
+      "name": "README",
+      "type": "document",
+      "summary": "Primary project landing page positioning HipCortex as local persistent memory for AI coding agents (Claude, Cursor, VS Code, Python/TS agents). Explains the core value proposition of reducing token costs and preserving decisions across sessions via a local causal graph served over HTTP+MCP. Covers 60-second install via pip/npm/VSIX and links to the channel/capabilities honesty matrix."
+    },
+    {
+      "id": "file:src/llm_clients/mod.rs",
+      "score": 4,
+      "name": "LLMClient",
+      "type": "file",
+      "summary": "Aggregation module for all LLM connector implementations. Declares two traits: LLMClient (generate_response) and LanguageModelClient (generate, embed, chat). Sub-modules: claude, deepseek_client, falcon_client, llama, local_llm_client, mistral_client, mock, ollama, openai."
+    },
+    {
+      "id": "file::tests/integration/mod.rs",
+      "score": 4,
+      "name": "mod",
+      "type": "file",
+      "summary": "Integration test module registry. Declares all integration sub-modules; gates grpc_tests on 'grpc-server', sit_tests/uat_tests/intelligence_sit/intelligence_wiring_sit/worldmodel_self_http_sit on 'web-server', mcp_server_sit/mcp_server_uat on both 'web-server'+'grpc-server'."
+    },
+    {
+      "id": "file:src/modules/self_model/mod.rs",
+      "score": 4,
+      "name": "mod.rs",
+      "type": "file",
+      "summary": "Self-model coordinator (`SelfModel`) aggregating capability registry, resource monitor, performance tracker, health aggregator, and decision engine; new `with_gate()` constructor injects an `ExecutionGate` override that short-circuits `can_execute` without touching the internal decision pipeline."
+    }
+  ],
+  "fanInRanking": [
+    {
+      "id": "file:src/memory_record.rs",
+      "fanIn": 8,
+      "name": "memory_record.rs"
+    },
+    {
+      "id": "document:docs/architecture.md",
+      "fanIn": 7,
+      "name": "Architecture"
+    },
+    {
+      "id": "file:src/memory_store.rs",
+      "fanIn": 7,
+      "name": "memory_store.rs"
+    },
+    {
+      "id": "schema:schemas/symbolic_graph.json",
+      "fanIn": 6,
+      "name": "symbolic_graph"
+    },
+    {
+      "id": "schema:schemas/temporal_memory.json",
+      "fanIn": 6,
+      "name": "temporal_memory"
+    },
+    {
+      "id": "schema:schemas/world_model.json",
+      "fanIn": 6,
+      "name": "world_model"
+    },
+    {
+      "id": "document:docs/roadmap.md",
+      "fanIn": 5,
+      "name": "Roadmap"
+    },
+    {
+      "id": "class:src/memory_record.rs:MemoryRecord",
+      "fanIn": 4,
+      "name": "MemoryRecord"
+    },
+    {
+      "id": "function:src/memory_store.rs:rebuild_indices",
+      "fanIn": 4,
+      "name": "rebuild_indices"
+    },
+    {
+      "id": "function:src/memory_store.rs:add",
+      "fanIn": 4,
+      "name": "add"
+    },
+    {
+      "id": "class:src/modules/self_model/decision.rs:DecisionEngine",
+      "fanIn": 4,
+      "name": "DecisionEngine"
+    },
+    {
+      "id": "document:docs/channels.md",
+      "fanIn": 3,
+      "name": "Channel Matrix"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/tasks.md",
+      "fanIn": 3,
+      "name": "rewrite-docs-v049 tasks"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/tasks.md",
+      "fanIn": 3,
+      "name": "fix-memory-query-truncation tasks"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/tasks.md",
+      "fanIn": 3,
+      "name": "server-lifecycle-improvements tasks"
+    },
+    {
+      "id": "document:openspec/changes/intelligence-foundation/tasks.md",
+      "fanIn": 3,
+      "name": "intelligence-foundation tasks"
+    },
+    {
+      "id": "document:openspec/changes/sdk-tmf-surface-update/tasks.md",
+      "fanIn": 3,
+      "name": "sdk-tmf-surface-update tasks"
+    },
+    {
+      "id": "file:src/modules/world_model_enhanced/transition.rs",
+      "fanIn": 3,
+      "name": "TransitionModel"
+    },
+    {
+      "id": "function:src/memory_record.rs:new",
+      "fanIn": 3,
+      "name": "new"
+    },
+    {
+      "id": "function:src/memory_record.rs:compute_hash",
+      "fanIn": 3,
+      "name": "compute_hash"
+    }
+  ],
+  "fanOutRanking": [
+    {
+      "id": "file:src/memory_store.rs",
+      "fanOut": 45,
+      "name": "memory_store.rs"
+    },
+    {
+      "id": "class:src/memory_store.rs:MemoryStore",
+      "fanOut": 26,
+      "name": "MemoryStore"
+    },
+    {
+      "id": "file:src/modules/loop_engine.rs",
+      "fanOut": 18,
+      "name": "loop_engine.rs"
+    },
+    {
+      "id": "file:src/memory_record.rs",
+      "fanOut": 16,
+      "name": "memory_record.rs"
+    },
+    {
+      "id": "file:src/modules/world_model_enhanced/mod.rs",
+      "fanOut": 16,
+      "name": "mod.rs"
+    },
+    {
+      "id": "file:tests/unit/memory_store_tests.rs",
+      "fanOut": 12,
+      "name": "memory_store_tests.rs"
+    },
+    {
+      "id": "file:src/memory_diff.rs",
+      "fanOut": 9,
+      "name": "memory_diff.rs"
+    },
+    {
+      "id": "file:src/modules/world_model_enhanced/causal.rs",
+      "fanOut": 9,
+      "name": "causal.rs"
+    },
+    {
+      "id": "document:sdk/typescript/README.md",
+      "fanOut": 8,
+      "name": "README"
+    },
+    {
+      "id": "file:src/modules/self_model/decision.rs",
+      "fanOut": 8,
+      "name": "decision.rs"
+    },
+    {
+      "id": "document:docs/usage.md",
+      "fanOut": 6,
+      "name": "Usage Guide"
+    },
+    {
+      "id": "file:src/actors/world_model_actor.rs",
+      "fanOut": 6,
+      "name": "world_model_actor.rs"
+    },
+    {
+      "id": "class:src/memory_record.rs:MemoryRecord",
+      "fanOut": 6,
+      "name": "MemoryRecord"
+    },
+    {
+      "id": "class:src/modules/loop_engine.rs:LoopEngine",
+      "fanOut": 5,
+      "name": "LoopEngine"
+    },
+    {
+      "id": "file:src/modules/self_model/mod.rs",
+      "fanOut": 5,
+      "name": "mod.rs"
+    },
+    {
+      "id": "file:src/modules/world_model_enhanced/entity.rs",
+      "fanOut": 5,
+      "name": "entity.rs"
+    },
+    {
+      "id": "document:README.md",
+      "fanOut": 4,
+      "name": "README"
+    },
+    {
+      "id": "resource:deploy/helm/hipcortex/templates/deployment.yaml",
+      "fanOut": 4,
+      "name": "Deployment"
+    },
+    {
+      "id": "schema:schemas/reflexion_memory.json",
+      "fanOut": 4,
+      "name": "reflexion_memory"
+    },
+    {
+      "id": "schema:schemas/temporal_memory.json",
+      "fanOut": 4,
+      "name": "temporal_memory"
+    }
+  ],
+  "bfsTraversal": {
+    "startNode": "file:src/lib.rs",
+    "order": [
+      "file:src/lib.rs",
+      "file:src/modules/loop_engine.rs",
+      "file:src/memory_diff.rs",
+      "file:src/memory_record.rs",
+      "file:src/memory_store.rs"
+    ],
+    "depthMap": {
+      "file:src/lib.rs": 0,
+      "file:src/modules/loop_engine.rs": 1,
+      "file:src/memory_diff.rs": 1,
+      "file:src/memory_record.rs": 1,
+      "file:src/memory_store.rs": 1
+    },
+    "byDepth": {
+      "0": [
+        "file:src/lib.rs"
+      ],
+      "1": [
+        "file:src/modules/loop_engine.rs",
+        "file:src/memory_diff.rs",
+        "file:src/memory_record.rs",
+        "file:src/memory_store.rs"
+      ]
+    }
+  },
+  "nonCodeFiles": {
+    "documentation": [
+      {
+        "id": "document:BENCHMARK.md",
+        "name": "BENCHMARK.md",
+        "type": "document",
+        "summary": "Latency benchmark results comparing HipCortex v0.4.9 against Mem0 cloud and local vector stores. Shows HipCortex achieve"
+      },
+      {
+        "id": "document:CONTRIBUTING.md",
+        "name": "CONTRIBUTING.md",
+        "type": "document",
+        "summary": "Contributor guide for HipCortex covering development setup, coding style requirements (rustfmt, clippy, documentation, s"
+      },
+      {
+        "id": "document:DEPLOY.md",
+        "name": "DEPLOY.md",
+        "type": "document",
+        "summary": "Deployment guide covering three paths: Fly.io managed hosting (~$1.94/month), Docker/Docker Compose self-hosted, and pre"
+      },
+      {
+        "id": "document:DEVELOPMENT.md",
+        "name": "DEVELOPMENT.md",
+        "type": "document",
+        "summary": "Developer setup and workflow guide listing prerequisites (Rust 1.70+), build commands for all feature combinations, a fe"
+      },
+      {
+        "id": "document:Hipcortex_Env_Setup_Guide.md",
+        "name": "Hipcortex_Env_Setup_Guide.md",
+        "type": "document",
+        "summary": "Comprehensive Windows-focused environment setup guide covering Rust toolchain installation, VS Build Tools, Node.js, dat"
+      },
+      {
+        "id": "document:LICENSE",
+        "name": "LICENSE",
+        "type": "document",
+        "summary": "Apache License 2.0 full text. Copyright holder is Liew Keong Han (farmountain@gmail.com), dated 2025. Grants perpetual w"
+      },
+      {
+        "id": "document:PRODUCTION_READY_REPORT.md",
+        "name": "Production Ready Report",
+        "type": "document",
+        "summary": "Executive status report declaring HipCortex production-ready, covering technical implementation status across core memor"
+      },
+      {
+        "id": "document:QUICK_START_GUIDE.md",
+        "name": "Quick Start Guide",
+        "type": "document",
+        "summary": "Step-by-step installation and setup guide for two primary deployment paths: Docker/Podman containerized server (with doc"
+      },
+      {
+        "id": "document:README.md",
+        "name": "README",
+        "type": "document",
+        "summary": "Primary project landing page positioning HipCortex as local persistent memory for AI coding agents (Claude, Cursor, VS C"
+      },
+      {
+        "id": "document:docs/acceptance.md",
+        "name": "Acceptance Checklist",
+        "type": "document",
+        "summary": "Quality acceptance checklist verifying unit tests with mock data, SIT (full FSM+DB+Cache workflow), UAT (CLI and HTTP en"
+      },
+      {
+        "id": "document:docs/agent.md",
+        "name": "Codex Agent Guide",
+        "type": "document",
+        "summary": "Workflow guidelines for the OpenAI Codex agent contributing to the HipCortex repository. Covers branch discipline, commi"
+      },
+      {
+        "id": "document:docs/api_contract.md",
+        "name": "API Contract",
+        "type": "document",
+        "summary": "Placeholder document outlining the planned REST and gRPC interface contracts for HipCortex covering memory ingestion, qu"
+      },
+      {
+        "id": "document:docs/architecture.md",
+        "name": "Architecture",
+        "type": "document",
+        "summary": "Comprehensive architecture reference covering the two-layer design (storage/memory engine plus intelligence layer), modu"
+      },
+      {
+        "id": "document:docs/business_context.md",
+        "name": "Business Context",
+        "type": "document",
+        "summary": "Business problem statement and market positioning for HipCortex as a privacy-first, device-agnostic universal cognitive "
+      },
+      {
+        "id": "document:docs/capabilities.md",
+        "name": "Capabilities Matrix",
+        "type": "document",
+        "summary": "Honest, code-grounded capability surface matrix as of product v0.5.2/VSIX v0.5.8 covering every operation (add, query, s"
+      },
+      {
+        "id": "document:docs/channels.md",
+        "name": "Channel Matrix",
+        "type": "document",
+        "summary": "Distribution and integration channel registry (source of truth backed by channels.yaml) listing every consumer install s"
+      },
+      {
+        "id": "document:docs/contributing.md",
+        "name": "Contributing Guide",
+        "type": "document",
+        "summary": "Contributor onboarding guide covering the fork/branch/PR workflow, Rust coding standards (clippy, doc-comments, naming),"
+      },
+      {
+        "id": "document:docs/data_model.md",
+        "name": "Data Model",
+        "type": "document",
+        "summary": "Defines the canonical MemoryRecord struct and MemoryType enum (Temporal/Symbolic/Procedural/Reflexion/Perception), stora"
+      },
+      {
+        "id": "document:docs/integration.md",
+        "name": "Integration Guide",
+        "type": "document",
+        "summary": "Integration reference for wiring HipCortex with agent frameworks, REST/gRPC APIs, LLM connectors, and RAG pipelines. Pro"
+      },
+      {
+        "id": "document:docs/memory_design.md",
+        "name": "Memory Design",
+        "type": "document",
+        "summary": "Formal memory design specification grounding each subsystem in mathematical models: PCA/ICA for PerceptionAdapter, Marko"
+      },
+      {
+        "id": "document:docs/roadmap.md",
+        "name": "Roadmap",
+        "type": "document",
+        "summary": "Feature completion status and future roadmap for HipCortex. Lists completed modules (temporal indexer, FSM procedural ca"
+      },
+      {
+        "id": "document:docs/usage.md",
+        "name": "Usage Guide",
+        "type": "document",
+        "summary": "Comprehensive developer usage guide covering build commands, test suites, benchmarks, library API examples, agent integr"
+      },
+      {
+        "id": "document:docs/SESSION_HANDOVER.md",
+        "name": "Session Handover",
+        "type": "document",
+        "summary": "Comprehensive session state snapshot covering the full REST API (45+ endpoints), SDK integrations (Python/TypeScript/MCP"
+      },
+      {
+        "id": "document:docs/launch/DISTRIBUTION.md",
+        "name": "Distribution Checklist",
+        "type": "document",
+        "summary": "Step-by-step launch checklist covering six distribution channels: Show HN, npm TypeScript SDK, VS Code Marketplace, Hugg"
+      },
+      {
+        "id": "document:docs/launch/copilot-extension-plan.md",
+        "name": "GitHub Copilot Extension Plan",
+        "type": "document",
+        "summary": "Three-day implementation plan for a GitHub Copilot Extension that gives Copilot Chat persistent memory via HipCortex MCP"
+      },
+      {
+        "id": "document:docs/launch/reddit-localllama.md",
+        "name": "Reddit r/LocalLLAMA Launch Post",
+        "type": "document",
+        "summary": "Drafted launch post for r/LocalLLAMA (plus r/MachineLearning and LinkedIn variants) highlighting HipCortex v0.2 features"
+      },
+      {
+        "id": "document:docs/launch/show-hn.md",
+        "name": "Show HN Submission",
+        "type": "document",
+        "summary": "Prepared Hacker News Show HN post for HipCortex, leading with the metacognitive intelligence layer (Self-Model, World-Mo"
+      },
+      {
+        "id": "document:docs/superpowers/plans/2026-05-20-500-stars-sprint.md",
+        "name": "500-Star Sprint Plan (2026-05-20)",
+        "type": "document",
+        "summary": "Implementation plan for 8 features targeting 500 GitHub stars: ARM64 cross-compiled binaries, async Python client (httpx"
+      },
+      {
+        "id": "document:docs/superpowers/plans/2026-05-20-golden-path-ux-sprint.md",
+        "name": "Golden Path UX Sprint Plan (2026-05-20)",
+        "type": "document",
+        "summary": "Five-task plan to eliminate first-use friction: npm publish of the TypeScript SDK, AsyncHipCortexMemory LangChain wrappe"
+      },
+      {
+        "id": "document:docs/superpowers/plans/2026-06-04-intelligence-layer-wiring.md",
+        "name": "Intelligence Layer Wiring Plan (2026-06-04)",
+        "type": "document",
+        "summary": "Nine-task plan to wire WorldModelEnhanced, AureusBridge, SelfModel, and CoherenceChecker into the web server via a new A"
+      },
+      {
+        "id": "document:docs/superpowers/plans/2026-07-17-semantic-tag-auto-capture.md",
+        "name": "Semantic Tag Auto-Capture Plan (v0.5.2)",
+        "type": "document",
+        "summary": "Step-by-step TDD implementation plan for adding a 5-layer `extractSemanticTags()` function to the VS Code extension that"
+      },
+      {
+        "id": "document:docs/superpowers/plans/2026-07-17-server-lifecycle-option-a.md",
+        "name": "Server Lifecycle Option A Plan (v0.5.4)",
+        "type": "document",
+        "summary": "Detailed TDD plan for implementing robust VS Code extension local-server lifecycle management: dynamic port parsing from"
+      },
+      {
+        "id": "document:docs/superpowers/plans/2026-07-18-cross-channel-ux-enhancement-plan.md",
+        "name": "Cross-Channel UX Enhancement Plan (8-Phase)",
+        "type": "document",
+        "summary": "Comprehensive 8-phase plan to unify HipCortex across all client channels (Claude Code, VS Code VSIX, pip, MCP, npm, agen"
+      },
+      {
+        "id": "document:docs/superpowers/plans/2026-07-20-release-pr-vsix.md",
+        "name": "Release PR + VSIX v0.5.7 Plan (2026-07-20)",
+        "type": "document",
+        "summary": "Short release coordination plan for v0.5.7: enhance release.yml to always artifact server binaries with topological rout"
+      },
+      {
+        "id": "document:docs/superpowers/plans/2026-07-20-worldmodel-self-routes-surface.md",
+        "name": "WorldModel/Self Routes Surface Plan (2026-07-20)",
+        "type": "document",
+        "summary": "Plan to make the intelligence REST surface discoverable, contract-aligned, and tested: update OpenAPI spec to document a"
+      },
+      {
+        "id": "document:docs/superpowers/plans/2026-07-20-fill-stubs.md",
+        "name": "Fill Real Stubs Plan (2026-07-20)",
+        "type": "document",
+        "summary": "Plan to implement real logic in empty stub functions across topological_memory (search.rs, contradiction.rs, deconstruct"
+      },
+      {
+        "id": "document:docs/superpowers/plans/2026-07-20-mcts-deep-causal.md",
+        "name": "MCTS + Deep Causal Wiring Plan (2026-07-20)",
+        "type": "document",
+        "summary": "Plan to fix /worldmodel/rollout by adding WorldModelEnhanced::rollout_dirichlet (multi-step MAP via TransitionModel) and"
+      },
+      {
+        "id": "document:docs/superpowers/specs/2026-06-04-intelligence-layer-wiring-design.md",
+        "name": "Intelligence Layer Wiring Design",
+        "type": "document",
+        "summary": "Approved design (2026-06-04) for wiring HipCortex's three fully-implemented but disconnected intelligence modules (World"
+      },
+      {
+        "id": "document:docs/superpowers/specs/2026-06-04-query-response-fields-design.md",
+        "name": "QueryMemoryResponse Full Field Exposure Design",
+        "type": "document",
+        "summary": "Approved design (2026-06-04) for extending MemoryRecordResponse with 7 missing fields (confidence, source, priority, tag"
+      },
+      {
+        "id": "document:docs/superpowers/specs/2026-06-04-sim11-p1-gaps-design.md",
+        "name": "Sim #11 P1/P2 Gap Closure Design",
+        "type": "document",
+        "summary": "Approved design (2026-06-04) closing 8 gaps identified in MiroFish Sim #11 (100-persona UAT of the intelligence layer). "
+      },
+      {
+        "id": "document:openspec/changes/agent-substrate-autonomy/proposal.md",
+        "name": "Agent-Substrate-Autonomy Proposal",
+        "type": "document",
+        "summary": "Identifies the gap between the current agent-tool invocation model (conservative SKILL, reactive policy) and the memory-"
+      },
+      {
+        "id": "document:openspec/changes/agent-substrate-autonomy/design.md",
+        "name": "Agent-Substrate-Autonomy Design",
+        "type": "document",
+        "summary": "Resolves all five open threads (token math, beliefs merge, compliance, layering, multi-agent) with code-grounded evidenc"
+      },
+      {
+        "id": "document:openspec/changes/agent-substrate-autonomy/tasks.md",
+        "name": "Agent-Substrate-Autonomy Tasks",
+        "type": "document",
+        "summary": "Four-phase task breakdown: Phase 1 updates the Python SKILL template and CLI installer for proactive/substrate-first mod"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/.openspec.yaml",
+        "name": "Improve Agent Experience Docs v1 OpenSpec",
+        "type": "document",
+        "summary": "Metadata file for the archived improve-agent-experience-docs-v1 openspec change, created 2026-06-25 using the spec-drive"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/proposal.md",
+        "name": "Improve Agent Experience Docs Proposal",
+        "type": "document",
+        "summary": "Identifies three documentation gaps hindering agent onboarding: missing pip install hipcortex instructions in README, un"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/design.md",
+        "name": "Improve Agent Experience Docs Design",
+        "type": "document",
+        "summary": "Specifies precise placement decisions for each documentation fix: pip install in README Quickstart, SafetyGuardrail in a"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/tasks.md",
+        "name": "Improve Agent Experience Docs Tasks",
+        "type": "document",
+        "summary": "Three completed tasks: add pip install hipcortex to README.md, add Safety and Guardrails section to docs/architecture.md"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/.openspec.yaml",
+        "name": "Fix Extension Dispatch OpenSpec",
+        "type": "document",
+        "summary": "Metadata file for the archived fix-extension-dispatch openspec change, created 2026-07-08 using the spec-driven schema."
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/proposal.md",
+        "name": "Fix Extension Dispatch Proposal",
+        "type": "document",
+        "summary": "Identifies two bugs in the VS Code extension: search and query chat commands both incorrectly route to handleQueryMemory"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/design.md",
+        "name": "Fix Extension Dispatch Design",
+        "type": "document",
+        "summary": "Pure TypeScript change to vscode-extension/src/extension.ts only. Defines four design decisions: scored vs raw result fo"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/tasks.md",
+        "name": "Fix Extension Dispatch Tasks",
+        "type": "document",
+        "summary": "Five completed tasks in two groups: API updates (add searchMemory method, register hipcortex_causal LM tool) and dispatc"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/.openspec.yaml",
+        "name": "Implement Cognitive OS OpenSpec",
+        "type": "document",
+        "summary": "Metadata file for the archived implement-cognitive-os openspec change, created 2026-07-09 using the spec-driven schema."
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/proposal.md",
+        "name": "Implement Cognitive OS Proposal",
+        "type": "document",
+        "summary": "Proposes transitioning HipCortex into a full Cognitive Operating System by addressing four architectural bottlenecks: la"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/design.md",
+        "name": "Implement Cognitive OS Design",
+        "type": "document",
+        "summary": "Detailed design with five key decisions: petgraph DiGraph for TaskGraph with A* state-space search, exact Backdoor Adjus"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/tasks.md",
+        "name": "Implement Cognitive OS Tasks",
+        "type": "document",
+        "summary": "Six task groups all marked complete: Executive Cortex (TaskGraph A*, ExecutiveScheduler tick, ContinuationCheckpoint per"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/.openspec.yaml",
+        "name": "Python Server Endpoint Parity OpenSpec Metadata",
+        "type": "document",
+        "summary": "Metadata file for the python-server-endpoint-parity change spec, created 2026-07-08. Marks the change as using the spec-"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/proposal.md",
+        "name": "Python MCP Server Endpoint Parity Proposal",
+        "type": "document",
+        "summary": "Proposes adding missing MCP tools to sdk/mcp/server.py: get_live_beliefs (proxies GET /memory/live_beliefs), purge_expir"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/design.md",
+        "name": "Python MCP Server Endpoint Parity Design",
+        "type": "document",
+        "summary": "Details the implementation of get_live_beliefs and purge_expired as Python handler functions in sdk/mcp/server.py, both "
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/tasks.md",
+        "name": "Python MCP Server Endpoint Parity Tasks",
+        "type": "document",
+        "summary": "Completed task checklist for the python-server-endpoint-parity change. Covers schema alignment (adding Perception, updat"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/.openspec.yaml",
+        "name": "Record Type Alias Mapping OpenSpec Metadata",
+        "type": "document",
+        "summary": "Metadata file for the record-type-alias-mapping change spec, created 2026-07-08. Marks the change as using the spec-driv"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/proposal.md",
+        "name": "Record Type Alias Mapping Proposal",
+        "type": "document",
+        "summary": "Proposes server-side normalization of cognitive-science memory tier names (Episodic, Semantic, LongTerm, ShortTerm, Work"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/design.md",
+        "name": "Record Type Alias Mapping Design",
+        "type": "document",
+        "summary": "Details the parse_record_type_alias helper function added to src/web_server.rs, mapping cognitive-science aliases to Mem"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/tasks.md",
+        "name": "Record Type Alias Mapping Tasks",
+        "type": "document",
+        "summary": "Completed task checklist for the record-type-alias-mapping change. Covers backend alias normalization (parse_record_type"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/.openspec.yaml",
+        "name": "SDD Post-Session Hardening OpenSpec Metadata",
+        "type": "document",
+        "summary": "Metadata file for the sdd-post-session-hardening change spec, created 2026-07-07. Marks the change as using the spec-dri"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/proposal.md",
+        "name": "SDD Post-Session Hardening Proposal",
+        "type": "document",
+        "summary": "Proposes fixing 6 permanently-failing integration tests (caused by System:Self seeding baseline mismatch), aligning the "
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/design.md",
+        "name": "SDD Post-Session Hardening Design",
+        "type": "document",
+        "summary": "Details design decisions for fixing test assertions using delta-relative counts (not backend bypass), extending the Type"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/tasks.md",
+        "name": "SDD Post-Session Hardening Tasks",
+        "type": "document",
+        "summary": "Comprehensive completed task checklist covering 8 sections: fixing 5 intelligence hook integration tests, fixing the CLI"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/.openspec.yaml",
+        "name": "WorldModel Rollout Endpoint OpenSpec Metadata",
+        "type": "document",
+        "summary": "Metadata file for the worldmodel-rollout-endpoint change spec, created 2026-07-08. Marks the change as using the spec-dr"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/proposal.md",
+        "name": "WorldModel Rollout Endpoint Proposal",
+        "type": "document",
+        "summary": "Proposes exposing WorldModelEnhanced.predict_multi_step() as a new POST /worldmodel/rollout HTTP route, enabling agents "
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/design.md",
+        "name": "WorldModel Rollout Endpoint Design",
+        "type": "document",
+        "summary": "Details the WmRolloutRequest struct, handle_wm_rollout handler, route binding in build_router, auth whitelist entry (una"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/tasks.md",
+        "name": "WorldModel Rollout Endpoint Tasks",
+        "type": "document",
+        "summary": "Completed task checklist for the worldmodel-rollout-endpoint change. Covers backend route implementation (WmRolloutReque"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/.openspec.yaml",
+        "name": "rewrite-docs-v049 openspec manifest",
+        "type": "document",
+        "summary": "Minimal spec-driven manifest for the v0.4.9 documentation rewrite change, recording the creation date of 2026-07-11. Ser"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/design.md",
+        "name": "rewrite-docs-v049 design",
+        "type": "document",
+        "summary": "Design decisions for the v0.4.9 documentation rewrite, covering adoption of the Caveman Comparison Matrix with exact lat"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/proposal.md",
+        "name": "rewrite-docs-v049 proposal",
+        "type": "document",
+        "summary": "Change proposal explaining why v0.4.9 documentation needed a full rewrite: outdated version badges, unvalidated latency "
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/tasks.md",
+        "name": "rewrite-docs-v049 tasks",
+        "type": "document",
+        "summary": "Fully checked-off task list for the v0.4.9 doc rewrite covering six sections: main README rewrite with benchmark tables,"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/.openspec.yaml",
+        "name": "fix-memory-query-truncation openspec manifest",
+        "type": "document",
+        "summary": "Minimal spec-driven manifest for the memory query truncation bug-fix change, recording the creation date of 2026-07-10. "
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/design.md",
+        "name": "fix-memory-query-truncation design",
+        "type": "document",
+        "summary": "Design decisions for fixing deterministic newest-first slice ordering in memory retrieval. Chooses explicit slice-time s"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/proposal.md",
+        "name": "fix-memory-query-truncation proposal",
+        "type": "document",
+        "summary": "Change proposal identifying that /memory/query, /memory/beliefs, and search_semantic applied result limits against unsor"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/tasks.md",
+        "name": "fix-memory-query-truncation tasks",
+        "type": "document",
+        "summary": "Fully checked-off task list covering four sections: sort-before-truncate fixes in web_server.rs for handle_query_memory "
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/.openspec.yaml",
+        "name": "server-lifecycle-improvements openspec manifest",
+        "type": "document",
+        "summary": "Minimal spec-driven manifest for the VS Code extension server lifecycle improvement change, recording the creation date "
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/design.md",
+        "name": "server-lifecycle-improvements design",
+        "type": "document",
+        "summary": "Design decisions for cross-platform server lifecycle management in the VS Code extension. Specifies OS-specific port dis"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/proposal.md",
+        "name": "server-lifecycle-improvements proposal",
+        "type": "document",
+        "summary": "Change proposal identifying orphaned server processes after VS Code extension reloads as the root cause of port conflict"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/tasks.md",
+        "name": "server-lifecycle-improvements tasks",
+        "type": "document",
+        "summary": "Fully checked-off task list covering four sections: dynamic port extraction and cross-platform killProcessOnPort utility"
+      },
+      {
+        "id": "document:openspec/changes/intelligence-foundation/.openspec.yaml",
+        "name": "intelligence-foundation openspec manifest",
+        "type": "document",
+        "summary": "Minimal spec-driven manifest for the active intelligence-foundation change, recording the creation date of 2026-03-13. S"
+      },
+      {
+        "id": "document:openspec/changes/intelligence-foundation/design.md",
+        "name": "intelligence-foundation design",
+        "type": "document",
+        "summary": "Comprehensive design document for the three-module intelligence layer: Self-Model (capability registry, resource monitor"
+      },
+      {
+        "id": "document:openspec/changes/intelligence-foundation/proposal.md",
+        "name": "intelligence-foundation proposal",
+        "type": "document",
+        "summary": "Change proposal framing HipCortex's gap from sophisticated storage system to intelligent agent. Proposes adding self-mod"
+      },
+      {
+        "id": "document:openspec/changes/intelligence-foundation/tasks.md",
+        "name": "intelligence-foundation tasks",
+        "type": "document",
+        "summary": "Exhaustive 24-section, 252-item fully checked-off task list for the intelligence foundation. Covers implementation of al"
+      },
+      {
+        "id": "document:openspec/changes/sdk-tmf-surface-update/.openspec.yaml",
+        "name": "sdk-tmf-surface-update openspec manifest",
+        "type": "document",
+        "summary": "Openspec manifest for the active SDK and extension surface update for the Tiered Memory Foundation (TMF). File content w"
+      },
+      {
+        "id": "document:openspec/changes/sdk-tmf-surface-update/design.md",
+        "name": "sdk-tmf-surface-update design",
+        "type": "document",
+        "summary": "Detailed design for surfacing six new TMF REST endpoints across all four distribution channels. Covers five design decis"
+      },
+      {
+        "id": "document:openspec/changes/sdk-tmf-surface-update/proposal.md",
+        "name": "sdk-tmf-surface-update proposal",
+        "type": "document",
+        "summary": "Change proposal identifying that the tiered-memory-foundation merge (commit 3126373) added 6 new REST endpoints and 2 en"
+      },
+      {
+        "id": "document:openspec/changes/sdk-tmf-surface-update/tasks.md",
+        "name": "sdk-tmf-surface-update tasks",
+        "type": "document",
+        "summary": "Fully checked-off 8-phase task list for the TMF surface update: version bumps across three package files, Python sync/as"
+      },
+      {
+        "id": "document:sdk/typescript/README.md",
+        "name": "README",
+        "type": "document",
+        "summary": ""
+      },
+      {
+        "id": "document:tests/test_report/PerformanceTestReport.md",
+        "name": "PerformanceTestReport",
+        "type": "document",
+        "summary": "Criterion benchmark report (June 5 2025). Covers temporal_indexer_bench which inserts 100 traces repeatedly to measure t"
+      },
+      {
+        "id": "document:tests/test_report/RegressionTestReport.md",
+        "name": "RegressionTestReport",
+        "type": "document",
+        "summary": "Regression test report (June 5 2025). Validates get_recent_zero_returns_empty and inserting_trace_preserves_id. All regr"
+      },
+      {
+        "id": "document:tests/test_report/RetrievalPipelineTestPlan.md",
+        "name": "RetrievalPipelineTestPlan",
+        "type": "document",
+        "summary": "Test plan for RAG retrieval pipelines built on SymbolicStore and TemporalIndexer (June 5 2025). Covers unit tests (recen"
+      },
+      {
+        "id": "document:tests/test_report/SITTestReport.md",
+        "name": "SITTestReport",
+        "type": "document",
+        "summary": "System Integration Test report (June 5 2025). Validates cross-module interactions: memory_round_trip, integration_and_re"
+      },
+      {
+        "id": "document:tests/test_report/UATTestReport.md",
+        "name": "UATTestReport",
+        "type": "document",
+        "summary": "User Acceptance Test report (June 5 2025). Validates end-user workflows: travelg3n_store_and_retrieve_city, athena_refle"
+      },
+      {
+        "id": "document:tests/test_report/SymbolicProceduralTestPlan.md",
+        "name": "SymbolicProceduralTestPlan",
+        "type": "document",
+        "summary": "Test plan for symbolic reasoning and procedural state management (June 5 2025). Unit tests cover SymbolicStore CRUD and "
+      },
+      {
+        "id": "document:tests/test_report/UnitTestReport.md",
+        "name": "UnitTestReport",
+        "type": "document",
+        "summary": "Unit test report (June 5 2025). Covers TemporalIndexer (insert/retrieve, buffer overflow, decay/prune, remove/get, decay"
+      },
+      {
+        "id": "document:vscode-extension/README.md",
+        "name": "README",
+        "type": "document",
+        "summary": "User-facing documentation for the HipCortex VS Code extension v0.5.8. Covers zero-config onboarding (bundled multi-OS Ru"
+      },
+      {
+        "id": "document:.claude/PRPs/plans/hipcortex-saas-features.plan.md",
+        "name": "hipcortex-saas-features.plan",
+        "type": "document",
+        "summary": "Implementation plan for positioning HipCortex as a deployable AI-memory SaaS. P0: Python SDK (client, LangChain BaseChat"
+      },
+      {
+        "id": "document:.claude/PRPs/plans/sim10-memory-gaps.plan.md",
+        "name": "sim10-memory-gaps.plan",
+        "type": "document",
+        "summary": "Gap-closure plan from MiroFish Sim #10 (100-persona UAT). Eight tasks: (1) add status field (active/quarantine/archived)"
+      },
+      {
+        "id": "document:sdk/python/README.md",
+        "name": "README",
+        "type": "document",
+        "summary": "User-facing documentation for hipcortex Python SDK v0.5.2. Features: persistent causal topological memory, Bayesian worl"
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/specs/worldmodel-rollout/spec.md",
+        "name": "spec",
+        "type": "document",
+        "summary": ""
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/specs/mcp-add-memory/spec.md",
+        "name": "spec",
+        "type": "document",
+        "summary": ""
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/specs/mcp-live-beliefs/spec.md",
+        "name": "spec",
+        "type": "document",
+        "summary": ""
+      },
+      {
+        "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/specs/mcp-purge-expired/spec.md",
+        "name": "spec",
+        "type": "document",
+        "summary": ""
+      },
+      {
+        "id": "document:openspec/specs/deterministic-slice-ordering/spec.md",
+        "name": "spec",
+        "type": "document",
+        "summary": ""
+      },
+      {
+        "id": "document:openspec/specs/documentation-rewrite-v049/spec.md",
+        "name": "spec",
+        "type": "document",
+        "summary": ""
+      },
+      {
+        "id": "document:openspec/specs/executive-cortex/spec.md",
+        "name": "spec",
+        "type": "document",
+        "summary": ""
+      },
+      {
+        "id": "document:openspec/specs/goal-memory/spec.md",
+        "name": "spec",
+        "type": "document",
+        "summary": ""
+      },
+      {
+        "id": "document:openspec/specs/query-optimization/spec.md",
+        "name": "spec",
+        "type": "document",
+        "summary": ""
+      },
+      {
+        "id": "document:openspec/specs/semantic-compression/spec.md",
+        "name": "spec",
+        "type": "document",
+        "summary": ""
+      },
+      {
+        "id": "document:openspec/specs/tool-result-memory/spec.md",
+        "name": "spec",
+        "type": "document",
+        "summary": ""
+      },
+      {
+        "id": "document:sdk/continue/README.md",
+        "name": "README",
+        "type": "document",
+        "summary": ""
+      },
+      {
+        "id": "document:sdk/python/hipcortex/install/SKILL.md",
+        "name": "SKILL",
+        "type": "document",
+        "summary": ""
+      },
+      {
+        "id": "document:AGENTS.md",
+        "name": "AGENTS.md",
+        "type": "document",
+        "summary": "Behavioral guide for AI agents working in the HipCortex repo, mandating GitNexus impact analysis before any symbol edit,"
+      },
+      {
+        "id": "document:CLAUDE.md",
+        "name": "CLAUDE.md",
+        "type": "document",
+        "summary": "Master developer reference for the HipCortex Rust crate covering build and test commands for all feature combinations, t"
+      },
+      {
+        "id": "document:docs/superpowers/specs/2026-08-13-hipcortex-gap-remediation-design.md",
+        "name": "HipCortex Cohesive Gap Remediation Design",
+        "type": "document",
+        "summary": "Implemented 4-sprint design spec remediating critical architectural gaps in HipCortex against its S-Tuple Acceptance Cri"
+      }
+    ],
+    "infrastructure": [
+      {
+        "id": "service:Dockerfile",
+        "name": "Dockerfile",
+        "type": "service",
+        "summary": "Multi-stage Docker build for the HipCortex web server binary. Builder stage uses rust:1.87-bookworm to compile the webse"
+      },
+      {
+        "id": "service:huggingface-space/Dockerfile",
+        "name": "HuggingFace Space Dockerfile",
+        "type": "service",
+        "summary": "Multi-stage Dockerfile that builds the HipCortex web server binary from source using Rust 1.78 with only the `web-server"
+      },
+      {
+        "id": "pipeline:.github/workflows/ci.yml",
+        "name": "CI",
+        "type": "pipeline",
+        "summary": "Primary continuous integration pipeline triggered on push/PR to main. Runs six parallel jobs: core library build+test (u"
+      },
+      {
+        "id": "pipeline:.github/workflows/cognitive_os_token_verification.yml",
+        "name": "Cognitive OS Token Optimization Verification",
+        "type": "pipeline",
+        "summary": "Lightweight pipeline triggered on push/PR/manual dispatch that verifies Headroom and Caveman token-compression savings o"
+      },
+      {
+        "id": "pipeline:.github/workflows/publish-npm.yml",
+        "name": "Publish npm package",
+        "type": "pipeline",
+        "summary": "Publishes the HipCortex TypeScript SDK (`sdk/typescript`) to npm on GitHub Release publication or manual dispatch. Insta"
+      },
+      {
+        "id": "pipeline:.github/workflows/publish-pypi.yml",
+        "name": "Publish Python SDK to PyPI",
+        "type": "pipeline",
+        "summary": "Builds and publishes the HipCortex Python SDK (`sdk/python`) to PyPI on GitHub Release or manual dispatch. Uses `python "
+      },
+      {
+        "id": "pipeline:.github/workflows/release.yml",
+        "name": "Release Binaries",
+        "type": "pipeline",
+        "summary": "Cross-platform binary release pipeline triggered on GitHub Release or manual dispatch. The `build-release` job compiles "
+      },
+      {
+        "id": "resource:deploy/helm/hipcortex/templates/deployment.yaml",
+        "name": "Deployment",
+        "type": "resource",
+        "summary": "Kubernetes Deployment manifest for the HipCortex container. Configures replica count, image, port 3030, environment vari"
+      },
+      {
+        "id": "resource:deploy/helm/hipcortex/templates/pvc.yaml",
+        "name": "PersistentVolumeClaim",
+        "type": "resource",
+        "summary": "Conditionally rendered PersistentVolumeClaim (only when persistence.enabled is true). Requests storage with a configurab"
+      },
+      {
+        "id": "resource:deploy/helm/hipcortex/templates/secret.yaml",
+        "name": "Secret",
+        "type": "resource",
+        "summary": "Conditionally rendered Opaque Kubernetes Secret (only when apiKeys value is set). Stores base64-encoded API keys under t"
+      },
+      {
+        "id": "resource:deploy/helm/hipcortex/templates/service.yaml",
+        "name": "Service",
+        "type": "resource",
+        "summary": "Kubernetes Service that exposes the HipCortex Deployment. Configurable service type (ClusterIP/NodePort/LoadBalancer) an"
+      }
+    ],
+    "data": [
+      {
+        "id": "schema:schemas/perception_adapter.json",
+        "name": "perception_adapter",
+        "type": "schema",
+        "summary": ""
+      },
+      {
+        "id": "schema:schemas/procedural_memory.json",
+        "name": "procedural_memory",
+        "type": "schema",
+        "summary": ""
+      },
+      {
+        "id": "schema:schemas/reflexion_memory.json",
+        "name": "reflexion_memory",
+        "type": "schema",
+        "summary": ""
+      },
+      {
+        "id": "schema:schemas/symbolic_graph.json",
+        "name": "symbolic_graph",
+        "type": "schema",
+        "summary": ""
+      },
+      {
+        "id": "schema:schemas/temporal_memory.json",
+        "name": "temporal_memory",
+        "type": "schema",
+        "summary": ""
+      },
+      {
+        "id": "schema:schemas/world_model.json",
+        "name": "world_model",
+        "type": "schema",
+        "summary": ""
+      },
+      {
+        "id": "schema:proto/memory.proto",
+        "name": "memory",
+        "type": "schema",
+        "summary": "proto3 schema for hipcortex package. Defines MemoryRecord message (id, record_type, timestamp, actor, action, target, me"
+      },
+      {
+        "id": "schema::proto/memory.proto",
+        "name": "memory",
+        "type": "schema",
+        "summary": "Proto3 schema for the `hipcortex` gRPC package. Defines `MemoryRecord` message (id, record_type, timestamp, actor, actio"
+      }
+    ],
+    "config": [
+      {
+        "id": "config:docker-compose.dev.yml",
+        "name": "docker-compose.dev.yml",
+        "type": "config",
+        "summary": "Docker Compose override file for local development. Replaces the production image with a Dockerfile.dev build, mounts th"
+      },
+      {
+        "id": "config:docker-compose.yml",
+        "name": "docker-compose.yml",
+        "type": "config",
+        "summary": "Production Docker Compose stack defining four services: hipcortex (REST API on 3030), postgres:15-alpine (with migration"
+      },
+      {
+        "id": "config:.env.example",
+        "name": ".env.example",
+        "type": "config",
+        "summary": "Template environment file for Docker Compose deployment. Defines configuration for PostgreSQL, Redis, application settin"
+      },
+      {
+        "id": "config:CODEOWNERS",
+        "name": "CODEOWNERS",
+        "type": "config",
+        "summary": "GitHub CODEOWNERS file assigning @farmountain as the required reviewer for all files in the repository. Single-line wild"
+      },
+      {
+        "id": "config:fixtures/sample_memory_trace.json",
+        "name": "sample_memory_trace",
+        "type": "config",
+        "summary": "Minimal fixture representing a single Temporal MemoryRecord with actor/action/target fields and an empty metadata map. U"
+      },
+      {
+        "id": "config:fixtures/sample_perception_input.json",
+        "name": "sample_perception_input",
+        "type": "config",
+        "summary": "Fixture for a single Text-modality perception event produced by PerceptionAdapter. Contains source, modality, raw data p"
+      },
+      {
+        "id": "config:fixtures/sample_procedural_policy.json",
+        "name": "sample_procedural_policy",
+        "type": "config",
+        "summary": "FSM policy fixture defining a single state transition from 'Start' to 'Observe' with a trigger condition, effect label, "
+      },
+      {
+        "id": "config:fixtures/sample_reflexion_snapshot.json",
+        "name": "sample_reflexion_snapshot",
+        "type": "config",
+        "summary": "Fixture capturing an AureusBridge reflexion snapshot linking a chain-of-thought trace (two reasoning steps) to an outcom"
+      },
+      {
+        "id": "config:fixtures/sample_symbolic_node.json",
+        "name": "sample_symbolic_node",
+        "type": "config",
+        "summary": "Fixture for a single SymbolicStore graph node carrying dual labels ('Concept', 'Example'), a confidence weight, and a fr"
+      },
+      {
+        "id": "config:fixtures/sample_temporal_event.json",
+        "name": "sample_temporal_event",
+        "type": "config",
+        "summary": "Fixture representing a raw temporal event as ingested by TemporalIndexer, containing a timestamped content string, agent"
+      },
+      {
+        "id": "config:sdk/typescript/package.json",
+        "name": "package",
+        "type": "config",
+        "summary": ""
+      },
+      {
+        "id": "config:sdk/typescript/tsconfig.json",
+        "name": "tsconfig",
+        "type": "config",
+        "summary": ""
+      },
+      {
+        "id": "config:vscode-extension/package.json",
+        "name": "package",
+        "type": "config",
+        "summary": "VS Code extension manifest for hipcortex-memory v0.5.8 by publisher farmountain. Targets vscode ^1.90.0. Contributes 6 c"
+      },
+      {
+        "id": "config:vscode-extension/tsconfig.json",
+        "name": "tsconfig",
+        "type": "config",
+        "summary": "TypeScript compiler configuration for the VS Code extension. Targets ES2020/CommonJS, outputs to dist/, rootDir src/, st"
+      },
+      {
+        "id": "config:.claude/settings.local.json",
+        "name": "settings.local",
+        "type": "config",
+        "summary": "Project-local Claude Code permissions allowlist. Contains 5 PowerShell allow-rules for worktree builds (cargo check with"
+      },
+      {
+        "id": "config:Cargo.toml",
+        "name": "Cargo",
+        "type": "config",
+        "summary": "Rust crate manifest for hipcortex v0.5.2 (Apache-2.0, edition 2021). Default feature: petgraph_backend (in-memory, no ex"
+      },
+      {
+        "id": "config:deploy/helm/hipcortex/Chart.yaml",
+        "name": "Chart",
+        "type": "config",
+        "summary": "Helm chart metadata for hipcortex v0.2.0 (apiVersion v2, type application). Describes the AI Memory Engine for AI agents"
+      },
+      {
+        "id": "config:deploy/helm/hipcortex/values.yaml",
+        "name": "values",
+        "type": "config",
+        "summary": "Default Helm values: 1 replica, image hipcortex/hipcortex:0.2.0, ClusterIP service on port 3030, ingress disabled (host "
+      },
+      {
+        "id": "config:sdk/python/pyproject.toml",
+        "name": "pyproject",
+        "type": "config",
+        "summary": "PEP 517 build config for hipcortex Python package v0.5.2 (Apache-2.0, Python >=3.9). Core deps: requests>=2.28, httpx>=0"
+      },
+      {
+        "id": "config:sdk/python/setup.py",
+        "name": "setup",
+        "type": "config",
+        "summary": "Legacy setuptools setup() for hipcortex Python SDK v0.1.0 (older version than pyproject.toml v0.5.2). Core dep: requests"
+      },
+      {
+        "id": "config:vscode-extension/hipcortex-memory-0.4.9.vsix",
+        "name": "0.4.9",
+        "type": "config",
+        "summary": "VS Code extension VSIX package for HipCortex Memory v0.4.9. Binary distribution artifact containing bundled server binar"
+      },
+      {
+        "id": "config:vscode-extension/hipcortex-memory-0.5.0.vsix",
+        "name": "0.5.0",
+        "type": "config",
+        "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.0. Binary distribution artifact containing bundled server binar"
+      },
+      {
+        "id": "config:vscode-extension/hipcortex-memory-0.5.1.vsix",
+        "name": "0.5.1",
+        "type": "config",
+        "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.1. Binary distribution artifact containing bundled server binar"
+      },
+      {
+        "id": "config:vscode-extension/hipcortex-memory-0.5.2.vsix",
+        "name": "0.5.2",
+        "type": "config",
+        "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.2. Binary distribution artifact containing bundled server binar"
+      },
+      {
+        "id": "config:vscode-extension/hipcortex-memory-0.5.3.vsix",
+        "name": "0.5.3",
+        "type": "config",
+        "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.3. Binary distribution artifact containing bundled server binar"
+      },
+      {
+        "id": "config:vscode-extension/hipcortex-memory-0.5.4.vsix",
+        "name": "0.5.4",
+        "type": "config",
+        "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.4. Binary distribution artifact containing bundled server binar"
+      },
+      {
+        "id": "config:vscode-extension/hipcortex-memory-0.5.5.vsix",
+        "name": "0.5.5",
+        "type": "config",
+        "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.5. Binary distribution artifact containing bundled server binar"
+      },
+      {
+        "id": "config:vscode-extension/hipcortex-memory-0.5.6.vsix",
+        "name": "0.5.6",
+        "type": "config",
+        "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.6. Binary distribution artifact containing bundled server binar"
+      },
+      {
+        "id": "config:vscode-extension/hipcortex-memory-0.5.7.vsix",
+        "name": "0.5.7",
+        "type": "config",
+        "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.7. Binary distribution artifact containing bundled server binar"
+      },
+      {
+        "id": "config:vscode-extension/hipcortex-memory-0.5.8.vsix",
+        "name": "0.5.8",
+        "type": "config",
+        "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.8. Binary distribution artifact containing bundled server binar"
+      }
+    ]
+  },
+  "clusters": [
+    {
+      "nodes": [
+        "document:docs/architecture.md",
+        "document:docs/memory_design.md"
+      ],
+      "edgeCount": 2
+    }
+  ],
+  "layers": {
+    "count": 9,
+    "list": [
+      {
+        "id": "layer:storage-persistence",
+        "name": "Storage & Persistence",
+        "description": "Core memory record types, store implementations (JSONL, encrypted, WAL, Merkle audit), backend trait and RocksDB backend, snapshot management, semantic compression, and data-integrity fixtures and schemas."
+      },
+      {
+        "id": "layer:memory-subsystems",
+        "name": "Memory Subsystems",
+        "description": "The four primary memory subsystems: TemporalIndexer (ring-buffer decay), SymbolicStore (graph DB), ProceduralCache (FSM traces), and PerceptionAdapter (multimodal input normalisation), plus the LLM connector registry."
+      },
+      {
+        "id": "layer:intelligence",
+        "name": "Intelligence Layer",
+        "description": "Metacognitive modules: SelfModel (capability registry, resource monitor, decision engine), WorldModelEnhanced (Dirichlet-Multinomial transitions, Kalman entity tracking, causal do-calculus), and CoherenceChecker (consistency, conflict resolution, system invariants)."
+      },
+      {
+        "id": "layer:cognitive-runtime",
+        "name": "Cognitive Runtime",
+        "description": "Active reasoning loop (ReactEngine / loop_engine), AureusBridge reflexion hook, cognitive garbage collector, execution gate, memory diff/delta tracking, world-model actor, and cross-cutting safety guardrail."
+      },
+      {
+        "id": "layer:api-integration",
+        "name": "API & Integration",
+        "description": "External-facing surfaces: REST/gRPC/MCP servers (Axum + Tonic), MCP and OpenManus protocol bridges, integration layer for API-key and OAuth2 routing, and the crate entry point (lib.rs, build.rs)."
+      },
+      {
+        "id": "layer:cli-examples",
+        "name": "CLI & Examples",
+        "description": "Command-line binary (memory_cli), web-server binary entry point, and runnable example programs demonstrating quickstart, RAG export, world-model, and MCP server usage."
+      },
+      {
+        "id": "layer:sdk-extensions",
+        "name": "SDK & Extensions",
+        "description": "Client SDKs for TypeScript, Python, and Continue.dev, plus the VS Code extension (TypeScript source and packaged VSIX releases) that surfaces HipCortex memory inside an IDE."
+      },
+      {
+        "id": "layer:tests",
+        "name": "Tests",
+        "description": "All test code: Rust unit, integration (SIT/UAT), and property (proptest) suites, Python e2e harness, and test-report documents capturing coverage and regression results."
+      },
+      {
+        "id": "layer:infrastructure-docs",
+        "name": "Infrastructure & Documentation",
+        "description": "Deployment artifacts (Dockerfile, docker-compose, Helm charts, HuggingFace space), CI/CD pipelines, project configuration (Cargo.toml, env, CODEOWNERS), OpenSpec change proposals, and all documentation (README, docs/, openspec/, .claude/PRPs)."
+      }
+    ]
+  },
+  "nodeSummaryIndex": {
+    "service:Dockerfile": {
+      "name": "Dockerfile",
+      "type": "service",
+      "summary": "Multi-stage Docker build for the HipCortex web server binary. Builder stage uses rust:1.87-bookworm to compile the webserver binary with the web-serve"
+    },
+    "config:docker-compose.dev.yml": {
+      "name": "docker-compose.dev.yml",
+      "type": "config",
+      "summary": "Docker Compose override file for local development. Replaces the production image with a Dockerfile.dev build, mounts the full source tree for hot-rel"
+    },
+    "config:docker-compose.yml": {
+      "name": "docker-compose.yml",
+      "type": "config",
+      "summary": "Production Docker Compose stack defining four services: hipcortex (REST API on 3030), postgres:15-alpine (with migrations auto-applied via docker-entr"
+    },
+    "service:huggingface-space/Dockerfile": {
+      "name": "HuggingFace Space Dockerfile",
+      "type": "service",
+      "summary": "Multi-stage Dockerfile that builds the HipCortex web server binary from source using Rust 1.78 with only the `web-server` and `petgraph_backend` featu"
+    },
+    "pipeline:.github/workflows/ci.yml": {
+      "name": "CI",
+      "type": "pipeline",
+      "summary": "Primary continuous integration pipeline triggered on push/PR to main. Runs six parallel jobs: core library build+test (unit, integration, property sui"
+    },
+    "pipeline:.github/workflows/cognitive_os_token_verification.yml": {
+      "name": "Cognitive OS Token Optimization Verification",
+      "type": "pipeline",
+      "summary": "Lightweight pipeline triggered on push/PR/manual dispatch that verifies Headroom and Caveman token-compression savings offline (no live Rust server). "
+    },
+    "pipeline:.github/workflows/publish-npm.yml": {
+      "name": "Publish npm package",
+      "type": "pipeline",
+      "summary": "Publishes the HipCortex TypeScript SDK (`sdk/typescript`) to npm on GitHub Release publication or manual dispatch. Installs Node 20 dependencies, runs"
+    },
+    "pipeline:.github/workflows/publish-pypi.yml": {
+      "name": "Publish Python SDK to PyPI",
+      "type": "pipeline",
+      "summary": "Builds and publishes the HipCortex Python SDK (`sdk/python`) to PyPI on GitHub Release or manual dispatch. Uses `python -m build` to produce wheel+sdi"
+    },
+    "pipeline:.github/workflows/release.yml": {
+      "name": "Release Binaries",
+      "type": "pipeline",
+      "summary": "Cross-platform binary release pipeline triggered on GitHub Release or manual dispatch. The `build-release` job compiles the `webserver` binary for fiv"
+    },
+    "config:.env.example": {
+      "name": ".env.example",
+      "type": "config",
+      "summary": "Template environment file for Docker Compose deployment. Defines configuration for PostgreSQL, Redis, application settings (API port, memory limits), "
+    },
+    "document:BENCHMARK.md": {
+      "name": "BENCHMARK.md",
+      "type": "document",
+      "summary": "Latency benchmark results comparing HipCortex v0.4.9 against Mem0 cloud and local vector stores. Shows HipCortex achieves 0.61 ms p50 write on Linux ("
+    },
+    "config:CODEOWNERS": {
+      "name": "CODEOWNERS",
+      "type": "config",
+      "summary": "GitHub CODEOWNERS file assigning @farmountain as the required reviewer for all files in the repository. Single-line wildcard rule covering the entire "
+    },
+    "document:CONTRIBUTING.md": {
+      "name": "CONTRIBUTING.md",
+      "type": "document",
+      "summary": "Contributor guide for HipCortex covering development setup, coding style requirements (rustfmt, clippy, documentation, small modules), and the pull-re"
+    },
+    "document:DEPLOY.md": {
+      "name": "DEPLOY.md",
+      "type": "document",
+      "summary": "Deployment guide covering three paths: Fly.io managed hosting (~$1.94/month), Docker/Docker Compose self-hosted, and pre-built binary for edge/embedde"
+    },
+    "document:DEVELOPMENT.md": {
+      "name": "DEVELOPMENT.md",
+      "type": "document",
+      "summary": "Developer setup and workflow guide listing prerequisites (Rust 1.70+), build commands for all feature combinations, a feature-flag matrix with externa"
+    },
+    "document:Hipcortex_Env_Setup_Guide.md": {
+      "name": "Hipcortex_Env_Setup_Guide.md",
+      "type": "document",
+      "summary": "Comprehensive Windows-focused environment setup guide covering Rust toolchain installation, VS Build Tools, Node.js, database backends (PostgreSQL, Ne"
+    },
+    "document:LICENSE": {
+      "name": "LICENSE",
+      "type": "document",
+      "summary": "Apache License 2.0 full text. Copyright holder is Liew Keong Han (farmountain@gmail.com), dated 2025. Grants perpetual worldwide royalty-free rights t"
+    },
+    "document:PRODUCTION_READY_REPORT.md": {
+      "name": "Production Ready Report",
+      "type": "document",
+      "summary": "Executive status report declaring HipCortex production-ready, covering technical implementation status across core memory engine, REST API, and VS Cod"
+    },
+    "document:QUICK_START_GUIDE.md": {
+      "name": "Quick Start Guide",
+      "type": "document",
+      "summary": "Step-by-step installation and setup guide for two primary deployment paths: Docker/Podman containerized server (with docker-compose full-stack example"
+    },
+    "document:README.md": {
+      "name": "README",
+      "type": "document",
+      "summary": "Primary project landing page positioning HipCortex as local persistent memory for AI coding agents (Claude, Cursor, VS Code, Python/TS agents). Explai"
+    },
+    "document:docs/acceptance.md": {
+      "name": "Acceptance Checklist",
+      "type": "document",
+      "summary": "Quality acceptance checklist verifying unit tests with mock data, SIT (full FSM+DB+Cache workflow), UAT (CLI and HTTP endpoints), dashboard live metri"
+    },
+    "document:docs/agent.md": {
+      "name": "Codex Agent Guide",
+      "type": "document",
+      "summary": "Workflow guidelines for the OpenAI Codex agent contributing to the HipCortex repository. Covers branch discipline, commit conventions, cargo test/fmt "
+    },
+    "document:docs/api_contract.md": {
+      "name": "API Contract",
+      "type": "document",
+      "summary": "Placeholder document outlining the planned REST and gRPC interface contracts for HipCortex covering memory ingestion, query, and reflexion operations."
+    },
+    "document:docs/architecture.md": {
+      "name": "Architecture",
+      "type": "document",
+      "summary": "Comprehensive architecture reference covering the two-layer design (storage/memory engine plus intelligence layer), module interaction diagrams, the A"
+    },
+    "document:docs/business_context.md": {
+      "name": "Business Context",
+      "type": "document",
+      "summary": "Business problem statement and market positioning for HipCortex as a privacy-first, device-agnostic universal cognitive layer for AI agents. Describes"
+    },
+    "document:docs/capabilities.md": {
+      "name": "Capabilities Matrix",
+      "type": "document",
+      "summary": "Honest, code-grounded capability surface matrix as of product v0.5.2/VSIX v0.5.8 covering every operation (add, query, search, forget, predict, rollou"
+    },
+    "document:docs/channels.md": {
+      "name": "Channel Matrix",
+      "type": "document",
+      "summary": "Distribution and integration channel registry (source of truth backed by channels.yaml) listing every consumer install surface with honest status labe"
+    },
+    "document:docs/contributing.md": {
+      "name": "Contributing Guide",
+      "type": "document",
+      "summary": "Contributor onboarding guide covering the fork/branch/PR workflow, Rust coding standards (clippy, doc-comments, naming), test and CI requirements, and"
+    },
+    "document:docs/data_model.md": {
+      "name": "Data Model",
+      "type": "document",
+      "summary": "Defines the canonical MemoryRecord struct and MemoryType enum (Temporal/Symbolic/Procedural/Reflexion/Perception), storage backends (JSONL and RocksDB"
+    },
+    "document:docs/integration.md": {
+      "name": "Integration Guide",
+      "type": "document",
+      "summary": "Integration reference for wiring HipCortex with agent frameworks, REST/gRPC APIs, LLM connectors, and RAG pipelines. Provides code examples for McpSer"
+    },
+    "document:docs/memory_design.md": {
+      "name": "Memory Design",
+      "type": "document",
+      "summary": "Formal memory design specification grounding each subsystem in mathematical models: PCA/ICA for PerceptionAdapter, Markov chains for TemporalIndexer, "
+    },
+    "document:docs/roadmap.md": {
+      "name": "Roadmap",
+      "type": "document",
+      "summary": "Feature completion status and future roadmap for HipCortex. Lists completed modules (temporal indexer, FSM procedural cache, symbolic store, multimoda"
+    },
+    "document:docs/usage.md": {
+      "name": "Usage Guide",
+      "type": "document",
+      "summary": "Comprehensive developer usage guide covering build commands, test suites, benchmarks, library API examples, agent integration patterns (proactive subs"
+    },
+    "resource:deploy/helm/hipcortex/templates/deployment.yaml": {
+      "name": "Deployment",
+      "type": "resource",
+      "summary": "Kubernetes Deployment manifest for the HipCortex container. Configures replica count, image, port 3030, environment variables (including PORT and DATA"
+    },
+    "resource:deploy/helm/hipcortex/templates/pvc.yaml": {
+      "name": "PersistentVolumeClaim",
+      "type": "resource",
+      "summary": "Conditionally rendered PersistentVolumeClaim (only when persistence.enabled is true). Requests storage with a configurable access mode, size, and opti"
+    },
+    "resource:deploy/helm/hipcortex/templates/secret.yaml": {
+      "name": "Secret",
+      "type": "resource",
+      "summary": "Conditionally rendered Opaque Kubernetes Secret (only when apiKeys value is set). Stores base64-encoded API keys under the key api-keys, which the Dep"
+    },
+    "resource:deploy/helm/hipcortex/templates/service.yaml": {
+      "name": "Service",
+      "type": "resource",
+      "summary": "Kubernetes Service that exposes the HipCortex Deployment. Configurable service type (ClusterIP/NodePort/LoadBalancer) and port via Helm values, with t"
+    },
+    "document:docs/SESSION_HANDOVER.md": {
+      "name": "Session Handover",
+      "type": "document",
+      "summary": "Comprehensive session state snapshot covering the full REST API (45+ endpoints), SDK integrations (Python/TypeScript/MCP/LangChain/CrewAI), deployment"
+    },
+    "document:docs/launch/DISTRIBUTION.md": {
+      "name": "Distribution Checklist",
+      "type": "document",
+      "summary": "Step-by-step launch checklist covering six distribution channels: Show HN, npm TypeScript SDK, VS Code Marketplace, HuggingFace Space, GitHub Copilot "
+    },
+    "document:docs/launch/copilot-extension-plan.md": {
+      "name": "GitHub Copilot Extension Plan",
+      "type": "document",
+      "summary": "Three-day implementation plan for a GitHub Copilot Extension that gives Copilot Chat persistent memory via HipCortex MCP. Covers architecture (Copilot"
+    },
+    "document:docs/launch/reddit-localllama.md": {
+      "name": "Reddit r/LocalLLAMA Launch Post",
+      "type": "document",
+      "summary": "Drafted launch post for r/LocalLLAMA (plus r/MachineLearning and LinkedIn variants) highlighting HipCortex v0.2 features: 0.6ms write latency, tempora"
+    },
+    "document:docs/launch/show-hn.md": {
+      "name": "Show HN Submission",
+      "type": "document",
+      "summary": "Prepared Hacker News Show HN post for HipCortex, leading with the metacognitive intelligence layer (Self-Model, World-Model Enhanced, Coherence Checke"
+    },
+    "document:docs/superpowers/plans/2026-05-20-500-stars-sprint.md": {
+      "name": "500-Star Sprint Plan (2026-05-20)",
+      "type": "document",
+      "summary": "Implementation plan for 8 features targeting 500 GitHub stars: ARM64 cross-compiled binaries, async Python client (httpx), TypeScript/JavaScript SDK, "
+    },
+    "document:docs/superpowers/plans/2026-05-20-golden-path-ux-sprint.md": {
+      "name": "Golden Path UX Sprint Plan (2026-05-20)",
+      "type": "document",
+      "summary": "Five-task plan to eliminate first-use friction: npm publish of the TypeScript SDK, AsyncHipCortexMemory LangChain wrapper, unified search-with-embeddi"
+    },
+    "document:docs/superpowers/plans/2026-06-04-intelligence-layer-wiring.md": {
+      "name": "Intelligence Layer Wiring Plan (2026-06-04)",
+      "type": "document",
+      "summary": "Nine-task plan to wire WorldModelEnhanced, AureusBridge, SelfModel, and CoherenceChecker into the web server via a new AppState<B> struct and run_with"
+    },
+    "document:docs/superpowers/plans/2026-07-17-semantic-tag-auto-capture.md": {
+      "name": "Semantic Tag Auto-Capture Plan (v0.5.2)",
+      "type": "document",
+      "summary": "Step-by-step TDD implementation plan for adding a 5-layer `extractSemanticTags()` function to the VS Code extension that automatically attaches meanin"
+    },
+    "document:docs/superpowers/plans/2026-07-17-server-lifecycle-option-a.md": {
+      "name": "Server Lifecycle Option A Plan (v0.5.4)",
+      "type": "document",
+      "summary": "Detailed TDD plan for implementing robust VS Code extension local-server lifecycle management: dynamic port parsing from `apiUrl`, version-aware reuse"
+    },
+    "document:docs/superpowers/plans/2026-07-18-cross-channel-ux-enhancement-plan.md": {
+      "name": "Cross-Channel UX Enhancement Plan (8-Phase)",
+      "type": "document",
+      "summary": "Comprehensive 8-phase plan to unify HipCortex across all client channels (Claude Code, VS Code VSIX, pip, MCP, npm, agent frameworks) by introducing a"
+    },
+    "document:docs/superpowers/plans/2026-07-20-release-pr-vsix.md": {
+      "name": "Release PR + VSIX v0.5.7 Plan (2026-07-20)",
+      "type": "document",
+      "summary": "Short release coordination plan for v0.5.7: enhance release.yml to always artifact server binaries with topological routes, package VSIX in a multi-OS"
+    },
+    "document:docs/superpowers/plans/2026-07-20-worldmodel-self-routes-surface.md": {
+      "name": "WorldModel/Self Routes Surface Plan (2026-07-20)",
+      "type": "document",
+      "summary": "Plan to make the intelligence REST surface discoverable, contract-aligned, and tested: update OpenAPI spec to document all worldmodel/self/live_belief"
+    },
+    "document:docs/superpowers/plans/2026-07-20-fill-stubs.md": {
+      "name": "Fill Real Stubs Plan (2026-07-20)",
+      "type": "document",
+      "summary": "Plan to implement real logic in empty stub functions across topological_memory (search.rs, contradiction.rs, deconstructor.rs), loop_engine (detect_co"
+    },
+    "document:docs/superpowers/plans/2026-07-20-mcts-deep-causal.md": {
+      "name": "MCTS + Deep Causal Wiring Plan (2026-07-20)",
+      "type": "document",
+      "summary": "Plan to fix /worldmodel/rollout by adding WorldModelEnhanced::rollout_dirichlet (multi-step MAP via TransitionModel) and mcts_best_action (wrapping Mc"
+    },
+    "document:docs/superpowers/specs/2026-06-04-intelligence-layer-wiring-design.md": {
+      "name": "Intelligence Layer Wiring Design",
+      "type": "document",
+      "summary": "Approved design (2026-06-04) for wiring HipCortex's three fully-implemented but disconnected intelligence modules (WorldModelEnhanced, AureusBridge, S"
+    },
+    "document:docs/superpowers/specs/2026-06-04-query-response-fields-design.md": {
+      "name": "QueryMemoryResponse Full Field Exposure Design",
+      "type": "document",
+      "summary": "Approved design (2026-06-04) for extending MemoryRecordResponse with 7 missing fields (confidence, source, priority, tags, version, status, expires_at"
+    },
+    "document:docs/superpowers/specs/2026-06-04-sim11-p1-gaps-design.md": {
+      "name": "Sim #11 P1/P2 Gap Closure Design",
+      "type": "document",
+      "summary": "Approved design (2026-06-04) closing 8 gaps identified in MiroFish Sim #11 (100-persona UAT of the intelligence layer). P1 gaps add REST endpoints for"
+    },
+    "config:fixtures/sample_memory_trace.json": {
+      "name": "sample_memory_trace",
+      "type": "config",
+      "summary": "Minimal fixture representing a single Temporal MemoryRecord with actor/action/target fields and an empty metadata map. Used in tests that exercise the"
+    },
+    "config:fixtures/sample_perception_input.json": {
+      "name": "sample_perception_input",
+      "type": "config",
+      "summary": "Fixture for a single Text-modality perception event produced by PerceptionAdapter. Contains source, modality, raw data payload, and a pre-computed mea"
+    },
+    "config:fixtures/sample_procedural_policy.json": {
+      "name": "sample_procedural_policy",
+      "type": "config",
+      "summary": "FSM policy fixture defining a single state transition from 'Start' to 'Observe' with a trigger condition, effect label, version counter, and zero rewa"
+    },
+    "config:fixtures/sample_reflexion_snapshot.json": {
+      "name": "sample_reflexion_snapshot",
+      "type": "config",
+      "summary": "Fixture capturing an AureusBridge reflexion snapshot linking a chain-of-thought trace (two reasoning steps) to an outcome label and a numeric feedback"
+    },
+    "config:fixtures/sample_symbolic_node.json": {
+      "name": "sample_symbolic_node",
+      "type": "config",
+      "summary": "Fixture for a single SymbolicStore graph node carrying dual labels ('Concept', 'Example'), a confidence weight, and a freeform metadata map. Used to v"
+    },
+    "config:fixtures/sample_temporal_event.json": {
+      "name": "sample_temporal_event",
+      "type": "config",
+      "summary": "Fixture representing a raw temporal event as ingested by TemporalIndexer, containing a timestamped content string, agent tags, a trigger type, and a f"
+    },
+    "document:openspec/changes/agent-substrate-autonomy/proposal.md": {
+      "name": "Agent-Substrate-Autonomy Proposal",
+      "type": "document",
+      "summary": "Identifies the gap between the current agent-tool invocation model (conservative SKILL, reactive policy) and the memory-centric vision where HipCortex"
+    },
+    "document:openspec/changes/agent-substrate-autonomy/design.md": {
+      "name": "Agent-Substrate-Autonomy Design",
+      "type": "document",
+      "summary": "Resolves all five open threads (token math, beliefs merge, compliance, layering, multi-agent) with code-grounded evidence. Defines eight key design de"
+    },
+    "document:openspec/changes/agent-substrate-autonomy/tasks.md": {
+      "name": "Agent-Substrate-Autonomy Tasks",
+      "type": "document",
+      "summary": "Four-phase task breakdown: Phase 1 updates the Python SKILL template and CLI installer for proactive/substrate-first mode; Phase 2 wires PerceptionSes"
+    },
+    "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/.openspec.yaml": {
+      "name": "Improve Agent Experience Docs v1 OpenSpec",
+      "type": "document",
+      "summary": "Metadata file for the archived improve-agent-experience-docs-v1 openspec change, created 2026-06-25 using the spec-driven schema."
+    },
+    "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/proposal.md": {
+      "name": "Improve Agent Experience Docs Proposal",
+      "type": "document",
+      "summary": "Identifies three documentation gaps hindering agent onboarding: missing pip install hipcortex instructions in README, undocumented SafetyGuardrail enf"
+    },
+    "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/design.md": {
+      "name": "Improve Agent Experience Docs Design",
+      "type": "document",
+      "summary": "Specifies precise placement decisions for each documentation fix: pip install in README Quickstart, SafetyGuardrail in a dedicated section of docs/arc"
+    },
+    "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/tasks.md": {
+      "name": "Improve Agent Experience Docs Tasks",
+      "type": "document",
+      "summary": "Three completed tasks: add pip install hipcortex to README.md, add Safety and Guardrails section to docs/architecture.md, and update the MCP tools tab"
+    },
+    "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/.openspec.yaml": {
+      "name": "Fix Extension Dispatch OpenSpec",
+      "type": "document",
+      "summary": "Metadata file for the archived fix-extension-dispatch openspec change, created 2026-07-08 using the spec-driven schema."
+    },
+    "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/proposal.md": {
+      "name": "Fix Extension Dispatch Proposal",
+      "type": "document",
+      "summary": "Identifies two bugs in the VS Code extension: search and query chat commands both incorrectly route to handleQueryMemory (missing scored semantic sear"
+    },
+    "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/design.md": {
+      "name": "Fix Extension Dispatch Design",
+      "type": "document",
+      "summary": "Pure TypeScript change to vscode-extension/src/extension.ts only. Defines four design decisions: scored vs raw result formatting for search vs query, "
+    },
+    "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/tasks.md": {
+      "name": "Fix Extension Dispatch Tasks",
+      "type": "document",
+      "summary": "Five completed tasks in two groups: API updates (add searchMemory method, register hipcortex_causal LM tool) and dispatch/display work (split query/se"
+    },
+    "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/.openspec.yaml": {
+      "name": "Implement Cognitive OS OpenSpec",
+      "type": "document",
+      "summary": "Metadata file for the archived implement-cognitive-os openspec change, created 2026-07-09 using the spec-driven schema."
+    },
+    "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/proposal.md": {
+      "name": "Implement Cognitive OS Proposal",
+      "type": "document",
+      "summary": "Proposes transitioning HipCortex into a full Cognitive Operating System by addressing four architectural bottlenecks: lack of HTN goal/task planning ("
+    },
+    "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/design.md": {
+      "name": "Implement Cognitive OS Design",
+      "type": "document",
+      "summary": "Detailed design with five key decisions: petgraph DiGraph for TaskGraph with A* state-space search, exact Backdoor Adjustment over Dirichlet transitio"
+    },
+    "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/tasks.md": {
+      "name": "Implement Cognitive OS Tasks",
+      "type": "document",
+      "summary": "Six task groups all marked complete: Executive Cortex (TaskGraph A*, ExecutiveScheduler tick, ContinuationCheckpoint persistence), Deeper World Model "
+    },
+    "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/.openspec.yaml": {
+      "name": "Python Server Endpoint Parity OpenSpec Metadata",
+      "type": "document",
+      "summary": "Metadata file for the python-server-endpoint-parity change spec, created 2026-07-08. Marks the change as using the spec-driven schema. Serves as the m"
+    },
+    "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/proposal.md": {
+      "name": "Python MCP Server Endpoint Parity Proposal",
+      "type": "document",
+      "summary": "Proposes adding missing MCP tools to sdk/mcp/server.py: get_live_beliefs (proxies GET /memory/live_beliefs), purge_expired (proxies POST /memory/conso"
+    },
+    "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/design.md": {
+      "name": "Python MCP Server Endpoint Parity Design",
+      "type": "document",
+      "summary": "Details the implementation of get_live_beliefs and purge_expired as Python handler functions in sdk/mcp/server.py, both proxying to the running Rust s"
+    },
+    "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/tasks.md": {
+      "name": "Python MCP Server Endpoint Parity Tasks",
+      "type": "document",
+      "summary": "Completed task checklist for the python-server-endpoint-parity change. Covers schema alignment (adding Perception, updating search_memory harness comm"
+    },
+    "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/.openspec.yaml": {
+      "name": "Record Type Alias Mapping OpenSpec Metadata",
+      "type": "document",
+      "summary": "Metadata file for the record-type-alias-mapping change spec, created 2026-07-08. Marks the change as using the spec-driven schema. Serves as the manif"
+    },
+    "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/proposal.md": {
+      "name": "Record Type Alias Mapping Proposal",
+      "type": "document",
+      "summary": "Proposes server-side normalization of cognitive-science memory tier names (Episodic, Semantic, LongTerm, ShortTerm, Working, Reflexive, Perceptual) to"
+    },
+    "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/design.md": {
+      "name": "Record Type Alias Mapping Design",
+      "type": "document",
+      "summary": "Details the parse_record_type_alias helper function added to src/web_server.rs, mapping cognitive-science aliases to MemoryType enum values (e.g. Epis"
+    },
+    "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/tasks.md": {
+      "name": "Record Type Alias Mapping Tasks",
+      "type": "document",
+      "summary": "Completed task checklist for the record-type-alias-mapping change. Covers backend alias normalization (parse_record_type_alias in web_server.rs, handl"
+    },
+    "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/.openspec.yaml": {
+      "name": "SDD Post-Session Hardening OpenSpec Metadata",
+      "type": "document",
+      "summary": "Metadata file for the sdd-post-session-hardening change spec, created 2026-07-07. Marks the change as using the spec-driven schema. Serves as the mani"
+    },
+    "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/proposal.md": {
+      "name": "SDD Post-Session Hardening Proposal",
+      "type": "document",
+      "summary": "Proposes fixing 6 permanently-failing integration tests (caused by System:Self seeding baseline mismatch), aligning the TypeScript SDK AddMemoryReques"
+    },
+    "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/design.md": {
+      "name": "SDD Post-Session Hardening Design",
+      "type": "document",
+      "summary": "Details design decisions for fixing test assertions using delta-relative counts (not backend bypass), extending the TypeScript SDK AddMemoryRequest wi"
+    },
+    "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/tasks.md": {
+      "name": "SDD Post-Session Hardening Tasks",
+      "type": "document",
+      "summary": "Comprehensive completed task checklist covering 8 sections: fixing 5 intelligence hook integration tests, fixing the CLI world model test, adding deca"
+    },
+    "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/.openspec.yaml": {
+      "name": "WorldModel Rollout Endpoint OpenSpec Metadata",
+      "type": "document",
+      "summary": "Metadata file for the worldmodel-rollout-endpoint change spec, created 2026-07-08. Marks the change as using the spec-driven schema. Serves as the man"
+    },
+    "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/proposal.md": {
+      "name": "WorldModel Rollout Endpoint Proposal",
+      "type": "document",
+      "summary": "Proposes exposing WorldModelEnhanced.predict_multi_step() as a new POST /worldmodel/rollout HTTP route, enabling agents and external tools to perform "
+    },
+    "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/design.md": {
+      "name": "WorldModel Rollout Endpoint Design",
+      "type": "document",
+      "summary": "Details the WmRolloutRequest struct, handle_wm_rollout handler, route binding in build_router, auth whitelist entry (unauthenticated alongside /worldm"
+    },
+    "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/tasks.md": {
+      "name": "WorldModel Rollout Endpoint Tasks",
+      "type": "document",
+      "summary": "Completed task checklist for the worldmodel-rollout-endpoint change. Covers backend route implementation (WmRolloutRequest struct, handle_wm_rollout h"
+    },
+    "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/.openspec.yaml": {
+      "name": "rewrite-docs-v049 openspec manifest",
+      "type": "document",
+      "summary": "Minimal spec-driven manifest for the v0.4.9 documentation rewrite change, recording the creation date of 2026-07-11. Serves as the machine-readable an"
+    },
+    "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/design.md": {
+      "name": "rewrite-docs-v049 design",
+      "type": "document",
+      "summary": "Design decisions for the v0.4.9 documentation rewrite, covering adoption of the Caveman Comparison Matrix with exact latency figures (0.48–0.61 ms loc"
+    },
+    "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/proposal.md": {
+      "name": "rewrite-docs-v049 proposal",
+      "type": "document",
+      "summary": "Change proposal explaining why v0.4.9 documentation needed a full rewrite: outdated version badges, unvalidated latency claims, and missing onboarding"
+    },
+    "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/tasks.md": {
+      "name": "rewrite-docs-v049 tasks",
+      "type": "document",
+      "summary": "Fully checked-off task list for the v0.4.9 doc rewrite covering six sections: main README rewrite with benchmark tables, VS Code extension marketplace"
+    },
+    "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/.openspec.yaml": {
+      "name": "fix-memory-query-truncation openspec manifest",
+      "type": "document",
+      "summary": "Minimal spec-driven manifest for the memory query truncation bug-fix change, recording the creation date of 2026-07-10. Serves as the machine-readable"
+    },
+    "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/design.md": {
+      "name": "fix-memory-query-truncation design",
+      "type": "document",
+      "summary": "Design decisions for fixing deterministic newest-first slice ordering in memory retrieval. Chooses explicit slice-time sorting (O(N log N) on filtered"
+    },
+    "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/proposal.md": {
+      "name": "fix-memory-query-truncation proposal",
+      "type": "document",
+      "summary": "Change proposal identifying that /memory/query, /memory/beliefs, and search_semantic applied result limits against unsorted insertion-order iterators,"
+    },
+    "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/tasks.md": {
+      "name": "fix-memory-query-truncation tasks",
+      "type": "document",
+      "summary": "Fully checked-off task list covering four sections: sort-before-truncate fixes in web_server.rs for handle_query_memory and handle_memory_live_beliefs"
+    },
+    "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/.openspec.yaml": {
+      "name": "server-lifecycle-improvements openspec manifest",
+      "type": "document",
+      "summary": "Minimal spec-driven manifest for the VS Code extension server lifecycle improvement change, recording the creation date of 2026-07-16. Serves as the m"
+    },
+    "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/design.md": {
+      "name": "server-lifecycle-improvements design",
+      "type": "document",
+      "summary": "Design decisions for cross-platform server lifecycle management in the VS Code extension. Specifies OS-specific port discovery and termination (netsta"
+    },
+    "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/proposal.md": {
+      "name": "server-lifecycle-improvements proposal",
+      "type": "document",
+      "summary": "Change proposal identifying orphaned server processes after VS Code extension reloads as the root cause of port conflicts, version drift, and startup "
+    },
+    "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/tasks.md": {
+      "name": "server-lifecycle-improvements tasks",
+      "type": "document",
+      "summary": "Fully checked-off task list covering four sections: dynamic port extraction and cross-platform killProcessOnPort utility, version-checking and port-ki"
+    },
+    "document:openspec/changes/intelligence-foundation/.openspec.yaml": {
+      "name": "intelligence-foundation openspec manifest",
+      "type": "document",
+      "summary": "Minimal spec-driven manifest for the active intelligence-foundation change, recording the creation date of 2026-03-13. Serves as the machine-readable "
+    },
+    "document:openspec/changes/intelligence-foundation/design.md": {
+      "name": "intelligence-foundation design",
+      "type": "document",
+      "summary": "Comprehensive design document for the three-module intelligence layer: Self-Model (capability registry, resource monitoring with linear regression, EW"
+    },
+    "document:openspec/changes/intelligence-foundation/proposal.md": {
+      "name": "intelligence-foundation proposal",
+      "type": "document",
+      "summary": "Change proposal framing HipCortex's gap from sophisticated storage system to intelligent agent. Proposes adding self-model metacognition, enhancing th"
+    },
+    "document:openspec/changes/intelligence-foundation/tasks.md": {
+      "name": "intelligence-foundation tasks",
+      "type": "document",
+      "summary": "Exhaustive 24-section, 252-item fully checked-off task list for the intelligence foundation. Covers implementation of all three modules (self_model/, "
+    },
+    "document:openspec/changes/sdk-tmf-surface-update/.openspec.yaml": {
+      "name": "sdk-tmf-surface-update openspec manifest",
+      "type": "document",
+      "summary": "Openspec manifest for the active SDK and extension surface update for the Tiered Memory Foundation (TMF). File content was unreadable (encoding issue)"
+    },
+    "document:openspec/changes/sdk-tmf-surface-update/design.md": {
+      "name": "sdk-tmf-surface-update design",
+      "type": "document",
+      "summary": "Detailed design for surfacing six new TMF REST endpoints across all four distribution channels. Covers five design decisions: minor version bump strat"
+    },
+    "document:openspec/changes/sdk-tmf-surface-update/proposal.md": {
+      "name": "sdk-tmf-surface-update proposal",
+      "type": "document",
+      "summary": "Change proposal identifying that the tiered-memory-foundation merge (commit 3126373) added 6 new REST endpoints and 2 enhanced response fields that re"
+    },
+    "document:openspec/changes/sdk-tmf-surface-update/tasks.md": {
+      "name": "sdk-tmf-surface-update tasks",
+      "type": "document",
+      "summary": "Fully checked-off 8-phase task list for the TMF surface update: version bumps across three package files, Python sync/async client additions (5 method"
+    },
+    "schema:schemas/perception_adapter.json": {
+      "name": "perception_adapter",
+      "type": "schema",
+      "summary": ""
+    },
+    "schema:schemas/procedural_memory.json": {
+      "name": "procedural_memory",
+      "type": "schema",
+      "summary": ""
+    },
+    "schema:schemas/reflexion_memory.json": {
+      "name": "reflexion_memory",
+      "type": "schema",
+      "summary": ""
+    },
+    "schema:schemas/symbolic_graph.json": {
+      "name": "symbolic_graph",
+      "type": "schema",
+      "summary": ""
+    },
+    "schema:schemas/temporal_memory.json": {
+      "name": "temporal_memory",
+      "type": "schema",
+      "summary": ""
+    },
+    "schema:schemas/world_model.json": {
+      "name": "world_model",
+      "type": "schema",
+      "summary": ""
+    },
+    "document:sdk/typescript/README.md": {
+      "name": "README",
+      "type": "document",
+      "summary": ""
+    },
+    "config:sdk/typescript/package.json": {
+      "name": "package",
+      "type": "config",
+      "summary": ""
+    },
+    "config:sdk/typescript/tsconfig.json": {
+      "name": "tsconfig",
+      "type": "config",
+      "summary": ""
+    },
+    "document:tests/test_report/PerformanceTestReport.md": {
+      "name": "PerformanceTestReport",
+      "type": "document",
+      "summary": "Criterion benchmark report (June 5 2025). Covers temporal_indexer_bench which inserts 100 traces repeatedly to measure throughput. All benchmarks comp"
+    },
+    "document:tests/test_report/RegressionTestReport.md": {
+      "name": "RegressionTestReport",
+      "type": "document",
+      "summary": "Regression test report (June 5 2025). Validates get_recent_zero_returns_empty and inserting_trace_preserves_id. All regression tests pass."
+    },
+    "document:tests/test_report/RetrievalPipelineTestPlan.md": {
+      "name": "RetrievalPipelineTestPlan",
+      "type": "document",
+      "summary": "Test plan for RAG retrieval pipelines built on SymbolicStore and TemporalIndexer (June 5 2025). Covers unit tests (recent_symbols_returns_nodes, recen"
+    },
+    "document:tests/test_report/SITTestReport.md": {
+      "name": "SITTestReport",
+      "type": "document",
+      "summary": "System Integration Test report (June 5 2025). Validates cross-module interactions: memory_round_trip, integration_and_reflexion, integration_chain_of_"
+    },
+    "document:tests/test_report/UATTestReport.md": {
+      "name": "UATTestReport",
+      "type": "document",
+      "summary": "User Acceptance Test report (June 5 2025). Validates end-user workflows: travelg3n_store_and_retrieve_city, athena_reflexion_placeholder, athena_chain"
+    },
+    "document:tests/test_report/SymbolicProceduralTestPlan.md": {
+      "name": "SymbolicProceduralTestPlan",
+      "type": "document",
+      "summary": "Test plan for symbolic reasoning and procedural state management (June 5 2025). Unit tests cover SymbolicStore CRUD and ProceduralCache FSM transition"
+    },
+    "document:tests/test_report/UnitTestReport.md": {
+      "name": "UnitTestReport",
+      "type": "document",
+      "summary": "Unit test report (June 5 2025). Covers TemporalIndexer (insert/retrieve, buffer overflow, decay/prune, remove/get, decay factor), ProceduralCache (FSM"
+    },
+    "document:vscode-extension/README.md": {
+      "name": "README",
+      "type": "document",
+      "summary": "User-facing documentation for the HipCortex VS Code extension v0.5.8. Covers zero-config onboarding (bundled multi-OS Rust webserver, no Docker/DB req"
+    },
+    "config:vscode-extension/package.json": {
+      "name": "package",
+      "type": "config",
+      "summary": "VS Code extension manifest for hipcortex-memory v0.5.8 by publisher farmountain. Targets vscode ^1.90.0. Contributes 6 commands (addMemory, queryMemor"
+    },
+    "config:vscode-extension/tsconfig.json": {
+      "name": "tsconfig",
+      "type": "config",
+      "summary": "TypeScript compiler configuration for the VS Code extension. Targets ES2020/CommonJS, outputs to dist/, rootDir src/, strict mode enabled, sourceMap t"
+    },
+    "document:.claude/PRPs/plans/hipcortex-saas-features.plan.md": {
+      "name": "hipcortex-saas-features.plan",
+      "type": "document",
+      "summary": "Implementation plan for positioning HipCortex as a deployable AI-memory SaaS. P0: Python SDK (client, LangChain BaseChatMemory, LlamaIndex StorageCont"
+    },
+    "document:.claude/PRPs/plans/sim10-memory-gaps.plan.md": {
+      "name": "sim10-memory-gaps.plan",
+      "type": "document",
+      "summary": "Gap-closure plan from MiroFish Sim #10 (100-persona UAT). Eight tasks: (1) add status field (active/quarantine/archived) to MemoryRecord; (2) multi-ac"
+    },
+    "config:.claude/settings.local.json": {
+      "name": "settings.local",
+      "type": "config",
+      "summary": "Project-local Claude Code permissions allowlist. Contains 5 PowerShell allow-rules for worktree builds (cargo check with petgraph_backend feature, rus"
+    },
+    "config:Cargo.toml": {
+      "name": "Cargo",
+      "type": "config",
+      "summary": "Rust crate manifest for hipcortex v0.5.2 (Apache-2.0, edition 2021). Default feature: petgraph_backend (in-memory, no external deps). Feature groups: "
+    },
+    "file:Cargo.lock": {
+      "name": "Cargo",
+      "type": "file",
+      "summary": "Pinned dependency lockfile for reproducible builds. Skipped (too large). Contains exact resolved versions for all direct and transitive dependencies m"
+    },
+    "file:build.rs": {
+      "name": "build",
+      "type": "file",
+      "summary": "Minimal build script. Conditionally invokes tonic_build when the grpc-server feature is enabled: compiles proto/memory.proto with both client and serv"
+    },
+    "schema:proto/memory.proto": {
+      "name": "memory",
+      "type": "schema",
+      "summary": "proto3 schema for hipcortex package. Defines MemoryRecord message (id, record_type, timestamp, actor, action, target, metadata). Request/response pair"
+    },
+    "config:deploy/helm/hipcortex/Chart.yaml": {
+      "name": "Chart",
+      "type": "config",
+      "summary": "Helm chart metadata for hipcortex v0.2.0 (apiVersion v2, type application). Describes the AI Memory Engine for AI agents. Keywords: ai, memory, agents"
+    },
+    "config:deploy/helm/hipcortex/values.yaml": {
+      "name": "values",
+      "type": "config",
+      "summary": "Default Helm values: 1 replica, image hipcortex/hipcortex:0.2.0, ClusterIP service on port 3030, ingress disabled (host hipcortex.local), resource lim"
+    },
+    "config:sdk/python/pyproject.toml": {
+      "name": "pyproject",
+      "type": "config",
+      "summary": "PEP 517 build config for hipcortex Python package v0.5.2 (Apache-2.0, Python >=3.9). Core deps: requests>=2.28, httpx>=0.27. Optional extras: langchai"
+    },
+    "config:sdk/python/setup.py": {
+      "name": "setup",
+      "type": "config",
+      "summary": "Legacy setuptools setup() for hipcortex Python SDK v0.1.0 (older version than pyproject.toml v0.5.2). Core dep: requests>=2.28 only (no httpx). Extras"
+    },
+    "document:sdk/python/README.md": {
+      "name": "README",
+      "type": "document",
+      "summary": "User-facing documentation for hipcortex Python SDK v0.5.2. Features: persistent causal topological memory, Bayesian world-model rollout prediction (PO"
+    },
+    "file::build.rs": {
+      "name": ":build",
+      "type": "file",
+      "summary": "Cargo build script. When the `grpc-server` feature is enabled, runs `tonic_build::configure()` to compile `proto/memory.proto` via prost/tonic, genera"
+    },
+    "file::deploy/helm/hipcortex/Chart.yaml": {
+      "name": "Chart",
+      "type": "file",
+      "summary": "Helm chart metadata for HipCortex v0.2.0. Declares the chart as `application` type targeting the HipCortex AI Memory Engine. Keywords: ai, memory, age"
+    },
+    "file::deploy/helm/hipcortex/templates/_helpers.tpl": {
+      "name": "_helpers",
+      "type": "file",
+      "summary": "Helm template helpers defining three named templates: `hipcortex.fullname` (release-name prefixed), `hipcortex.labels` (standard k8s labels including "
+    },
+    "file::deploy/helm/hipcortex/values.yaml": {
+      "name": "values",
+      "type": "file",
+      "summary": "Default Helm values for HipCortex deployment. Key settings: image `hipcortex/hipcortex:0.2.0`, ClusterIP service on port 3030, 5Gi PVC persistence, re"
+    },
+    "schema::proto/memory.proto": {
+      "name": "memory",
+      "type": "schema",
+      "summary": "Proto3 schema for the `hipcortex` gRPC package. Defines `MemoryRecord` message (id, record_type, timestamp, actor, action, target, metadata). Two RPC "
+    },
+    "file::sdk/python/pyproject.toml": {
+      "name": "pyproject",
+      "type": "file",
+      "summary": "Python package metadata for `hipcortex` v0.5.2. Runtime deps: `requests>=2.28`, `httpx>=0.27`. Optional extras: langchain, llamaindex, crewai, autogen"
+    },
+    "file::sdk/python/README.md": {
+      "name": "README",
+      "type": "file",
+      "summary": "User-facing documentation for the HipCortex Python SDK v0.5.2. Covers: multi-tier memory ingestion (Working→Temporal, Semantic→Symbolic), SelfModel ca"
+    },
+    "file::sdk/python/setup.py": {
+      "name": "setup",
+      "type": "file",
+      "summary": "Legacy setuptools setup.py for `hipcortex` v0.1.0 (older than pyproject.toml v0.5.2 — likely kept for compatibility). Declares same optional extras (l"
+    },
+    "file::src/bin/cli.rs": {
+      "name": "cli",
+      "type": "file",
+      "summary": "Minimal binary entrypoint for the `hipcortex` CLI. Imports `hipcortex::memory_cli` and delegates entirely to `memory_cli::run()`. All subcommand logic"
+    },
+    "file::src/bin/webserver.rs": {
+      "name": "webserver",
+      "type": "file",
+      "summary": "Async Tokio main for the `hipcortex` REST server. Reads PORT (default 3030) and DATA_DIR / HIPCORTEX_STORAGE env vars. Initialises: MemoryStore (JSONL"
+    },
+    "file::src/grpc_server.rs": {
+      "name": "grpc_server",
+      "type": "file",
+      "summary": "Tonic-based gRPC server gated on `#[cfg(feature = \"grpc-server\")]`. Includes generated proto code via `tonic::include_proto!(\"hipcortex\")`. Implements"
+    },
+    "file::src/lib.rs": {
+      "name": "lib",
+      "type": "file",
+      "summary": "Crate-level module registry and public API surface. Uses `#[path]` annotations to map physical files under `src/modules/` to canonical module paths. K"
+    },
+    "file::src/mcp_server.rs": {
+      "name": "mcp_server",
+      "type": "file",
+      "summary": "Combined REST+gRPC server struct gated on `#[cfg(all(feature = \"web-server\", feature = \"grpc-server\"))]`. `McpServer<B>` holds Arc-wrapped: MemoryStor"
+    },
+    "file::src/memory_record.rs": {
+      "name": "memory_record",
+      "type": "file",
+      "summary": "Defines the core data model. `MemoryType` enum: Temporal, Symbolic, Procedural, Reflexion, Perception (serde + clap ValueEnum). `MemoryRecord` struct "
+    },
+    "file::src/memory_store.rs": {
+      "name": "memory_store",
+      "type": "file",
+      "summary": "Generic `MemoryStore<B: MemoryBackend>` persistence facade. Constructors: `new` (plain JSONL FileBackend), `new_with_options` (with batch size and opt"
+    },
+    "file::src/safety_guardrail.rs": {
+      "name": "safety_guardrail",
+      "type": "file",
+      "summary": "Content-safety gate for all mutations. `SafetyGuardrail` wraps a `SafetyClassifier` (semantic pattern matcher). `check_precondition(op_context)`: clas"
+    },
+    "file::src/web_server.rs": {
+      "name": "web_server",
+      "type": "file",
+      "summary": "Axum 0.6 REST server gated on `#[cfg(feature = \"web-server\")]`. `AppState<B>` holds Arc-wrapped: MemoryStore, SymbolicStore, WorldModelEnhanced (RwLoc"
+    },
+    "file:examples/rag_export.rs": {
+      "name": "rag_export",
+      "type": "file",
+      "summary": "Demonstrates the RAG (retrieval-augmented generation) export pipeline. Populates a SymbolicStore with a sample node, retrieves it via LocalRagAdapter,"
+    },
+    "file:examples/self_model_quickstart.rs": {
+      "name": "self_model_quickstart",
+      "type": "file",
+      "summary": "Quickstart walkthrough for the self-model metacognitive layer. Sequentially exercises CapabilityRegistry (registration), ResourceMonitor (linear-regre"
+    },
+    "file:examples/world_model_example.rs": {
+      "name": "world_model_example",
+      "type": "file",
+      "summary": "Minimal demonstration of the WorldModel API. Creates a WorldModel, adds a JSON state node ('robot'), and exports the internal graph, printing the node"
+    },
+    "file:examples/quickstart.rs": {
+      "name": "quickstart",
+      "type": "file",
+      "summary": "Demonstrates the semantic_compression module by building a float embedding vector and compressing it to a lower dimension via compress_embedding. Acts"
+    },
+    "file:examples/mcp_server.rs": {
+      "name": "mcp_server",
+      "type": "file",
+      "summary": "Launches the combined MCP server (REST on :8080, gRPC on :50051) when built with both web-server and grpc-server features. Wraps McpServer around a Me"
+    },
+    "file:src/dashboard.rs": {
+      "name": "dashboard",
+      "type": "file",
+      "summary": "Provides an Axum router (feature-gated on web-server) that exposes a /nodes endpoint returning all memory-record targets as JSON. Uses a shared Arc<Mu"
+    },
+    "file:src/decay.rs": {
+      "name": "decay",
+      "type": "file",
+      "summary": "Implements temporal relevance decay for memory traces. Defines DecayType enum (Exponential with half-life, Linear with duration, Custom fn pointer) an"
+    },
+    "file:src/embedding_provider.rs": {
+      "name": "embedding_provider",
+      "type": "file",
+      "summary": "Defines the EmbeddingProvider trait and two concrete implementations: HashEmbeddingProvider (character n-gram hashing with FNV-1a, L2 normalised, no M"
+    },
+    "file:src/gui.rs": {
+      "name": "gui",
+      "type": "file",
+      "summary": "Tauri desktop GUI surface (feature-gated on 'gui'). Defines GuiState holding Mutex-wrapped instances of all core subsystems (SymbolicStore, TemporalIn"
+    },
+    "file:src/memory_processor.rs": {
+      "name": "memory_processor",
+      "type": "file",
+      "summary": "Small utility struct MemoryProcessor with a single deduplicate method that removes duplicate MemoryRecord entries from a Vec by UUID using a HashSet. "
+    },
+    "file:src/plugin_host.rs": {
+      "name": "plugin_host",
+      "type": "file",
+      "summary": "WASM plugin execution host feature-gated on 'plugin'. When enabled, PluginHost wraps a wasmtime::Engine and run_wasm instantiates a module, resolves a"
+    },
+    "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/specs/worldmodel-rollout/spec.md": {
+      "name": "spec",
+      "type": "document",
+      "summary": ""
+    },
+    "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/specs/mcp-add-memory/spec.md": {
+      "name": "spec",
+      "type": "document",
+      "summary": ""
+    },
+    "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/specs/mcp-live-beliefs/spec.md": {
+      "name": "spec",
+      "type": "document",
+      "summary": ""
+    },
+    "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/specs/mcp-purge-expired/spec.md": {
+      "name": "spec",
+      "type": "document",
+      "summary": ""
+    },
+    "document:openspec/specs/deterministic-slice-ordering/spec.md": {
+      "name": "spec",
+      "type": "document",
+      "summary": ""
+    },
+    "document:openspec/specs/documentation-rewrite-v049/spec.md": {
+      "name": "spec",
+      "type": "document",
+      "summary": ""
+    },
+    "document:openspec/specs/executive-cortex/spec.md": {
+      "name": "spec",
+      "type": "document",
+      "summary": ""
+    },
+    "document:openspec/specs/goal-memory/spec.md": {
+      "name": "spec",
+      "type": "document",
+      "summary": ""
+    },
+    "document:openspec/specs/query-optimization/spec.md": {
+      "name": "spec",
+      "type": "document",
+      "summary": ""
+    },
+    "document:openspec/specs/semantic-compression/spec.md": {
+      "name": "spec",
+      "type": "document",
+      "summary": ""
+    },
+    "document:openspec/specs/tool-result-memory/spec.md": {
+      "name": "spec",
+      "type": "document",
+      "summary": ""
+    },
+    "file:scripts/stamp_versions.py": {
+      "name": "stamp_versions",
+      "type": "file",
+      "summary": ""
+    },
+    "document:sdk/continue/README.md": {
+      "name": "README",
+      "type": "document",
+      "summary": ""
+    },
+    "file:sdk/continue/index.ts": {
+      "name": "index",
+      "type": "file",
+      "summary": ""
+    },
+    "file:sdk/typescript/src/index.ts": {
+      "name": "index",
+      "type": "file",
+      "summary": ""
+    },
+    "file:sdk/typescript/src/client.ts": {
+      "name": "client",
+      "type": "file",
+      "summary": ""
+    },
+    "file:sdk/typescript/src/types.ts": {
+      "name": "types",
+      "type": "file",
+      "summary": ""
+    },
+    "document:sdk/python/hipcortex/install/SKILL.md": {
+      "name": "SKILL",
+      "type": "document",
+      "summary": ""
+    },
+    "file:sdk/python/hipcortex/install/__init__.py": {
+      "name": "__init__",
+      "type": "file",
+      "summary": ""
+    },
+    "file:sdk/python/hipcortex/install/mcp_server.py": {
+      "name": "mcp_server",
+      "type": "file",
+      "summary": ""
+    },
+    "file:sdk/python/hipcortex/__init__.py": {
+      "name": "__init__",
+      "type": "file",
+      "summary": ""
+    },
+    "file:sdk/python/hipcortex/client.py": {
+      "name": "client",
+      "type": "file",
+      "summary": ""
+    },
+    "file:sdk/python/hipcortex/config.py": {
+      "name": "config",
+      "type": "file",
+      "summary": ""
+    },
+    "file:sdk/python/hipcortex/daemon.py": {
+      "name": "daemon",
+      "type": "file",
+      "summary": ""
+    },
+    "file::sdk/python/tests/test_client_config.py": {
+      "name": "test_client_config",
+      "type": "file",
+      "summary": "Tests that HipCortexClient and AsyncHipCortexClient resolve base_url via load_settings precedence: config file < env var HIPCORTEX_URL < explicit cons"
+    },
+    "file::sdk/python/tests/test_config.py": {
+      "name": "test_config",
+      "type": "file",
+      "summary": "Comprehensive tests for hipcortex.config covering: load_toml_file (missing/empty/basic/aliases), settings_to_toml serialisation determinism, write_pro"
+    },
+    "file::sdk/python/tests/test_daemon.py": {
+      "name": "test_daemon",
+      "type": "file",
+      "summary": "Tests for hipcortex.daemon module covering PID file read/write/clear, lock acquire/release/stale-cleanup, port liveness check, health_check HTTP probe"
+    },
+    "file::tests/e2e_user_harness/assertions.py": {
+      "name": "assertions",
+      "type": "file",
+      "summary": "Shared assertion helpers for the e2e user harness. assert_token_savings_bounds validates token compression ratios for 'headroom' (59-89%, top-5) and '"
+    },
+    "file::tests/e2e_user_harness/client_factory.py": {
+      "name": "client_factory",
+      "type": "file",
+      "summary": "E2e harness HTTP client factory. HarnessHttpxClient wraps httpx.Client with a base_url and 30s timeout, exposing get/post/delete. get_clients(port) co"
+    },
+    "file::tests/e2e_user_harness/server_manager.py": {
+      "name": "server_manager",
+      "type": "file",
+      "summary": "HipCortexServerManager launches isolated Rust webserver instances for e2e tests. Finds a free port via socket bind, resolves the cargo-built debug bin"
+    },
+    "file::tests/e2e_user_harness/data_generators.py": {
+      "name": "data_generators",
+      "type": "file",
+      "summary": "Synthetic data generators for e2e harness. estimate_tokens approximates token count as floor(len/4). CodingSessionTraceBuilder.build_trace generates N"
+    },
+    "file::tests/e2e_user_harness/conftest.py": {
+      "name": "conftest",
+      "type": "file",
+      "summary": "pytest conftest for the e2e user harness. Adds sdk/python to sys.path. Provides three fixtures: hipcortex_binary (session scope, builds binary once), "
+    },
+    "file::tests/e2e_user_harness/suites/test_phase0_bootstrap.py": {
+      "name": "test_phase0_bootstrap",
+      "type": "file",
+      "summary": "Phase 0 e2e bootstrap test. Single @pytest.mark.core test: builds the Rust webserver binary and verifies /health returns HTTP 200 with status=ok and v"
+    },
+    "file::tests/e2e_user_harness/suites/test_phase3_framework_integrations.py": {
+      "name": "test_phase3_framework_integrations",
+      "type": "file",
+      "summary": "Phase 3 e2e integration tests for AI framework adapters. Tests CrewAI adapter tool instantiation (HipCortexRememberTool, HipCortexRecallTool, HipCorte"
+    },
+    "file::tests/e2e_user_harness/suites/test_phase4_vscode_extension.py": {
+      "name": "test_phase4_vscode_extension",
+      "type": "file",
+      "summary": "Phase 4 e2e tests for the VS Code extension. Validates package.json manifest (name=hipcortex-memory, version in 0.5.0/0.5.8, contributed commands hipc"
+    },
+    "file:src/llm_clients/mod.rs": {
+      "name": "LLMClient",
+      "type": "file",
+      "summary": "Aggregation module for all LLM connector implementations. Declares two traits: LLMClient (generate_response) and LanguageModelClient (generate, embed,"
+    },
+    "file:src/optimized_memory_store.rs": {
+      "name": "OptimizedMemoryStore",
+      "type": "file",
+      "summary": "High-performance in-memory store backed by Arc<RwLock<HashMap>> with multi-field secondary indices (actor, action, target, type, timestamp, relevance)"
+    },
+    "file:memory_cli": {
+      "name": "memory_cli",
+      "type": "file",
+      "summary": "CLI entry point for the hipcortex binary. Defines the top-level `Cli` struct (clap Parser) and `Commands` enum covering: Add, Query, Snapshot, Restore"
+    },
+    "file:memory_diff": {
+      "name": "memory_diff",
+      "type": "file",
+      "summary": "Utility module providing `diff_snapshots(a, b)` which computes the symmetric difference between two `MemoryRecord` slices using UUID-based set arithme"
+    },
+    "file:memory_processor": {
+      "name": "memory_processor",
+      "type": "file",
+      "summary": "Small utility struct `MemoryProcessor` with a single public method `deduplicate(&mut Vec<MemoryRecord>)` that uses a UUID `HashSet` to retain only the"
+    },
+    "file:memory_record": {
+      "name": "memory_record",
+      "type": "file",
+      "summary": "Defines the canonical `MemoryRecord` data model and the `MemoryType` enum (Temporal, Symbolic, Procedural, Reflexion, Perception). `MemoryRecord` carr"
+    },
+    "file:memory_store": {
+      "name": "memory_store",
+      "type": "file",
+      "summary": "Persistence facade for MemoryRecord collections. Generic over `MemoryBackend` (trait from `persistence` module). Maintains an in-memory `Vec<MemoryRec"
+    },
+    "file:aureus_bridge": {
+      "name": "aureus_bridge",
+      "type": "file",
+      "summary": "Reflexion / chain-of-thought module. `AureusBridge` orchestrates a Bayesian hypothesis-update loop: calls an LLM client, parses structured `ReflexionH"
+    },
+    "file:coherence_mod": {
+      "name": "coherence_mod",
+      "type": "concept",
+      "summary": "Cross-module consistency coordinator for the HipCortex intelligence layer. Four components: (1) CoherenceChecker — central coordinator running a backg"
+    },
+    "file:integration_layer": {
+      "name": "integration_layer",
+      "type": "file",
+      "summary": "External connectivity bridge. `IntegrationLayer` holds: connected flag, optional LLM client, API key and OAuth token sets for authentication, and a `P"
+    },
+    "file:perception_adapter": {
+      "name": "perception_adapter",
+      "type": "file",
+      "summary": "Multimodal input normalization and compression. `Modality` enum: Text, ImageEmbedding, Image, SymbolicConcept, AgentMessage. `PerceptInput` carries mo"
+    },
+    "file:procedural_cache": {
+      "name": "procedural_cache",
+      "type": "file",
+      "summary": "FSM-driven procedural memory. Defines `FSMState` enum (Start/Observe/Reason/Act/Reflexion/End/Custom), `FSMTransition`, `ProceduralTrace` (id+current_"
+    },
+    "file:self_model_mod": {
+      "name": "self_model_mod",
+      "type": "file",
+      "summary": "Metacognitive intelligence layer. Re-exports sub-modules: `capability` (CapabilityRegistry/CapabilityDescriptor/Limitation), `resource` (ResourceMonit"
+    },
+    "file:symbolic_store": {
+      "name": "symbolic_store",
+      "type": "file",
+      "summary": "Knowledge graph storage layer. `GraphDatabase` trait: add_node, add_edge, get_node, neighbors, edges_from, update_property, find_by_label (LRU-cached)"
+    },
+    "file:temporal_indexer": {
+      "name": "temporal_indexer",
+      "type": "file",
+      "summary": "Time-ordered trace buffer with decay and prediction. `TemporalTrace<T>`: id, timestamp, data, relevance, decay_factor, last_access, decay_type. `Tempo"
+    },
+    "file:world_model": {
+      "name": "world_model",
+      "type": "file",
+      "summary": "Legacy simple world model built as a thin thread-safe wrapper around `SymbolicStore<InMemoryGraph>`. `WorldModel` holds an `Arc<Mutex<SymbolicStore<In"
+    },
+    "file:src/modules/mcp_bridge.rs": {
+      "name": "McpBridge",
+      "type": "file",
+      "summary": "Thin JSON bridge for the MCP (Model Context Protocol) message format. Defines McpRequest and McpResponse structs; decode_request converts JSON into a "
+    },
+    "file:src/modules/openmanus_bridge.rs": {
+      "name": "OpenManusBridge",
+      "type": "file",
+      "summary": "Thin JSON bridge for the OpenManus agent message format (role/content schema). Defines OpenManusRequest and OpenManusResponse; decode_request maps rol"
+    },
+    "file:src/modules/world_model_enhanced/transition.rs": {
+      "name": "TransitionModel",
+      "type": "file",
+      "summary": "Implements P(s'|s,a) learning via a Dirichlet-Multinomial conjugate prior with configurable Laplace smoothing. Stores (state, action, next_state) coun"
+    },
+    "file:src/modules/world_model_enhanced/uncertainty.rs": {
+      "name": "UncertaintyEstimator",
+      "type": "file",
+      "summary": "Uncertainty quantification module implementing confidence intervals (95% CI scaled by normalised entropy), epistemic vs aleatoric decomposition (epist"
+    },
+    "file:src/rocksdb_backend.rs": {
+      "name": "RocksDbBackend",
+      "type": "file",
+      "summary": "Non-default persistence backend implementing the MemoryBackend trait over RocksDB (feature-gated). Uses a monotonic u64 counter key (__counter__) stor"
+    },
+    "file:src/safety_guardrail.rs": {
+      "name": "SafetyGuardrail",
+      "type": "file",
+      "summary": "Cross-cutting safety enforcement layer required before every mutation of the graph store, FSM backend, or LLM connector. Delegates to SafetyClassifier"
+    },
+    "file:src/semantic_compression.rs": {
+      "name": "SemanticCompression",
+      "type": "file",
+      "summary": "Single-function utility module providing compress_embedding: compresses a float32 embedding vector from an arbitrary dimension to a target dimension b"
+    },
+    "file:src/snapshot_manager.rs": {
+      "name": "SnapshotManager",
+      "type": "file",
+      "summary": "Unit-struct providing static methods for transactional file-system snapshots using tar+gzip (flate2 + tar crates). save packs a source file into a tag"
+    },
+    "file:src/source_trust.rs": {
+      "name": "SourceTrustRegistry",
+      "type": "file",
+      "summary": "Bayesian source credibility tracker using Beta(alpha, beta) distributions. SourceTrustProfile tracks per-source corroboration/contradiction counts and"
+    },
+    "file:wme::causal_rs": {
+      "name": "wme::causal_rs",
+      "type": "file",
+      "summary": "Implements directed acyclic causal graphs (DAG) supporting path queries, Pearl do-calculus interventions P(Y|do(X=x)), SCM counterfactual reasoning (a"
+    },
+    "file:wme::constraint_rs": {
+      "name": "wme::constraint_rs",
+      "type": "file",
+      "summary": "Lightweight constraint evaluation engine: HardTermination or SoftPenalty(f64) severities, supports >= > <= < == != operators against named metrics."
+    },
+    "file:wme::entity_rs": {
+      "name": "wme::entity_rs",
+      "type": "file",
+      "summary": "Implements linear Kalman filter for entity state estimation: predict/update cycle, Mahalanobis-distance anomaly detection, entity permanence timeout, "
+    },
+    "file:wme::mod_rs": {
+      "name": "wme::mod_rs",
+      "type": "file",
+      "summary": "Central coordinator integrating TransitionModel (Dirichlet-Multinomial), EntityTracker map (Kalman), CausalGraph (do-calculus), PredictiveModel ensemb"
+    },
+    "file:wme::transition_rs": {
+      "name": "wme::transition_rs",
+      "type": "file",
+      "summary": "Dirichlet-Multinomial Bayesian model for P(s'|s,a). Uses conjugate Dir(α) prior with Laplace smoothing (α=1 default). Stores counts (s,a,s')→usize and"
+    },
+    "file:wme::uncertainty_rs": {
+      "name": "wme::uncertainty_rs",
+      "type": "file",
+      "summary": "Uncertainty quantification with 95% confidence intervals, epistemic/aleatoric decomposition, Expected Calibration Error (ECE) and Maximum Calibration "
+    },
+    "file:self_model::capability_rs": {
+      "name": "self_model::capability_rs",
+      "type": "file",
+      "summary": "Registry of all system capabilities with resource requirements and limitations. Supports register, update, add/remove limitations, critical limitation"
+    },
+    "file:self_model::decision_rs": {
+      "name": "self_model::decision_rs",
+      "type": "file",
+      "summary": "Adaptive execution gating using expected utility: EU = P(success)*utility(success) - P(failure)*cost(failure). Critical operations (priority>=0.95) by"
+    },
+    "file:self_model::health_rs": {
+      "name": "self_model::health_rs",
+      "type": "file",
+      "summary": "Aggregates health from all subsystems using weighted geometric mean H=(∏h_i^w_i)^(1/Σw_i). Geometric mean heavily penalizes any single failing module."
+    },
+    "file:self_model::performance_rs": {
+      "name": "self_model::performance_rs",
+      "type": "file",
+      "summary": "Performance tracking for operations: EWMA latency smoothing and Bayesian success rate tracking. Note: requested as perf_tracker.rs but actual filename"
+    },
+    "file:self_model::resource_rs": {
+      "name": "self_model::resource_rs",
+      "type": "file",
+      "summary": "Resource usage monitoring with linear regression for trend prediction. Tracks CPU%, memory MB, disk I/O, network I/O. Note: requested as resource_moni"
+    },
+    "file:coherence::checker_rs": {
+      "name": "coherence::checker_rs",
+      "type": "file",
+      "summary": "Cross-module consistency checker detecting 5 types: TemporalSymbolicMismatch (event refs missing entity), ProceduralWorldConflict (FSM allows P=0 tran"
+    },
+    "file:coherence::invariants_rs": {
+      "name": "coherence::invariants_rs",
+      "type": "file",
+      "summary": "Validates 4 critical invariants: MemoryConsistency (entity counts match), DecayMonotonicity (activation scores monotonically non-increasing), GraphAcy"
+    },
+    "file:coherence::resolver_rs": {
+      "name": "coherence::resolver_rs",
+      "type": "file",
+      "summary": "Conflict resolution with 3 pluggable strategies: Consensus (majority vote with configurable threshold, default 0.5), Recency (max timestamp), Confiden"
+    },
+    "file:semantic_compression": {
+      "name": "semantic_compression",
+      "type": "concept",
+      "summary": "Embedding dimensionality reduction via chunk-average pooling. Single public function `compress_embedding(&[f32], new_dim) -> Vec<f32>` that divides a "
+    },
+    "file:snapshot_manager": {
+      "name": "snapshot_manager",
+      "type": "concept",
+      "summary": "Filesystem snapshot/rollback for MemoryStore data files using flate2 + tar. `SnapshotManager::save` archives a single file as `<name>.<tag>.tar.gz`; `"
+    },
+    "file:source_trust": {
+      "name": "source_trust",
+      "type": "concept",
+      "summary": "Bayesian source credibility tracking using Beta distribution (Beta(alpha,beta)). `SourceTrustProfile` maintains per-source alpha/beta counts; corrobor"
+    },
+    "file:temporal_fsm_backend": {
+      "name": "temporal_fsm_backend",
+      "type": "concept",
+      "summary": "File does not exist on disk. Declared in CLAUDE.md as the backing trait for ProceduralCache FSM state persistence (`TemporalFSMBackend`). Referenced f"
+    },
+    "file:web_server": {
+      "name": "web_server",
+      "type": "concept",
+      "summary": "Axum 0.6 REST API server (feature `web-server`). Wires all HipCortex subsystems into a single `AppState<B>` and exposes ~60 routes across 9 functional"
+    },
+    "file:backends_petgraph_backend": {
+      "name": "backends_petgraph_backend",
+      "type": "concept",
+      "summary": "Thin type alias: `PetgraphBackend = InMemoryGraph`. Provides backward-compatibility re-export of `symbolic_store::InMemoryGraph` under the backends na"
+    },
+    "file:backends_mod": {
+      "name": "backends_mod",
+      "type": "concept",
+      "summary": "Backends directory exists but mod.rs was not found as a standalone file. Backend modules discovered on disk: petgraph_backend.rs, neo4j_backend.rs, po"
+    },
+    "file::tests/integration/conversation_memory_sit.rs": {
+      "name": "conversation_memory_sit",
+      "type": "file",
+      "summary": "SIT test: round-trips ConversationMemory messages into MemoryStore via MemoryRecord, asserting 2 records stored and cleaned up."
+    },
+    "file::tests/integration/conversation_memory_uat.rs": {
+      "name": "conversation_memory_uat",
+      "type": "file",
+      "summary": "UAT test: simulates user flow where ConversationMemory is used alongside IntegrationLayer; verifies message count and connection state."
+    },
+    "file::tests/integration/edge_workflow_sit.rs": {
+      "name": "edge_workflow_sit",
+      "type": "file",
+      "summary": "SIT test: exercises edge-device scenario — MemoryStore with minimal options, TemporalIndexer ring-buffer overflow, ProceduralCache FSM transitions, an"
+    },
+    "file::tests/integration/edge_workflow_uat.rs": {
+      "name": "edge_workflow_uat",
+      "type": "file",
+      "summary": "UAT test: simulates user running a complete edge workflow through IntegrationLayer; verifies connection and message dispatch."
+    },
+    "file::tests/integration/intelligence_layer_sit.rs": {
+      "name": "intelligence_layer_sit",
+      "type": "file",
+      "summary": "File listed in batch specification but does not exist in the repository."
+    },
+    "file::tests/integration/intelligence_layer_uat.rs": {
+      "name": "intelligence_layer_uat",
+      "type": "file",
+      "summary": "File listed in batch specification but does not exist in the repository."
+    },
+    "file::tests/integration/memory_persistence_sit.rs": {
+      "name": "memory_persistence_sit",
+      "type": "file",
+      "summary": "File listed in batch specification but does not exist in the repository."
+    },
+    "file::tests/integration/memory_persistence_uat.rs": {
+      "name": "memory_persistence_uat",
+      "type": "file",
+      "summary": "File listed in batch specification but does not exist in the repository."
+    },
+    "file::tests/integration/mod.rs": {
+      "name": "mod",
+      "type": "file",
+      "summary": "Integration test module registry. Declares all integration sub-modules; gates grpc_tests on 'grpc-server', sit_tests/uat_tests/intelligence_sit/intell"
+    },
+    "file::tests/integration/retrieval_pipeline_sit.rs": {
+      "name": "retrieval_pipeline_sit",
+      "type": "file",
+      "summary": "SIT test: verifies full retrieval round-trip — adds a node to SymbolicStore, processes text input through PerceptionAdapter, indexes via TemporalIndex"
+    },
+    "file::tests/integration/retrieval_pipeline_uat.rs": {
+      "name": "retrieval_pipeline_uat",
+      "type": "file",
+      "summary": "UAT test: simulates concurrent user access via Arc<Mutex<SymbolicStore>>; adds a 'Manual' document node, indexes it in TemporalIndexer, calls recent_s"
+    },
+    "file::tests/integration/safety_guardrail_sit.rs": {
+      "name": "safety_guardrail_sit",
+      "type": "file",
+      "summary": "SIT test: exercises SafetyGuardrail via TemporalFSMBackend — verifies that a prompt-injection FSM condition is blocked and violation_count increments,"
+    },
+    "file::tests/integration/safety_guardrail_uat.rs": {
+      "name": "safety_guardrail_uat",
+      "type": "file",
+      "summary": "File listed in batch specification but does not exist in the repository."
+    },
+    "file::tests/integration/world_model_sit.rs": {
+      "name": "world_model_sit",
+      "type": "file",
+      "summary": "File listed in batch specification but does not exist in the repository. The existing world_model_cli_sit.rs covers CLI-level world model SIT tests."
+    },
+    "file::tests/integration/world_model_uat.rs": {
+      "name": "world_model_uat",
+      "type": "file",
+      "summary": "UAT test (web-server feature-gated): starts a live Axum server backed by SymbolicStore<InMemoryGraph>, exercises /graph endpoint (asserts 3 nodes, 1 e"
+    },
+    "file::tests/integration_suite.rs": {
+      "name": "integration_suite",
+      "type": "file",
+      "summary": "Top-level integration test binary entry point. Contains only 'mod integration;' which pulls in tests/integration/mod.rs and its full module tree. Regi"
+    },
+    "file:tests/property/regression_tests.rs": {
+      "name": "regression_tests",
+      "type": "file",
+      "summary": "Regression property tests for TemporalIndexer: verifies get_recent(0) returns empty and that inserting a trace preserves its UUID. Uses TemporalTrace "
+    },
+    "file:tests/property/self_model_props.rs": {
+      "name": "self_model_props",
+      "type": "file",
+      "summary": "Property-based tests for self-model intelligence layer invariants using proptest. Covers 8 invariants: health scores in [0,1], aggregated health in [0"
+    },
+    "file:tests/property/test_graph.rs": {
+      "name": "test_graph",
+      "type": "file",
+      "summary": "Property test for SymbolicStore graph: verifies that chaining N nodes with 'next' edges produces correct neighbors for each consecutive pair. Uses pro"
+    },
+    "file:tests/property/world_model_props.rs": {
+      "name": "world_model_props",
+      "type": "file",
+      "summary": "Property-based tests for world_model_enhanced invariants using proptest. Covers: transition probability distributions summing to 1.0, entropy in valid"
+    },
+    "file:tests/property/connectivity.rs": {
+      "name": "connectivity",
+      "type": "file",
+      "summary": "Property test for SymbolicStore graph connectivity: builds a linear chain of nodes (count in 2..6), then BFS-verifies reachability from start to last "
+    },
+    "file:tests/property/fsm_reachability.rs": {
+      "name": "fsm_reachability",
+      "type": "file",
+      "summary": "Property test for ProceduralCache FSM reachability: verifies that the Start->Observe->Act->End transition sequence always reaches FSMState::End in exa"
+    },
+    "file:tests/property/coherence_props.rs": {
+      "name": "coherence_props",
+      "type": "file",
+      "summary": "Property-based tests for coherence layer invariants. Covers: entity count conservation, creation-only conservation (no critical violations), decay mon"
+    },
+    "file:tests/property/mod.rs": {
+      "name": "mod",
+      "type": "file",
+      "summary": "Property test module registry. Declares submodules: coherence_props, connectivity, fsm_reachability, regression_tests, self_model_props, world_model_p"
+    },
+    "file:tests/property_suite.rs": {
+      "name": "property_suite",
+      "type": "file",
+      "summary": "Top-level property test binary entry point. Declares `mod property;` which pulls in the property test module tree. Registered as tests/property_suite "
+    },
+    "file:tests/unit/mcp_server_tests.rs": {
+      "name": "mcp_server_tests",
+      "type": "file",
+      "summary": "Unit test for McpServer initialization (gated on features web-server + grpc-server). Verifies a new McpServer has an empty MemoryStore and empty symbo"
+    },
+    "file:tests/unit/memory_expiry_consistency_tests.rs": {
+      "name": "memory_expiry_consistency_tests",
+      "type": "file",
+      "summary": "Unit tests verifying memory expiry filtering consistency across export, consolidation, and stats operations. Tests: export_logic_excludes_expired_by_d"
+    },
+    "file:tests/unit/memory_graph_tests.rs": {
+      "name": "memory_graph_tests",
+      "type": "file",
+      "summary": "Unit tests for CausalTopoGraph (topological_memory module). Tests: get_neighbors_returns_outgoing_neighbors (Supports edge), get_incoming_returns_inco"
+    },
+    "file:tests/unit/perception_adapter_tests.rs": {
+      "name": "perception_adapter_tests",
+      "type": "file",
+      "summary": "Unit tests for PerceptionAdapter multimodal input handling. Tests: adapt_text_input (Modality::Text with tag, expects <=4 features), adapt_embedding_i"
+    },
+    "file:tests/unit/procedural_cache_tests.rs": {
+      "name": "procedural_cache_tests",
+      "type": "file",
+      "summary": "Unit tests for ProceduralCache FSM. Tests: advance_transition (Start->Observe via single FSMTransition), checkpoint_roundtrip (save to JSON file, relo"
+    },
+    "file:tests/unit/temporal_indexer_feature_tests.rs": {
+      "name": "temporal_indexer_feature_tests",
+      "type": "file",
+      "summary": "Unit tests for temporal indexer feature modules. Tests: decay_functions_work (exponential half-life at t=half_life gives 0.5, linear decay at t=5/10 g"
+    },
+    "file:tests/unit/temporal_indexer_tests.rs": {
+      "name": "temporal_indexer_tests",
+      "type": "file",
+      "summary": "Unit test for TemporalIndexer basic insert and retrieval. Tests insert_and_get_recent: creates a single TemporalTrace with DecayType::Exponential, ins"
+    },
+    "file:tests/unit/vision_encoder_tests.rs": {
+      "name": "vision_encoder_tests",
+      "type": "file",
+      "summary": "Unit tests for VisionEncoder image encoding pipeline. Tests: encode_image_basic_len_and_norm (4x4 image produces 8-dim L2-normalized embedding), encod"
+    },
+    "file:tests/unit/world_model_tests.rs": {
+      "name": "world_model_tests",
+      "type": "file",
+      "summary": "Unit test for WorldModel (base world model, not enhanced). Tests add_and_export: adds a 'room' state with JSON metadata, calls export(), verifies grap"
+    },
+    "file:tests/unit_suite.rs": {
+      "name": "unit_suite",
+      "type": "file",
+      "summary": "Top-level unit test binary entry point. Declares `mod unit;` which pulls in the full unit test module tree via tests/unit/mod.rs. Registered as tests/"
+    },
+    "config:vscode-extension/hipcortex-memory-0.4.9.vsix": {
+      "name": "0.4.9",
+      "type": "config",
+      "summary": "VS Code extension VSIX package for HipCortex Memory v0.4.9. Binary distribution artifact containing bundled server binaries for Windows/macOS/Linux."
+    },
+    "config:vscode-extension/hipcortex-memory-0.5.0.vsix": {
+      "name": "0.5.0",
+      "type": "config",
+      "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.0. Binary distribution artifact containing bundled server binaries for Windows/macOS/Linux."
+    },
+    "config:vscode-extension/hipcortex-memory-0.5.1.vsix": {
+      "name": "0.5.1",
+      "type": "config",
+      "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.1. Binary distribution artifact containing bundled server binaries for Windows/macOS/Linux."
+    },
+    "config:vscode-extension/hipcortex-memory-0.5.2.vsix": {
+      "name": "0.5.2",
+      "type": "config",
+      "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.2. Binary distribution artifact containing bundled server binaries for Windows/macOS/Linux."
+    },
+    "config:vscode-extension/hipcortex-memory-0.5.3.vsix": {
+      "name": "0.5.3",
+      "type": "config",
+      "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.3. Binary distribution artifact containing bundled server binaries for Windows/macOS/Linux."
+    },
+    "config:vscode-extension/hipcortex-memory-0.5.4.vsix": {
+      "name": "0.5.4",
+      "type": "config",
+      "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.4. Binary distribution artifact containing bundled server binaries for Windows/macOS/Linux."
+    },
+    "config:vscode-extension/hipcortex-memory-0.5.5.vsix": {
+      "name": "0.5.5",
+      "type": "config",
+      "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.5. Binary distribution artifact containing bundled server binaries for Windows/macOS/Linux."
+    },
+    "config:vscode-extension/hipcortex-memory-0.5.6.vsix": {
+      "name": "0.5.6",
+      "type": "config",
+      "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.6. Binary distribution artifact containing bundled server binaries for Windows/macOS/Linux."
+    },
+    "config:vscode-extension/hipcortex-memory-0.5.7.vsix": {
+      "name": "0.5.7",
+      "type": "config",
+      "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.7. Binary distribution artifact containing bundled server binaries for Windows/macOS/Linux."
+    },
+    "config:vscode-extension/hipcortex-memory-0.5.8.vsix": {
+      "name": "0.5.8",
+      "type": "config",
+      "summary": "VS Code extension VSIX package for HipCortex Memory v0.5.8. Binary distribution artifact containing bundled server binaries for Windows/macOS/Linux."
+    },
+    "file:vscode-extension/src/extension.ts": {
+      "name": "extension.ts",
+      "type": "file",
+      "summary": "Main VS Code extension entry point for HipCortex Memory. Implements the full extension lifecycle: activate/deactivate, auto-server management, LM tool"
+    },
+    "document:AGENTS.md": {
+      "name": "AGENTS.md",
+      "type": "document",
+      "summary": "Behavioral guide for AI agents working in the HipCortex repo, mandating GitNexus impact analysis before any symbol edit, listing forbidden actions (no"
+    },
+    "document:CLAUDE.md": {
+      "name": "CLAUDE.md",
+      "type": "document",
+      "summary": "Master developer reference for the HipCortex Rust crate covering build and test commands for all feature combinations, the two-layer architecture (sto"
+    },
+    "document:docs/superpowers/specs/2026-08-13-hipcortex-gap-remediation-design.md": {
+      "name": "HipCortex Cohesive Gap Remediation Design",
+      "type": "document",
+      "summary": "Implemented 4-sprint design spec remediating critical architectural gaps in HipCortex against its S-Tuple Acceptance Criteria: Sprint 1 fixes silent m"
+    },
+    "file:src/actors/world_model_actor.rs": {
+      "name": "world_model_actor.rs",
+      "type": "file",
+      "summary": "Tokio actor wrapping WorldModelEnhanced for async message-passing: defines a WorldModelMessage enum covering all world-model operations and a WorldMod"
+    },
+    "class:src/actors/world_model_actor.rs:WorldModelMessage": {
+      "name": "WorldModelMessage",
+      "type": "class",
+      "summary": "Enum defining the full message protocol for the world-model actor: nine variants covering action recording, state-transition observation, prediction, "
+    },
+    "class:src/actors/world_model_actor.rs:WorldModelActorClient": {
+      "name": "WorldModelActorClient",
+      "type": "class",
+      "summary": "Cloneable async client handle for the world-model actor: holds the mpsc sender and exposes ten typed async methods that construct messages, open onesh"
+    },
+    "function:src/actors/world_model_actor.rs:new": {
+      "name": "new",
+      "type": "function",
+      "summary": "Constructs a WorldModelActorClient by creating an mpsc channel, spawning a Tokio task that owns a WorldModelEnhanced instance and dispatches incoming "
+    },
+    "file:src/lib.rs": {
+      "name": "lib.rs",
+      "type": "file",
+      "summary": "HipCortex crate root that registers every public module via pub mod declarations (many with #[path] redirects into src/modules/), re-exports key types"
+    },
+    "file:src/memory_diff.rs": {
+      "name": "memory_diff.rs",
+      "type": "file",
+      "summary": "Provides structural diffing between two slices of MemoryRecord snapshots, exposing FieldChange and StateDiff types plus compute_diff and diff_snapshot"
+    },
+    "class:src/memory_diff.rs:FieldChange": {
+      "name": "FieldChange",
+      "type": "class",
+      "summary": "Value-object struct recording a single field mutation: field name, old value, and new value as strings."
+    },
+    "class:src/memory_diff.rs:StateDiff": {
+      "name": "StateDiff",
+      "type": "class",
+      "summary": "Aggregates all field-level changes between two versions of a MemoryRecord, including record ID, version bounds, collected FieldChange entries, confide"
+    },
+    "function:src/memory_diff.rs:diff_snapshots": {
+      "name": "diff_snapshots",
+      "type": "function",
+      "summary": "Compares two slices of MemoryRecords to identify added and removed records by ID set membership, returning separate added/removed vectors."
+    },
+    "function:src/memory_diff.rs:compute_diff": {
+      "name": "compute_diff",
+      "type": "function",
+      "summary": "Produces a StateDiff between two MemoryRecord instances by comparing individual fields, computing confidence delta, detecting status transitions, and "
+    },
+    "file:src/memory_record.rs": {
+      "name": "memory_record.rs",
+      "type": "file",
+      "summary": "Defines the canonical MemoryRecord struct and MemoryType enum that form the core data model of the engine, including SHA-256 integrity hashing, tempor"
+    },
+    "class:src/memory_record.rs:MemoryType": {
+      "name": "MemoryType",
+      "type": "class",
+      "summary": "Enum discriminating memory record kinds: Temporal, Symbolic, Procedural, Reflexion, Perception, and the recently added Goal, Skill, and Belief variant"
+    },
+    "class:src/memory_record.rs:MemoryRecord": {
+      "name": "MemoryRecord",
+      "type": "class",
+      "summary": "Core memory record struct carrying identity (UUID), temporal metadata, actor/action/target triple, arbitrary JSON metadata, SHA-256 content hash for i"
+    },
+    "function:src/memory_record.rs:new": {
+      "name": "new",
+      "type": "function",
+      "summary": "Constructor that initializes a MemoryRecord with a fresh UUID, current timestamp, default relevance/confidence/priority/status, computes the SHA-256 i"
+    },
+    "function:src/memory_record.rs:compute_hash": {
+      "name": "compute_hash",
+      "type": "function",
+      "summary": "Clones the record with hash fields zeroed, serializes to JSON bytes via serde_json, and returns a hex-encoded SHA-256 digest for integrity verificatio"
+    },
+    "function:src/memory_record.rs:calculate_decay_factor": {
+      "name": "calculate_decay_factor",
+      "type": "function",
+      "summary": "Applies exponential time decay weighted by access frequency and current relevance score, returning a clamped 0-to-1 decay factor."
+    },
+    "function:src/memory_record.rs:set_metadata_field": {
+      "name": "set_metadata_field",
+      "type": "function",
+      "summary": "Inserts or updates a typed value in the JSON metadata map and recomputes the content hash and integrity hash to keep the record consistent."
+    },
+    "function:src/memory_record.rs:should_prune": {
+      "name": "should_prune",
+      "type": "function",
+      "summary": "Returns true when the record falls below an access-count threshold or exceeds a maximum age in days, enabling LRU-style pruning decisions."
+    },
+    "function:src/memory_record.rs:similarity_score": {
+      "name": "similarity_score",
+      "type": "function",
+      "summary": "Computes a multi-dimensional similarity score against another MemoryRecord, combining actor/action/target string equality, metadata field overlap, tag"
+    },
+    "file:src/memory_store.rs": {
+      "name": "memory_store.rs",
+      "type": "file",
+      "summary": "The central persistence facade for MemoryRecord storage, providing pluggable backends (file JSONL, encrypted JSONL, in-memory, RocksDB), write-ahead b"
+    },
+    "class:src/memory_store.rs:MemoryStore": {
+      "name": "MemoryStore",
+      "type": "class",
+      "summary": "Main store struct holding the pluggable backend, in-memory record vector, audit log, write-ahead buffer, inverted indices for actor/action/target, sou"
+    },
+    "class:src/memory_store.rs:BulkAddError": {
+      "name": "BulkAddError",
+      "type": "class",
+      "summary": "Error type for bulk-add operations, carrying the failing record index, actor name, and human-readable reason string."
+    },
+    "function:src/memory_store.rs:new_with_options": {
+      "name": "new_with_options",
+      "type": "function",
+      "summary": "Constructs a MemoryStore backed by a JSONL file with optional zstd compression, initialising all indices, audit log, and WAL buffer before loading per"
+    },
+    "function:src/memory_store.rs:new_encrypted": {
+      "name": "new_encrypted",
+      "type": "function",
+      "summary": "Creates an AES-GCM encrypted JSONL-backed MemoryStore, deriving a per-file key directly from the provided 32-byte key slice."
+    },
+    "function:src/memory_store.rs:new_encrypted_envelope": {
+      "name": "new_encrypted_envelope",
+      "type": "function",
+      "summary": "Opens or creates an envelope-encrypted MemoryStore where a master key wraps a randomly generated data-encryption key, supporting re-keying without re-"
+    },
+    "function:src/memory_store.rs:new_in_memory": {
+      "name": "new_in_memory",
+      "type": "function",
+      "summary": "Instantiates a non-persistent in-memory MemoryStore backed by InMemoryBackend with a no-op audit sink, useful for testing and ephemeral agent sessions"
+    },
+    "function:src/memory_store.rs:new_rocksdb": {
+      "name": "new_rocksdb",
+      "type": "function",
+      "summary": "Constructs a MemoryStore using RocksDB as the backend for high-throughput persistent storage, requires the rocksdb feature flag."
+    },
+    "function:src/memory_store.rs:load": {
+      "name": "load",
+      "type": "function",
+      "summary": "Reads all records from the backend, rebuilds the actor/action/target inverted indices, and populates the in-memory record vector."
+    },
+    "function:src/memory_store.rs:rebuild_indices": {
+      "name": "rebuild_indices",
+      "type": "function",
+      "summary": "Clears and reconstructs all three inverted index maps from the current in-memory record vector, used after mutations that change multiple records."
+    },
+    "function:src/memory_store.rs:purge_expired": {
+      "name": "purge_expired",
+      "type": "function",
+      "summary": "Removes records whose expires_at timestamp has passed, rebuilds indices, and returns the count of purged records."
+    },
+    "function:src/memory_store.rs:delete_by_id": {
+      "name": "delete_by_id",
+      "type": "function",
+      "summary": "Removes the record with the given UUID from the in-memory vector and rebuilds indices, returning the count of deleted records."
+    },
+    "function:src/memory_store.rs:add": {
+      "name": "add",
+      "type": "function",
+      "summary": "Appends a MemoryRecord to the in-memory store, updates all three inverted indices, appends to the audit log, buffers the record in the WAL, and flushe"
+    },
+    "function:src/memory_store.rs:search_semantic": {
+      "name": "search_semantic",
+      "type": "function",
+      "summary": "Ranks non-archived, non-expired records by a composite score of cosine similarity (when embeddings present) or keyword overlap, multiplied by source t"
+    },
+    "function:src/memory_store.rs:set_status": {
+      "name": "set_status",
+      "type": "function",
+      "summary": "Updates a record status string and recomputes its integrity hash, then rewrites the full backend to persist the change."
+    },
+    "function:src/memory_store.rs:corroborate": {
+      "name": "corroborate",
+      "type": "function",
+      "summary": "Increases a record confidence by 0.1 capped at 1.0, recomputes its hash, notifies the source trust registry, and persists the change."
+    },
+    "function:src/memory_store.rs:contradict": {
+      "name": "contradict",
+      "type": "function",
+      "summary": "Decreases a record confidence by 0.15 floored at 0.0, moves its status to quarantine, notifies the source trust registry, and persists the change."
+    },
+    "function:src/memory_store.rs:compute_decay": {
+      "name": "compute_decay",
+      "type": "function",
+      "summary": "Reads per-record decay_factor and decay_half_life_secs from metadata and computes an exponential decay multiplier based on elapsed time since creation"
+    },
+    "function:src/memory_store.rs:find_by_actor_ns": {
+      "name": "find_by_actor_ns",
+      "type": "function",
+      "summary": "Returns records matching a given actor filtered to only those tagged with the store active namespace prefix."
+    },
+    "function:src/memory_store.rs:namespace_counts": {
+      "name": "namespace_counts",
+      "type": "function",
+      "summary": "Counts records per namespace by scanning all records for ns-prefixed tags and returning a HashMap of namespace to count."
+    },
+    "function:src/memory_store.rs:find_trusted": {
+      "name": "find_trusted",
+      "type": "function",
+      "summary": "Filters records for a given actor to those whose source meets or exceeds a trust_threshold according to the source trust registry."
+    },
+    "function:src/memory_store.rs:embed_and_add": {
+      "name": "embed_and_add",
+      "type": "function",
+      "summary": "Calls the configured embedding provider to produce a float vector from the given text, stores it in the record metadata under the embedding key, then "
+    },
+    "function:src/memory_store.rs:delete_by_actor": {
+      "name": "delete_by_actor",
+      "type": "function",
+      "summary": "Removes all records belonging to a given actor, rebuilds indices, rewrites the backend, and appends an audit log entry for the deletion."
+    },
+    "function:src/memory_store.rs:update_record": {
+      "name": "update_record",
+      "type": "function",
+      "summary": "Applies partial updates (target, action, confidence, source, metadata) to an existing record by ID, recomputes the hash, rewrites the backend, and log"
+    },
+    "function:src/memory_store.rs:find_latest": {
+      "name": "find_latest",
+      "type": "function",
+      "summary": "Returns the most recent non-expired records matching optional actor/action filters, deduplicated by actor+action pair and limited to the requested cou"
+    },
+    "function:src/memory_store.rs:snapshot": {
+      "name": "snapshot",
+      "type": "function",
+      "summary": "Flushes the WAL buffer then serializes the full in-memory record set to a JSON snapshot file at the given path."
+    },
+    "function:src/memory_store.rs:rollback": {
+      "name": "rollback",
+      "type": "function",
+      "summary": "Restores the store state from a JSON snapshot file, verifying each record hash integrity before accepting it, then rebuilds indices, rewrites the back"
+    },
+    "function:src/memory_store.rs:cosine_similarity": {
+      "name": "cosine_similarity",
+      "type": "function",
+      "summary": "Computes cosine similarity between two f64 embedding vectors, clamping to the shorter length and guarding against zero-magnitude vectors."
+    },
+    "function:src/memory_store.rs:keyword_score": {
+      "name": "keyword_score",
+      "type": "function",
+      "summary": "Computes a keyword overlap score between a query string and a MemoryRecord actor/action/target fields, returning the fraction of query tokens found in"
+    },
+    "file:src/modules/loop_engine.rs": {
+      "name": "loop_engine.rs",
+      "type": "file",
+      "summary": "Implements the cognitive omega-loop engine (`LoopEngine`) for Bayesian topology-guided self-mutation, and the `ReactEngine` for goal-driven ReAct-styl"
+    },
+    "class:src/modules/loop_engine.rs:LoopEngine": {
+      "name": "LoopEngine",
+      "type": "class",
+      "summary": "Orchestrates the omega cognitive loop: snapshot → gap detection → strata rollout → surprise calculation → Bayesian attribution → tentative topology mu"
+    },
+    "class:src/modules/loop_engine.rs:ReactEngine": {
+      "name": "ReactEngine",
+      "type": "class",
+      "summary": "Goal-driven ReAct loop engine that iterates up to a configurable max, writing Temporal observations and Reflexion critiques per iteration, then resolv"
+    },
+    "function:src/modules/loop_engine.rs:run_omega_loop": {
+      "name": "run_omega_loop",
+      "type": "function",
+      "summary": "Executes one full omega cycle: snapshot → gap detection → world-model uncertainty → PageRank localization → rollout simulation → surprise → attributio"
+    },
+    "function:src/modules/loop_engine.rs:simulate_rollouts": {
+      "name": "simulate_rollouts",
+      "type": "function",
+      "summary": "Simulates future state trajectories using localized subgraph PageRank seeds and Dirichlet rollout, falling back to direct next-state prediction when r"
+    },
+    "function:src/modules/loop_engine.rs:apply_tentative_mutation": {
+      "name": "apply_tentative_mutation",
+      "type": "function",
+      "summary": "Applies a topology mutation conditioned on AttributionMap weights, guarded by SafetyGuardrail and CoherenceChecker, then propagates uncertainty and ap"
+    },
+    "function:src/modules/loop_engine.rs:detect_coverage_gap": {
+      "name": "detect_coverage_gap",
+      "type": "function",
+      "summary": "Identifies topology coverage gaps via personalized PageRank; returns a StrataTrajectory with a coverage score and highlighted sparse-topology layers."
+    },
+    "function:src/modules/loop_engine.rs:process_surprise_reflexion": {
+      "name": "process_surprise_reflexion",
+      "type": "function",
+      "summary": "Records a state-action-outcome transition into the world model and runs the coherence gate to reject updates that would introduce paradoxes or safety "
+    },
+    "function:src/modules/loop_engine.rs:run": {
+      "name": "run",
+      "type": "function",
+      "summary": "ReactEngine entry point: loads a GoalPayload from the memory store, iterates observe/reflect cycles writing MemoryRecords, checks success factors each"
+    },
+    "file:src/modules/self_model/decision.rs": {
+      "name": "decision.rs",
+      "type": "file",
+      "summary": "Implements `DecisionEngine` using expected-utility maximization to approve or reject operation execution, now also implementing the `ExecutionGate` tr"
+    },
+    "class:src/modules/self_model/decision.rs:DecisionEngine": {
+      "name": "DecisionEngine",
+      "type": "class",
+      "summary": "Expected-utility decision engine with configurable thresholds, adaptive EU floor based on historical approval rate, validation feedback loop, and `Exe"
+    },
+    "function:src/modules/self_model/decision.rs:evaluate": {
+      "name": "evaluate",
+      "type": "function",
+      "summary": "Core decision evaluation: computes expected utility then gates approval through cascading checks on success rate, resource usage, health score, and ad"
+    },
+    "function:src/modules/self_model/decision.rs:compute_expected_utility": {
+      "name": "compute_expected_utility",
+      "type": "function",
+      "summary": "Computes expected utility as a weighted combination of success rate, health score, resource efficiency, priority, deadline urgency, and cascading-impa"
+    },
+    "function:src/modules/self_model/decision.rs:adaptive_threshold": {
+      "name": "adaptive_threshold",
+      "type": "function",
+      "summary": "Adjusts the minimum expected-utility threshold based on historical approval rate: raises threshold if approval rate is too high, lowers it if too low,"
+    },
+    "file:src/modules/self_model/mod.rs": {
+      "name": "mod.rs",
+      "type": "file",
+      "summary": "Self-model coordinator (`SelfModel`) aggregating capability registry, resource monitor, performance tracker, health aggregator, and decision engine; n"
+    },
+    "class:src/modules/self_model/mod.rs:SelfModel": {
+      "name": "SelfModel",
+      "type": "class",
+      "summary": "Thread-safe coordinator that wires capability registry, resource monitor, EWMA performance tracker, health aggregator, and decision engine together; s"
+    },
+    "function:src/modules/self_model/mod.rs:can_execute": {
+      "name": "can_execute",
+      "type": "function",
+      "summary": "Primary execution gate: if a gate_override is set, delegates immediately to it; otherwise queries capability, resources, performance, and health to fe"
+    },
+    "file:src/modules/world_model_enhanced/causal.rs": {
+      "name": "causal.rs",
+      "type": "file",
+      "summary": "Implements CausalGraph, a directed acyclic graph supporting do-calculus interventions, backdoor adjustment, SCM counterfactuals, and empirical distrib"
+    },
+    "class:src/modules/world_model_enhanced/causal.rs:CausalGraph": {
+      "name": "CausalGraph",
+      "type": "class",
+      "summary": "Core DAG structure storing nodes, directed edges, edge strengths, and conditional distributions; exposes graph traversal (BFS path-finding, DFS all-pa"
+    },
+    "function:src/modules/world_model_enhanced/causal.rs:compute_intervention": {
+      "name": "compute_intervention",
+      "type": "function",
+      "summary": "Applies the backdoor adjustment formula to estimate the causal effect of setting an intervention variable to a value on an outcome variable, summing o"
+    },
+    "function:src/modules/world_model_enhanced/causal.rs:auto_populate_from_transitions": {
+      "name": "auto_populate_from_transitions",
+      "type": "function",
+      "summary": "Bootstraps the causal graph empirical distributions from a Dirichlet-Multinomial transition model: adds state/action/next_state nodes and edges, compu"
+    },
+    "function:src/modules/world_model_enhanced/causal.rs:compute_scm_counterfactual": {
+      "name": "compute_scm_counterfactual",
+      "type": "function",
+      "summary": "Performs structural causal model counterfactual inference: abduces noise terms from observed state, applies the intervention by fixing a variable, and"
+    },
+    "file:src/modules/world_model_enhanced/entity.rs": {
+      "name": "entity.rs",
+      "type": "file",
+      "summary": "Implements EntityTracker, a Kalman filter for tracking entity state vectors over time, including anomaly detection via Mahalanobis distance. Extended "
+    },
+    "class:src/modules/world_model_enhanced/entity.rs:EntityTracker": {
+      "name": "EntityTracker",
+      "type": "class",
+      "summary": "Kalman filter tracker holding state mean vector, covariance matrix, transition/observation/noise matrices, and an anomaly list; supports multi-step pr"
+    },
+    "function:src/modules/world_model_enhanced/entity.rs:update": {
+      "name": "update",
+      "type": "function",
+      "summary": "Executes the Kalman filter update step: computes innovation residual, Kalman gain, updated state mean and covariance, detects anomalies via Mahalanobi"
+    },
+    "function:src/modules/world_model_enhanced/entity.rs:matrix_inverse": {
+      "name": "matrix_inverse",
+      "type": "function",
+      "summary": "Computes the inverse of a square matrix via Gauss-Jordan elimination with partial pivoting; returns Err for singular or non-square matrices."
+    },
+    "file:src/modules/world_model_enhanced/mod.rs": {
+      "name": "mod.rs",
+      "type": "file",
+      "summary": "Defines WorldModelEnhanced, the top-level coordinator for the enhanced world model: wraps a Dirichlet transition model, Kalman entity map, causal DAG,"
+    },
+    "class:src/modules/world_model_enhanced/mod.rs:WorldModelEnhanced": {
+      "name": "WorldModelEnhanced",
+      "type": "class",
+      "summary": "Facade class combining Dirichlet-Multinomial transition learning, Kalman entity tracking, causal graph inference, learned predictor ensemble, uncertai"
+    },
+    "function:src/modules/world_model_enhanced/mod.rs:sync_causal_distributions": {
+      "name": "sync_causal_distributions",
+      "type": "function",
+      "summary": "Reads the current transition model and calls auto_populate_from_transitions on the causal graph, keeping empirical causal distributions in sync with o"
+    },
+    "function:src/modules/world_model_enhanced/mod.rs:mcts_best_action_goal": {
+      "name": "mcts_best_action_goal",
+      "type": "function",
+      "summary": "Runs Monte Carlo Tree Search to select the best action from a root state toward a goal state, using UCB1 exploration and the Dirichlet transition mode"
+    },
+    "function:src/modules/world_model_enhanced/mod.rs:causal_intervention": {
+      "name": "causal_intervention",
+      "type": "function",
+      "summary": "Public facade for causal intervention queries: normalises the intervention value, routes to empirical or structural computation on the causal graph, a"
+    },
+    "function:src/modules/world_model_enhanced/mod.rs:rollout_dirichlet": {
+      "name": "rollout_dirichlet",
+      "type": "function",
+      "summary": "Simulates a multi-step trajectory through the Dirichlet transition model by greedily selecting the most probable next state at each step, returning th"
+    },
+    "function:src/modules/world_model_enhanced/mod.rs:save": {
+      "name": "save",
+      "type": "function",
+      "summary": "Serialises the WorldModelEnhanced state (transitions, entities, causal edges) to a directory of JSON files for persistence."
+    },
+    "function:src/modules/world_model_enhanced/mod.rs:load": {
+      "name": "load",
+      "type": "function",
+      "summary": "Deserialises WorldModelEnhanced from a directory of JSON files, reconstructing the transition model, entity trackers, and causal graph edges."
+    },
+    "file:tests/integration/mod.rs": {
+      "name": "mod.rs",
+      "type": "file",
+      "summary": "Integration test module registry that declares all ~35 integration test submodules (SIT and UAT), with several conditionally compiled under feature fl"
+    },
+    "file:tests/unit/memory_store_tests.rs": {
+      "name": "memory_store_tests.rs",
+      "type": "file",
+      "summary": "Unit tests for MemoryStore covering CRUD, actor/action/target indexing, AES-GCM encryption, envelope encryption, snapshot/rollback, RocksDB backend, G"
+    },
+    "function:tests/unit/memory_store_tests.rs:test_archived_records_excluded_from_default_search": {
+      "name": "test_archived_records_excluded_from_default_search",
+      "type": "function",
+      "summary": "Verifies that records with an 'archived' status tag are excluded from default semantic search results."
+    },
+    "function:tests/unit/memory_store_tests.rs:test_goal_payload_roundtrips_via_metadata": {
+      "name": "test_goal_payload_roundtrips_via_metadata",
+      "type": "function",
+      "summary": "Tests that a GoalPayload serializes into a MemoryRecord's metadata field and round-trips back via serde_json without data loss."
+    },
+    "function:tests/unit/memory_store_tests.rs:test_add_and_query_memory_store": {
+      "name": "test_add_and_query_memory_store",
+      "type": "function",
+      "summary": "Basic smoke test: adds a MemoryRecord to a file-backed store and verifies it is returned by store.all()."
+    },
+    "function:tests/unit/memory_store_tests.rs:test_find_by_actor_index": {
+      "name": "test_find_by_actor_index",
+      "type": "function",
+      "summary": "Confirms that find_by_actor returns only records belonging to the queried actor when multiple actors are stored."
+    },
+    "function:tests/unit/memory_store_tests.rs:test_find_by_action_and_target": {
+      "name": "test_find_by_action_and_target",
+      "type": "function",
+      "summary": "Tests action-based and target-based index queries, asserting correct subset filtering across multiple stored records."
+    },
+    "function:tests/unit/memory_store_tests.rs:test_encrypted_memory_store": {
+      "name": "test_encrypted_memory_store",
+      "type": "function",
+      "summary": "Exercises MemoryStore::new_encrypted to confirm AES-GCM encrypted stores can accept records and flush without error."
+    },
+    "function:tests/unit/memory_store_tests.rs:test_snapshot_and_rollback": {
+      "name": "test_snapshot_and_rollback",
+      "type": "function",
+      "summary": "Verifies that a snapshot taken after an initial write can be used to roll back subsequent mutations, restoring the prior record count."
+    },
+    "function:tests/unit/memory_store_tests.rs:test_envelope_encryption": {
+      "name": "test_envelope_encryption",
+      "type": "function",
+      "summary": "Tests envelope encryption (DEK wrapped by master key): writes a record, drops the store, reopens with the same master key, and confirms successful rel"
+    },
+    "function:tests/unit/memory_store_tests.rs:test_rocksdb_backend": {
+      "name": "test_rocksdb_backend",
+      "type": "function",
+      "summary": "Smoke test for the RocksDB-backed MemoryStore: adds a record via new_rocksdb and confirms no panics occur under the feature flag."
+    },
+    "function:tests/unit/memory_store_tests.rs:test_provenance_fields_do_not_change_hash_of_legacy_record": {
+      "name": "test_provenance_fields_do_not_change_hash_of_legacy_record",
+      "type": "function",
+      "summary": "Backward-compatibility guard ensuring that adding provenance fields (source_agent, session_id, etc.) to a MemoryRecord does not alter its SHA-256 inte"
+    },
+    "file:tests/unit/mod.rs": {
+      "name": "mod",
+      "type": "file",
+      "summary": "Unit test module registry. Declares all unit test submodules: async_memory_store_tests (feature async-store), audit_log_tests, aureus_bridge_tests, co"
+    }
+  },
+  "totalNodes": 396,
+  "totalEdges": 324
+}

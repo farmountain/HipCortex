@@ -1,0 +1,163 @@
+{
+  "batchIndex": 47,
+  "nodes": [
+    {
+      "id": "file:tests/unit/temporal_indexer_feature_tests.rs",
+      "type": "file",
+      "label": "temporal_indexer_feature_tests.rs",
+      "path": "tests/unit/temporal_indexer_feature_tests.rs",
+      "summary": "Unit tests for temporal indexer feature modules. Tests: decay_functions_work (exponential half-life at t=half_life gives 0.5, linear decay at t=5/10 gives 0.5), markov_predicts_next (records a->b twice and a->c once, predicts 'b'), poisson_detects_burst (three events with last two within 100ms triggers is_bursty). Imports decay, MarkovChain, PoissonBurst.",
+      "tags": ["rust", "testing", "unit"],
+      "symbols": [
+        "decay_functions_work",
+        "markov_predicts_next",
+        "poisson_detects_burst"
+      ]
+    },
+    {
+      "id": "file:tests/unit/temporal_indexer_tests.rs",
+      "type": "file",
+      "label": "temporal_indexer_tests.rs",
+      "path": "tests/unit/temporal_indexer_tests.rs",
+      "summary": "Unit test for TemporalIndexer basic insert and retrieval. Tests insert_and_get_recent: creates a single TemporalTrace with DecayType::Exponential, inserts it, asserts get_recent(1) returns 1 item.",
+      "tags": ["rust", "testing", "unit"],
+      "symbols": ["insert_and_get_recent"]
+    },
+    {
+      "id": "file:tests/unit/vision_encoder_tests.rs",
+      "type": "file",
+      "label": "vision_encoder_tests.rs",
+      "path": "tests/unit/vision_encoder_tests.rs",
+      "summary": "Unit tests for VisionEncoder image encoding pipeline. Tests: encode_image_basic_len_and_norm (4x4 image produces 8-dim L2-normalized embedding), encode_bytes_matches_encode_image (PNG bytes path matches direct image path), parallel_encoding_matches (feature 'parallel', par==seq), gpu_encoding_fallbacks (feature 'gpu', GPU result matches CPU), grid_output_shape (2x2 image with 2 tiles produces 12-dim grid, checks red and green patch norms), pca_reduce_dimension (48 values reduced to 4), l2_norm_and_entropy (3-4-5 triangle normalized, entropy > 0). Imports VisionEncoder, image crate.",
+      "tags": ["rust", "testing", "unit"],
+      "symbols": [
+        "encode_image_basic_len_and_norm",
+        "encode_bytes_matches_encode_image",
+        "parallel_encoding_matches",
+        "gpu_encoding_fallbacks",
+        "grid_output_shape",
+        "pca_reduce_dimension",
+        "l2_norm_and_entropy"
+      ]
+    },
+    {
+      "id": "file:tests/unit/world_model_tests.rs",
+      "type": "file",
+      "label": "world_model_tests.rs",
+      "path": "tests/unit/world_model_tests.rs",
+      "summary": "Unit test for WorldModel (base world model, not enhanced). Tests add_and_export: adds a 'room' state with JSON metadata, calls export(), verifies graph is non-empty.",
+      "tags": ["rust", "testing", "unit"],
+      "symbols": ["add_and_export"]
+    },
+    {
+      "id": "file:tests/unit_suite.rs",
+      "type": "file",
+      "label": "unit_suite.rs",
+      "path": "tests/unit_suite.rs",
+      "summary": "Top-level unit test binary entry point. Declares `mod unit;` which pulls in the full unit test module tree via tests/unit/mod.rs. Registered as tests/unit_suite in Cargo.toml.",
+      "tags": ["rust", "testing", "unit"],
+      "symbols": []
+    },
+    {
+      "id": "file:tests/unit/mod.rs",
+      "type": "file",
+      "label": "mod.rs (unit)",
+      "path": "tests/unit/mod.rs",
+      "summary": "Unit test module registry. Declares all unit test submodules: async_memory_store_tests (feature async-store), audit_log_tests, aureus_bridge_tests, coherence_tests, conversation_memory_tests, edge_workflow_small, effort_tests, enhancement_advisor_tests, graph_connectivity_tests, hypothesis_manager_tests, integration_layer_tests, knowledge_export_tests, llama_client_tests, memory_store_tests, memory_tests, multimodal_perception_tests, perception_adapter_tests, plugin_host_tests (feature plugin), mcp_server_tests (features web-server+grpc-server), procedural_cache_tests, puzzle_tests, rag_adapter_tests, reasoning_trace_store_tests, retrieval_pipeline_tests, segmented_ring_buffer_tests, semantic_cache_tests, safety_guardrail_tests, sled_graph_tests, snapshot_manager_tests, symbolic_store_tests, latent_map_tests, temporal_fsm_backend_tests, temporal_indexer_feature_tests, temporal_indexer_tests, procedural_cache_map_tests, vision_encoder_tests, world_model_export_tests, world_model_tests, memory_store_eviction_tests, memory_store_delete_tests, memory_graph_tests, memory_expiry_consistency_tests, memory_ppr_tests.",
+      "tags": ["rust", "testing", "unit"],
+      "symbols": []
+    }
+  ],
+  "edges": [
+    {
+      "from": "src/modules/temporal_indexer.rs",
+      "to": "file:tests/unit/temporal_indexer_tests.rs",
+      "type": "tested_by"
+    },
+    {
+      "from": "src/modules/temporal_indexer.rs",
+      "to": "file:tests/unit/temporal_indexer_feature_tests.rs",
+      "type": "tested_by"
+    },
+    {
+      "from": "src/decay.rs",
+      "to": "file:tests/unit/temporal_indexer_feature_tests.rs",
+      "type": "tested_by"
+    },
+    {
+      "from": "src/markov.rs",
+      "to": "file:tests/unit/temporal_indexer_feature_tests.rs",
+      "type": "tested_by"
+    },
+    {
+      "from": "src/poisson.rs",
+      "to": "file:tests/unit/temporal_indexer_feature_tests.rs",
+      "type": "tested_by"
+    },
+    {
+      "from": "src/vision_encoder.rs",
+      "to": "file:tests/unit/vision_encoder_tests.rs",
+      "type": "tested_by"
+    },
+    {
+      "from": "src/modules/world_model.rs",
+      "to": "file:tests/unit/world_model_tests.rs",
+      "type": "tested_by"
+    },
+    {
+      "from": "file:tests/unit_suite.rs",
+      "to": "file:tests/unit/mod.rs",
+      "type": "declares"
+    },
+    {
+      "from": "file:tests/unit/mod.rs",
+      "to": "file:tests/unit/temporal_indexer_tests.rs",
+      "type": "declares"
+    },
+    {
+      "from": "file:tests/unit/mod.rs",
+      "to": "file:tests/unit/temporal_indexer_feature_tests.rs",
+      "type": "declares"
+    },
+    {
+      "from": "file:tests/unit/mod.rs",
+      "to": "file:tests/unit/vision_encoder_tests.rs",
+      "type": "declares"
+    },
+    {
+      "from": "file:tests/unit/mod.rs",
+      "to": "file:tests/unit/world_model_tests.rs",
+      "type": "declares"
+    },
+    {
+      "from": "file:tests/unit/mod.rs",
+      "to": "file:tests/unit/mcp_server_tests.rs",
+      "type": "declares"
+    },
+    {
+      "from": "file:tests/unit/mod.rs",
+      "to": "file:tests/unit/memory_expiry_consistency_tests.rs",
+      "type": "declares"
+    },
+    {
+      "from": "file:tests/unit/mod.rs",
+      "to": "file:tests/unit/memory_graph_tests.rs",
+      "type": "declares"
+    },
+    {
+      "from": "file:tests/unit/mod.rs",
+      "to": "file:tests/unit/memory_store_tests.rs",
+      "type": "declares"
+    },
+    {
+      "from": "file:tests/unit/mod.rs",
+      "to": "file:tests/unit/perception_adapter_tests.rs",
+      "type": "declares"
+    },
+    {
+      "from": "file:tests/unit/mod.rs",
+      "to": "file:tests/unit/procedural_cache_tests.rs",
+      "type": "declares"
+    }
+  ]
+}

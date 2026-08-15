@@ -1,0 +1,131 @@
+{
+  "batchIndex": 26,
+  "nodes": [
+    {
+      "id": "schema:schemas/perception_adapter.json",
+      "type": "schema",
+      "label": "PerceptionInput",
+      "file": "schemas/perception_adapter.json",
+      "tags": ["json-schema", "perception"],
+      "properties": {
+        "title": "PerceptionInput",
+        "draft": "draft-07",
+        "required_fields": ["id", "timestamp", "modality"],
+        "top_level_properties": ["id", "timestamp", "source", "modality", "data", "meaning"],
+        "description": "Schema for multimodal perception input records ingested by PerceptionAdapter. Captures source, modality type, raw data payload, and derived meaning."
+      }
+    },
+    {
+      "id": "schema:schemas/procedural_memory.json",
+      "type": "schema",
+      "label": "ProceduralPolicy",
+      "file": "schemas/procedural_memory.json",
+      "tags": ["json-schema", "procedural"],
+      "properties": {
+        "title": "ProceduralPolicy",
+        "draft": "draft-07",
+        "required_fields": ["id", "current_state"],
+        "top_level_properties": ["id", "current_state", "trigger_condition", "effect", "next_state", "version", "reward"],
+        "description": "Schema for FSM-driven procedural policy records. Represents state transitions with trigger conditions, effects, and reinforcement reward signals."
+      }
+    },
+    {
+      "id": "schema:schemas/reflexion_memory.json",
+      "type": "schema",
+      "label": "ReflexionSnapshot",
+      "file": "schemas/reflexion_memory.json",
+      "tags": ["json-schema", "reflexion"],
+      "properties": {
+        "title": "ReflexionSnapshot",
+        "draft": "draft-07",
+        "required_fields": ["id"],
+        "top_level_properties": ["id", "input_trace", "thoughts", "outcome", "feedback"],
+        "description": "Schema for AureusBridge reflexion / chain-of-thought snapshots. References a temporal input trace by UUID and captures thought steps, outcome, and feedback score."
+      }
+    },
+    {
+      "id": "schema:schemas/symbolic_graph.json",
+      "type": "schema",
+      "label": "SymbolicGraph",
+      "file": "schemas/symbolic_graph.json",
+      "tags": ["json-schema", "symbolic"],
+      "properties": {
+        "title": "SymbolicGraph",
+        "draft": "draft-07",
+        "description": "Schema for the symbolic graph store (SymbolicStore). File was absent from disk — node recorded as stub for graph completeness.",
+        "stub": true
+      }
+    },
+    {
+      "id": "schema:schemas/temporal_memory.json",
+      "type": "schema",
+      "label": "TemporalEvent",
+      "file": "schemas/temporal_memory.json",
+      "tags": ["json-schema", "temporal"],
+      "properties": {
+        "title": "TemporalEvent",
+        "draft": "draft-07",
+        "required_fields": ["id", "timestamp", "content"],
+        "top_level_properties": ["id", "timestamp", "content", "agent_tags", "trigger_type", "weight"],
+        "description": "Schema for segmented ring-buffer temporal events indexed by TemporalIndexer. Carries agent tags, trigger classification, and decay weight."
+      }
+    },
+    {
+      "id": "schema:schemas/world_model.json",
+      "type": "schema",
+      "label": "WorldModel",
+      "file": "schemas/world_model.json",
+      "tags": ["json-schema", "world-model"],
+      "properties": {
+        "title": "WorldModel",
+        "draft": "draft-07",
+        "description": "Schema for world model state records (Dirichlet-Multinomial transitions, Kalman entity tracking, causal graphs). File was absent from disk — node recorded as stub for graph completeness.",
+        "stub": true
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "schema:schemas/perception_adapter.json",
+      "target": "schema:schemas/temporal_memory.json",
+      "relation": "produces",
+      "description": "PerceptionInput events are ingested and stored as TemporalEvent records in the temporal ring buffer."
+    },
+    {
+      "source": "schema:schemas/temporal_memory.json",
+      "target": "schema:schemas/symbolic_graph.json",
+      "relation": "feeds",
+      "description": "Temporal events are promoted to symbolic graph nodes by SymbolicStore when they reach relevance thresholds."
+    },
+    {
+      "source": "schema:schemas/reflexion_memory.json",
+      "target": "schema:schemas/temporal_memory.json",
+      "relation": "references",
+      "description": "ReflexionSnapshot.input_trace (UUID) foreign-keys into a TemporalEvent record that triggered the reflexion cycle."
+    },
+    {
+      "source": "schema:schemas/temporal_memory.json",
+      "target": "schema:schemas/procedural_memory.json",
+      "relation": "triggers",
+      "description": "Temporal trigger_type field aligns with ProceduralPolicy trigger_condition, allowing FSM transitions to fire on temporal events."
+    },
+    {
+      "source": "schema:schemas/procedural_memory.json",
+      "target": "schema:schemas/world_model.json",
+      "relation": "informs",
+      "description": "ProceduralPolicy state transitions provide transition data consumed by the world model's Dirichlet-Multinomial state predictor."
+    },
+    {
+      "source": "schema:schemas/symbolic_graph.json",
+      "target": "schema:schemas/world_model.json",
+      "relation": "informs",
+      "description": "Symbolic graph entity nodes are tracked as named entities inside the world model's Kalman entity tracker."
+    },
+    {
+      "source": "schema:schemas/reflexion_memory.json",
+      "target": "schema:schemas/symbolic_graph.json",
+      "relation": "writes",
+      "description": "Reflexion outcomes are persisted as symbolic graph assertions after the AureusBridge chain-of-thought cycle completes."
+    }
+  ]
+}

@@ -1,9 +1,9 @@
+use crate::coherence::CoherenceChecker;
+use crate::self_model::SelfModel;
+use crate::task_graph::{TaskGraph, TaskState};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
-use crate::self_model::SelfModel;
-use crate::coherence::CoherenceChecker;
-use crate::task_graph::{TaskGraph, TaskState};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StackFrame {
@@ -40,7 +40,10 @@ impl ExecutiveScheduler {
                 task_id: Uuid::new_v4(),
                 local_beliefs: {
                     let mut b = HashMap::new();
-                    b.insert("diagnostic_reason".to_string(), "self_model_unhealthy".to_string());
+                    b.insert(
+                        "diagnostic_reason".to_string(),
+                        "self_model_unhealthy".to_string(),
+                    );
                     b
                 },
                 current_step: None,
@@ -54,18 +57,27 @@ impl ExecutiveScheduler {
                 task_id: Uuid::new_v4(),
                 local_beliefs: {
                     let mut b = HashMap::new();
-                    b.insert("diagnostic_reason".to_string(), format!("coherence_gate_failed: {}", e.reason));
+                    b.insert(
+                        "diagnostic_reason".to_string(),
+                        format!("coherence_gate_failed: {}", e.reason),
+                    );
                     b
                 },
                 current_step: None,
             });
-            return Err(format!("Coherence gate rejected write operations: {}", e.reason));
+            return Err(format!(
+                "Coherence gate rejected write operations: {}",
+                e.reason
+            ));
         }
 
         // Step 3: Execute active task step
         if let Some(frame) = self.goal_stack.last_mut() {
             if let Some(ref mut task_graph) = self.active_graph {
-                if let Some(node_idx) = frame.current_step.and_then(|id| task_graph.node_index_map.get(&id)) {
+                if let Some(node_idx) = frame
+                    .current_step
+                    .and_then(|id| task_graph.node_index_map.get(&id))
+                {
                     let task = &mut task_graph.graph[*node_idx];
                     task.state = TaskState::Active;
 

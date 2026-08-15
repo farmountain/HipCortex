@@ -62,16 +62,16 @@
 //! - Performance metrics improve (lower variance) with more data
 
 mod capability;
-mod resource;
-mod performance;
-mod health;
 mod decision;
+mod health;
+mod performance;
+mod resource;
 
-pub use capability::{CapabilityRegistry, CapabilityDescriptor, Limitation};
-pub use resource::{ResourceMonitor, ResourceUsage, ResourcePrediction};
-pub use performance::{PerformanceTracker, OperationOutcome, PerformanceMetrics};
+pub use capability::{CapabilityDescriptor, CapabilityRegistry, Limitation};
+pub use decision::{Decision, DecisionContext, DecisionEngine};
 pub use health::{HealthAggregator, HealthScore, ModuleHealth};
-pub use decision::{DecisionEngine, Decision, DecisionContext};
+pub use performance::{OperationOutcome, PerformanceMetrics, PerformanceTracker};
+pub use resource::{ResourceMonitor, ResourcePrediction, ResourceUsage};
 
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
@@ -107,7 +107,9 @@ impl SelfModel {
     }
 
     /// Create a SelfModel that delegates execution decisions to a custom ExecutionGate.
-    pub fn with_gate(gate: Arc<std::sync::Mutex<dyn crate::execution_gate::ExecutionGate>>) -> Self {
+    pub fn with_gate(
+        gate: Arc<std::sync::Mutex<dyn crate::execution_gate::ExecutionGate>>,
+    ) -> Self {
         let mut sm = Self::new();
         sm.gate_override = Some(gate);
         sm
@@ -115,14 +117,18 @@ impl SelfModel {
 
     /// Register a capability with the system
     pub fn register_capability(&self, descriptor: CapabilityDescriptor) -> Result<(), String> {
-        let mut caps = self.capabilities.write()
+        let mut caps = self
+            .capabilities
+            .write()
             .map_err(|e| format!("Failed to acquire capability lock: {}", e))?;
         caps.register(descriptor)
     }
 
     /// Query capability information for an operation
     pub fn get_capability(&self, name: &str) -> Result<CapabilityDescriptor, String> {
-        let caps = self.capabilities.read()
+        let caps = self
+            .capabilities
+            .read()
             .map_err(|e| format!("Failed to acquire capability lock: {}", e))?;
         caps.get(name)
     }
@@ -131,17 +137,23 @@ impl SelfModel {
     ///
     /// This is the main decision point - evaluates:
     /// 1. Capability availability
-    /// 2. Resource sufficiency 
+    /// 2. Resource sufficiency
     /// 3. Expected performance
     /// 4. System health
     ///
     /// Returns Decision with approval/rejection and rationale
-    pub fn can_execute(&self, operation: &str, context: DecisionContext) -> Result<Decision, String> {
+    pub fn can_execute(
+        &self,
+        operation: &str,
+        context: DecisionContext,
+    ) -> Result<Decision, String> {
         // Gate override short-circuits all internal checks
         if let Some(ref gate) = self.gate_override {
             let default_resources = ResourceUsage {
-                cpu_percent: 50.0, memory_mb: 500.0,
-                disk_io_mbps: 10.0, network_io_mbps: 10.0,
+                cpu_percent: 50.0,
+                memory_mb: 500.0,
+                disk_io_mbps: 10.0,
+                network_io_mbps: 10.0,
                 timestamp: Instant::now(),
             };
             let mut g = gate.lock().map_err(|e| format!("gate lock: {}", e))?;
@@ -149,13 +161,21 @@ impl SelfModel {
         }
 
         // Get current system state
-        let caps = self.capabilities.read()
+        let caps = self
+            .capabilities
+            .read()
             .map_err(|e| format!("Failed to read capabilities: {}", e))?;
-        let resources = self.resources.read()
+        let resources = self
+            .resources
+            .read()
             .map_err(|e| format!("Failed to read resources: {}", e))?;
-        let perf = self.performance.read()
+        let perf = self
+            .performance
+            .read()
             .map_err(|e| format!("Failed to read performance: {}", e))?;
-        let health_agg = self.health.read()
+        let health_agg = self
+            .health
+            .read()
             .map_err(|e| format!("Failed to read health: {}", e))?;
 
         // Check capability exists
@@ -196,11 +216,13 @@ impl SelfModel {
             Ok(rate) => rate,
             Err(_) => 0.8, // Default: assume 80% success for new operations
         };
-        
+
         // Get current health
         let health_score = health_agg.get_overall_health()?;
 
-        let mut engine = self.decision.write()
+        let mut engine = self
+            .decision
+            .write()
             .map_err(|e| format!("Failed to acquire decision engine: {}", e))?;
 
         let decision = engine.evaluate(
@@ -215,10 +237,17 @@ impl SelfModel {
     }
 
     /// Record an operation outcome to improve future predictions
-    pub fn record_outcome(&self, operation: &str, duration: Duration, success: bool) -> Result<(), String> {
+    pub fn record_outcome(
+        &self,
+        operation: &str,
+        duration: Duration,
+        success: bool,
+    ) -> Result<(), String> {
         // Update performance tracker
         {
-            let mut perf = self.performance.write()
+            let mut perf = self
+                .performance
+                .write()
                 .map_err(|e| format!("Failed to acquire performance lock: {}", e))?;
             perf.record(OperationOutcome {
                 operation: operation.to_string(),
@@ -240,14 +269,18 @@ impl SelfModel {
         operation: &str,
         usage: ResourceUsage,
     ) -> Result<(), String> {
-        let mut resources = self.resources.write()
+        let mut resources = self
+            .resources
+            .write()
             .map_err(|e| format!("Failed to acquire resource lock: {}", e))?;
         resources.record(operation, usage)
     }
 
     /// Report health metrics from a subsystem
     pub fn report_health(&self, module_name: String, health: ModuleHealth) -> Result<(), String> {
-        let mut health_agg = self.health.write()
+        let mut health_agg = self
+            .health
+            .write()
             .map_err(|e| format!("Failed to acquire health lock: {}", e))?;
         let res = health_agg.report(module_name, health);
         let _ = crate::safety_guardrail::SAFETY_GUARDRAIL
@@ -259,14 +292,18 @@ impl SelfModel {
 
     /// Get overall system health score
     pub fn get_health(&self) -> Result<HealthScore, String> {
-        let health_agg = self.health.read()
+        let health_agg = self
+            .health
+            .read()
             .map_err(|e| format!("Failed to read health: {}", e))?;
         health_agg.get_overall_health()
     }
 
     /// Get health breakdown by module
     pub fn get_module_health(&self, module_name: &str) -> Result<ModuleHealth, String> {
-        let health_agg = self.health.read()
+        let health_agg = self
+            .health
+            .read()
             .map_err(|e| format!("Failed to read health: {}", e))?;
         health_agg.get_module_health(module_name)
     }
@@ -279,14 +316,18 @@ impl SelfModel {
 
     /// Get predicted resource usage for an operation
     pub fn predict_resources(&self, operation: &str) -> Result<ResourcePrediction, String> {
-        let resources = self.resources.read()
+        let resources = self
+            .resources
+            .read()
             .map_err(|e| format!("Failed to read resources: {}", e))?;
         resources.predict(operation)
     }
 
     /// Get predicted performance metrics for an operation
     pub fn predict_performance(&self, operation: &str) -> Result<PerformanceMetrics, String> {
-        let perf = self.performance.read()
+        let perf = self
+            .performance
+            .read()
             .map_err(|e| format!("Failed to read performance: {}", e))?;
         perf.predict(operation)
     }
@@ -311,7 +352,7 @@ mod tests {
     #[test]
     fn test_register_and_query_capability() {
         let sm = SelfModel::new();
-        
+
         let desc = CapabilityDescriptor {
             name: "test_op".to_string(),
             description: "Test operation".to_string(),
@@ -321,7 +362,7 @@ mod tests {
         };
 
         assert!(sm.register_capability(desc.clone()).is_ok());
-        
+
         let retrieved = sm.get_capability("test_op");
         assert!(retrieved.is_ok());
         assert_eq!(retrieved.unwrap().name, "test_op");
@@ -330,7 +371,7 @@ mod tests {
     #[test]
     fn test_can_execute_unknown_capability() {
         let sm = SelfModel::new();
-        
+
         let decision = sm.can_execute("unknown_op", DecisionContext::default_context());
         assert!(decision.is_ok());
         let d = decision.unwrap();
@@ -341,7 +382,7 @@ mod tests {
     #[test]
     fn test_record_outcome() {
         let sm = SelfModel::new();
-        
+
         let result = sm.record_outcome("test_op", Duration::from_millis(100), true);
         assert!(result.is_ok());
     }
@@ -353,32 +394,51 @@ mod tests {
 
         struct AlwaysApproveGate;
         impl ExecutionGate for AlwaysApproveGate {
-            fn evaluate(&mut self, _op: &str, _ctx: &DecisionContext, _sr: f64, _res: &ResourceUsage, _hs: f64) -> Decision {
-                Decision { should_execute: true, confidence: 1.0, rationale: "gate approved".into(), predicted_resources: None, expected_utility: 1.0 }
+            fn evaluate(
+                &mut self,
+                _op: &str,
+                _ctx: &DecisionContext,
+                _sr: f64,
+                _res: &ResourceUsage,
+                _hs: f64,
+            ) -> Decision {
+                Decision {
+                    should_execute: true,
+                    confidence: 1.0,
+                    rationale: "gate approved".into(),
+                    predicted_resources: None,
+                    expected_utility: 1.0,
+                }
             }
             fn record_outcome(&mut self, _op: &str, _approved: bool) {}
-            fn min_utility(&self) -> f64 { 0.0 }
+            fn min_utility(&self) -> f64 {
+                0.0
+            }
         }
 
         let gate: Arc<Mutex<dyn ExecutionGate>> = Arc::new(Mutex::new(AlwaysApproveGate));
         let sm = SelfModel::with_gate(gate);
         // unknown capability — default DecisionEngine would reject, gate approves
-        let d = sm.can_execute("unknown_op", DecisionContext::default_context()).unwrap();
+        let d = sm
+            .can_execute("unknown_op", DecisionContext::default_context())
+            .unwrap();
         assert!(d.should_execute, "gate should override to approve");
     }
 
     #[test]
     fn test_health_reporting() {
         let sm = SelfModel::new();
-        
+
         let module_health = ModuleHealth {
             latency_ms: 50.0,
             error_rate: 0.01,
             resource_usage: 0.5,
         };
 
-        assert!(sm.report_health("test_module".to_string(), module_health).is_ok());
-        
+        assert!(sm
+            .report_health("test_module".to_string(), module_health)
+            .is_ok());
+
         let health = sm.get_health();
         assert!(health.is_ok());
     }

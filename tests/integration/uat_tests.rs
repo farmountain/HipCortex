@@ -22,28 +22,32 @@ pub struct UATTestRunner {
 impl UATTestRunner {
     pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let temp_dir = tempdir()?;
-        
+
         let port = 10000 + (rand::random::<u16>() % 10000);
         let base_url = format!("http://127.0.0.1:{}", port);
-        
+
         // Start HipCortex server
         let server_process = Command::new("cargo")
             .args(&[
                 "run",
-                "--bin", "webserver",
-                "--features", "web-server,petgraph_backend"
+                "--bin",
+                "webserver",
+                "--features",
+                "web-server,petgraph_backend",
             ])
             .env("DATA_DIR", temp_dir.path().to_str().unwrap())
             .env("PORT", port.to_string())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
-        let vscode_extension_path = "d:\\All_Projects\\HipCortex\\HipCortex\\vscode-extension".to_string();
-        
+        let vscode_extension_path =
+            "d:\\All_Projects\\HipCortex\\HipCortex\\vscode-extension".to_string();
+
         // Wait for server to be ready with longer timeout
         let client = reqwest::Client::new();
-        for i in 0..60 {  // Increased from 30 to 60 attempts
-            thread::sleep(Duration::from_millis(1000));  // Increased from 500ms to 1000ms
+        for i in 0..60 {
+            // Increased from 30 to 60 attempts
+            thread::sleep(Duration::from_millis(1000)); // Increased from 500ms to 1000ms
             if let Ok(response) = client.get(&format!("{}/health", base_url)).send().await {
                 if response.status().is_success() {
                     println!("✅ Server ready after {} seconds", i + 1);
@@ -63,10 +67,15 @@ impl UATTestRunner {
         Err("Server failed to start within timeout".into())
     }
 
-    async fn api_call(&self, method: &str, endpoint: &str, data: Option<serde_json::Value>) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    async fn api_call(
+        &self,
+        method: &str,
+        endpoint: &str,
+        data: Option<serde_json::Value>,
+    ) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
         let client = reqwest::Client::new();
         let url = format!("{}{}", self.base_url, endpoint);
-        
+
         let response = match method {
             "GET" => client.get(&url).send().await?,
             "POST" => {
@@ -76,14 +85,17 @@ impl UATTestRunner {
                 } else {
                     req.send().await?
                 }
-            },
+            }
             _ => return Err("Unsupported HTTP method".into()),
         };
 
         Ok(response.json().await?)
     }
 
-    async fn simulate_user_workflow(&self, scenario: &str) -> Result<UATResult, Box<dyn std::error::Error>> {
+    async fn simulate_user_workflow(
+        &self,
+        scenario: &str,
+    ) -> Result<UATResult, Box<dyn std::error::Error>> {
         let start_time = Instant::now();
         let mut steps_completed = 0;
         let mut errors = Vec::new();
@@ -92,7 +104,7 @@ impl UATTestRunner {
             "developer_workflow" => {
                 // Step 1: Developer opens VS Code with HipCortex extension
                 steps_completed += 1;
-                
+
                 // Step 2: Developer writes code and wants to capture learning
                 let memory_request = json!({
                     "actor": "developer_alice",
@@ -107,7 +119,10 @@ impl UATTestRunner {
                     }
                 });
 
-                match self.api_call("POST", "/memory/add", Some(memory_request)).await {
+                match self
+                    .api_call("POST", "/memory/add", Some(memory_request))
+                    .await
+                {
                     Ok(response) => {
                         if response["success"] == true {
                             steps_completed += 1;
@@ -119,7 +134,10 @@ impl UATTestRunner {
                 }
 
                 // Step 3: Developer queries for related patterns
-                match self.api_call("GET", "/memory/query?target=async", None).await {
+                match self
+                    .api_call("GET", "/memory/query?target=async", None)
+                    .await
+                {
                     Ok(response) => {
                         if response["total"].as_u64().unwrap_or(0) > 0 {
                             steps_completed += 1;
@@ -139,7 +157,10 @@ impl UATTestRunner {
                     "record_type": "Temporal"
                 });
 
-                match self.api_call("POST", "/memory/add", Some(context_query)).await {
+                match self
+                    .api_call("POST", "/memory/add", Some(context_query))
+                    .await
+                {
                     Ok(_) => steps_completed += 1,
                     Err(e) => errors.push(format!("Context request failed: {}", e)),
                 }
@@ -158,7 +179,10 @@ impl UATTestRunner {
                     }
                 });
 
-                match self.api_call("POST", "/memory/add", Some(learning_start)).await {
+                match self
+                    .api_call("POST", "/memory/add", Some(learning_start))
+                    .await
+                {
                     Ok(_) => steps_completed += 1,
                     Err(e) => errors.push(format!("Learning session start failed: {}", e)),
                 }
@@ -177,14 +201,24 @@ impl UATTestRunner {
                         }
                     });
 
-                    match self.api_call("POST", "/memory/add", Some(problem_solving)).await {
+                    match self
+                        .api_call("POST", "/memory/add", Some(problem_solving))
+                        .await
+                    {
                         Ok(_) => steps_completed += 1,
                         Err(e) => errors.push(format!("Problem {} logging failed: {}", i, e)),
                     }
                 }
 
                 // Step 3: Student reviews progress
-                match self.api_call("GET", "/memory/query?actor=student_bob&action=solved_problem", None).await {
+                match self
+                    .api_call(
+                        "GET",
+                        "/memory/query?actor=student_bob&action=solved_problem",
+                        None,
+                    )
+                    .await
+                {
                     Ok(response) => {
                         if response["total"].as_u64().unwrap_or(0) >= 5 {
                             steps_completed += 1;
@@ -200,7 +234,7 @@ impl UATTestRunner {
                 // Step 1: Researcher starts investigation
                 let research_start = json!({
                     "actor": "researcher_carol",
-                    "action": "begin_investigation", 
+                    "action": "begin_investigation",
                     "target": "memory_consolidation_patterns",
                     "record_type": "Reflexive",
                     "metadata": {
@@ -209,7 +243,10 @@ impl UATTestRunner {
                     }
                 });
 
-                match self.api_call("POST", "/memory/add", Some(research_start)).await {
+                match self
+                    .api_call("POST", "/memory/add", Some(research_start))
+                    .await
+                {
                     Ok(_) => steps_completed += 1,
                     Err(e) => errors.push(format!("Research start failed: {}", e)),
                 }
@@ -235,7 +272,14 @@ impl UATTestRunner {
                 }
 
                 // Step 3: Analyze patterns
-                match self.api_call("GET", "/memory/query?actor=researcher_carol&action=collect_data_point", None).await {
+                match self
+                    .api_call(
+                        "GET",
+                        "/memory/query?actor=researcher_carol&action=collect_data_point",
+                        None,
+                    )
+                    .await
+                {
                     Ok(response) => {
                         if response["total"].as_u64().unwrap_or(0) >= 7 {
                             steps_completed += 1;
@@ -280,17 +324,20 @@ pub struct UATResult {
 
 #[tokio::test]
 async fn test_uat_developer_workflow() {
-    let runner = UATTestRunner::new().await
+    let runner = UATTestRunner::new()
+        .await
         .expect("Failed to setup UAT runner");
 
-    let result = runner.simulate_user_workflow("developer_workflow").await
+    let result = runner
+        .simulate_user_workflow("developer_workflow")
+        .await
         .expect("Developer workflow test failed");
 
     println!("Developer Workflow UAT Results:");
     println!("  Duration: {:?}", result.duration);
     println!("  Steps Completed: {}", result.steps_completed);
     println!("  Success: {}", result.success);
-    
+
     if !result.errors.is_empty() {
         println!("  Errors:");
         for error in &result.errors {
@@ -298,24 +345,36 @@ async fn test_uat_developer_workflow() {
         }
     }
 
-    assert!(result.success, "Developer workflow should complete successfully");
-    assert!(result.steps_completed >= 4, "Should complete all major workflow steps");
-    assert!(result.duration < Duration::from_secs(30), "Workflow should complete within 30 seconds");
+    assert!(
+        result.success,
+        "Developer workflow should complete successfully"
+    );
+    assert!(
+        result.steps_completed >= 4,
+        "Should complete all major workflow steps"
+    );
+    assert!(
+        result.duration < Duration::from_secs(30),
+        "Workflow should complete within 30 seconds"
+    );
 }
 
 #[tokio::test]
 async fn test_uat_student_workflow() {
-    let runner = UATTestRunner::new().await
+    let runner = UATTestRunner::new()
+        .await
         .expect("Failed to setup UAT runner");
 
-    let result = runner.simulate_user_workflow("student_workflow").await
+    let result = runner
+        .simulate_user_workflow("student_workflow")
+        .await
         .expect("Student workflow test failed");
 
     println!("Student Workflow UAT Results:");
     println!("  Duration: {:?}", result.duration);
     println!("  Steps Completed: {}", result.steps_completed);
     println!("  Success: {}", result.success);
-    
+
     if !result.errors.is_empty() {
         println!("  Errors:");
         for error in &result.errors {
@@ -323,24 +382,36 @@ async fn test_uat_student_workflow() {
         }
     }
 
-    assert!(result.success, "Student workflow should complete successfully");
-    assert!(result.steps_completed >= 7, "Should complete learning session and problem solving");
-    assert!(result.duration < Duration::from_secs(45), "Workflow should complete within 45 seconds");
+    assert!(
+        result.success,
+        "Student workflow should complete successfully"
+    );
+    assert!(
+        result.steps_completed >= 7,
+        "Should complete learning session and problem solving"
+    );
+    assert!(
+        result.duration < Duration::from_secs(45),
+        "Workflow should complete within 45 seconds"
+    );
 }
 
 #[tokio::test]
 async fn test_uat_researcher_workflow() {
-    let runner = UATTestRunner::new().await
+    let runner = UATTestRunner::new()
+        .await
         .expect("Failed to setup UAT runner");
 
-    let result = runner.simulate_user_workflow("researcher_workflow").await
+    let result = runner
+        .simulate_user_workflow("researcher_workflow")
+        .await
         .expect("Researcher workflow test failed");
 
     println!("Researcher Workflow UAT Results:");
     println!("  Duration: {:?}", result.duration);
     println!("  Steps Completed: {}", result.steps_completed);
     println!("  Success: {}", result.success);
-    
+
     if !result.errors.is_empty() {
         println!("  Errors:");
         for error in &result.errors {
@@ -348,9 +419,18 @@ async fn test_uat_researcher_workflow() {
         }
     }
 
-    assert!(result.success, "Researcher workflow should complete successfully");
-    assert!(result.steps_completed >= 9, "Should complete research setup, data collection, and analysis");
-    assert!(result.duration < Duration::from_secs(60), "Workflow should complete within 60 seconds");
+    assert!(
+        result.success,
+        "Researcher workflow should complete successfully"
+    );
+    assert!(
+        result.steps_completed >= 9,
+        "Should complete research setup, data collection, and analysis"
+    );
+    assert!(
+        result.duration < Duration::from_secs(60),
+        "Workflow should complete within 60 seconds"
+    );
 }
 
 #[test]

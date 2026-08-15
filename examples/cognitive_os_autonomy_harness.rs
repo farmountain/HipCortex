@@ -13,17 +13,19 @@ use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
 use uuid::Uuid;
 
-use hipcortex::memory_store::MemoryStore;
-use hipcortex::memory_record::{MemoryRecord, MemoryType};
-use hipcortex::session_context::SessionContext;
-use hipcortex::continuation_checkpoint::ContinuationCheckpoint;
-use hipcortex::topological_memory::{CausalTopoGraph, EdgeType};
-use hipcortex::self_model::{SelfModel, CapabilityDescriptor};
-use hipcortex::world_model_enhanced::{WorldModelEnhanced, TransitionModel, MctsSimulator, EntityState};
-use hipcortex::task_graph::{TaskGraph, TaskNode, TaskState};
-use hipcortex::executive_scheduler::{ExecutiveScheduler, StackFrame};
-use hipcortex::procedural_cache::{ProceduralCache, SkillCompiler};
 use hipcortex::coherence::CoherenceChecker;
+use hipcortex::continuation_checkpoint::ContinuationCheckpoint;
+use hipcortex::executive_scheduler::{ExecutiveScheduler, StackFrame};
+use hipcortex::memory_record::{MemoryRecord, MemoryType};
+use hipcortex::memory_store::MemoryStore;
+use hipcortex::procedural_cache::{ProceduralCache, SkillCompiler};
+use hipcortex::self_model::{CapabilityDescriptor, SelfModel};
+use hipcortex::session_context::SessionContext;
+use hipcortex::task_graph::{TaskGraph, TaskNode, TaskState};
+use hipcortex::topological_memory::{CausalTopoGraph, EdgeType};
+use hipcortex::world_model_enhanced::{
+    EntityState, MctsSimulator, TransitionModel, WorldModelEnhanced,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("================================================================================");
@@ -42,28 +44,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "working_set".to_string(),
         "goal_session".to_string(),
         "user".to_string(),
-        serde_json::json!({"tier": "WorkingSet", "confidence": 1.0, "content": "Working memory: active user goal session"})
+        serde_json::json!({"tier": "WorkingSet", "confidence": 1.0, "content": "Working memory: active user goal session"}),
     );
     let rec_short = MemoryRecord::new(
         MemoryType::Temporal,
         "short_term".to_string(),
         "api_latency".to_string(),
         "gateway".to_string(),
-        serde_json::json!({"tier": "ShortTerm", "confidence": 0.9, "content": "Short term: API latency spike observed at 14:02"})
+        serde_json::json!({"tier": "ShortTerm", "confidence": 0.9, "content": "Short term: API latency spike observed at 14:02"}),
     );
     let rec_long = MemoryRecord::new(
         MemoryType::Symbolic,
         "long_term".to_string(),
         "documentation".to_string(),
         "database".to_string(),
-        serde_json::json!({"tier": "LongTerm", "confidence": 0.95, "content": "Long term: Database failover procedure docs"})
+        serde_json::json!({"tier": "LongTerm", "confidence": 0.95, "content": "Long term: Database failover procedure docs"}),
     );
     let rec_causal = MemoryRecord::new(
         MemoryType::Symbolic,
         "causal_edge".to_string(),
         "dependency".to_string(),
         "auth_gateway".to_string(),
-        serde_json::json!({"tier": "Causal", "confidence": 0.98, "content": "Causal: High traffic on gateway -> DB connection pool exhaustion"})
+        serde_json::json!({"tier": "Causal", "confidence": 0.98, "content": "Causal: High traffic on gateway -> DB connection pool exhaustion"}),
     );
 
     memory_store.add(rec_working)?;
@@ -80,7 +82,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Bootstrap SelfModel
     println!("[PHASE 2] Self-Model Registration & System Diagnostics...");
     let self_model = SelfModel::new();
-    for cap in &["tier_classification", "worldmodel_rollout", "codeact_execution", "token_compression", "skill_compilation"] {
+    for cap in &[
+        "tier_classification",
+        "worldmodel_rollout",
+        "codeact_execution",
+        "token_compression",
+        "skill_compilation",
+    ] {
         self_model.register_capability(CapabilityDescriptor {
             name: cap.to_string(),
             description: format!("Cognitive OS capability: {}", cap),
@@ -115,9 +123,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  ✔ Registered entities ('database_service', 'auth_gateway') and causal edge: auth_gateway -> database_service.");
 
     // Pre-seed some transition observations
-    let _ = wm.observe_transition("degraded".to_string(), "scale_read_replicas".to_string(), "healthy".to_string());
-    let _ = wm.observe_transition("degraded".to_string(), "scale_read_replicas".to_string(), "healthy".to_string());
-    let _ = wm.observe_transition("degraded".to_string(), "restart_db".to_string(), "degraded".to_string());
+    let _ = wm.observe_transition(
+        "degraded".to_string(),
+        "scale_read_replicas".to_string(),
+        "healthy".to_string(),
+    );
+    let _ = wm.observe_transition(
+        "degraded".to_string(),
+        "scale_read_replicas".to_string(),
+        "healthy".to_string(),
+    );
+    let _ = wm.observe_transition(
+        "degraded".to_string(),
+        "restart_db".to_string(),
+        "degraded".to_string(),
+    );
     println!("  ✔ Pre-seeded historical transitions into WorldModel transition matrix.\n");
 
     // ── Phase 4: Token Compression & Optimization via Causal Topological Decay ──
@@ -133,31 +153,58 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     topo_graph.add_node(trace_node2.to_string(), [0.1; 128], HashMap::new())?;
     topo_graph.add_node(trace_node3.to_string(), [0.1; 128], HashMap::new())?;
     // Add strong centrality edges pointing to trace_node3
-    topo_graph.add_edge(trace_node1.to_string(), trace_node3.to_string(), EdgeType::Causal, 1.0, 0.95)?;
-    topo_graph.add_edge(trace_node2.to_string(), trace_node3.to_string(), EdgeType::Causal, 1.0, 0.95)?;
+    topo_graph.add_edge(
+        trace_node1.to_string(),
+        trace_node3.to_string(),
+        EdgeType::Causal,
+        1.0,
+        0.95,
+    )?;
+    topo_graph.add_edge(
+        trace_node2.to_string(),
+        trace_node3.to_string(),
+        EdgeType::Causal,
+        1.0,
+        0.95,
+    )?;
 
     // Page items into session context (simulating large prompt context exceeding budget)
     session_context.page_in(trace_node1, 0.4, 300, Some("old_log_chunk_1".into()));
     session_context.page_in(trace_node2, 0.5, 300, Some("old_log_chunk_2".into()));
-    session_context.page_in(trace_node3, 0.95, 200, Some("critical_system_summary".into()));
+    session_context.page_in(
+        trace_node3,
+        0.95,
+        200,
+        Some("critical_system_summary".into()),
+    );
 
     // Make node 1 & 2 older so age decay triggers alongside PageRank
     session_context.paged_items[0].last_accessed = SystemTime::now() - Duration::from_secs(7200);
     session_context.paged_items[1].last_accessed = SystemTime::now() - Duration::from_secs(3600);
 
-    println!("  ✔ Initial SessionContext size: {} items, {} tokens (Budget: 500 tokens).", 
-        session_context.paged_items.len(), session_context.estimated_tokens);
+    println!(
+        "  ✔ Initial SessionContext size: {} items, {} tokens (Budget: 500 tokens).",
+        session_context.paged_items.len(),
+        session_context.estimated_tokens
+    );
 
     let evicted_count = session_context.evict_with_topological_decay(&topo_graph, 60, 60);
     println!("  ✔ Ran topological decay eviction (0.7 * PR + 0.3 * exp(-0.001 * age)).");
-    println!("  ✔ Evicted {} low-relevance items. Post-compression context size: {} items, {} tokens.",
-        evicted_count, session_context.paged_items.len(), session_context.estimated_tokens);
-    assert!(session_context.estimated_tokens <= 500, "Token compression must respect token budget!");
+    println!(
+        "  ✔ Evicted {} low-relevance items. Post-compression context size: {} items, {} tokens.",
+        evicted_count,
+        session_context.paged_items.len(),
+        session_context.estimated_tokens
+    );
+    assert!(
+        session_context.estimated_tokens <= 500,
+        "Token compression must respect token budget!"
+    );
     println!();
 
     // ── Phase 5: Auto Context Engineering & MCTS Multi-Step Rollout Prediction ──
     println!("[PHASE 5] Auto Context Engineering & MCTS Multi-Step Rollout Prediction...");
-    
+
     // Construct task graph in ExecutiveScheduler
     let task_id = Uuid::new_v4();
     let mut preconditions = HashMap::new();
@@ -203,7 +250,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Phase 6: CodeAct Execution Loop & Auto World State Update ─────────────
     println!("[PHASE 6] Auto CodeAct Execution Loop & World State Observation Update...");
     let coherence = CoherenceChecker::new();
-    
+
     // Execute scheduler tick
     scheduler.tick(&self_model, &coherence)?;
     assert_eq!(
@@ -214,16 +261,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  ✔ CodeAct action executed via ExecutiveScheduler: 'scale_read_replicas'.");
 
     // Feed real observation feedback into WorldModel automatically upon action execution
-    let _ = wm.observe_transition("degraded".to_string(), "scale_read_replicas".to_string(), "healthy".to_string());
+    let _ = wm.observe_transition(
+        "degraded".to_string(),
+        "scale_read_replicas".to_string(),
+        "healthy".to_string(),
+    );
     let pred_dist = wm.predict_next_state("degraded", "scale_read_replicas")?;
-    let prob_healthy = pred_dist.probabilities.get("healthy").copied().unwrap_or(0.0);
+    let prob_healthy = pred_dist
+        .probabilities
+        .get("healthy")
+        .copied()
+        .unwrap_or(0.0);
     println!("  ✔ Auto World State Update recorded in WorldModel.");
-    println!("  ✔ Updated transition probability P(healthy | degraded, scale_read_replicas) = {:.2}", prob_healthy);
-    assert!(prob_healthy > 0.7, "Learned transition probability must be high");
+    println!(
+        "  ✔ Updated transition probability P(healthy | degraded, scale_read_replicas) = {:.2}",
+        prob_healthy
+    );
+    assert!(
+        prob_healthy > 0.7,
+        "Learned transition probability must be high"
+    );
 
     // Record ContinuationCheckpoint
-    let mut checkpoint = ContinuationCheckpoint::new(task_id, "stabilize_production_system".into(), Uuid::new_v4(), 1);
-    checkpoint.record_decision("Action succeeded, db_status transitioned to healthy".into(), None, 0.99);
+    let mut checkpoint = ContinuationCheckpoint::new(
+        task_id,
+        "stabilize_production_system".into(),
+        Uuid::new_v4(),
+        1,
+    );
+    checkpoint.record_decision(
+        "Action succeeded, db_status transitioned to healthy".into(),
+        None,
+        0.99,
+    );
     println!("  ✔ Recorded step progression inside ContinuationCheckpoint (FSM state secured).\n");
 
     // ── Phase 7: Procedural Attention & Dynamic Skill Compilation ─────────────
@@ -237,11 +307,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         0.95,
         5,
         0.75,
-        &["database_service".to_string(), "auth_gateway".to_string()]
+        &["database_service".to_string(), "auth_gateway".to_string()],
     ) {
-        println!("  ✔ Parameterized trace into SkillTemplate: '{}' (Success rate: {:.1}%, Obs: {})", 
-            template.name, template.success_rate * 100.0, template.observation_count);
-        
+        println!(
+            "  ✔ Parameterized trace into SkillTemplate: '{}' (Success rate: {:.1}%, Obs: {})",
+            template.name,
+            template.success_rate * 100.0,
+            template.observation_count
+        );
+
         SkillCompiler::compile_and_register_skill(&mut procedural_cache, &template);
         println!("  ✔ Compiled template into dynamic FSM transitions registered directly in ProceduralCache.");
         println!("  ✔ Future executions of 'auto_scale_recovery' will run via compiled FSM with ZERO LLM prompt overhead!\n");
@@ -251,7 +325,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "skill_compiler".to_string(),
             "register_fsm".to_string(),
             "procedural_cache".to_string(),
-            serde_json::json!({"tier": "Procedural", "template": template.name, "success_rate": template.success_rate})
+            serde_json::json!({"tier": "Procedural", "template": template.name, "success_rate": template.success_rate}),
         );
         memory_store.add(procedural_rec)?;
         println!("  ✔ Persisted compiled skill template in Procedural Memory Tier.");

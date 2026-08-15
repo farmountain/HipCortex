@@ -6,22 +6,22 @@
 // 3. Graph Acyclicity: Symbolic and causal graphs remain DAGs
 // 4. Conservation: Entity count conserved (entities_created - entities_deleted = net_change)
 
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::{SystemTime, UNIX_EPOCH};
-use serde::{Serialize, Deserialize};
 
 /// Types of system invariants
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum InvariantType {
     /// Memory consistency: ∀ entity e, temporal_count(e) = symbolic_count(e) = world_model_count(e)
     MemoryConsistency,
-    
+
     /// Decay monotonicity: ∀ t1 < t2, activation(t2) ≤ activation(t1)
     DecayMonotonicity,
-    
+
     /// Graph acyclicity: Symbolic and causal graphs remain DAGs
     GraphAcyclicity,
-    
+
     /// Conservation: entities_created - entities_deleted = net_change
     Conservation,
 }
@@ -31,19 +31,19 @@ pub enum InvariantType {
 pub struct InvariantViolation {
     /// Type of invariant violated
     pub invariant_type: InvariantType,
-    
+
     /// Description of the violation
     pub description: String,
-    
+
     /// Affected entities/nodes
     pub affected: Vec<String>,
-    
+
     /// Whether this is a critical violation (should halt operations)
     pub critical: bool,
-    
+
     /// Violation timestamp
     pub timestamp: u64,
-    
+
     /// Additional diagnostic data
     pub diagnostics: HashMap<String, serde_json::Value>,
 }
@@ -59,7 +59,7 @@ impl InvariantViolation {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_millis() as u64;
-        
+
         Self {
             invariant_type,
             description,
@@ -69,7 +69,7 @@ impl InvariantViolation {
             diagnostics: HashMap::new(),
         }
     }
-    
+
     pub fn with_diagnostic(mut self, key: String, value: serde_json::Value) -> Self {
         self.diagnostics.insert(key, value);
         self
@@ -115,30 +115,30 @@ impl SystemInvariants {
     /// Returns list of violations (empty if all pass)
     pub fn validate_all(&mut self) -> Result<Vec<InvariantViolation>, String> {
         let mut violations = Vec::new();
-        
+
         // Update last validation timestamp
         self.last_validation = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_millis() as u64;
-        
+
         // Check each invariant
         if let Some(v) = self.check_memory_consistency()? {
             violations.push(v);
         }
-        
+
         if let Some(v) = self.check_decay_monotonicity()? {
             violations.push(v);
         }
-        
+
         if let Some(v) = self.check_graph_acyclicity()? {
             violations.push(v);
         }
-        
+
         if let Some(v) = self.check_conservation()? {
             violations.push(v);
         }
-        
+
         Ok(violations)
     }
 
@@ -198,25 +198,27 @@ impl SystemInvariants {
             for i in 1..history.len() {
                 let (t1, activation1) = history[i - 1];
                 let (t2, activation2) = history[i];
-                
+
                 if t2 > t1 && activation2 > activation1 {
-                    return Ok(Some(InvariantViolation::new(
-                        InvariantType::DecayMonotonicity,
-                        format!(
-                            "Entity {} activation increased from {:.4} (t={}) to {:.4} (t={})",
-                            entity_id, activation1, t1, activation2, t2
-                        ),
-                        vec![entity_id.clone()],
-                        false, // Non-critical - data anomaly
-                    )
-                    .with_diagnostic("timestamp1".to_string(), t1.into())
-                    .with_diagnostic("activation1".to_string(), activation1.into())
-                    .with_diagnostic("timestamp2".to_string(), t2.into())
-                    .with_diagnostic("activation2".to_string(), activation2.into())));
+                    return Ok(Some(
+                        InvariantViolation::new(
+                            InvariantType::DecayMonotonicity,
+                            format!(
+                                "Entity {} activation increased from {:.4} (t={}) to {:.4} (t={})",
+                                entity_id, activation1, t1, activation2, t2
+                            ),
+                            vec![entity_id.clone()],
+                            false, // Non-critical - data anomaly
+                        )
+                        .with_diagnostic("timestamp1".to_string(), t1.into())
+                        .with_diagnostic("activation1".to_string(), activation1.into())
+                        .with_diagnostic("timestamp2".to_string(), t2.into())
+                        .with_diagnostic("activation2".to_string(), activation2.into()),
+                    ));
                 }
             }
         }
-        
+
         Ok(None)
     }
 
@@ -258,23 +260,25 @@ impl SystemInvariants {
         for (entity_id, (created, deleted)) in &self.entity_lifecycle {
             // Net change should be non-negative and <= created
             let net = created.saturating_sub(*deleted);
-            
+
             if *deleted > *created {
-                return Ok(Some(InvariantViolation::new(
-                    InvariantType::Conservation,
-                    format!(
-                        "Entity {} has more deletions ({}) than creations ({})",
-                        entity_id, deleted, created
-                    ),
-                    vec![entity_id.clone()],
-                    true, // Critical - impossible state
-                )
-                .with_diagnostic("created".to_string(), (*created).into())
-                .with_diagnostic("deleted".to_string(), (*deleted).into())
-                .with_diagnostic("net_change".to_string(), net.into())));
+                return Ok(Some(
+                    InvariantViolation::new(
+                        InvariantType::Conservation,
+                        format!(
+                            "Entity {} has more deletions ({}) than creations ({})",
+                            entity_id, deleted, created
+                        ),
+                        vec![entity_id.clone()],
+                        true, // Critical - impossible state
+                    )
+                    .with_diagnostic("created".to_string(), (*created).into())
+                    .with_diagnostic("deleted".to_string(), (*deleted).into())
+                    .with_diagnostic("net_change".to_string(), net.into()),
+                ));
             }
         }
-        
+
         Ok(None)
     }
 
@@ -288,12 +292,12 @@ impl SystemInvariants {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_millis() as u64;
-        
+
         self.activation_history
             .entry(entity_id.to_string())
             .or_insert_with(Vec::new)
             .push((now, activation));
-        
+
         // Keep only last 100 entries to prevent unbounded growth
         let history = self.activation_history.get_mut(entity_id).unwrap();
         if history.len() > 100 {
@@ -345,7 +349,12 @@ impl SystemInvariants {
 
     /// Check if adding an edge would create a cycle (pre-flight check).
     /// Returns the cycle path if one would be created.
-    pub fn would_create_cycle(&self, from: &str, to: &str, graph_type: &str) -> Option<Vec<String>> {
+    pub fn would_create_cycle(
+        &self,
+        from: &str,
+        to: &str,
+        graph_type: &str,
+    ) -> Option<Vec<String>> {
         let edges = match graph_type {
             "symbolic" => &self.symbolic_edges,
             "causal" => &self.causal_edges,
@@ -367,37 +376,35 @@ impl SystemInvariants {
         // Build adjacency list
         let mut graph: HashMap<String, Vec<String>> = HashMap::new();
         let mut nodes = HashSet::new();
-        
+
         for (from, to) in edges {
-            graph.entry(from.clone())
+            graph
+                .entry(from.clone())
                 .or_insert_with(Vec::new)
                 .push(to.clone());
             nodes.insert(from.clone());
             nodes.insert(to.clone());
         }
-        
+
         // DFS with three colors: white (unvisited), gray (visiting), black (visited)
         let mut color: HashMap<String, u8> = HashMap::new(); // 0=white, 1=gray, 2=black
         let mut parent: HashMap<String, String> = HashMap::new();
-        
+
         for node in &nodes {
             color.insert(node.clone(), 0);
         }
-        
+
         // Try DFS from each unvisited node
         for start_node in &nodes {
             if *color.get(start_node).unwrap() == 0 {
-                if let Some(cycle) = self.dfs_detect_cycle(
-                    start_node,
-                    &graph,
-                    &mut color,
-                    &mut parent,
-                ) {
+                if let Some(cycle) =
+                    self.dfs_detect_cycle(start_node, &graph, &mut color, &mut parent)
+                {
                     return Some(cycle);
                 }
             }
         }
-        
+
         None
     }
 
@@ -410,11 +417,11 @@ impl SystemInvariants {
         parent: &mut HashMap<String, String>,
     ) -> Option<Vec<String>> {
         color.insert(node.to_string(), 1); // Mark as visiting (gray)
-        
+
         if let Some(neighbors) = graph.get(node) {
             for neighbor in neighbors {
                 let neighbor_color = *color.get(neighbor).unwrap_or(&0);
-                
+
                 if neighbor_color == 0 {
                     // Unvisited - recurse
                     parent.insert(neighbor.clone(), node.to_string());
@@ -425,7 +432,7 @@ impl SystemInvariants {
                     // Back edge found - cycle detected
                     let mut cycle = vec![neighbor.clone()];
                     let mut current = node.to_string();
-                    
+
                     while current != *neighbor {
                         cycle.push(current.clone());
                         if let Some(p) = parent.get(&current) {
@@ -434,13 +441,13 @@ impl SystemInvariants {
                             break;
                         }
                     }
-                    
+
                     cycle.reverse();
                     return Some(cycle);
                 }
             }
         }
-        
+
         color.insert(node.to_string(), 2); // Mark as visited (black)
         None
     }
@@ -451,19 +458,20 @@ impl SystemInvariants {
         let mut graph: HashMap<String, Vec<String>> = HashMap::new();
         let mut in_degree: HashMap<String, usize> = HashMap::new();
         let mut nodes = HashSet::new();
-        
+
         for (from, to) in edges {
-            graph.entry(from.clone())
+            graph
+                .entry(from.clone())
                 .or_insert_with(Vec::new)
                 .push(to.clone());
-            
+
             *in_degree.entry(to.clone()).or_insert(0) += 1;
             in_degree.entry(from.clone()).or_insert(0);
-            
+
             nodes.insert(from.clone());
             nodes.insert(to.clone());
         }
-        
+
         // Find all nodes with in-degree 0
         let mut queue: VecDeque<String> = VecDeque::new();
         for (node, &degree) in &in_degree {
@@ -471,24 +479,24 @@ impl SystemInvariants {
                 queue.push_back(node.clone());
             }
         }
-        
+
         let mut visited_count = 0;
-        
+
         while let Some(node) = queue.pop_front() {
             visited_count += 1;
-            
+
             if let Some(neighbors) = graph.get(&node) {
                 for neighbor in neighbors {
                     let degree = in_degree.get_mut(neighbor).unwrap();
                     *degree -= 1;
-                    
+
                     if *degree == 0 {
                         queue.push_back(neighbor.clone());
                     }
                 }
             }
         }
-        
+
         // If all nodes visited, it's a DAG
         visited_count == nodes.len()
     }
@@ -514,23 +522,26 @@ mod tests {
     #[test]
     fn test_record_activation() {
         let mut invariants = SystemInvariants::new();
-        
+
         invariants.record_activation("entity1", 1.0);
         invariants.record_activation("entity1", 0.9);
-        
+
         assert_eq!(invariants.activation_history.len(), 1);
-        assert_eq!(invariants.activation_history.get("entity1").unwrap().len(), 2);
+        assert_eq!(
+            invariants.activation_history.get("entity1").unwrap().len(),
+            2
+        );
     }
 
     #[test]
     fn test_activation_history_limit() {
         let mut invariants = SystemInvariants::new();
-        
+
         // Record 150 activations (should keep only last 100)
         for i in 0..150 {
             invariants.record_activation("entity1", i as f64);
         }
-        
+
         let history = invariants.activation_history.get("entity1").unwrap();
         assert_eq!(history.len(), 100);
         assert_eq!(history[0].1, 50.0); // First kept entry is #50
@@ -539,11 +550,11 @@ mod tests {
     #[test]
     fn test_record_entity_lifecycle() {
         let mut invariants = SystemInvariants::new();
-        
+
         invariants.record_entity_creation("entity1");
         invariants.record_entity_creation("entity1");
         invariants.record_entity_deletion("entity1");
-        
+
         let (created, deleted) = invariants.entity_lifecycle.get("entity1").unwrap();
         assert_eq!(*created, 2);
         assert_eq!(*deleted, 1);
@@ -552,13 +563,15 @@ mod tests {
     #[test]
     fn test_conservation_violation_detection() {
         let mut invariants = SystemInvariants::new();
-        
+
         // Create impossible state: more deletions than creations
-        invariants.entity_lifecycle.insert("entity1".to_string(), (1, 3));
-        
+        invariants
+            .entity_lifecycle
+            .insert("entity1".to_string(), (1, 3));
+
         let violation = invariants.check_conservation().unwrap();
         assert!(violation.is_some());
-        
+
         let v = violation.unwrap();
         assert_eq!(v.invariant_type, InvariantType::Conservation);
         assert!(v.critical);
@@ -568,9 +581,11 @@ mod tests {
     #[test]
     fn test_conservation_valid_state() {
         let mut invariants = SystemInvariants::new();
-        
-        invariants.entity_lifecycle.insert("entity1".to_string(), (5, 3));
-        
+
+        invariants
+            .entity_lifecycle
+            .insert("entity1".to_string(), (5, 3));
+
         let violation = invariants.check_conservation().unwrap();
         assert!(violation.is_none());
     }
@@ -578,16 +593,15 @@ mod tests {
     #[test]
     fn test_decay_monotonicity_violation() {
         let mut invariants = SystemInvariants::new();
-        
+
         // Record increasing activation (violation)
-        invariants.activation_history.insert(
-            "entity1".to_string(),
-            vec![(1000, 0.5), (2000, 0.8)],
-        );
-        
+        invariants
+            .activation_history
+            .insert("entity1".to_string(), vec![(1000, 0.5), (2000, 0.8)]);
+
         let violation = invariants.check_decay_monotonicity().unwrap();
         assert!(violation.is_some());
-        
+
         let v = violation.unwrap();
         assert_eq!(v.invariant_type, InvariantType::DecayMonotonicity);
         assert!(!v.critical); // Non-critical
@@ -596,13 +610,13 @@ mod tests {
     #[test]
     fn test_decay_monotonicity_valid() {
         let mut invariants = SystemInvariants::new();
-        
+
         // Record decreasing activation (valid)
         invariants.activation_history.insert(
             "entity1".to_string(),
             vec![(1000, 1.0), (2000, 0.8), (3000, 0.6)],
         );
-        
+
         let violation = invariants.check_decay_monotonicity().unwrap();
         assert!(violation.is_none());
     }
@@ -615,7 +629,7 @@ mod tests {
             ("B".to_string(), "C".to_string()),
             ("A".to_string(), "C".to_string()),
         ];
-        
+
         assert!(invariants.is_dag(&edges));
     }
 
@@ -627,7 +641,7 @@ mod tests {
             ("B".to_string(), "C".to_string()),
             ("C".to_string(), "A".to_string()), // Cycle
         ];
-        
+
         assert!(!invariants.is_dag(&edges));
     }
 
@@ -638,7 +652,7 @@ mod tests {
             ("A".to_string(), "B".to_string()),
             ("B".to_string(), "C".to_string()),
         ];
-        
+
         assert!(invariants.detect_cycle(&edges).is_none());
     }
 
@@ -649,7 +663,7 @@ mod tests {
             ("A".to_string(), "B".to_string()),
             ("B".to_string(), "A".to_string()), // Simple cycle
         ];
-        
+
         let cycle = invariants.detect_cycle(&edges);
         assert!(cycle.is_some());
         let c = cycle.unwrap();
@@ -672,7 +686,7 @@ mod tests {
             vec!["entity1".to_string()],
             true,
         );
-        
+
         assert_eq!(violation.invariant_type, InvariantType::MemoryConsistency);
         assert!(violation.critical);
         assert_eq!(violation.affected, vec!["entity1".to_string()]);
@@ -688,35 +702,42 @@ mod tests {
         )
         .with_diagnostic("cycle_length".to_string(), 3.into())
         .with_diagnostic("start_node".to_string(), "A".into());
-        
+
         assert_eq!(violation.diagnostics.len(), 2);
         assert!(violation.diagnostics.contains_key("cycle_length"));
-#[test]
-    fn test_critical_violation_marked_critical() {
-        let mut invariants = SystemInvariants::new();
-        invariants.entity_lifecycle.insert("entity1".to_string(), (1, 3));
-        let violations = invariants.validate_all().unwrap();
-        assert!(!violations.is_empty());
-        let conservation_v = violations.iter()
-            .find(|v| v.invariant_type == InvariantType::Conservation)
-            .expect("Should find Conservation violation");
-        assert!(conservation_v.critical);
-        assert!(!conservation_v.affected.is_empty());
-        assert!(conservation_v.affected.contains(&"entity1".to_string()));
-    }
+        #[test]
+        fn test_critical_violation_marked_critical() {
+            let mut invariants = SystemInvariants::new();
+            invariants
+                .entity_lifecycle
+                .insert("entity1".to_string(), (1, 3));
+            let violations = invariants.validate_all().unwrap();
+            assert!(!violations.is_empty());
+            let conservation_v = violations
+                .iter()
+                .find(|v| v.invariant_type == InvariantType::Conservation)
+                .expect("Should find Conservation violation");
+            assert!(conservation_v.critical);
+            assert!(!conservation_v.affected.is_empty());
+            assert!(conservation_v.affected.contains(&"entity1".to_string()));
+        }
 
-    #[test]
-    fn test_validate_specific_memory_consistency() {
-        let mut invariants = SystemInvariants::new();
-        let result = invariants.validate_specific(InvariantType::MemoryConsistency).unwrap();
-        assert!(result.is_none());
-    }
+        #[test]
+        fn test_validate_specific_memory_consistency() {
+            let mut invariants = SystemInvariants::new();
+            let result = invariants
+                .validate_specific(InvariantType::MemoryConsistency)
+                .unwrap();
+            assert!(result.is_none());
+        }
 
-    #[test]
-    fn test_validate_specific_graph_acyclicity() {
-        let mut invariants = SystemInvariants::new();
-        let result = invariants.validate_specific(InvariantType::GraphAcyclicity).unwrap();
-        assert!(result.is_none());
-    }
+        #[test]
+        fn test_validate_specific_graph_acyclicity() {
+            let mut invariants = SystemInvariants::new();
+            let result = invariants
+                .validate_specific(InvariantType::GraphAcyclicity)
+                .unwrap();
+            assert!(result.is_none());
+        }
     }
 }

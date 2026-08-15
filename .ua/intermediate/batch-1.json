@@ -1,0 +1,48 @@
+{
+  "batchIndex": 1,
+  "nodes": [
+    {
+      "id": "service:Dockerfile",
+      "type": "service",
+      "name": "Dockerfile",
+      "filePath": "Dockerfile",
+      "summary": "Multi-stage Docker build for the HipCortex web server binary. Builder stage uses rust:1.87-bookworm to compile the webserver binary with the web-server and petgraph_backend features (no external DB deps). Runtime stage uses debian:bookworm-slim, drops to a non-root hipcortex user, exposes port 3030, and includes a curl-based health check.",
+      "tags": ["docker", "rust", "web-server", "multi-stage-build", "petgraph_backend"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "config:docker-compose.dev.yml",
+      "type": "config",
+      "name": "docker-compose.dev.yml",
+      "filePath": "docker-compose.dev.yml",
+      "summary": "Docker Compose override file for local development. Replaces the production image with a Dockerfile.dev build, mounts the full source tree for hot-reload via cargo-watch, and adds optional dev-tool services (pgAdmin on 8081, Redis Commander on 8082) behind the dev-tools Compose profile.",
+      "tags": ["docker-compose", "development", "cargo-watch", "pgadmin", "redis-commander"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:docker-compose.yml",
+      "type": "config",
+      "name": "docker-compose.yml",
+      "filePath": "docker-compose.yml",
+      "summary": "Production Docker Compose stack defining four services: hipcortex (REST API on 3030), postgres:15-alpine (with migrations auto-applied via docker-entrypoint-initdb.d), redis:7-alpine (append-only, LRU eviction), and an optional dashboard service behind the dashboard profile. All services have health checks and restart-unless-stopped policies.",
+      "tags": ["docker-compose", "postgres", "redis", "production", "healthcheck"],
+      "complexity": "moderate"
+    }
+  ],
+  "edges": [
+    {
+      "source": "config:docker-compose.yml",
+      "target": "service:Dockerfile",
+      "type": "deploys",
+      "weight": 1.0,
+      "description": "docker-compose.yml builds the hipcortex service using the root Dockerfile (build: .)"
+    },
+    {
+      "source": "config:docker-compose.dev.yml",
+      "target": "config:docker-compose.yml",
+      "type": "configures",
+      "weight": 0.9,
+      "description": "docker-compose.dev.yml is a Compose override that extends docker-compose.yml for local development (intended usage: -f docker-compose.yml -f docker-compose.dev.yml)"
+    }
+  ]
+}

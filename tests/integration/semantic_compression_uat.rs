@@ -1,6 +1,6 @@
-use hipcortex::semantic_compression::compress_embedding;
 use hipcortex::memory_record::{MemoryRecord, MemoryType};
 use hipcortex::memory_store::MemoryStore;
+use hipcortex::semantic_compression::compress_embedding;
 
 #[test]
 fn store_compressed_embedding() {

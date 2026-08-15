@@ -1,0 +1,79 @@
+{
+  "batchIndex": 20,
+  "nodes": [
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/.openspec.yaml",
+      "type": "document",
+      "name": "WorldModel Rollout Endpoint OpenSpec Metadata",
+      "filePath": "openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/.openspec.yaml",
+      "summary": "Metadata file for the worldmodel-rollout-endpoint change spec, created 2026-07-08. Marks the change as using the spec-driven schema. Serves as the manifest anchor for the change set.",
+      "tags": ["openspec", "archive", "worldmodel", "rollout", "metadata"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/proposal.md",
+      "type": "document",
+      "name": "WorldModel Rollout Endpoint Proposal",
+      "filePath": "openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/proposal.md",
+      "summary": "Proposes exposing WorldModelEnhanced.predict_multi_step() as a new POST /worldmodel/rollout HTTP route, enabling agents and external tools to perform multi-step state prediction (sequence of actions to final predicted state and confidence). Also adds an optional hipcortex_rollout LM tool in the VS Code extension. Purely additive — no changes to existing endpoints.",
+      "tags": ["openspec", "archive", "worldmodel", "rollout", "multi-step", "prediction", "vscode"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/design.md",
+      "type": "document",
+      "name": "WorldModel Rollout Endpoint Design",
+      "filePath": "openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/design.md",
+      "summary": "Details the WmRolloutRequest struct, handle_wm_rollout handler, route binding in build_router, auth whitelist entry (unauthenticated alongside /worldmodel/predict and /worldmodel/causal), and the hipcortex_rollout LM tool registration in extension.ts. Response echoes inputs with predicted_state, distribution, confidence, and steps. Empty actions array returns a uniform error response.",
+      "tags": ["openspec", "archive", "worldmodel", "rollout", "design", "rust", "web-server", "vscode"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/tasks.md",
+      "type": "document",
+      "name": "WorldModel Rollout Endpoint Tasks",
+      "filePath": "openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/tasks.md",
+      "summary": "Completed task checklist for the worldmodel-rollout-endpoint change. Covers backend route implementation (WmRolloutRequest struct, handle_wm_rollout handler, route registration, auth whitelist) and VS Code extension integration (hipcortex_rollout LM tool, compile verification, integration test run). All tasks marked complete.",
+      "tags": ["openspec", "archive", "worldmodel", "rollout", "tasks", "completed"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/.openspec.yaml",
+      "to": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/proposal.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/.openspec.yaml",
+      "to": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/design.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/.openspec.yaml",
+      "to": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/proposal.md",
+      "to": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/design.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/proposal.md",
+      "to": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    },
+    {
+      "from": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/design.md",
+      "to": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/tasks.md",
+      "type": "related",
+      "weight": 0.7
+    }
+  ]
+}

@@ -1,13 +1,13 @@
 #[cfg(feature = "tokio")]
-use std::sync::Arc;
-#[cfg(feature = "tokio")]
-use std::path::PathBuf;
-#[cfg(feature = "tokio")]
-use tokio::sync::{mpsc, oneshot};
+use crate::coherence::CoherenceChecker;
 #[cfg(feature = "tokio")]
 use crate::snapshot_manager::SnapshotManager;
 #[cfg(feature = "tokio")]
-use crate::coherence::CoherenceChecker;
+use std::path::PathBuf;
+#[cfg(feature = "tokio")]
+use std::sync::Arc;
+#[cfg(feature = "tokio")]
+use tokio::sync::{mpsc, oneshot};
 
 #[cfg(feature = "tokio")]
 #[derive(Debug, Clone)]
@@ -31,7 +31,10 @@ impl CoherenceWriteActor {
         snapshot_source_path: PathBuf,
         buffer_size: usize,
     ) -> Self {
-        let (tx, mut rx) = mpsc::channel::<(CoherenceWriteMutation, oneshot::Sender<Result<(), String>>)>(buffer_size);
+        let (tx, mut rx) = mpsc::channel::<(
+            CoherenceWriteMutation,
+            oneshot::Sender<Result<(), String>>,
+        )>(buffer_size);
 
         tokio::spawn(async move {
             use std::io::Write;
@@ -70,7 +73,8 @@ impl CoherenceWriteActor {
 
     pub async fn submit_mutation(&self, mutation: CoherenceWriteMutation) -> Result<(), String> {
         let (tx, rx) = oneshot::channel();
-        self.tx.send((mutation, tx))
+        self.tx
+            .send((mutation, tx))
             .await
             .map_err(|e| format!("CoherenceWriteActor channel closed: {}", e))?;
         rx.await.map_err(|e| format!("Oneshot closed: {}", e))?
@@ -89,12 +93,7 @@ mod tests {
         let wal_path = temp_dir.join(format!("test_wal_{}.log", uuid::Uuid::new_v4()));
         let snap_path = temp_dir.join(format!("test_snap_{}.json", uuid::Uuid::new_v4()));
 
-        let actor = CoherenceWriteActor::new(
-            checker,
-            wal_path.clone(),
-            snap_path,
-            32,
-        );
+        let actor = CoherenceWriteActor::new(checker, wal_path.clone(), snap_path, 32);
 
         let mutation = CoherenceWriteMutation {
             mutation_id: "mut_001".to_string(),

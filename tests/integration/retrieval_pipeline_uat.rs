@@ -1,7 +1,7 @@
+use hipcortex::decay::DecayType;
 use hipcortex::retrieval_pipeline::recent_symbols;
 use hipcortex::symbolic_store::SymbolicStore;
 use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
-use hipcortex::decay::DecayType;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -24,7 +24,9 @@ fn user_retrieve_recent_document() {
         relevance: 1.0,
         decay_factor: 1.0,
         last_access: SystemTime::now(),
-        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
+        decay_type: DecayType::Exponential {
+            half_life: Duration::from_secs(1),
+        },
     });
 
     let nodes = recent_symbols(&store.lock().unwrap(), &indexer, 1);

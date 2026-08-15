@@ -34,7 +34,8 @@ impl PoissonBurst {
             if self.mean_interval == 0.0 {
                 self.mean_interval = interval;
             } else {
-                self.mean_interval = self.alpha * interval + (1.0 - self.alpha) * self.mean_interval;
+                self.mean_interval =
+                    self.alpha * interval + (1.0 - self.alpha) * self.mean_interval;
             }
         }
         self.last_event = Some(now);

@@ -85,7 +85,7 @@ fn deconstruct_rules(text: &str) -> DeconstructedHypothesis {
         (" implies ", false),
         (" -> ", false),
         (" → ", false),
-        (" because ", true),  // reversed
+        (" because ", true), // reversed
         (" due to ", true),
     ];
 

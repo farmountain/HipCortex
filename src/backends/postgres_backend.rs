@@ -79,7 +79,8 @@ impl GraphDatabase for PostgresGraphBackend {
                 .map(|row| {
                     let label: String = row.get(0);
                     let props_str: String = row.get(1);
-                    let props: serde_json::Value = serde_json::from_str(&props_str).unwrap_or_default();
+                    let props: serde_json::Value =
+                        serde_json::from_str(&props_str).unwrap_or_default();
                     let map: HashMap<String, String> =
                         serde_json::from_value(props).unwrap_or_default();
                     SymbolicNode {
@@ -110,7 +111,8 @@ impl GraphDatabase for PostgresGraphBackend {
                     let id: Uuid = row.get(0);
                     let label: String = row.get(1);
                     let props_str: String = row.get(2);
-                    let props: serde_json::Value = serde_json::from_str(&props_str).unwrap_or_default();
+                    let props: serde_json::Value =
+                        serde_json::from_str(&props_str).unwrap_or_default();
                     let map: HashMap<String, String> =
                         serde_json::from_value(props).unwrap_or_default();
                     SymbolicNode {

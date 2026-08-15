@@ -109,7 +109,10 @@ impl OptimizedMemoryStore {
         Self {
             records: Arc::new(RwLock::new(HashMap::new())),
             indices: Arc::new(RwLock::new(MemoryIndices::new())),
-            cache: Arc::new(RwLock::new(QueryCache::new(config.max_cache_size, config.cache_ttl_seconds))),
+            cache: Arc::new(RwLock::new(QueryCache::new(
+                config.max_cache_size,
+                config.cache_ttl_seconds,
+            ))),
             stats: Arc::new(RwLock::new(MemoryStoreStats::default())),
             config,
         }
@@ -118,33 +121,36 @@ impl OptimizedMemoryStore {
     /// Add a single memory record with automatic indexing
     pub fn add_memory(&self, mut record: MemoryRecord) -> Result<Uuid> {
         let record_id = record.id;
-        
+
         // Update stats
         record.mark_accessed();
-        
+
         // Add to main store
         {
             let mut records = self.records.write().unwrap();
             records.insert(record_id, record.clone());
         }
-        
+
         // Update indices
         {
             let mut indices = self.indices.write().unwrap();
             indices.add_record(&record);
         }
-        
+
         // Update statistics
         self.update_stats();
-        
+
         // Invalidate related cache entries
         self.invalidate_cache(&record);
-        
+
         Ok(record_id)
     }
 
     /// Add multiple memory records in a batch operation
-    pub async fn add_memories_batch(&self, records: Vec<MemoryRecord>) -> Result<BatchOperationResult> {
+    pub async fn add_memories_batch(
+        &self,
+        records: Vec<MemoryRecord>,
+    ) -> Result<BatchOperationResult> {
         let start_time = std::time::Instant::now();
         let mut successful = Vec::new();
         let mut failed = Vec::new();
@@ -168,7 +174,12 @@ impl OptimizedMemoryStore {
     }
 
     /// Query memories with pagination and caching
-    pub fn query_memories_paginated(&self, query: &MemoryQuery, page: usize, page_size: usize) -> Result<PaginatedResult> {
+    pub fn query_memories_paginated(
+        &self,
+        query: &MemoryQuery,
+        page: usize,
+        page_size: usize,
+    ) -> Result<PaginatedResult> {
         // Check cache first
         let cache_key = self.generate_cache_key(query, page, page_size);
         if let Some(cached_result) = self.get_cached_result(&cache_key) {
@@ -262,11 +273,11 @@ impl OptimizedMemoryStore {
             // Remove from indices
             let mut indices = self.indices.write().unwrap();
             indices.remove_record(&record);
-            
+
             // Clear cache
             let mut cache = self.cache.write().unwrap();
             cache.clear();
-            
+
             // Update stats
             self.update_stats();
         }
@@ -275,7 +286,12 @@ impl OptimizedMemoryStore {
     }
 
     /// Find similar memories to a given record
-    pub fn find_similar_memories(&self, record: &MemoryRecord, threshold: f64, limit: usize) -> Result<Vec<(MemoryRecord, f64)>> {
+    pub fn find_similar_memories(
+        &self,
+        record: &MemoryRecord,
+        threshold: f64,
+        limit: usize,
+    ) -> Result<Vec<(MemoryRecord, f64)>> {
         let records = self.records.read().unwrap();
         let mut similarities: Vec<(MemoryRecord, f64)> = records
             .values()
@@ -310,15 +326,18 @@ impl OptimizedMemoryStore {
         }
 
         if let Some(record_type) = &query.record_type {
-            candidate_ids = Some(self.intersect_ids(candidate_ids, indices.by_type.get(record_type)));
+            candidate_ids =
+                Some(self.intersect_ids(candidate_ids, indices.by_type.get(record_type)));
         }
 
-        let mut result_ids = candidate_ids.unwrap_or_else(|| {
-            self.records.read().unwrap().keys().cloned().collect()
-        });
+        let mut result_ids =
+            candidate_ids.unwrap_or_else(|| self.records.read().unwrap().keys().cloned().collect());
 
         // Apply additional filters
-        if query.from_timestamp.is_some() || query.to_timestamp.is_some() || query.min_relevance.is_some() {
+        if query.from_timestamp.is_some()
+            || query.to_timestamp.is_some()
+            || query.min_relevance.is_some()
+        {
             let records = self.records.read().unwrap();
             result_ids.retain(|id| {
                 if let Some(record) = records.get(id) {
@@ -411,14 +430,17 @@ impl OptimizedMemoryStore {
 
         stats.total_records = records.len();
         stats.records_by_type.clear();
-        
+
         let mut total_access = 0u64;
         let mut total_relevance = 0.0;
         let mut oldest: Option<DateTime<Utc>> = None;
         let mut newest: Option<DateTime<Utc>> = None;
 
         for record in records.values() {
-            *stats.records_by_type.entry(record.record_type.clone()).or_insert(0) += 1;
+            *stats
+                .records_by_type
+                .entry(record.record_type.clone())
+                .or_insert(0) += 1;
             total_access += record.access_count as u64;
             total_relevance += record.relevance_score;
 
@@ -430,8 +452,16 @@ impl OptimizedMemoryStore {
             }
         }
 
-        stats.avg_access_count = if records.is_empty() { 0.0 } else { total_access as f64 / records.len() as f64 };
-        stats.avg_relevance_score = if records.is_empty() { 0.0 } else { total_relevance / records.len() as f64 };
+        stats.avg_access_count = if records.is_empty() {
+            0.0
+        } else {
+            total_access as f64 / records.len() as f64
+        };
+        stats.avg_relevance_score = if records.is_empty() {
+            0.0
+        } else {
+            total_relevance / records.len() as f64
+        };
         stats.oldest_record = oldest;
         stats.newest_record = newest;
     }
@@ -450,19 +480,39 @@ impl MemoryIndices {
     }
 
     fn add_record(&mut self, record: &MemoryRecord) {
-        self.by_actor.entry(record.actor.clone()).or_insert_with(Vec::new).push(record.id);
-        self.by_action.entry(record.action.clone()).or_insert_with(Vec::new).push(record.id);
-        self.by_target.entry(record.target.clone()).or_insert_with(Vec::new).push(record.id);
-        self.by_type.entry(record.record_type.clone()).or_insert_with(Vec::new).push(record.id);
-        
+        self.by_actor
+            .entry(record.actor.clone())
+            .or_insert_with(Vec::new)
+            .push(record.id);
+        self.by_action
+            .entry(record.action.clone())
+            .or_insert_with(Vec::new)
+            .push(record.id);
+        self.by_target
+            .entry(record.target.clone())
+            .or_insert_with(Vec::new)
+            .push(record.id);
+        self.by_type
+            .entry(record.record_type.clone())
+            .or_insert_with(Vec::new)
+            .push(record.id);
+
         // Maintain sorted timestamp index
         let timestamp = record.timestamp;
-        let insert_pos = self.by_timestamp.iter().position(|(ts, _)| *ts > timestamp).unwrap_or(self.by_timestamp.len());
+        let insert_pos = self
+            .by_timestamp
+            .iter()
+            .position(|(ts, _)| *ts > timestamp)
+            .unwrap_or(self.by_timestamp.len());
         self.by_timestamp.insert(insert_pos, (timestamp, record.id));
-        
+
         // Maintain sorted relevance index
         let relevance = record.relevance_score;
-        let insert_pos = self.by_relevance.iter().position(|(r, _)| *r < relevance).unwrap_or(self.by_relevance.len());
+        let insert_pos = self
+            .by_relevance
+            .iter()
+            .position(|(r, _)| *r < relevance)
+            .unwrap_or(self.by_relevance.len());
         self.by_relevance.insert(insert_pos, (relevance, record.id));
     }
 
@@ -479,7 +529,7 @@ impl MemoryIndices {
         if let Some(type_ids) = self.by_type.get_mut(&record.record_type) {
             type_ids.retain(|&id| id != record.id);
         }
-        
+
         self.by_timestamp.retain(|(_, id)| *id != record.id);
         self.by_relevance.retain(|(_, id)| *id != record.id);
     }
@@ -541,7 +591,7 @@ mod tests {
     #[test]
     fn test_optimized_memory_store_basic_operations() {
         let store = OptimizedMemoryStore::new(MemoryStoreConfig::default());
-        
+
         let record = MemoryRecord::new(
             MemoryType::Temporal,
             "test_actor".to_string(),
@@ -549,15 +599,15 @@ mod tests {
             "test_target".to_string(),
             serde_json::json!({"test": "data"}),
         );
-        
+
         let id = store.add_memory(record.clone()).unwrap();
         assert_eq!(id, record.id);
-        
+
         let query = MemoryQuery {
             actor: Some("test_actor".to_string()),
             ..Default::default()
         };
-        
+
         let result = store.query_memories_paginated(&query, 0, 10).unwrap();
         assert_eq!(result.records.len(), 1);
         assert_eq!(result.total_count, 1);
@@ -569,27 +619,29 @@ mod tests {
         let store = OptimizedMemoryStore::new(MemoryStoreConfig::default());
 
         let records: Vec<MemoryRecord> = (0..5)
-            .map(|i| MemoryRecord::new(
-                MemoryType::Temporal,
-                format!("actor_{}", i),
-                "test_action".to_string(),
-                "test_target".to_string(),
-                serde_json::json!({"index": i}),
-            ))
+            .map(|i| {
+                MemoryRecord::new(
+                    MemoryType::Temporal,
+                    format!("actor_{}", i),
+                    "test_action".to_string(),
+                    "test_target".to_string(),
+                    serde_json::json!({"index": i}),
+                )
+            })
             .collect();
 
         let rt = tokio::runtime::Runtime::new().unwrap();
         let result = rt.block_on(store.add_memories_batch(records)).unwrap();
-        
+
         assert_eq!(result.successful.len(), 5);
         assert_eq!(result.failed.len(), 0);
         assert_eq!(result.total_processed, 5);
     }
 
-    #[test] 
+    #[test]
     fn test_pagination() {
         let store = OptimizedMemoryStore::new(MemoryStoreConfig::default());
-        
+
         for i in 0..15 {
             let record = MemoryRecord::new(
                 MemoryType::Temporal,
@@ -600,18 +652,18 @@ mod tests {
             );
             store.add_memory(record).unwrap();
         }
-        
+
         let query = MemoryQuery {
             actor: Some("test_actor".to_string()),
             ..Default::default()
         };
-        
+
         // First page
         let page1 = store.query_memories_paginated(&query, 0, 10).unwrap();
         assert_eq!(page1.records.len(), 10);
         assert_eq!(page1.total_count, 15);
         assert_eq!(page1.total_pages, 2);
-        
+
         // Second page
         let page2 = store.query_memories_paginated(&query, 1, 10).unwrap();
         assert_eq!(page2.records.len(), 5);

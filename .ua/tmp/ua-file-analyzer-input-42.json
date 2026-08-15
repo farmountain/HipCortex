@@ -1,0 +1,17 @@
+{
+  "projectRoot": "D:/all_projects/hipcortex",
+  "batchFiles": [
+    {"path": "src/web_server.rs", "language": "rust", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "tests/e2e_user_harness/assertions.py", "language": "python", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "tests/e2e_user_harness/suites/test_phase0_bootstrap.py", "language": "python", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "tests/e2e_user_harness/suites/test_phase3_framework_integrations.py", "language": "python", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "tests/e2e_user_harness/suites/test_phase4_vscode_extension.py", "language": "python", "sizeLines": 0, "fileCategory": "code"}
+  ],
+  "batchImportData": {
+    "src/web_server.rs": ["src/memory_store.rs","src/memory_record.rs","src/memory_diff.rs","src/loop_engine.rs","src/payloads.rs"],
+    "tests/e2e_user_harness/assertions.py": [],
+    "tests/e2e_user_harness/suites/test_phase0_bootstrap.py": [],
+    "tests/e2e_user_harness/suites/test_phase3_framework_integrations.py": [],
+    "tests/e2e_user_harness/suites/test_phase4_vscode_extension.py": []
+  }
+}

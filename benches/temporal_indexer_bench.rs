@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
 use hipcortex::decay::DecayType;
+use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
 use std::time::{Duration, SystemTime};
 use uuid::Uuid;
 
@@ -16,7 +16,9 @@ fn bench_insert(c: &mut Criterion) {
                     relevance: 1.0,
                     decay_factor: 0.5,
                     last_access: SystemTime::now(),
-                    decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
+                    decay_type: DecayType::Exponential {
+                        half_life: Duration::from_secs(1),
+                    },
                 };
                 indexer.insert(black_box(trace));
             }

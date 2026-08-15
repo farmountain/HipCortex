@@ -144,8 +144,11 @@ mod tests {
         let provider = HashEmbeddingProvider::default_dim();
         let v = provider.embed("some text to embed");
         let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-        assert!((norm - 1.0).abs() < 0.001 || norm == 0.0,
-            "embedding should be L2 normalized, got norm {}", norm);
+        assert!(
+            (norm - 1.0).abs() < 0.001 || norm == 0.0,
+            "embedding should be L2 normalized, got norm {}",
+            norm
+        );
     }
 
     #[test]
@@ -157,8 +160,12 @@ mod tests {
 
         let sim_ab = cosine(&a, &b);
         let sim_ac = cosine(&a, &c);
-        assert!(sim_ab > sim_ac,
-            "similar texts should have higher cosine similarity: ab={:.4} ac={:.4}", sim_ab, sim_ac);
+        assert!(
+            sim_ab > sim_ac,
+            "similar texts should have higher cosine similarity: ab={:.4} ac={:.4}",
+            sim_ab,
+            sim_ac
+        );
     }
 
     #[test]
@@ -173,6 +180,10 @@ mod tests {
         let dot: f32 = a.iter().zip(b).map(|(x, y)| x * y).sum();
         let na: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
         let nb: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
-        if na == 0.0 || nb == 0.0 { 0.0 } else { dot / (na * nb) }
+        if na == 0.0 || nb == 0.0 {
+            0.0
+        } else {
+            dot / (na * nb)
+        }
     }
 }

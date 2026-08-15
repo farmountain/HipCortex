@@ -5,10 +5,8 @@
 // - Decay monotonicity
 // - No inconsistency remains after successful resolution
 
+use hipcortex::coherence::{CoherenceChecker, InvariantType, ResolutionStrategy, SystemInvariants};
 use proptest::prelude::*;
-use hipcortex::coherence::{
-    CoherenceChecker, ResolutionStrategy, InvariantType, SystemInvariants,
-};
 
 // ============================================================================
 // Invariant 1 (Task 15.6): Entity count conserved across modules
@@ -197,7 +195,11 @@ proptest! {
 fn empty_checker_has_no_inconsistencies() {
     let checker = CoherenceChecker::new();
     let active = checker.get_active_inconsistencies().unwrap();
-    assert_eq!(active.len(), 0, "Fresh checker should have no inconsistencies");
+    assert_eq!(
+        active.len(),
+        0,
+        "Fresh checker should have no inconsistencies"
+    );
 }
 
 // ============================================================================

@@ -3,26 +3,26 @@
 //! G-BELIEFS: GET /memory/live_beliefs loops_run key
 //! G-RELATED: GET /memory/search/related results enrichment
 
+use hipcortex::aureus_bridge::AureusBridge;
+use hipcortex::coherence::CoherenceChecker;
 use hipcortex::memory_store::MemoryStore;
 use hipcortex::persistence::InMemoryBackend;
+use hipcortex::self_model::SelfModel;
+use hipcortex::symbolic_store::{InMemoryGraph, SymbolicStore};
 use hipcortex::web_server::AppState;
 use hipcortex::world_model_enhanced::WorldModelEnhanced;
-use hipcortex::aureus_bridge::AureusBridge;
-use hipcortex::self_model::SelfModel;
-use hipcortex::coherence::CoherenceChecker;
-use hipcortex::symbolic_store::{InMemoryGraph, SymbolicStore};
 use hipcortex::CausalTopoGraph;
 use std::sync::{Arc, Mutex, RwLock};
 
 fn make_state() -> AppState<InMemoryBackend> {
     AppState {
-        memory_store:   Arc::new(Mutex::new(MemoryStore::new_in_memory())),
+        memory_store: Arc::new(Mutex::new(MemoryStore::new_in_memory())),
         symbolic_store: Arc::new(Mutex::new(SymbolicStore::new())),
-        world_model:    Arc::new(RwLock::new(WorldModelEnhanced::new())),
-        aureus:         Arc::new(Mutex::new(AureusBridge::new())),
-        self_model:     Arc::new(SelfModel::new()),
-        coherence:      Arc::new(CoherenceChecker::new()),
-        topo_graph:     Arc::new(Mutex::new(CausalTopoGraph::new())),
+        world_model: Arc::new(RwLock::new(WorldModelEnhanced::new())),
+        aureus: Arc::new(Mutex::new(AureusBridge::new())),
+        self_model: Arc::new(SelfModel::new()),
+        coherence: Arc::new(CoherenceChecker::new()),
+        topo_graph: Arc::new(Mutex::new(CausalTopoGraph::new())),
     }
 }
 
@@ -32,10 +32,10 @@ fn make_state() -> AppState<InMemoryBackend> {
 fn test_memory_link_request_accepts_source_id_target_id() {
     use hipcortex::web_server::MemoryLinkRequest;
     let json = r#"{"source_id":"00000000-0000-0000-0000-000000000001","target_id":"00000000-0000-0000-0000-000000000002","relation":"supports"}"#;
-    let req: MemoryLinkRequest = serde_json::from_str(json)
-        .expect("extension-style source_id/target_id must deserialize");
+    let req: MemoryLinkRequest =
+        serde_json::from_str(json).expect("extension-style source_id/target_id must deserialize");
     assert_eq!(req.from_id, "00000000-0000-0000-0000-000000000001");
-    assert_eq!(req.to_id,   "00000000-0000-0000-0000-000000000002");
+    assert_eq!(req.to_id, "00000000-0000-0000-0000-000000000002");
     assert_eq!(req.relation, "supports");
 }
 
@@ -43,10 +43,10 @@ fn test_memory_link_request_accepts_source_id_target_id() {
 fn test_memory_link_request_still_accepts_from_id_to_id() {
     use hipcortex::web_server::MemoryLinkRequest;
     let json = r#"{"from_id":"00000000-0000-0000-0000-000000000003","to_id":"00000000-0000-0000-0000-000000000004","relation":"caused_by"}"#;
-    let req: MemoryLinkRequest = serde_json::from_str(json)
-        .expect("SDK-style from_id/to_id must still deserialize");
+    let req: MemoryLinkRequest =
+        serde_json::from_str(json).expect("SDK-style from_id/to_id must still deserialize");
     assert_eq!(req.from_id, "00000000-0000-0000-0000-000000000003");
-    assert_eq!(req.to_id,   "00000000-0000-0000-0000-000000000004");
+    assert_eq!(req.to_id, "00000000-0000-0000-0000-000000000004");
 }
 
 // ── G-BELIEFS: loops_run present at top level ─────────────────────────────────
@@ -97,9 +97,16 @@ async fn test_search_related_returns_results_with_record_data() {
     let body_a: serde_json::Value = client
         .post(&format!("{}/memory/add", base))
         .json(&serde_json::json!({"actor":"test","action":"decided","target":"use postgres"}))
-        .send().await.unwrap()
-        .json().await.unwrap();
-    let id_a = body_a["record_id"].as_str().expect("record_id missing from add response").to_string();
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let id_a = body_a["record_id"]
+        .as_str()
+        .expect("record_id missing from add response")
+        .to_string();
 
     // Add memory B
     let body_b: serde_json::Value = client
@@ -107,40 +114,72 @@ async fn test_search_related_returns_results_with_record_data() {
         .json(&serde_json::json!({"actor":"test","action":"confirmed","target":"postgres scales well"}))
         .send().await.unwrap()
         .json().await.unwrap();
-    let id_b = body_b["record_id"].as_str().expect("record_id missing").to_string();
+    let id_b = body_b["record_id"]
+        .as_str()
+        .expect("record_id missing")
+        .to_string();
 
     // Link A → B (using from_id/to_id so this doesn't depend on Task 1 alias)
     let link = client
         .post(&format!("{}/memory/link", base))
         .json(&serde_json::json!({"from_id": id_a, "to_id": id_b, "relation": "supports"}))
-        .send().await.unwrap();
-    assert_eq!(link.status().as_u16(), 200, "link failed: {}", link.text().await.unwrap_or_default());
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        link.status().as_u16(),
+        200,
+        "link failed: {}",
+        link.text().await.unwrap_or_default()
+    );
 
     // Search related from seed A
     let rel: serde_json::Value = client
-        .get(&format!("{}/memory/search/related?seed_id={}&limit=10", base, id_a))
-        .send().await.unwrap()
-        .json().await.unwrap();
+        .get(&format!(
+            "{}/memory/search/related?seed_id={}&limit=10",
+            base, id_a
+        ))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
 
     // Must have results key (extension reads this)
-    assert!(rel.get("results").is_some(), "results key missing — hipcortex_graph_search LM tool will always return empty");
+    assert!(
+        rel.get("results").is_some(),
+        "results key missing — hipcortex_graph_search LM tool will always return empty"
+    );
     let results = rel["results"].as_array().expect("results must be array");
-    assert!(!results.is_empty(), "expected at least one PPR result for linked seed");
+    assert!(
+        !results.is_empty(),
+        "expected at least one PPR result for linked seed"
+    );
 
     let first = &results[0];
-    assert!(first.get("score").is_some(), "score missing from results[0]");
-    assert!(first.get("record").is_some(), "record missing from results[0]");
+    assert!(
+        first.get("score").is_some(),
+        "score missing from results[0]"
+    );
+    assert!(
+        first.get("record").is_some(),
+        "record missing from results[0]"
+    );
     let record = &first["record"];
-    assert!(record.get("id").is_some(),     "record.id missing");
-    assert!(record.get("actor").is_some(),  "record.actor missing");
+    assert!(record.get("id").is_some(), "record.id missing");
+    assert!(record.get("actor").is_some(), "record.actor missing");
     assert!(record.get("action").is_some(), "record.action missing");
     assert!(record.get("target").is_some(), "record.target missing");
     // Verify it's actually the linked record B
-    assert_eq!(record["action"], "confirmed",        "expected record B action");
-    assert_eq!(record["actor"],  "test",             "expected record B actor");
+    assert_eq!(record["action"], "confirmed", "expected record B action");
+    assert_eq!(record["actor"], "test", "expected record B actor");
 
     // Backward compat: related key still present
-    assert!(rel.get("related").is_some(), "related key must still exist for backward compat");
+    assert!(
+        rel.get("related").is_some(),
+        "related key must still exist for backward compat"
+    );
 
     srv.abort();
 }
@@ -161,7 +200,9 @@ async fn test_worldmodel_rollout_endpoint() {
     let resp = client
         .post(&format!("{}/worldmodel/rollout", base))
         .json(&serde_json::json!({"initial_state": "idle", "actions": []}))
-        .send().await.unwrap();
+        .send()
+        .await
+        .unwrap();
     assert_eq!(resp.status().as_u16(), 200);
     let body: serde_json::Value = resp.json().await.unwrap();
     assert_eq!(body["error"], "actions must be non-empty");
@@ -170,7 +211,9 @@ async fn test_worldmodel_rollout_endpoint() {
     let resp2 = client
         .post(&format!("{}/worldmodel/rollout", base))
         .json(&serde_json::json!({"initial_state": "idle", "actions": ["start", "stop"]}))
-        .send().await.unwrap();
+        .send()
+        .await
+        .unwrap();
     assert_eq!(resp2.status().as_u16(), 200);
     let body2: serde_json::Value = resp2.json().await.unwrap();
     assert_eq!(body2["error"], "No trained predictors available");
@@ -199,15 +242,23 @@ async fn test_record_type_aliases() {
             "target": "episodic note",
             "record_type": "Episodic"
         }))
-        .send().await.unwrap()
-        .json().await.unwrap();
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
     let id_episodic = resp_episodic["record_id"].as_str().unwrap().to_string();
 
     // Query episodic record and assert it resolves to Temporal
     let query_episodic: serde_json::Value = client
         .get(&format!("{}/memory/query?limit=10", base))
-        .send().await.unwrap()
-        .json().await.unwrap();
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
     let records = query_episodic["records"].as_array().unwrap();
     let rec_episodic = records.iter().find(|r| r["id"] == id_episodic).unwrap();
     assert_eq!(rec_episodic["record_type"], "Temporal");
@@ -230,17 +281,30 @@ async fn test_record_type_aliases() {
     // Query and check they resolved correctly
     let query_bulk: serde_json::Value = client
         .get(&format!("{}/memory/query?limit=10", base))
-        .send().await.unwrap()
-        .json().await.unwrap();
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
     let records_bulk = query_bulk["records"].as_array().unwrap();
 
-    let rec_semantic = records_bulk.iter().find(|r| r["target"] == "semantic fact").unwrap();
+    let rec_semantic = records_bulk
+        .iter()
+        .find(|r| r["target"] == "semantic fact")
+        .unwrap();
     assert_eq!(rec_semantic["record_type"], "Symbolic");
 
-    let rec_long_term = records_bulk.iter().find(|r| r["target"] == "long term item").unwrap();
+    let rec_long_term = records_bulk
+        .iter()
+        .find(|r| r["target"] == "long term item")
+        .unwrap();
     assert_eq!(rec_long_term["record_type"], "Symbolic");
 
-    let rec_reflexive = records_bulk.iter().find(|r| r["target"] == "reflexive trace").unwrap();
+    let rec_reflexive = records_bulk
+        .iter()
+        .find(|r| r["target"] == "reflexive trace")
+        .unwrap();
     assert_eq!(rec_reflexive["record_type"], "Reflexion");
 
     srv.abort();

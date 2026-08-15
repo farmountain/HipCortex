@@ -10,16 +10,16 @@ use std::collections::HashMap;
 pub struct CapabilityDescriptor {
     /// Unique name of the capability (e.g., "temporal_insert", "symbolic_query")
     pub name: String,
-    
+
     /// Human-readable description of what this capability does
     pub description: String,
-    
+
     /// Required CPU percentage (0-100)
     pub required_cpu_percent: f64,
-    
+
     /// Required memory in megabytes
     pub required_memory_mb: f64,
-    
+
     /// Current limitations affecting this capability
     pub limitations: Vec<Limitation>,
 }
@@ -29,19 +29,19 @@ pub struct CapabilityDescriptor {
 pub enum Limitation {
     /// Capability is temporarily disabled
     Disabled { reason: String },
-    
+
     /// Capability has degraded performance
-    Degraded { 
+    Degraded {
         reason: String,
         expected_slowdown_factor: f64, // e.g., 2.0 means 2x slower
     },
-    
+
     /// Capability requires additional resources
     ResourceConstrained {
         resource_type: String, // "cpu", "memory", "disk", "network"
         shortage_percent: f64, // e.g., 20.0 means 20% short of ideal
     },
-    
+
     /// Capability has increased error rate
     Unreliable {
         current_error_rate: f64, // e.g., 0.05 means 5% errors
@@ -54,9 +54,16 @@ impl Limitation {
     pub fn is_critical(&self) -> bool {
         match self {
             Limitation::Disabled { .. } => true,
-            Limitation::Degraded { expected_slowdown_factor, .. } if *expected_slowdown_factor > 10.0 => true,
-            Limitation::ResourceConstrained { shortage_percent, .. } if *shortage_percent > 50.0 => true,
-            Limitation::Unreliable { current_error_rate, .. } if *current_error_rate > 0.5 => true,
+            Limitation::Degraded {
+                expected_slowdown_factor,
+                ..
+            } if *expected_slowdown_factor > 10.0 => true,
+            Limitation::ResourceConstrained {
+                shortage_percent, ..
+            } if *shortage_percent > 50.0 => true,
+            Limitation::Unreliable {
+                current_error_rate, ..
+            } if *current_error_rate > 0.5 => true,
             _ => false,
         }
     }
@@ -65,13 +72,28 @@ impl Limitation {
     pub fn describe(&self) -> String {
         match self {
             Limitation::Disabled { reason } => format!("DISABLED: {}", reason),
-            Limitation::Degraded { reason, expected_slowdown_factor } => {
-                format!("DEGRADED: {} ({}x slower)", reason, expected_slowdown_factor)
+            Limitation::Degraded {
+                reason,
+                expected_slowdown_factor,
+            } => {
+                format!(
+                    "DEGRADED: {} ({}x slower)",
+                    reason, expected_slowdown_factor
+                )
             }
-            Limitation::ResourceConstrained { resource_type, shortage_percent } => {
-                format!("RESOURCE CONSTRAINED: {} shortage of {:.1}%", resource_type, shortage_percent)
+            Limitation::ResourceConstrained {
+                resource_type,
+                shortage_percent,
+            } => {
+                format!(
+                    "RESOURCE CONSTRAINED: {} shortage of {:.1}%",
+                    resource_type, shortage_percent
+                )
             }
-            Limitation::Unreliable { current_error_rate, baseline_error_rate } => {
+            Limitation::Unreliable {
+                current_error_rate,
+                baseline_error_rate,
+            } => {
                 format!(
                     "UNRELIABLE: {:.1}% error rate (baseline: {:.1}%)",
                     current_error_rate * 100.0,
@@ -101,10 +123,14 @@ impl CapabilityRegistry {
     /// Returns error if capability with same name already registered
     pub fn register(&mut self, descriptor: CapabilityDescriptor) -> Result<(), String> {
         if self.capabilities.contains_key(&descriptor.name) {
-            return Err(format!("Capability '{}' already registered", descriptor.name));
+            return Err(format!(
+                "Capability '{}' already registered",
+                descriptor.name
+            ));
         }
 
-        self.capabilities.insert(descriptor.name.clone(), descriptor);
+        self.capabilities
+            .insert(descriptor.name.clone(), descriptor);
         Ok(())
     }
 
@@ -117,7 +143,8 @@ impl CapabilityRegistry {
             return Err(format!("Capability '{}' not found", descriptor.name));
         }
 
-        self.capabilities.insert(descriptor.name.clone(), descriptor);
+        self.capabilities
+            .insert(descriptor.name.clone(), descriptor);
         Ok(())
     }
 
@@ -141,8 +168,13 @@ impl CapabilityRegistry {
     ///
     /// # Errors
     /// Returns error if capability not found
-    pub fn add_limitation(&mut self, capability_name: &str, limitation: Limitation) -> Result<(), String> {
-        let descriptor = self.capabilities
+    pub fn add_limitation(
+        &mut self,
+        capability_name: &str,
+        limitation: Limitation,
+    ) -> Result<(), String> {
+        let descriptor = self
+            .capabilities
             .get_mut(capability_name)
             .ok_or_else(|| format!("Capability '{}' not found", capability_name))?;
 
@@ -156,8 +188,13 @@ impl CapabilityRegistry {
     ///
     /// # Errors
     /// Returns error if capability not found
-    pub fn remove_limitation(&mut self, capability_name: &str, limitation_type: &str) -> Result<bool, String> {
-        let descriptor = self.capabilities
+    pub fn remove_limitation(
+        &mut self,
+        capability_name: &str,
+        limitation_type: &str,
+    ) -> Result<bool, String> {
+        let descriptor = self
+            .capabilities
             .get_mut(capability_name)
             .ok_or_else(|| format!("Capability '{}' not found", capability_name))?;
 
@@ -238,7 +275,7 @@ mod tests {
         let desc = create_test_descriptor("test_op");
 
         registry.register(desc.clone()).unwrap();
-        
+
         let retrieved = registry.get("test_op");
         assert!(retrieved.is_ok());
         assert_eq!(retrieved.unwrap().name, "test_op");
@@ -294,7 +331,7 @@ mod tests {
     fn test_remove_limitation() {
         let mut registry = CapabilityRegistry::new();
         let mut desc = create_test_descriptor("test_op");
-        
+
         desc.limitations.push(Limitation::Degraded {
             reason: "Test".to_string(),
             expected_slowdown_factor: 2.0,
@@ -313,7 +350,7 @@ mod tests {
     #[test]
     fn test_list_capabilities() {
         let mut registry = CapabilityRegistry::new();
-        
+
         registry.register(create_test_descriptor("op1")).unwrap();
         registry.register(create_test_descriptor("op2")).unwrap();
         registry.register(create_test_descriptor("op3")).unwrap();
@@ -327,7 +364,9 @@ mod tests {
 
     #[test]
     fn test_limitation_is_critical() {
-        let disabled = Limitation::Disabled { reason: "Maintenance".to_string() };
+        let disabled = Limitation::Disabled {
+            reason: "Maintenance".to_string(),
+        };
         assert!(disabled.is_critical());
 
         let severe_degraded = Limitation::Degraded {
@@ -368,16 +407,23 @@ mod tests {
         registry.register(desc).unwrap();
         assert!(!registry.has_critical_limitations("test_op").unwrap());
 
-        registry.add_limitation("test_op", Limitation::Disabled {
-            reason: "Emergency maintenance".to_string(),
-        }).unwrap();
+        registry
+            .add_limitation(
+                "test_op",
+                Limitation::Disabled {
+                    reason: "Emergency maintenance".to_string(),
+                },
+            )
+            .unwrap();
 
         assert!(registry.has_critical_limitations("test_op").unwrap());
     }
 
     #[test]
     fn test_limitation_describe() {
-        let disabled = Limitation::Disabled { reason: "Maintenance".to_string() };
+        let disabled = Limitation::Disabled {
+            reason: "Maintenance".to_string(),
+        };
         assert!(disabled.describe().contains("DISABLED"));
         assert!(disabled.describe().contains("Maintenance"));
 

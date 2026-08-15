@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use crate::world_model_enhanced::TransitionModel;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimulatorNode {
@@ -32,7 +32,8 @@ impl SimulatorNode {
             return f64::INFINITY;
         }
         let exploitation = self.total_reward / (self.visit_count as f64);
-        let exploration = exploration_constant * ((parent_visits as f64).ln() / (self.visit_count as f64)).sqrt();
+        let exploration =
+            exploration_constant * ((parent_visits as f64).ln() / (self.visit_count as f64)).sqrt();
         exploitation + exploration
     }
 }
@@ -92,16 +93,23 @@ impl MctsSimulator {
                         let next_state = if let Ok(p) = pred {
                             p.probabilities
                                 .iter()
-                                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
+                                .max_by(|a, b| {
+                                    a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal)
+                                })
                                 .map(|(k, _)| k.clone())
                                 .unwrap_or_else(|| format!("{}_next", node_state))
                         } else {
                             format!("{}_after_{}", node_state, action)
                         };
 
-                        let child = SimulatorNode::new(next_state, Some(action.clone()), Some(current_id));
+                        let child =
+                            SimulatorNode::new(next_state, Some(action.clone()), Some(current_id));
                         let child_id = child.id;
-                        self.nodes.get_mut(&current_id).unwrap().children.push(child_id);
+                        self.nodes
+                            .get_mut(&current_id)
+                            .unwrap()
+                            .children
+                            .push(child_id);
                         self.nodes.insert(child_id, child);
                     }
                     break;
@@ -171,10 +179,10 @@ impl MctsSimulator {
     }
 }
 
-use crate::world_model_enhanced::policy::Policy;
 use crate::world_model_enhanced::constraint::{ConstraintEngine, ConstraintSeverity};
-use crate::world_model_enhanced::metalaw::MetaLawEngine;
 use crate::world_model_enhanced::entity::EntityState;
+use crate::world_model_enhanced::metalaw::MetaLawEngine;
+use crate::world_model_enhanced::policy::Policy;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimulationStep {
@@ -206,7 +214,12 @@ impl SimulationHarness {
         meta_laws: MetaLawEngine,
         transitions: TransitionModel,
     ) -> Self {
-        Self { policies, constraints, meta_laws, transitions }
+        Self {
+            policies,
+            constraints,
+            meta_laws,
+            transitions,
+        }
     }
 
     /// Runs multi-timestep forward simulation subject to policies, meta-laws, and constraints.
@@ -276,4 +289,3 @@ impl SimulationHarness {
         })
     }
 }
-

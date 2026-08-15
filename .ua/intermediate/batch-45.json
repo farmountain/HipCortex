@@ -1,0 +1,203 @@
+{
+  "batchIndex": 45,
+  "nodes": [
+    {
+      "id": "file:tests/property/regression_tests.rs",
+      "type": "file",
+      "label": "regression_tests.rs",
+      "path": "tests/property/regression_tests.rs",
+      "summary": "Regression property tests for TemporalIndexer: verifies get_recent(0) returns empty and that inserting a trace preserves its UUID. Uses TemporalTrace and DecayType::Exponential.",
+      "tags": ["rust", "testing", "property"],
+      "symbols": ["get_recent_zero_returns_empty", "inserting_trace_preserves_id"]
+    },
+    {
+      "id": "file:tests/property/self_model_props.rs",
+      "type": "file",
+      "label": "self_model_props.rs",
+      "path": "tests/property/self_model_props.rs",
+      "summary": "Property-based tests for self-model intelligence layer invariants using proptest. Covers 8 invariants: health scores in [0,1], aggregated health in [0,1], resource predictions non-negative, EWMA latency stability, success rates in [0,1], decision confidence in [0,1], capability registry consistency, resource composition monotonicity, and health degradation detectability. Imports from hipcortex::self_model.",
+      "tags": ["rust", "testing", "property"],
+      "symbols": [
+        "health_score_always_in_unit_interval",
+        "aggregated_health_always_in_unit_interval",
+        "resource_predictions_non_negative",
+        "ewma_latency_is_stable",
+        "success_rate_always_in_unit_interval",
+        "decision_confidence_in_unit_interval",
+        "capability_registry_consistent",
+        "resource_usage_composition_monotonic",
+        "health_degradation_detectable"
+      ]
+    },
+    {
+      "id": "file:tests/property/test_graph.rs",
+      "type": "file",
+      "label": "test_graph.rs",
+      "path": "tests/property/test_graph.rs",
+      "summary": "Property test for SymbolicStore graph: verifies that chaining N nodes with 'next' edges produces correct neighbors for each consecutive pair. Uses proptest with count in 1..5.",
+      "tags": ["rust", "testing", "property"],
+      "symbols": ["chain_edges_produce_neighbors"]
+    },
+    {
+      "id": "file:tests/property/world_model_props.rs",
+      "type": "file",
+      "label": "world_model_props.rs",
+      "path": "tests/property/world_model_props.rs",
+      "summary": "Property-based tests for world_model_enhanced invariants using proptest. Covers: transition probability distributions summing to 1.0, entropy in valid range, causal graph acyclicity, transitive path consistency, Kalman covariance positive semi-definiteness, prediction uncertainty growth, confidence interval bounds, uncertainty propagation monotonicity, calibration error with data, and edge case handling (empty model, single observation). Imports from hipcortex::world_model_enhanced.",
+      "tags": ["rust", "testing", "property"],
+      "symbols": [
+        "transition_probabilities_sum_to_one",
+        "entropy_in_valid_range",
+        "causal_graph_always_acyclic",
+        "transitive_paths_consistent",
+        "kalman_covariance_positive_semidefinite",
+        "prediction_increases_uncertainty",
+        "confidence_intervals_bounded",
+        "uncertainty_propagation_monotonic",
+        "calibration_error_decreases_with_data",
+        "empty_model_handles_gracefully",
+        "single_observation_model_valid"
+      ]
+    },
+    {
+      "id": "file:tests/property/connectivity.rs",
+      "type": "file",
+      "label": "connectivity.rs",
+      "path": "tests/property/connectivity.rs",
+      "summary": "Property test for SymbolicStore graph connectivity: builds a linear chain of nodes (count in 2..6), then BFS-verifies reachability from start to last node via 'next' edges.",
+      "tags": ["rust", "testing", "property"],
+      "symbols": ["graph_has_path"]
+    },
+    {
+      "id": "file:tests/property/fsm_reachability.rs",
+      "type": "file",
+      "label": "fsm_reachability.rs",
+      "path": "tests/property/fsm_reachability.rs",
+      "summary": "Property test for ProceduralCache FSM reachability: verifies that the Start->Observe->Act->End transition sequence always reaches FSMState::End in exactly 3 advance() calls regardless of step count (1..5). Imports FSMState, FSMTransition, ProceduralCache, ProceduralTrace.",
+      "tags": ["rust", "testing", "property"],
+      "symbols": ["reach_end_state"]
+    },
+    {
+      "id": "file:tests/property/coherence_props.rs",
+      "type": "file",
+      "label": "coherence_props.rs",
+      "path": "tests/property/coherence_props.rs",
+      "summary": "Property-based tests for coherence layer invariants. Covers: entity count conservation, creation-only conservation (no critical violations), decay monotonicity enforcement, decay decrease not flagged as violation, activation non-negativity, resolution leaving no active inconsistencies (Consensus/Recency/Confidence strategies), graph acyclicity check (no panic), cycle detection consistency, and full invariant enforcement returning valid InvariantType values. Imports CoherenceChecker, ResolutionStrategy, InvariantType, SystemInvariants.",
+      "tags": ["rust", "testing", "property"],
+      "symbols": [
+        "entity_count_conservation_holds",
+        "entity_creation_only_never_violates",
+        "decay_monotonicity_enforced",
+        "decay_decrease_not_detected_as_violation",
+        "activation_always_non_negative",
+        "resolution_leaves_no_active_inconsistencies",
+        "resolve_by_recency_clears_state",
+        "resolve_by_confidence_clears_state",
+        "empty_checker_has_no_inconsistencies",
+        "graph_acyclicity_check_no_panic",
+        "would_create_cycle_consistent",
+        "enforce_invariants_returns_valid_results"
+      ]
+    },
+    {
+      "id": "file:tests/property/mod.rs",
+      "type": "file",
+      "label": "mod.rs (property)",
+      "path": "tests/property/mod.rs",
+      "summary": "Property test module registry. Declares submodules: coherence_props, connectivity, fsm_reachability, regression_tests, self_model_props, world_model_props, test_graph.",
+      "tags": ["rust", "testing", "property"],
+      "symbols": []
+    },
+    {
+      "id": "file:tests/property_suite.rs",
+      "type": "file",
+      "label": "property_suite.rs",
+      "path": "tests/property_suite.rs",
+      "summary": "Top-level property test binary entry point. Declares `mod property;` which pulls in the property test module tree. Registered as tests/property_suite in Cargo.toml.",
+      "tags": ["rust", "testing", "property"],
+      "symbols": []
+    }
+  ],
+  "edges": [
+    {
+      "from": "src/modules/temporal_indexer.rs",
+      "to": "file:tests/property/regression_tests.rs",
+      "type": "tested_by"
+    },
+    {
+      "from": "src/modules/temporal_indexer.rs",
+      "to": "file:tests/property/connectivity.rs",
+      "type": "tested_by"
+    },
+    {
+      "from": "src/modules/symbolic_store.rs",
+      "to": "file:tests/property/test_graph.rs",
+      "type": "tested_by"
+    },
+    {
+      "from": "src/modules/symbolic_store.rs",
+      "to": "file:tests/property/connectivity.rs",
+      "type": "tested_by"
+    },
+    {
+      "from": "src/modules/procedural_cache.rs",
+      "to": "file:tests/property/fsm_reachability.rs",
+      "type": "tested_by"
+    },
+    {
+      "from": "src/modules/world_model_enhanced",
+      "to": "file:tests/property/world_model_props.rs",
+      "type": "tested_by"
+    },
+    {
+      "from": "src/modules/coherence",
+      "to": "file:tests/property/coherence_props.rs",
+      "type": "tested_by"
+    },
+    {
+      "from": "src/self_model",
+      "to": "file:tests/property/self_model_props.rs",
+      "type": "tested_by"
+    },
+    {
+      "from": "file:tests/property_suite.rs",
+      "to": "file:tests/property/mod.rs",
+      "type": "declares"
+    },
+    {
+      "from": "file:tests/property/mod.rs",
+      "to": "file:tests/property/regression_tests.rs",
+      "type": "declares"
+    },
+    {
+      "from": "file:tests/property/mod.rs",
+      "to": "file:tests/property/self_model_props.rs",
+      "type": "declares"
+    },
+    {
+      "from": "file:tests/property/mod.rs",
+      "to": "file:tests/property/world_model_props.rs",
+      "type": "declares"
+    },
+    {
+      "from": "file:tests/property/mod.rs",
+      "to": "file:tests/property/connectivity.rs",
+      "type": "declares"
+    },
+    {
+      "from": "file:tests/property/mod.rs",
+      "to": "file:tests/property/fsm_reachability.rs",
+      "type": "declares"
+    },
+    {
+      "from": "file:tests/property/mod.rs",
+      "to": "file:tests/property/coherence_props.rs",
+      "type": "declares"
+    },
+    {
+      "from": "file:tests/property/mod.rs",
+      "to": "file:tests/property/test_graph.rs",
+      "type": "declares"
+    }
+  ]
+}

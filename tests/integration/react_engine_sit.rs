@@ -12,14 +12,20 @@ mod tests {
         let goal_payload = GoalPayload {
             target_state: "x done".to_string(),
             acceptance_criteria: vec!["x done".to_string()],
-            success_factors: vec![SuccessFactor { name: "x".to_string(), weight: 1.0, satisfied: false }],
+            success_factors: vec![SuccessFactor {
+                name: "x".to_string(),
+                weight: 1.0,
+                satisfied: false,
+            }],
             max_react_iterations: 1,
             status: GoalStatus::Pending,
             current_iteration: 0,
         };
         let goal = MemoryRecord::new(
             MemoryType::Goal,
-            "test".into(), "achieve".into(), "x done".into(),
+            "test".into(),
+            "achieve".into(),
+            "x done".into(),
             serde_json::to_value(&goal_payload).unwrap(),
         );
         let goal_id = goal.id;
@@ -28,11 +34,18 @@ mod tests {
         let mut engine = ReactEngine::new();
         engine.run(&mut store, goal_id, 1).unwrap();
 
-        let obs: Vec<_> = store.all().iter().filter(|r| {
-            r.record_type == MemoryType::Temporal
-            && r.derived_from == Some(goal_id)
-            && r.react_iteration == Some(0)
-        }).collect();
-        assert!(!obs.is_empty(), "ReactEngine must write at least one Temporal observation per iteration");
+        let obs: Vec<_> = store
+            .all()
+            .iter()
+            .filter(|r| {
+                r.record_type == MemoryType::Temporal
+                    && r.derived_from == Some(goal_id)
+                    && r.react_iteration == Some(0)
+            })
+            .collect();
+        assert!(
+            !obs.is_empty(),
+            "ReactEngine must write at least one Temporal observation per iteration"
+        );
     }
 }

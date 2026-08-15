@@ -1,0 +1,7 @@
+{
+  "projectRoot": "D:/all_projects/hipcortex",
+  "batchFiles": [
+    {"path": "src/lib.rs", "language": "rust", "sizeLines": 0, "fileCategory": "code"}
+  ],
+  "batchImportData": {"src/lib.rs": ["src/archive_store.rs","src/cognitive_gc.rs","src/execution_gate.rs","src/payloads.rs","src/modules/loop_engine.rs","src/memory_diff.rs","src/memory_record.rs","src/memory_store.rs"]}
+}

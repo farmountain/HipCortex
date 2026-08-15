@@ -12,7 +12,9 @@ pub struct SnapshotManager;
 impl SnapshotManager {
     pub fn save<P: AsRef<Path>>(source: P, tag: &str) -> Result<PathBuf> {
         let path = source.as_ref();
-        let file_name = path.file_name().ok_or_else(|| anyhow::anyhow!("Invalid source path"))?;
+        let file_name = path
+            .file_name()
+            .ok_or_else(|| anyhow::anyhow!("Invalid source path"))?;
         let archive_path = path.with_extension(format!("{}.tar.gz", tag));
         let tar_gz = File::create(&archive_path)?;
         let enc = GzEncoder::new(tar_gz, Compression::default());

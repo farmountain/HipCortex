@@ -25,7 +25,7 @@ pub struct CausalNode {
 pub struct CausalEdge {
     pub from: String,
     pub to: String,
-    pub strength: f64,  // Causal strength (0.0 to 1.0)
+    pub strength: f64, // Causal strength (0.0 to 1.0)
 }
 
 /// Intervention query for do-calculus
@@ -33,13 +33,13 @@ pub struct CausalEdge {
 pub struct InterventionQuery {
     /// Variable to observe (Y)
     pub outcome: String,
-    
+
     /// Variable to intervene on (X)
     pub intervention_var: String,
-    
+
     /// Intervention value (x)
     pub intervention_value: f64,
-    
+
     /// Conditioning variables (if any)
     pub conditioned_on: HashMap<String, f64>,
 
@@ -53,13 +53,13 @@ pub struct InterventionQuery {
 pub struct CausalGraph {
     /// Nodes in the graph
     nodes: HashMap<String, CausalNode>,
-    
+
     /// Adjacency list: node → set of children
     edges: HashMap<String, HashSet<String>>,
-    
+
     /// Edge properties (causal strength)
     edge_data: HashMap<(String, String), f64>,
-    
+
     /// Cached probability distributions (for interventions)
     distributions: HashMap<String, HashMap<String, f64>>,
 
@@ -84,7 +84,7 @@ impl CausalGraph {
         if self.nodes.contains_key(&id) {
             return Err(format!("Node '{}' already exists", id));
         }
-        
+
         let node = CausalNode {
             id: id.clone(),
             properties: HashMap::new(),
@@ -95,18 +95,22 @@ impl CausalGraph {
 
         // sync to hybrid topo (embeddings=zero for plain add; delegation substrate)
         let _ = self.topo.add_node(id, [0.0f32; 128], HashMap::new());
-        
+
         Ok(())
     }
 
     /// Add node with embedding (hybrid topo support).
     /// Embeds the micro-embedding into node + topo substrate.
     /// Enables record_perceived etc to use rich states.
-    pub fn add_node_with_embedding(&mut self, id: String, embedding: [f32; 128]) -> Result<(), String> {
+    pub fn add_node_with_embedding(
+        &mut self,
+        id: String,
+        embedding: [f32; 128],
+    ) -> Result<(), String> {
         if self.nodes.contains_key(&id) {
             return Err(format!("Node '{}' already exists", id));
         }
-        
+
         self.nodes.insert(
             id.clone(),
             CausalNode {
@@ -261,17 +265,26 @@ impl CausalGraph {
         query: &InterventionQuery,
     ) -> Result<HashMap<String, f64>, String> {
         if !self.nodes.contains_key(&query.intervention_var) {
-            return Err(format!("Intervention variable '{}' not found", query.intervention_var));
+            return Err(format!(
+                "Intervention variable '{}' not found",
+                query.intervention_var
+            ));
         }
         if !self.nodes.contains_key(&query.outcome) {
             return Err(format!("Outcome variable '{}' not found", query.outcome));
         }
 
-        let iv_str = query.intervention_label.as_deref()
+        let iv_str = query
+            .intervention_label
+            .as_deref()
             .map(|s| s.to_string())
             .unwrap_or_else(|| {
                 let v = query.intervention_value;
-                if v == v.trunc() && v.abs() < 1e15 { format!("{}", v as i64) } else { format!("{}", v) }
+                if v == v.trunc() && v.abs() < 1e15 {
+                    format!("{}", v as i64)
+                } else {
+                    format!("{}", v)
+                }
             });
 
         let outcome_prefix = format!("{}=", query.outcome);
@@ -283,7 +296,9 @@ impl CausalGraph {
                 }
             }
         }
-        if outcome_values.is_empty() { outcome_values.insert("1".to_string()); }
+        if outcome_values.is_empty() {
+            outcome_values.insert("1".to_string());
+        }
 
         let adjustment_set = self.get_parents(&query.intervention_var);
         let mut result = HashMap::new();
@@ -293,7 +308,8 @@ impl CausalGraph {
 
             let prob = if adjustment_set.is_empty() {
                 let key_x = format!("{}={}", query.intervention_var, iv_str);
-                self.distributions.get(&key_x)
+                self.distributions
+                    .get(&key_x)
                     .and_then(|d| d.get(&outcome_key))
                     .copied()
                     .unwrap_or(0.5)
@@ -303,25 +319,33 @@ impl CausalGraph {
                 let mut z_configs: Vec<(String, Vec<String>)> = Vec::new();
                 for z_var in &adjustment_set {
                     let z_pfx = format!("{}=", z_var);
-                    let mut z_states: Vec<String> = self.distributions
+                    let mut z_states: Vec<String> = self
+                        .distributions
                         .get("prior_Z")
-                        .map(|d| d.keys()
-                            .filter_map(|k| k.strip_prefix(&z_pfx).map(|v| v.to_string()))
-                            .collect())
+                        .map(|d| {
+                            d.keys()
+                                .filter_map(|k| k.strip_prefix(&z_pfx).map(|v| v.to_string()))
+                                .collect()
+                        })
                         .unwrap_or_default();
-                    if z_states.is_empty() { z_states.push("default".to_string()); }
+                    if z_states.is_empty() {
+                        z_states.push("default".to_string());
+                    }
                     z_configs.push((z_var.clone(), z_states));
                 }
 
                 let mut cartesian: Vec<Vec<(String, String)>> = vec![Vec::new()];
                 for (z_var, states) in &z_configs {
-                    cartesian = cartesian.iter().flat_map(|c| {
-                        states.iter().map(move |s| {
-                            let mut n = c.clone();
-                            n.push((z_var.clone(), s.clone()));
-                            n
+                    cartesian = cartesian
+                        .iter()
+                        .flat_map(|c| {
+                            states.iter().map(move |s| {
+                                let mut n = c.clone();
+                                n.push((z_var.clone(), s.clone()));
+                                n
+                            })
                         })
-                    }).collect();
+                        .collect();
                 }
 
                 let num_z = cartesian.len().max(1) as f64;
@@ -329,9 +353,15 @@ impl CausalGraph {
                 for z_config in &cartesian {
                     // P(Z=z): product of per-dimension marginals from prior_Z; fallback uniform
                     let p_z = if let Some(prior) = self.distributions.get("prior_Z") {
-                        let p: f64 = z_config.iter().map(|(z_var, z_val)| {
-                            prior.get(&format!("{}={}", z_var, z_val)).copied().unwrap_or(1.0 / num_z)
-                        }).product();
+                        let p: f64 = z_config
+                            .iter()
+                            .map(|(z_var, z_val)| {
+                                prior
+                                    .get(&format!("{}={}", z_var, z_val))
+                                    .copied()
+                                    .unwrap_or(1.0 / num_z)
+                            })
+                            .product();
                         p
                     } else {
                         1.0 / num_z
@@ -340,8 +370,13 @@ impl CausalGraph {
                     for (z_var, z_val) in z_config {
                         x_z_key.push_str(&format!(",{}={}", z_var, z_val));
                     }
-                    let p_y = self.distributions.get(&x_z_key)
-                        .or_else(|| self.distributions.get(&format!("{}={}", query.intervention_var, iv_str)))
+                    let p_y = self
+                        .distributions
+                        .get(&x_z_key)
+                        .or_else(|| {
+                            self.distributions
+                                .get(&format!("{}={}", query.intervention_var, iv_str))
+                        })
                         .and_then(|d| d.get(&outcome_key))
                         .copied()
                         .unwrap_or(0.5);
@@ -393,8 +428,16 @@ impl CausalGraph {
     }
 
     /// Record empirical distribution probabilities into `self.distributions` for Backdoor Adjustment.
-    pub fn record_empirical_distribution(&mut self, condition_key: String, outcome_key: String, prob: f64) {
-        self.distributions.entry(condition_key).or_default().insert(outcome_key, prob);
+    pub fn record_empirical_distribution(
+        &mut self,
+        condition_key: String,
+        outcome_key: String,
+        prob: f64,
+    ) {
+        self.distributions
+            .entry(condition_key)
+            .or_default()
+            .insert(outcome_key, prob);
     }
 
     /// Populate empirical distributions from a trained TransitionModel.
@@ -443,7 +486,8 @@ impl CausalGraph {
                         .iter()
                         .map(|(ns, &p)| (format!("next_state={}", ns), p))
                         .collect();
-                    let p_state = self.distributions
+                    let p_state = self
+                        .distributions
                         .get("prior_Z")
                         .and_then(|d| d.get(&format!("state={}", state)))
                         .copied()
@@ -451,11 +495,13 @@ impl CausalGraph {
                     for (k, p) in &dist {
                         *marginal.entry(k.clone()).or_insert(0.0) += p * p_state;
                     }
-                    self.distributions.insert(format!("action={},state={}", action, state), dist);
+                    self.distributions
+                        .insert(format!("action={},state={}", action, state), dist);
                 }
             }
             if !marginal.is_empty() {
-                self.distributions.insert(format!("action={}", action), marginal);
+                self.distributions
+                    .insert(format!("action={}", action), marginal);
             }
         }
     }
@@ -492,7 +538,10 @@ impl CausalGraph {
         outcome_value: &str,
     ) -> Result<f64, String> {
         if !self.nodes.contains_key(intervention_var) {
-            return Err(format!("Intervention variable '{}' not found", intervention_var));
+            return Err(format!(
+                "Intervention variable '{}' not found",
+                intervention_var
+            ));
         }
         if !self.nodes.contains_key(outcome_var) {
             return Err(format!("Outcome variable '{}' not found", outcome_var));
@@ -560,9 +609,16 @@ impl CausalGraph {
             }
 
             let p_y_given_xz = if let Some(dist) = self.distributions.get(&x_z_key) {
-                *dist.get(&format!("{}={}", outcome_var, outcome_value)).unwrap_or(&0.5)
-            } else if let Some(dist) = self.distributions.get(&format!("{}={}", intervention_var, intervention_value)) {
-                *dist.get(&format!("{}={}", outcome_var, outcome_value)).unwrap_or(&0.5)
+                *dist
+                    .get(&format!("{}={}", outcome_var, outcome_value))
+                    .unwrap_or(&0.5)
+            } else if let Some(dist) = self
+                .distributions
+                .get(&format!("{}={}", intervention_var, intervention_value))
+            {
+                *dist
+                    .get(&format!("{}={}", outcome_var, outcome_value))
+                    .unwrap_or(&0.5)
             } else {
                 0.5
             };
@@ -581,7 +637,10 @@ impl CausalGraph {
         intervention_value: f64,
     ) -> Result<HashMap<String, f64>, String> {
         if !self.nodes.contains_key(intervention_var) {
-            return Err(format!("Intervention variable '{}' not found in causal graph", intervention_var));
+            return Err(format!(
+                "Intervention variable '{}' not found in causal graph",
+                intervention_var
+            ));
         }
 
         let mut u_terms: HashMap<String, f64> = HashMap::new();
@@ -591,7 +650,10 @@ impl CausalGraph {
             let mut parent_contrib = 0.0;
             for parent_id in &parents {
                 let p_obs = *observed_state.get(parent_id).unwrap_or(&0.0);
-                let w = *self.edge_data.get(&(parent_id.clone(), node_id.clone())).unwrap_or(&1.0);
+                let w = *self
+                    .edge_data
+                    .get(&(parent_id.clone(), node_id.clone()))
+                    .unwrap_or(&1.0);
                 parent_contrib += w * p_obs;
             }
             let u_v = v_obs - parent_contrib;
@@ -638,7 +700,10 @@ impl CausalGraph {
                 let mut parent_contrib = 0.0;
                 for parent_id in &parents {
                     let p_cf = *counterfactual_state.get(parent_id).unwrap_or(&0.0);
-                    let w = *self.edge_data.get(&(parent_id.clone(), node_id.clone())).unwrap_or(&1.0);
+                    let w = *self
+                        .edge_data
+                        .get(&(parent_id.clone(), node_id.clone()))
+                        .unwrap_or(&1.0);
                     parent_contrib += w * p_cf;
                 }
                 let u_v = *u_terms.get(&node_id).unwrap_or(&0.0);
@@ -703,11 +768,14 @@ impl CausalGraph {
 
     /// Return all causal edges (for persistence).
     pub fn all_edges(&self) -> Vec<CausalEdge> {
-        self.edge_data.iter().map(|((from, to), &strength)| CausalEdge {
-            from: from.clone(),
-            to: to.clone(),
-            strength,
-        }).collect()
+        self.edge_data
+            .iter()
+            .map(|((from, to), &strength)| CausalEdge {
+                from: from.clone(),
+                to: to.clone(),
+                strength,
+            })
+            .collect()
     }
 }
 
@@ -733,7 +801,7 @@ mod tests {
         let mut graph = CausalGraph::new();
         assert!(graph.add_node("A".to_string()).is_ok());
         assert_eq!(graph.node_count(), 1);
-        
+
         // Adding duplicate should fail
         assert!(graph.add_node("A".to_string()).is_err());
     }
@@ -751,11 +819,11 @@ mod tests {
         let mut graph = CausalGraph::new();
         graph.add_edge("A".to_string(), "B".to_string()).unwrap();
         graph.add_edge("B".to_string(), "C".to_string()).unwrap();
-        
+
         assert!(graph.has_path("A", "B").unwrap());
-        assert!(graph.has_path("A", "C").unwrap());  // Transitive
+        assert!(graph.has_path("A", "C").unwrap()); // Transitive
         assert!(graph.has_path("B", "C").unwrap());
-        assert!(!graph.has_path("C", "A").unwrap());  // No reverse path
+        assert!(!graph.has_path("C", "A").unwrap()); // No reverse path
     }
 
     #[test]
@@ -763,7 +831,7 @@ mod tests {
         let mut graph = CausalGraph::new();
         graph.add_edge("A".to_string(), "B".to_string()).unwrap();
         graph.add_edge("B".to_string(), "C".to_string()).unwrap();
-        
+
         // Adding C → A creates cycle
         let result = graph.add_edge("C".to_string(), "A".to_string());
         assert!(result.is_err());
@@ -776,7 +844,7 @@ mod tests {
         graph.add_edge("A".to_string(), "B".to_string()).unwrap();
         graph.add_edge("B".to_string(), "C".to_string()).unwrap();
         graph.add_edge("C".to_string(), "D".to_string()).unwrap();
-        
+
         assert!(graph.is_acyclic());
     }
 
@@ -785,7 +853,7 @@ mod tests {
         let mut graph = CausalGraph::new();
         graph.add_edge("A".to_string(), "C".to_string()).unwrap();
         graph.add_edge("B".to_string(), "C".to_string()).unwrap();
-        
+
         let parents = graph.get_parents("C");
         assert_eq!(parents.len(), 2);
         assert!(parents.contains(&"A".to_string()));
@@ -797,7 +865,7 @@ mod tests {
         let mut graph = CausalGraph::new();
         graph.add_edge("A".to_string(), "B".to_string()).unwrap();
         graph.add_edge("A".to_string(), "C".to_string()).unwrap();
-        
+
         let children = graph.get_children("A");
         assert_eq!(children.len(), 2);
         assert!(children.contains(&"B".to_string()));
@@ -811,9 +879,9 @@ mod tests {
         graph.add_edge("A".to_string(), "C".to_string()).unwrap();
         graph.add_edge("B".to_string(), "D".to_string()).unwrap();
         graph.add_edge("C".to_string(), "D".to_string()).unwrap();
-        
+
         let paths = graph.get_all_paths("A", "D");
-        assert_eq!(paths.len(), 2);  // A→B→D and A→C→D
+        assert_eq!(paths.len(), 2); // A→B→D and A→C→D
     }
 
     #[test]
@@ -822,7 +890,7 @@ mod tests {
         graph.add_edge("X".to_string(), "Y".to_string()).unwrap();
         graph.add_edge("Z".to_string(), "X".to_string()).unwrap();
         graph.add_edge("Z".to_string(), "Y".to_string()).unwrap();
-        
+
         let query = InterventionQuery {
             outcome: "Y".to_string(),
             intervention_var: "X".to_string(),
@@ -840,18 +908,14 @@ mod tests {
         let mut graph = CausalGraph::new();
         graph.add_edge("X".to_string(), "Y".to_string()).unwrap();
         graph.add_edge("Y".to_string(), "Z".to_string()).unwrap();
-        
+
         let mut actual_state = HashMap::new();
         actual_state.insert("X".to_string(), 0.0);
         actual_state.insert("Y".to_string(), 0.5);
         actual_state.insert("Z".to_string(), 0.25);
-        
-        let result = graph.compute_counterfactual(
-            actual_state,
-            "X".to_string(),
-            1.0,
-        );
-        
+
+        let result = graph.compute_counterfactual(actual_state, "X".to_string(), 1.0);
+
         assert!(result.is_ok());
         let counterfactual_state = result.unwrap();
         assert_eq!(counterfactual_state["X"], 1.0);
@@ -865,10 +929,10 @@ mod tests {
         graph.add_edge("A".to_string(), "C".to_string()).unwrap();
         graph.add_edge("B".to_string(), "D".to_string()).unwrap();
         graph.add_edge("C".to_string(), "D".to_string()).unwrap();
-        
+
         assert!(graph.is_acyclic());
         assert!(graph.has_path("A", "D").unwrap());
-        
+
         let paths = graph.get_all_paths("A", "D");
         assert_eq!(paths.len(), 2);
     }
@@ -882,11 +946,11 @@ mod tests {
         graph.add_edge("A".to_string(), "D".to_string()).unwrap();
         graph.add_edge("D".to_string(), "C".to_string()).unwrap();
         graph.add_edge("E".to_string(), "D".to_string()).unwrap();
-        
+
         assert_eq!(graph.node_count(), 5);
         assert_eq!(graph.edge_count(), 5);
         assert!(graph.is_acyclic());
-        
+
         // Check various paths
         assert!(graph.has_path("A", "C").unwrap());
         assert!(graph.has_path("E", "C").unwrap());
@@ -898,7 +962,7 @@ mod tests {
     fn test_self_loop_prevention() {
         let mut graph = CausalGraph::new();
         graph.add_node("A".to_string()).unwrap();
-        
+
         let result = graph.add_edge("A".to_string(), "A".to_string());
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("cycle"));
@@ -913,34 +977,68 @@ mod tests {
         graph.add_edge("C".to_string(), "E".to_string()).unwrap();
 
         let descendants = graph.get_descendants("A").unwrap();
-        assert_eq!(descendants.len(), 4);  // B, C, D, E
+        assert_eq!(descendants.len(), 4); // B, C, D, E
     }
 
     #[test]
     fn test_auto_populate_fills_distributions() {
-        use crate::world_model_enhanced::transition::{TransitionModel, StateTransition};
+        use crate::world_model_enhanced::transition::{StateTransition, TransitionModel};
         let mut model = TransitionModel::new();
-        model.record_transition(StateTransition { from_state: "s1".into(), action: "a1".into(), to_state: "s2".into() }).unwrap();
-        model.record_transition(StateTransition { from_state: "s1".into(), action: "a1".into(), to_state: "s2".into() }).unwrap();
-        model.record_transition(StateTransition { from_state: "s1".into(), action: "a1".into(), to_state: "s3".into() }).unwrap();
+        model
+            .record_transition(StateTransition {
+                from_state: "s1".into(),
+                action: "a1".into(),
+                to_state: "s2".into(),
+            })
+            .unwrap();
+        model
+            .record_transition(StateTransition {
+                from_state: "s1".into(),
+                action: "a1".into(),
+                to_state: "s2".into(),
+            })
+            .unwrap();
+        model
+            .record_transition(StateTransition {
+                from_state: "s1".into(),
+                action: "a1".into(),
+                to_state: "s3".into(),
+            })
+            .unwrap();
 
         let mut graph = CausalGraph::new();
         graph.auto_populate_from_transitions(&model);
 
-        assert!(graph.has_empirical_key("action", "a1"), "missing distribution action=a1");
-        assert!(graph.distributions.contains_key("prior_Z"), "missing prior_Z marginal");
+        assert!(
+            graph.has_empirical_key("action", "a1"),
+            "missing distribution action=a1"
+        );
+        assert!(
+            graph.distributions.contains_key("prior_Z"),
+            "missing prior_Z marginal"
+        );
         assert!(graph.nodes.contains_key("state"), "state node not added");
         assert!(graph.nodes.contains_key("action"), "action node not added");
-        assert!(graph.nodes.contains_key("next_state"), "next_state node not added");
+        assert!(
+            graph.nodes.contains_key("next_state"),
+            "next_state node not added"
+        );
         // Verify conditional distribution key "action=a1,state=s1" was inserted
         assert!(
             graph.distributions.contains_key("action=a1,state=s1"),
             "missing conditional distribution action=a1,state=s1"
         );
         // Verify prior_Z has a concrete probability for s1 (the only from_state)
-        let prior = graph.distributions.get("prior_Z").expect("prior_Z must exist");
+        let prior = graph
+            .distributions
+            .get("prior_Z")
+            .expect("prior_Z must exist");
         let p_s1 = prior.get("state=s1").copied().unwrap_or(0.0);
-        assert!(p_s1 > 0.0 && p_s1 <= 1.0, "P(state=s1) must be in (0, 1], got {}", p_s1);
+        assert!(
+            p_s1 > 0.0 && p_s1 <= 1.0,
+            "P(state=s1) must be in (0, 1], got {}",
+            p_s1
+        );
     }
 
     #[test]
@@ -984,8 +1082,10 @@ mod tests {
         let mut graph = CausalGraph::new();
         graph.auto_populate_from_transitions(&model);
         // Empty model: no distributions (no transitions recorded)
-        assert!(!graph.distributions.contains_key("prior_Z"),
-            "empty model must not insert prior_Z");
+        assert!(
+            !graph.distributions.contains_key("prior_Z"),
+            "empty model must not insert prior_Z"
+        );
         // Nodes still added (they're structural, not data-dependent)
         assert!(graph.nodes.contains_key("state"));
         assert!(graph.nodes.contains_key("action"));

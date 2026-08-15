@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::{
     fs::OpenOptions,
     io::{BufRead, BufReader, Write},
@@ -7,7 +8,6 @@ use std::{
         Arc,
     },
 };
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,10 +44,9 @@ impl TxLog {
     pub fn open(path: impl AsRef<std::path::Path>) -> Result<Self, String> {
         let path = path.as_ref().to_path_buf();
         let last_tx = if path.exists() {
-            let file = std::fs::File::open(&path)
-                .map_err(|e| format!("TxLog::open: {e}"))?;
+            let file = std::fs::File::open(&path).map_err(|e| format!("TxLog::open: {e}"))?;
             let mut max_id = 0u64;
-            for line in BufReader::new(file).lines().flatten() {
+            for line in BufReader::new(file).lines().map_while(Result::ok) {
                 if let Ok(entry) = serde_json::from_str::<TxEntry>(&line) {
                     if entry.tx_id > max_id {
                         max_id = entry.tx_id;
@@ -79,8 +78,10 @@ impl TxLog {
         };
         match serde_json::to_string(&entry) {
             Ok(line) => {
-                if let Ok(mut f) =
-                    OpenOptions::new().create(true).append(true).open(&self.path)
+                if let Ok(mut f) = OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&self.path)
                 {
                     let _ = writeln!(f, "{line}");
                 } else {
@@ -97,10 +98,10 @@ impl TxLog {
         if !self.path.exists() {
             return Ok(vec![]);
         }
-        let file = std::fs::File::open(&self.path)
-            .map_err(|e| format!("TxLog::query_range: {e}"))?;
+        let file =
+            std::fs::File::open(&self.path).map_err(|e| format!("TxLog::query_range: {e}"))?;
         let mut result = Vec::new();
-        for line in BufReader::new(file).lines().flatten() {
+        for line in BufReader::new(file).lines().map_while(Result::ok) {
             if let Ok(entry) = serde_json::from_str::<TxEntry>(&line) {
                 if entry.tx_id >= from_tx && entry.tx_id <= to_tx {
                     result.push(entry);

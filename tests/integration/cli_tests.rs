@@ -67,11 +67,14 @@ fn cli_snapshot_and_restore() {
     let path = "cli_snap.jsonl";
     let tag = "snap";
     let _ = std::fs::remove_file(path);
-    let _ = std::fs::remove_file(std::path::Path::new(path).with_extension(format!("{}.tar.gz", tag)));
+    let _ =
+        std::fs::remove_file(std::path::Path::new(path).with_extension(format!("{}.tar.gz", tag)));
     // add initial record
     Command::cargo_bin("cli")
         .unwrap()
-        .args(["--store", path, "add", "--actor", "tester", "--action", "remember", "--target", "orig"])
+        .args([
+            "--store", path, "add", "--actor", "tester", "--action", "remember", "--target", "orig",
+        ])
         .assert()
         .success();
     // snapshot
@@ -83,7 +86,17 @@ fn cli_snapshot_and_restore() {
     // add extra record
     Command::cargo_bin("cli")
         .unwrap()
-        .args(["--store", path, "add", "--actor", "tester", "--action", "remember", "--target", "rolled back"])
+        .args([
+            "--store",
+            path,
+            "add",
+            "--actor",
+            "tester",
+            "--action",
+            "remember",
+            "--target",
+            "rolled back",
+        ])
         .assert()
         .success();
     // restore
@@ -100,7 +113,8 @@ fn cli_snapshot_and_restore() {
         .unwrap();
     assert!(!String::from_utf8_lossy(&out.stdout).contains("rolled back"));
     std::fs::remove_file(path).unwrap();
-    std::fs::remove_file(std::path::Path::new(path).with_extension(format!("{}.tar.gz", tag))).unwrap();
+    std::fs::remove_file(std::path::Path::new(path).with_extension(format!("{}.tar.gz", tag)))
+        .unwrap();
 }
 
 #[test]
@@ -110,12 +124,16 @@ fn cli_query_filter_actor() {
     // two different actors
     Command::cargo_bin("cli")
         .unwrap()
-        .args(["--store", path, "add", "--actor", "alice", "--action", "say", "--target", "hi"])
+        .args([
+            "--store", path, "add", "--actor", "alice", "--action", "say", "--target", "hi",
+        ])
         .assert()
         .success();
     Command::cargo_bin("cli")
         .unwrap()
-        .args(["--store", path, "add", "--actor", "bob", "--action", "say", "--target", "bye"])
+        .args([
+            "--store", path, "add", "--actor", "bob", "--action", "say", "--target", "bye",
+        ])
         .assert()
         .success();
     let out = Command::cargo_bin("cli")
@@ -144,4 +162,3 @@ fn cli_prompt_stores_reflexion() {
     assert!(data.contains("\"action\":\"prompt\""));
     std::fs::remove_file(path).unwrap();
 }
-

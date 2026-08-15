@@ -10,11 +10,18 @@ fn test_meta_laws_invariant_verification() {
     });
     engine.add_law(MetaLaw {
         law_id: "ENTROPY_MONOTONIC".to_string(),
-        invariant_type: InvariantType::Monotonic { metric_index: 1, increasing: true },
+        invariant_type: InvariantType::Monotonic {
+            metric_index: 1,
+            increasing: true,
+        },
     });
     engine.add_law(MetaLaw {
         law_id: "TEMP_BOUNDS".to_string(),
-        invariant_type: InvariantType::Bounded { metric_index: 2, min: 0.0, max: 100.0 },
+        invariant_type: InvariantType::Bounded {
+            metric_index: 2,
+            min: 0.0,
+            max: 100.0,
+        },
     });
 
     let pre_state = EntityState {

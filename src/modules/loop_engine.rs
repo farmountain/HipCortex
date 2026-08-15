@@ -102,7 +102,10 @@ impl LoopEngine {
     pub fn create_iteration_snapshot(&mut self) -> Result<IterationSnapshot, String> {
         // Minimal transactional snapshot impl.
         // Follows project safety rule: always call check_precondition before mutating / snapshot path.
-        if let Err(reason) = self.safety.check_precondition("loop_engine::create_iteration_snapshot") {
+        if let Err(reason) = self
+            .safety
+            .check_precondition("loop_engine::create_iteration_snapshot")
+        {
             return Err(format!("safety block: {}", reason));
         }
 
@@ -112,9 +115,12 @@ impl LoopEngine {
         let serializable = self.topo.to_serializable();
         let temp_dir = std::env::temp_dir();
         let unique_id = uuid::Uuid::new_v4();
-        let filename = format!("omega-topo-{}-{}.json", self.metrics.snapshots_taken, unique_id);
+        let filename = format!(
+            "omega-topo-{}-{}.json",
+            self.metrics.snapshots_taken, unique_id
+        );
         let temp_path = temp_dir.join(&filename);
-        
+
         let json_data = serde_json::to_string(&serializable)
             .map_err(|e| format!("Failed to serialize topo graph: {}", e))?;
         std::fs::write(&temp_path, json_data)
@@ -157,14 +163,20 @@ impl LoopEngine {
             pred_error = (unc as f32 * 0.8).max(0.05);
         } else if self.topo.node_count() > 0 {
             // use PPR or node to derive surprise proxy
-            let ranks = self.topo.personalized_pagerank(&["root".to_string()], 0.85, 5);
+            let ranks = self
+                .topo
+                .personalized_pagerank(&["root".to_string()], 0.85, 5);
             if let Some(r) = ranks.get("root") {
                 pred_error = (0.2 + *r * 0.3).min(0.6);
             }
         }
 
         // 3. localized subgraph + strategy-conditioned sim (on topo + WM transitions/predict)
-        let seeds = if self.topo.node_count() > 0 { vec!["root".to_string()] } else { vec![] };
+        let seeds = if self.topo.node_count() > 0 {
+            vec!["root".to_string()]
+        } else {
+            vec![]
+        };
         let localized = self.topo.extract_localized_subgraph(&seeds, 12);
         let _rollouts = self.simulate_rollouts(&localized, &strata_ref);
 
@@ -177,7 +189,11 @@ impl LoopEngine {
         // 5+ mutation tentative on topo + uncertainty prop + coherence + safety gate (inside)
         if let Err(e) = self.apply_tentative_mutation(&attr) {
             // gate failed path leads to rollback already counted
-            let _ = self.audit.append("loop_engine", "run_omega", &format!("mutation_rollback:{}", e));
+            let _ = self.audit.append(
+                "loop_engine",
+                "run_omega",
+                &format!("mutation_rollback:{}", e),
+            );
         } else {
             //  update MetaBelief κs , distill trace + straTa stub
             self.update_meta_beliefs(&attr);
@@ -189,15 +205,23 @@ impl LoopEngine {
 
     /// Checks SurpriseDelta and triggers online Bayesian System-ID rewrite if ε >= 0.12.
     /// Verifies via CoherenceChecker before committing or rolling back to IterationSnapshot.
-    pub fn process_surprise_reflexion(&mut self, state: &str, action: &str, outcome: &str, surprise_epsilon: f32) -> Result<bool, String> {
+    pub fn process_surprise_reflexion(
+        &mut self,
+        state: &str,
+        action: &str,
+        outcome: &str,
+        surprise_epsilon: f32,
+    ) -> Result<bool, String> {
         if surprise_epsilon < 0.12 {
             // Low surprise: standard count update
             if let Ok(mut trans) = self.wm.transitions.write() {
-                let _ = trans.record_transition(crate::world_model_enhanced::transition::StateTransition {
-                    from_state: state.to_string(),
-                    action: action.to_string(),
-                    to_state: outcome.to_string(),
-                });
+                let _ = trans.record_transition(
+                    crate::world_model_enhanced::transition::StateTransition {
+                        from_state: state.to_string(),
+                        action: action.to_string(),
+                        to_state: outcome.to_string(),
+                    },
+                );
             }
             return Ok(true);
         }
@@ -216,7 +240,10 @@ impl LoopEngine {
 
         if !is_coherent {
             self.metrics.rollbacks += 1;
-            return Err("System-ID update rejected by Coherence Gate due to paradox or safety violation".to_string());
+            return Err(
+                "System-ID update rejected by Coherence Gate due to paradox or safety violation"
+                    .to_string(),
+            );
         }
 
         self.metrics.mutations += 1;
@@ -276,8 +303,13 @@ impl LoopEngine {
 
         // Topology likelihood informed by node error mass + graph density proxy
         let error_mass: f32 = epsilon.node_errors.values().sum();
-        let topo_prior = if self.topo.node_count() > 0 { 1.0 / (self.topo.node_count() as f32).sqrt() } else { 0.1 };
-        let mut topo_w = (k_t * epsilon.magnitude + error_mass * 0.6 + topo_prior * 0.1).clamp(0.0, 1.0);
+        let topo_prior = if self.topo.node_count() > 0 {
+            1.0 / (self.topo.node_count() as f32).sqrt()
+        } else {
+            0.1
+        };
+        let mut topo_w =
+            (k_t * epsilon.magnitude + error_mass * 0.6 + topo_prior * 0.1).clamp(0.0, 1.0);
 
         let policy_w = k_pi * epsilon.magnitude;
         let util_w = k_u * (epsilon.magnitude * 0.5 + 0.1); // utility component
@@ -301,18 +333,25 @@ impl LoopEngine {
     /// If high topology weight: add/update causal edge or node property. Then propagate uncertainty stub.
     /// Calls safety precondition + coherence gate. Returns Ok or Err(rollback reason).
     pub fn apply_tentative_mutation(&mut self, attr: &AttributionMap) -> Result<(), String> {
-        if let Err(reason) = self.safety.check_precondition("loop_engine::apply_tentative_mutation") {
+        if let Err(reason) = self
+            .safety
+            .check_precondition("loop_engine::apply_tentative_mutation")
+        {
             self.metrics.rollbacks += 1;
             return Err(format!("safety precondition failed: {}", reason));
         }
 
         // Coherence gate before mutation
         match self.coherence.gate_write("loop_engine::tentative_mutation") {
-            Ok(()) => {},
+            Ok(()) => {}
             Err(rej) => {
                 self.metrics.rollbacks += 1;
                 // audit the rejection
-                let _ = self.audit.append("loop_engine", "tentative_mutation", &format!("gate_reject:{}", rej.reason));
+                let _ = self.audit.append(
+                    "loop_engine",
+                    "tentative_mutation",
+                    &format!("gate_reject:{}", rej.reason),
+                );
                 return Err(format!("coherence gate rejected: {}", rej.reason));
             }
         }
@@ -335,7 +374,11 @@ impl LoopEngine {
         }
 
         // audit
-        let _ = self.audit.append("loop_engine", "tentative_mutation", &format!("topo_w={:.2}", attr.topology_fault_weight));
+        let _ = self.audit.append(
+            "loop_engine",
+            "tentative_mutation",
+            &format!("topo_w={:.2}", attr.topology_fault_weight),
+        );
 
         Ok(())
     }
@@ -368,7 +411,11 @@ impl LoopEngine {
     }
 
     /// Simulate rollouts: try WM predict on localized topo node ids as states.
-    pub fn simulate_rollouts(&self, localized: &CausalTopoGraph, strata: &StrataTrajectory) -> Vec<(String, f64)> {
+    pub fn simulate_rollouts(
+        &self,
+        localized: &CausalTopoGraph,
+        strata: &StrataTrajectory,
+    ) -> Vec<(String, f64)> {
         let mut out = vec![];
         let ranks = localized.personalized_pagerank(&[], 0.85, 5);
         let mut seeds: Vec<String> = ranks
@@ -413,7 +460,11 @@ impl LoopEngine {
                 } else {
                     "sim_fallback_next".into()
                 },
-                if localized.node_count() == 0 { 0.0 } else { 0.5 },
+                if localized.node_count() == 0 {
+                    0.0
+                } else {
+                    0.5
+                },
             ));
         }
         out
@@ -426,7 +477,9 @@ impl LoopEngine {
         if self.topo.node_count() > 0 {
             node_errs.insert("root".to_string(), obs_error);
             // could use personalized_pagerank for influential nodes
-            let ranks = self.topo.personalized_pagerank(&["root".to_string()], 0.85, 5);
+            let ranks = self
+                .topo
+                .personalized_pagerank(&["root".to_string()], 0.85, 5);
             for (n, r) in ranks.iter().take(2) {
                 if *r > 0.1 {
                     node_errs.insert(n.clone(), obs_error * r);
@@ -442,9 +495,21 @@ impl LoopEngine {
     /// Update meta beliefs (κs) after attribution/mutation.
     pub fn update_meta_beliefs(&mut self, attr: &AttributionMap) {
         *self.state.beliefs.entry("kappa_topo".into()).or_insert(0.0) = attr.topology_fault_weight;
-        *self.state.beliefs.entry("kappa_policy".into()).or_insert(0.0) = attr.policy_fault_weight;
-        *self.state.beliefs.entry("kappa_utility".into()).or_insert(0.0) = attr.utility_fault_weight;
-        *self.state.beliefs.entry("kappa_resolved".into()).or_insert(0.0) = attr.resolved_error;
+        *self
+            .state
+            .beliefs
+            .entry("kappa_policy".into())
+            .or_insert(0.0) = attr.policy_fault_weight;
+        *self
+            .state
+            .beliefs
+            .entry("kappa_utility".into())
+            .or_insert(0.0) = attr.utility_fault_weight;
+        *self
+            .state
+            .beliefs
+            .entry("kappa_resolved".into())
+            .or_insert(0.0) = attr.resolved_error;
     }
 
     /// Distills the current cycle: prunes topological edges whose strength or confidence
@@ -452,12 +517,12 @@ impl LoopEngine {
     pub fn distill_traces(&mut self, _attr: &AttributionMap) -> Result<usize, String> {
         let mut serializable = self.topo.to_serializable();
         let initial_edge_count = serializable.edges.len();
-        
+
         // Filter edges: remove those with strength * confidence < 0.1
-        serializable.edges.retain(|e| {
-            e.strength * e.confidence >= 0.1
-        });
-        
+        serializable
+            .edges
+            .retain(|e| e.strength * e.confidence >= 0.1);
+
         let removed = initial_edge_count - serializable.edges.len();
         if removed > 0 {
             let new_topo = CausalTopoGraph::from_serializable(serializable)?;
@@ -482,7 +547,9 @@ pub struct ReactEngine {
 
 impl ReactEngine {
     pub fn new() -> Self {
-        Self { max_iterations_override: None }
+        Self {
+            max_iterations_override: None,
+        }
     }
 
     /// Run the ReAct loop for `goal_id`. Returns Ok(GoalStatus) on completion.
@@ -495,13 +562,16 @@ impl ReactEngine {
         use crate::memory_record::{MemoryRecord, MemoryType};
         use crate::payloads::{GoalPayload, GoalStatus};
 
-        let goal_record = store.find_by_id(goal_id)
+        let goal_record = store
+            .find_by_id(goal_id)
             .ok_or_else(|| format!("Goal not found: {}", goal_id))?
             .clone();
         let mut goal_payload: GoalPayload = serde_json::from_value(goal_record.metadata.clone())
             .map_err(|e| format!("Goal metadata parse error: {}", e))?;
 
-        let max_iter = self.max_iterations_override.unwrap_or(goal_payload.max_react_iterations);
+        let max_iter = self
+            .max_iterations_override
+            .unwrap_or(goal_payload.max_react_iterations);
 
         for i in 0..max_iter {
             goal_payload.current_iteration = i;
@@ -528,7 +598,9 @@ impl ReactEngine {
             );
             obs.derived_from = Some(goal_id);
             obs.react_iteration = Some(i);
-            store.add(obs).map_err(|e| format!("Failed to write observation: {}", e))?;
+            store
+                .add(obs)
+                .map_err(|e| format!("Failed to write observation: {}", e))?;
 
             let all_satisfied = goal_payload.success_factors.iter().all(|f| f.satisfied);
 
@@ -542,7 +614,12 @@ impl ReactEngine {
             let critique = format!(
                 "Iteration {} incomplete. Unsatisfied: {:?}",
                 i,
-                goal_payload.success_factors.iter().filter(|f| !f.satisfied).map(|f| &f.name).collect::<Vec<_>>()
+                goal_payload
+                    .success_factors
+                    .iter()
+                    .filter(|f| !f.satisfied)
+                    .map(|f| &f.name)
+                    .collect::<Vec<_>>()
             );
             let mut reflection = MemoryRecord::new(
                 MemoryType::Reflexion,
@@ -553,7 +630,9 @@ impl ReactEngine {
             );
             reflection.derived_from = Some(goal_id);
             reflection.react_iteration = Some(i);
-            store.add(reflection).map_err(|e| format!("Failed to write reflection: {}", e))?;
+            store
+                .add(reflection)
+                .map_err(|e| format!("Failed to write reflection: {}", e))?;
         }
 
         goal_payload.status = GoalStatus::Failed;
@@ -567,14 +646,24 @@ impl ReactEngine {
         goal_id: uuid::Uuid,
         payload: &crate::payloads::GoalPayload,
     ) -> Result<(), String> {
-        store.update_record(goal_id, None, None, None, None, Some(serde_json::to_value(payload).unwrap()))
+        store
+            .update_record(
+                goal_id,
+                None,
+                None,
+                None,
+                None,
+                Some(serde_json::to_value(payload).unwrap()),
+            )
             .map(|_| ())
             .map_err(|e| format!("Failed to update goal: {}", e))
     }
 }
 
 impl Default for ReactEngine {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -594,7 +683,10 @@ mod tests {
         let topo = CausalTopoGraph::new();
         let engine = LoopEngine::new(topo);
         let gap = engine.detect_coverage_gap();
-        assert!(gap.is_some(), "empty topo should report coverage gap via straTa stub");
+        assert!(
+            gap.is_some(),
+            "empty topo should report coverage gap via straTa stub"
+        );
     }
 
     #[test]
@@ -604,7 +696,10 @@ mod tests {
         let mut engine = LoopEngine::new(topo);
         let res = engine.run_omega_loop();
         assert!(res.is_ok());
-        assert!(engine.active_strata.is_some(), "run should populate active_strata from detect");
+        assert!(
+            engine.active_strata.is_some(),
+            "run should populate active_strata from detect"
+        );
         assert!(engine.metrics.snapshots_taken >= 1);
     }
 
@@ -615,8 +710,12 @@ mod tests {
     fn test_bayesian_attribution_and_mutation() {
         let mut engine = LoopEngine::new(CausalTopoGraph::new());
         // Seed some topo nodes for attribution to use topology weights
-        let _ = engine.topo.add_node("nodeX".into(), [0.1; 128], HashMap::new());
-        let _ = engine.topo.add_node("nodeY".into(), [0.2; 128], HashMap::new());
+        let _ = engine
+            .topo
+            .add_node("nodeX".into(), [0.1; 128], HashMap::new());
+        let _ = engine
+            .topo
+            .add_node("nodeY".into(), [0.2; 128], HashMap::new());
         let epsilon = SurpriseDelta {
             magnitude: 0.3,
             node_errors: {
@@ -626,11 +725,17 @@ mod tests {
             },
         };
         let attr = engine.compute_bayesian_attribution(&epsilon);
-        assert!(attr.topology_fault_weight > 0.0, "should assign positive topology weight");
+        assert!(
+            attr.topology_fault_weight > 0.0,
+            "should assign positive topology weight"
+        );
         assert!(attr.resolved_error > 0.0);
         // then mutation step
         let mut_res = engine.apply_tentative_mutation(&attr);
-        assert!(mut_res.is_ok(), "tentative mutation should succeed for basic attr");
+        assert!(
+            mut_res.is_ok(),
+            "tentative mutation should succeed for basic attr"
+        );
     }
 
     #[test]
@@ -641,11 +746,21 @@ mod tests {
         let _ = topo.add_edge("stateA".into(), "stateB".into(), EdgeType::Causal, 0.8, 0.9);
         let mut engine = LoopEngine::new(topo);
         // record some WM transition to enable sim
-        let _ = engine.wm.observe_transition("stateA".into(), "move".into(), "stateB".into());
-        let strata = StrataTrajectory { layers: vec!["causal".into()], coverage_score: 0.5 };
-        let localized = engine.topo.extract_localized_subgraph(&["stateA".to_string()], 10);
+        let _ = engine
+            .wm
+            .observe_transition("stateA".into(), "move".into(), "stateB".into());
+        let strata = StrataTrajectory {
+            layers: vec!["causal".into()],
+            coverage_score: 0.5,
+        };
+        let localized = engine
+            .topo
+            .extract_localized_subgraph(&["stateA".to_string()], 10);
         let rollouts = engine.simulate_rollouts(&localized, &strata);
-        assert!(!rollouts.is_empty(), "should produce at least one rollout prediction");
+        assert!(
+            !rollouts.is_empty(),
+            "should produce at least one rollout prediction"
+        );
         // surprise from observation
         let surprise = engine.calculate_surprise(0.25); // e.g. prediction error
         assert!(surprise.magnitude > 0.0);
@@ -657,11 +772,18 @@ mod tests {
         let _ = topo.add_node("root".into(), [0.5; 128], HashMap::new());
         let mut engine = LoopEngine::new(topo);
         // wire some WM data for error-driven trigger
-        let _ = engine.wm.observe_transition("root".into(), "act".into(), "next".into());
+        let _ = engine
+            .wm
+            .observe_transition("root".into(), "act".into(), "next".into());
         let res = engine.run_omega_loop();
         assert!(res.is_ok());
         // after full cycle (when impl), should have done sim/surprise/attr/mutation path or rollback
         // metrics or state advanced
-        assert!(engine.metrics.iterations > 0 || engine.metrics.mutations > 0 || engine.metrics.rollbacks > 0 || true); // relax until wired
+        assert!(
+            engine.metrics.iterations > 0
+                || engine.metrics.mutations > 0
+                || engine.metrics.rollbacks > 0
+                || true
+        ); // relax until wired
     }
 }

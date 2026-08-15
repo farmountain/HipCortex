@@ -199,7 +199,10 @@ impl LeaseManager {
     pub fn renew(&mut self, lease_id: Uuid, extension: Option<Duration>) -> Option<SystemTime> {
         let ttl = extension.unwrap_or(self.default_ttl);
         // Check expiry before mutable borrow to avoid borrow conflict
-        let expired = self.leases.get(&lease_id).map_or(true, |l| self.is_expired(l));
+        let expired = self
+            .leases
+            .get(&lease_id)
+            .map_or(true, |l| self.is_expired(l));
         if expired {
             return None;
         }

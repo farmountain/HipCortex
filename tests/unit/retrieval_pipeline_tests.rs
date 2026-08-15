@@ -1,7 +1,7 @@
+use hipcortex::decay::DecayType;
 use hipcortex::retrieval_pipeline::recent_symbols;
 use hipcortex::symbolic_store::SymbolicStore;
 use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
-use hipcortex::decay::DecayType;
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
 use uuid::Uuid;
@@ -19,7 +19,9 @@ fn recent_symbols_returns_nodes() {
         relevance: 1.0,
         decay_factor: 1.0,
         last_access: SystemTime::now(),
-        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
+        decay_type: DecayType::Exponential {
+            half_life: Duration::from_secs(1),
+        },
     };
     indexer.insert(trace);
 
@@ -42,7 +44,9 @@ fn recent_symbols_limit() {
             relevance: 1.0,
             decay_factor: 1.0,
             last_access: SystemTime::now(),
-            decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
+            decay_type: DecayType::Exponential {
+                half_life: Duration::from_secs(1),
+            },
         });
     }
 

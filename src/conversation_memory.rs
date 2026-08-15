@@ -23,7 +23,9 @@ pub struct ConversationMemory {
 
 impl ConversationMemory {
     pub fn new() -> Self {
-        Self { messages: Vec::new() }
+        Self {
+            messages: Vec::new(),
+        }
     }
 
     pub fn add_message(&mut self, sender: &str, text: &str) -> Uuid {

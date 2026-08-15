@@ -5,10 +5,9 @@
 // inline #[cfg(test)] blocks in the source modules.
 
 use hipcortex::coherence::{
-    CoherenceChecker, CoherenceMetrics, WriteRejection,
-    ConsistencyChecker, InconsistencyReport, InconsistencyType,
-    ConflictResolver, ResolutionStrategy, ResolutionResult, CandidateValue,
-    SystemInvariants, InvariantType, InvariantViolation,
+    CandidateValue, CoherenceChecker, CoherenceMetrics, ConflictResolver, ConsistencyChecker,
+    InconsistencyReport, InconsistencyType, InvariantType, InvariantViolation, ResolutionResult,
+    ResolutionStrategy, SystemInvariants, WriteRejection,
 };
 
 // ============================================================================
@@ -119,7 +118,11 @@ fn test_check_invariant_all_types_return_ok() {
         InvariantType::Conservation,
     ] {
         let result = checker.check_invariant(*inv).unwrap();
-        assert!(result.is_none(), "Invariant {:?} should pass with no data", inv);
+        assert!(
+            result.is_none(),
+            "Invariant {:?} should pass with no data",
+            inv
+        );
     }
 }
 
@@ -333,7 +336,9 @@ fn test_resolve_by_recency_single_candidate() {
         timestamp: 100,
         confidence: 0.9,
     }];
-    let result = resolver.resolve_by_recency(&inconsistency, candidates).unwrap();
+    let result = resolver
+        .resolve_by_recency(&inconsistency, candidates)
+        .unwrap();
     assert!(result.success);
     assert_eq!(result.chosen_value, Some(serde_json::json!("only_value")));
 }
@@ -361,7 +366,9 @@ fn test_resolve_by_recency_equal_timestamps_picks_first_max() {
             confidence: 0.9,
         },
     ];
-    let result = resolver.resolve_by_recency(&inconsistency, candidates).unwrap();
+    let result = resolver
+        .resolve_by_recency(&inconsistency, candidates)
+        .unwrap();
     assert!(result.success);
     // max_by_key returns the last element on ties, so B wins
     assert_eq!(result.chosen_value, Some(serde_json::json!("B")));
@@ -390,7 +397,9 @@ fn test_resolve_by_confidence_equal_scores() {
             confidence: 0.8, // same confidence
         },
     ];
-    let result = resolver.resolve_by_confidence(&inconsistency, candidates).unwrap();
+    let result = resolver
+        .resolve_by_confidence(&inconsistency, candidates)
+        .unwrap();
     assert!(result.success);
     // max_by on equal f64 values returns the second argument (last)
     assert_eq!(result.chosen_value, Some(serde_json::json!("Y")));
@@ -408,18 +417,26 @@ fn test_resolve_by_consensus_unanimous() {
     let candidates = vec![
         CandidateValue {
             value: serde_json::json!("same"),
-            source: "a".to_string(), timestamp: 1, confidence: 0.5,
+            source: "a".to_string(),
+            timestamp: 1,
+            confidence: 0.5,
         },
         CandidateValue {
             value: serde_json::json!("same"),
-            source: "b".to_string(), timestamp: 2, confidence: 0.5,
+            source: "b".to_string(),
+            timestamp: 2,
+            confidence: 0.5,
         },
         CandidateValue {
             value: serde_json::json!("same"),
-            source: "c".to_string(), timestamp: 3, confidence: 0.5,
+            source: "c".to_string(),
+            timestamp: 3,
+            confidence: 0.5,
         },
     ];
-    let result = resolver.resolve_by_consensus(&inconsistency, candidates).unwrap();
+    let result = resolver
+        .resolve_by_consensus(&inconsistency, candidates)
+        .unwrap();
     assert!(result.success);
     assert_eq!(result.chosen_value, Some(serde_json::json!("same")));
 }
@@ -436,22 +453,32 @@ fn test_resolve_by_consensus_tie_breaker_picks_first_max() {
     let candidates = vec![
         CandidateValue {
             value: serde_json::json!("A"),
-            source: "a".to_string(), timestamp: 1, confidence: 0.5,
+            source: "a".to_string(),
+            timestamp: 1,
+            confidence: 0.5,
         },
         CandidateValue {
             value: serde_json::json!("A"),
-            source: "b".to_string(), timestamp: 2, confidence: 0.5,
+            source: "b".to_string(),
+            timestamp: 2,
+            confidence: 0.5,
         },
         CandidateValue {
             value: serde_json::json!("B"),
-            source: "c".to_string(), timestamp: 3, confidence: 0.5,
+            source: "c".to_string(),
+            timestamp: 3,
+            confidence: 0.5,
         },
         CandidateValue {
             value: serde_json::json!("B"),
-            source: "d".to_string(), timestamp: 4, confidence: 0.5,
+            source: "d".to_string(),
+            timestamp: 4,
+            confidence: 0.5,
         },
     ];
-    let result = resolver.resolve_by_consensus(&inconsistency, candidates).unwrap();
+    let result = resolver
+        .resolve_by_consensus(&inconsistency, candidates)
+        .unwrap();
     assert!(result.success);
     // 2 votes each for A and B, HashMap iteration order non-deterministic
     // Either A or B can win depending on iteration order
@@ -580,7 +607,7 @@ fn test_validate_all_with_conservation_and_cycle() {
     invariants.record_entity_creation("e1");
     invariants.record_entity_deletion("e1");
     invariants.record_entity_deletion("e1"); // 1 create, 2 deletes
-    // Add cycle
+                                             // Add cycle
     invariants.add_symbolic_edge("X", "Y");
     invariants.add_symbolic_edge("Y", "X");
     let violations = invariants.validate_all().unwrap();
@@ -623,7 +650,11 @@ fn test_validate_specific_all_variants() {
     ];
     for variant in &variants {
         let result = invariants.validate_specific(*variant).unwrap();
-        assert!(result.is_none(), "{:?} should pass with empty data", variant);
+        assert!(
+            result.is_none(),
+            "{:?} should pass with empty data",
+            variant
+        );
     }
 }
 

@@ -7,10 +7,10 @@
 //   health_aggregation():  < 5ms
 //   decision_evaluate():   < 1ms
 
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use hipcortex::self_model::{
-    DecisionEngine, DecisionContext, HealthAggregator, ModuleHealth,
-    ResourceMonitor, ResourceUsage, PerformanceTracker, OperationOutcome,
+    DecisionContext, DecisionEngine, HealthAggregator, ModuleHealth, OperationOutcome,
+    PerformanceTracker, ResourceMonitor, ResourceUsage,
 };
 use std::time::{Duration, Instant};
 
@@ -23,17 +23,19 @@ fn bench_can_execute(c: &mut Criterion) {
     group.bench_function("single_operation", |b| {
         let mut engine = DecisionEngine::new();
         let resources = ResourceUsage {
-            cpu_percent: 30.0, memory_mb: 512.0,
-            disk_io_mbps: 10.0, network_io_mbps: 5.0,
+            cpu_percent: 30.0,
+            memory_mb: 512.0,
+            disk_io_mbps: 10.0,
+            network_io_mbps: 5.0,
             timestamp: Instant::now(),
         };
         let context = DecisionContext {
-            priority: 0.7, deadline: None,
-            user_facing: true, cascading_impact: false,
+            priority: 0.7,
+            deadline: None,
+            user_facing: true,
+            cascading_impact: false,
         };
-        b.iter(|| {
-            engine.evaluate("test_op", context.clone(), 0.9, resources.clone(), 0.85)
-        });
+        b.iter(|| engine.evaluate("test_op", context.clone(), 0.9, resources.clone(), 0.85));
     });
 
     // Scalability: many operations in sequence
@@ -44,23 +46,27 @@ fn bench_can_execute(c: &mut Criterion) {
             |b, &n| {
                 let mut engine = DecisionEngine::new();
                 let resources = ResourceUsage {
-                    cpu_percent: 30.0, memory_mb: 512.0,
-                    disk_io_mbps: 10.0, network_io_mbps: 5.0,
+                    cpu_percent: 30.0,
+                    memory_mb: 512.0,
+                    disk_io_mbps: 10.0,
+                    network_io_mbps: 5.0,
                     timestamp: Instant::now(),
                 };
                 let context = DecisionContext {
-                    priority: 0.7, deadline: None,
-                    user_facing: true, cascading_impact: false,
+                    priority: 0.7,
+                    deadline: None,
+                    user_facing: true,
+                    cascading_impact: false,
                 };
                 b.iter(|| {
                     for i in 0..n {
-                        criterion::black_box(
-                            engine.evaluate(
-                                &format!("op_{}", i),
-                                context.clone(), 0.9,
-                                resources.clone(), 0.85,
-                            )
-                        );
+                        criterion::black_box(engine.evaluate(
+                            &format!("op_{}", i),
+                            context.clone(),
+                            0.9,
+                            resources.clone(),
+                            0.85,
+                        ));
                     }
                 });
             },
@@ -108,13 +114,16 @@ fn bench_resource_monitor(c: &mut Criterion) {
         let mut monitor = ResourceMonitor::new();
         // Pre-populate
         for i in 0..100 {
-            let _ = monitor.record("search", ResourceUsage {
-                cpu_percent: 20.0 + i as f64 * 0.1,
-                memory_mb: 200.0 + i as f64,
-                disk_io_mbps: 5.0,
-                network_io_mbps: 2.0,
-                timestamp: Instant::now(),
-            });
+            let _ = monitor.record(
+                "search",
+                ResourceUsage {
+                    cpu_percent: 20.0 + i as f64 * 0.1,
+                    memory_mb: 200.0 + i as f64,
+                    disk_io_mbps: 5.0,
+                    network_io_mbps: 2.0,
+                    timestamp: Instant::now(),
+                },
+            );
         }
         b.iter(|| {
             criterion::black_box(monitor.predict("search"));
@@ -145,7 +154,8 @@ fn bench_performance_tracker(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches,
+criterion_group!(
+    benches,
     bench_can_execute,
     bench_health_aggregation,
     bench_resource_monitor,

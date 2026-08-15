@@ -1,0 +1,160 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 2,
+  "filesSkipped": [],
+  "analysisOutcomes": {
+    "structure": {
+      "succeeded": 2,
+      "failed": 0
+    },
+    "callGraph": {
+      "succeeded": 0,
+      "failed": 0,
+      "skipped": 2
+    }
+  },
+  "results": [
+    {
+      "path": "AGENTS.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 43,
+      "nonEmptyLines": 32,
+      "sections": [
+        {
+          "heading": "GitNexus — Code Intelligence",
+          "level": 1,
+          "line": 2
+        },
+        {
+          "heading": "Always Do",
+          "level": 2,
+          "line": 8
+        },
+        {
+          "heading": "Never Do",
+          "level": 2,
+          "line": 16
+        },
+        {
+          "heading": "Resources",
+          "level": 2,
+          "line": 23
+        },
+        {
+          "heading": "CLI",
+          "level": 2,
+          "line": 32
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 5
+      }
+    },
+    {
+      "path": "CLAUDE.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 184,
+      "nonEmptyLines": 130,
+      "sections": [
+        {
+          "heading": "CLAUDE.md",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Project",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "Build / Test / Run Commands",
+          "level": 2,
+          "line": 9
+        },
+        {
+          "heading": "Architecture",
+          "level": 2,
+          "line": 69
+        },
+        {
+          "heading": "Two-layer design",
+          "level": 3,
+          "line": 71
+        },
+        {
+          "heading": "Crate layout (the parts you can't infer from `ls`)",
+          "level": 3,
+          "line": 76
+        },
+        {
+          "heading": "Memory model",
+          "level": 3,
+          "line": 84
+        },
+        {
+          "heading": "Subsystem responsibilities",
+          "level": 3,
+          "line": 90
+        },
+        {
+          "heading": "Optional surfaces",
+          "level": 3,
+          "line": 104
+        },
+        {
+          "heading": "Testing layout",
+          "level": 2,
+          "line": 113
+        },
+        {
+          "heading": "Conventions specific to this repo",
+          "level": 2,
+          "line": 125
+        },
+        {
+          "heading": "Reference docs in-repo",
+          "level": 2,
+          "line": 134
+        },
+        {
+          "heading": "GitNexus — Code Intelligence",
+          "level": 1,
+          "line": 143
+        },
+        {
+          "heading": "Always Do",
+          "level": 2,
+          "line": 149
+        },
+        {
+          "heading": "Never Do",
+          "level": 2,
+          "line": 157
+        },
+        {
+          "heading": "Resources",
+          "level": 2,
+          "line": 164
+        },
+        {
+          "heading": "CLI",
+          "level": 2,
+          "line": 173
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 17
+      }
+    }
+  ]
+}

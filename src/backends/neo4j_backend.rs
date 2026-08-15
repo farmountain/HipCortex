@@ -56,7 +56,11 @@ impl GraphDatabase for Neo4jBackend {
                         }
                     }
                 }
-                return Some(SymbolicNode { id: node_id, label, properties: props });
+                return Some(SymbolicNode {
+                    id: node_id,
+                    label,
+                    properties: props,
+                });
             }
             None
         })
@@ -70,30 +74,35 @@ impl GraphDatabase for Neo4jBackend {
             format!("MATCH (a {{id: $id}})-[:{}]->(b) RETURN b", rel_clause)
         };
         let q = query(&rel_query).param("id", node_id.to_string());
-        self.rt.block_on(async {
-            let mut result = self.graph.execute(q).await.ok()?;
-            let mut out = Vec::new();
-            while let Some(row) = result.next().await.ok().flatten() {
-                let node: Node = row.get("b").ok()?;
-                let mut props = HashMap::new();
-                for key in node.keys() {
-                    if key != "id" && key != "label" {
-                        if let Ok(val) = node.get::<String>(key) {
-                            props.insert(key.to_string(), val);
+        self.rt
+            .block_on(async {
+                let mut result = self.graph.execute(q).await.ok()?;
+                let mut out = Vec::new();
+                while let Some(row) = result.next().await.ok().flatten() {
+                    let node: Node = row.get("b").ok()?;
+                    let mut props = HashMap::new();
+                    for key in node.keys() {
+                        if key != "id" && key != "label" {
+                            if let Ok(val) = node.get::<String>(key) {
+                                props.insert(key.to_string(), val);
+                            }
                         }
                     }
+                    let label: String = node.get("label").unwrap_or_default();
+                    let id = node
+                        .get::<String>("id")
+                        .ok()
+                        .and_then(|s| Uuid::parse_str(&s).ok())
+                        .unwrap_or_else(Uuid::new_v4);
+                    out.push(SymbolicNode {
+                        id,
+                        label,
+                        properties: props,
+                    });
                 }
-                let label: String = node.get("label").unwrap_or_default();
-                let id = node
-                    .get::<String>("id")
-                    .ok()
-                    .and_then(|s| Uuid::parse_str(&s).ok())
-                    .unwrap_or_else(Uuid::new_v4);
-                out.push(SymbolicNode { id, label, properties: props });
-            }
-            Some(out)
-        })
-        .unwrap_or_default()
+                Some(out)
+            })
+            .unwrap_or_default()
     }
 
     fn edges_from(&self, _node_id: Uuid, _relation: Option<&str>) -> Vec<SymbolicEdge> {

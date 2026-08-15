@@ -1,11 +1,27 @@
 #[cfg(feature = "web-server")]
-use crate::symbolic_store::{InMemoryGraph, SymbolicStore};
+use crate::archive_store::ArchiveStore;
+#[cfg(feature = "web-server")]
+use crate::aureus_bridge::AureusBridge;
+#[cfg(feature = "web-server")]
+use crate::coherence::CoherenceChecker;
+#[cfg(feature = "web-server")]
+use crate::consolidation::{compute_pressure, consolidate, ConsolidationConfig};
 #[cfg(feature = "web-server")]
 use crate::memory_record::{MemoryRecord, MemoryType};
 #[cfg(feature = "web-server")]
 use crate::memory_store::MemoryStore;
 #[cfg(feature = "web-server")]
+use crate::openapi_spec::OPENAPI_SPEC;
+#[cfg(feature = "web-server")]
 use crate::persistence::MemoryBackend;
+#[cfg(feature = "web-server")]
+use crate::self_model::SelfModel;
+#[cfg(feature = "web-server")]
+use crate::symbolic_store::{InMemoryGraph, SymbolicStore};
+#[cfg(feature = "web-server")]
+use crate::tx_log::TxLog;
+#[cfg(feature = "web-server")]
+use crate::world_model_enhanced::WorldModelEnhanced;
 #[cfg(feature = "web-server")]
 use axum::extract::{Path, Query};
 #[cfg(feature = "web-server")]
@@ -15,33 +31,21 @@ use axum::middleware::{self, Next};
 #[cfg(feature = "web-server")]
 use axum::response::{Html, Response};
 #[cfg(feature = "web-server")]
-use axum::{routing::{delete, get, patch, post}, Json, Router, http::StatusCode};
+use axum::{
+    http::StatusCode,
+    routing::{delete, get, patch, post},
+    Json, Router,
+};
 #[cfg(feature = "web-server")]
-use crate::coherence::CoherenceChecker;
-#[cfg(feature = "web-server")]
-use crate::world_model_enhanced::WorldModelEnhanced;
-#[cfg(feature = "web-server")]
-use crate::aureus_bridge::AureusBridge;
-#[cfg(feature = "web-server")]
-use crate::self_model::SelfModel;
-#[cfg(feature = "web-server")]
-use std::sync::RwLock;
+use serde::{Deserialize, Serialize};
 #[cfg(feature = "web-server")]
 use std::collections::HashMap;
 #[cfg(feature = "web-server")]
 use std::net::SocketAddr;
 #[cfg(feature = "web-server")]
+use std::sync::RwLock;
+#[cfg(feature = "web-server")]
 use std::sync::{Arc, Mutex};
-#[cfg(feature = "web-server")]
-use serde::{Deserialize, Serialize};
-#[cfg(feature = "web-server")]
-use crate::openapi_spec::OPENAPI_SPEC;
-#[cfg(feature = "web-server")]
-use crate::archive_store::ArchiveStore;
-#[cfg(feature = "web-server")]
-use crate::tx_log::TxLog;
-#[cfg(feature = "web-server")]
-use crate::consolidation::{consolidate, compute_pressure, ConsolidationConfig};
 
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
@@ -70,28 +74,34 @@ pub struct CoherenceStatusResponse {
 #[cfg(feature = "web-server")]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ApiTier {
-    Free,   // 10K records/month, no SLA
-    Pro,    // 1M records/month, email support
-    Team,   // unlimited, priority support + GDPR endpoints unlocked
+    Free, // 10K records/month, no SLA
+    Pro,  // 1M records/month, email support
+    Team, // unlimited, priority support + GDPR endpoints unlocked
 }
 
 #[cfg(feature = "web-server")]
 impl ApiTier {
     fn from_str(s: &str) -> Self {
         match s.to_lowercase().as_str() {
-            "pro"  => ApiTier::Pro,
+            "pro" => ApiTier::Pro,
             "team" => ApiTier::Team,
-            _      => ApiTier::Free,
+            _ => ApiTier::Free,
         }
     }
     fn as_str(&self) -> &'static str {
-        match self { ApiTier::Free => "free", ApiTier::Pro => "pro", ApiTier::Team => "team" }
+        match self {
+            ApiTier::Free => "free",
+            ApiTier::Pro => "pro",
+            ApiTier::Team => "team",
+        }
     }
 }
 
 /// Parsed from HIPCORTEX_API_KEYS env var: "key1:free,key2:pro,key3:team"
 #[cfg(feature = "web-server")]
-fn default_priority_str() -> String { "normal".to_string() }
+fn default_priority_str() -> String {
+    "normal".to_string()
+}
 
 #[cfg(feature = "web-server")]
 fn load_api_keys() -> HashMap<String, ApiTier> {
@@ -100,9 +110,13 @@ fn load_api_keys() -> HashMap<String, ApiTier> {
         .split(',')
         .filter_map(|entry| {
             let mut parts = entry.trim().splitn(2, ':');
-            let key  = parts.next()?.to_string();
+            let key = parts.next()?.to_string();
             let tier = parts.next().unwrap_or("free");
-            if key.is_empty() { None } else { Some((key, ApiTier::from_str(tier))) }
+            if key.is_empty() {
+                None
+            } else {
+                Some((key, ApiTier::from_str(tier)))
+            }
         })
         .collect()
 }
@@ -117,7 +131,7 @@ pub struct TierResponse {
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
 pub struct TierLimits {
-    records_per_month: Option<u64>,   // None = unlimited
+    records_per_month: Option<u64>, // None = unlimited
     gdpr_endpoints: bool,
     coherence_endpoints: bool,
     support: String,
@@ -127,20 +141,20 @@ pub struct TierLimits {
 /// Each handler closure Arc-clones only the fields it needs.
 #[cfg(feature = "web-server")]
 pub struct AppState<B: MemoryBackend + Send + Sync + 'static> {
-    pub memory_store:   Arc<Mutex<MemoryStore<B>>>,
+    pub memory_store: Arc<Mutex<MemoryStore<B>>>,
     pub symbolic_store: Arc<Mutex<SymbolicStore<InMemoryGraph>>>,
     /// Dirichlet-Multinomial transitions + Kalman entity tracking + causal DAG
-    pub world_model:    Arc<RwLock<WorldModelEnhanced>>,
+    pub world_model: Arc<RwLock<WorldModelEnhanced>>,
     /// Bayesian reflexion bridge — &mut self in reflexion_loop, so Mutex
-    pub aureus:         Arc<Mutex<AureusBridge>>,
+    pub aureus: Arc<Mutex<AureusBridge>>,
     /// Self-awareness: capability registry, resource monitor, health, decision engine
-    pub self_model:     Arc<SelfModel>,
+    pub self_model: Arc<SelfModel>,
     /// Cross-module consistency checker — persistent, not recreated per request
-    pub coherence:      Arc<CoherenceChecker>,
+    pub coherence: Arc<CoherenceChecker>,
     /// Memory-to-memory relational graph. Nodes use "mem-{uuid}" as symbolic_id.
-    pub topo_graph:     Arc<Mutex<crate::topological_memory::CausalTopoGraph>>,
-    pub archive_store:  Arc<Mutex<ArchiveStore>>,
-    pub tx_log:         Option<Arc<TxLog>>,
+    pub topo_graph: Arc<Mutex<crate::topological_memory::CausalTopoGraph>>,
+    pub archive_store: Arc<Mutex<ArchiveStore>>,
+    pub tx_log: Option<Arc<TxLog>>,
 }
 
 /// Manual Clone: all fields are Arc<…> so clone is a ref-count bump regardless of B.
@@ -148,15 +162,15 @@ pub struct AppState<B: MemoryBackend + Send + Sync + 'static> {
 impl<B: MemoryBackend + Send + Sync + 'static> Clone for AppState<B> {
     fn clone(&self) -> Self {
         Self {
-            memory_store:   self.memory_store.clone(),
+            memory_store: self.memory_store.clone(),
             symbolic_store: self.symbolic_store.clone(),
-            world_model:    self.world_model.clone(),
-            aureus:         self.aureus.clone(),
-            self_model:     self.self_model.clone(),
-            coherence:      self.coherence.clone(),
-            topo_graph:     self.topo_graph.clone(),
-            archive_store:  self.archive_store.clone(),
-            tx_log:         self.tx_log.clone(),
+            world_model: self.world_model.clone(),
+            aureus: self.aureus.clone(),
+            self_model: self.self_model.clone(),
+            coherence: self.coherence.clone(),
+            topo_graph: self.topo_graph.clone(),
+            archive_store: self.archive_store.clone(),
+            tx_log: self.tx_log.clone(),
         }
     }
 }
@@ -233,42 +247,42 @@ pub struct BulkAddResponse {
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
 pub struct UpdateMemoryRequest {
-    target:     Option<String>,
-    action:     Option<String>,
+    target: Option<String>,
+    action: Option<String>,
     confidence: Option<f32>,
-    source:     Option<String>,
-    metadata:   Option<serde_json::Value>,
+    source: Option<String>,
+    metadata: Option<serde_json::Value>,
 }
 
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
 pub struct UpdateMemoryResponse {
-    success:    bool,
-    record_id:  String,
-    version:    u32,
-    error:      Option<String>,
+    success: bool,
+    record_id: String,
+    version: u32,
+    error: Option<String>,
 }
 
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
 pub struct LatestMemoryParams {
-    actor:  Option<String>,
+    actor: Option<String>,
     action: Option<String>,
-    limit:  Option<usize>,
+    limit: Option<usize>,
 }
 
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
 pub struct CreateNodeRequest {
-    label:      String,
+    label: String,
     properties: Option<std::collections::HashMap<String, String>>,
 }
 
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
 pub struct CreateEdgeRequest {
-    from_id:  String,
-    to_id:    String,
+    from_id: String,
+    to_id: String,
     relation: String,
 }
 
@@ -276,8 +290,8 @@ pub struct CreateEdgeRequest {
 #[derive(Serialize, Deserialize)]
 pub struct GraphWriteResponse {
     success: bool,
-    id:      Option<String>,
-    error:   Option<String>,
+    id: Option<String>,
+    error: Option<String>,
 }
 
 /// POST /memory/link — create a directed relational edge between two MemoryRecords.
@@ -286,9 +300,9 @@ pub struct GraphWriteResponse {
 #[derive(Serialize, Deserialize)]
 pub struct MemoryLinkRequest {
     #[serde(alias = "source_id")]
-    pub from_id:  String,  // MemoryRecord UUID
+    pub from_id: String, // MemoryRecord UUID
     #[serde(alias = "target_id")]
-    pub to_id:    String,  // MemoryRecord UUID
+    pub to_id: String, // MemoryRecord UUID
     #[serde(default = "default_link_relation")]
     pub relation: String,
 }
@@ -301,13 +315,13 @@ fn default_link_relation() -> String {
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
 pub struct MemoryNeighborsResponse {
-    pub id:           String,
+    pub id: String,
     /// Outgoing edges ("this memory supports/caused/follows these")
-    pub neighbors:    Vec<String>,
+    pub neighbors: Vec<String>,
     /// Incoming edges ("these memories support/caused/led to this one")
-    pub incoming:     Vec<String>,
-    pub records:      Vec<crate::memory_record::MemoryRecord>,
-    pub total:        usize,
+    pub incoming: Vec<String>,
+    pub records: Vec<crate::memory_record::MemoryRecord>,
+    pub total: usize,
 }
 
 /// GET /memory/search/related — find memories related to a seed by Personalized PageRank.
@@ -332,9 +346,9 @@ pub struct GraphSearchParams {
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
 pub struct ConsolidateParams {
-    actor:     Option<String>,
-    threshold: Option<f64>,  // keyword similarity threshold [0.0, 1.0], default 0.8
-    dry_run:   Option<bool>, // if true, show what would be merged without writing
+    actor: Option<String>,
+    threshold: Option<f64>, // keyword similarity threshold [0.0, 1.0], default 0.8
+    dry_run: Option<bool>,  // if true, show what would be merged without writing
 }
 
 /// POST /memory/ingest — zero-config smart memory ingest.
@@ -356,17 +370,17 @@ pub struct IngestRequest {
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
 pub struct IngestResponse {
-    pub record_id:      String,
-    pub record_type:    String,
-    pub priority:       String,
-    pub tags:           Vec<String>,
-    pub ttl_seconds:    Option<u64>,
-    pub confidence:     f32,
-    pub actor:          String,
-    pub action:         String,
-    pub target:         String,
+    pub record_id: String,
+    pub record_type: String,
+    pub priority: String,
+    pub tags: Vec<String>,
+    pub ttl_seconds: Option<u64>,
+    pub confidence: f32,
+    pub actor: String,
+    pub action: String,
+    pub target: String,
     pub working_memory: bool,
-    pub warning:        Option<serde_json::Value>,
+    pub warning: Option<serde_json::Value>,
 }
 
 /// POST /memory/embed — auto-generate embedding then store memory.
@@ -415,7 +429,7 @@ pub struct AddMemoryResponse {
     success: bool,
     record_id: Option<String>,
     error: Option<String>,
-    warning: Option<serde_json::Value>,  // possible contradiction detected
+    warning: Option<serde_json::Value>, // possible contradiction detected
 }
 
 #[cfg(feature = "web-server")]
@@ -428,9 +442,9 @@ pub struct QueryMemoryParams {
     action: Option<String>,
     record_type: Option<String>,
     limit: Option<usize>,
-    tags:     Option<String>,    // comma-separated tags filter e.g. "bug,architecture"
-    priority: Option<String>,    // filter by priority
-    as_of:    Option<String>,    // ISO 8601 timestamp — return records with timestamp <= as_of
+    tags: Option<String>, // comma-separated tags filter e.g. "bug,architecture"
+    priority: Option<String>, // filter by priority
+    as_of: Option<String>, // ISO 8601 timestamp — return records with timestamp <= as_of
     /// If "true", include quarantined records. Default: exclude quarantine.
     include_quarantined: Option<String>,
     /// If "true", include records whose `expires_at` is in the past.
@@ -449,28 +463,28 @@ pub struct QueryMemoryResponse {
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
 pub struct MemoryRecordResponse {
-    pub id:          String,
+    pub id: String,
     pub record_type: String,
-    pub timestamp:   String,
-    pub actor:       String,
-    pub action:      String,
-    pub target:      String,
-    pub metadata:    serde_json::Value,
-    pub integrity:   Option<String>,
+    pub timestamp: String,
+    pub actor: String,
+    pub action: String,
+    pub target: String,
+    pub metadata: serde_json::Value,
+    pub integrity: Option<String>,
     /// Reliability signal [0.0, 1.0]. Use to filter low-confidence memories before injection.
-    pub confidence:  f32,
+    pub confidence: f32,
     /// Who or what wrote this memory (e.g. "user-input", "claude-3-7").
-    pub source:      Option<String>,
+    pub source: Option<String>,
     /// "pinned" | "high" | "normal" | "low". Pinned bypasses decay.
-    pub priority:    String,
+    pub priority: String,
     /// Domain tags for RAG filtering (e.g. ["database", "auth"]).
-    pub tags:        Vec<String>,
+    pub tags: Vec<String>,
     /// Update counter. 0 = original. Increments on PATCH /memory/update/:id.
-    pub version:     u32,
+    pub version: u32,
     /// "active" | "quarantine" | "archived".
-    pub status:      String,
+    pub status: String,
     /// Unix timestamp when record expires. None = never expires.
-    pub expires_at:  Option<i64>,
+    pub expires_at: Option<i64>,
 }
 
 #[cfg(feature = "web-server")]
@@ -509,15 +523,15 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     state: AppState<B>,
 ) {
     // ── Unpack state into locals so closures can capture by value ─────────
-    let symbolic_store  = state.symbolic_store.clone();
-    let memory_store    = state.memory_store.clone();
-    let world_model     = state.world_model.clone();
-    let aureus          = state.aureus.clone();
-    let self_model_arc  = state.self_model.clone();
-    let coherence_arc   = state.coherence.clone();
-    let topo_arc        = state.topo_graph.clone();
-    let archive_store   = state.archive_store.clone();
-    let tx_log_arc      = state.tx_log.clone();
+    let symbolic_store = state.symbolic_store.clone();
+    let memory_store = state.memory_store.clone();
+    let world_model = state.world_model.clone();
+    let aureus = state.aureus.clone();
+    let self_model_arc = state.self_model.clone();
+    let coherence_arc = state.coherence.clone();
+    let topo_arc = state.topo_graph.clone();
+    let archive_store = state.archive_store.clone();
+    let tx_log_arc = state.tx_log.clone();
 
     // ── Symbolic store routes ─────────────────────────────────────────────
     let graph_route = {
@@ -579,9 +593,9 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     let forget_route = {
         let ms = memory_store.clone();
         let ss = symbolic_store.clone();
-        delete(move |Path(actor): Path<String>| async move {
-            handle_forget_actor(ms, ss, actor).await
-        })
+        delete(
+            move |Path(actor): Path<String>| async move { handle_forget_actor(ms, ss, actor).await },
+        )
     };
 
     // Embed and add: POST /memory/embed
@@ -595,7 +609,10 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     // Coherence status: GET /coherence/status
     let coherence_route = {
         let c = coherence_arc.clone();
-        get(move || { let cc = c.clone(); async move { handle_coherence_status(cc).await } })
+        get(move || {
+            let cc = c.clone();
+            async move { handle_coherence_status(cc).await }
+        })
     };
 
     // Live stats: GET /stats
@@ -623,9 +640,11 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     // PATCH /memory/update/:id — versioned in-place update
     let update_route = {
         let store = memory_store.clone();
-        patch(move |Path(id): Path<String>, Json(req): Json<UpdateMemoryRequest>| async move {
-            handle_update_memory(store, id, Json(req)).await
-        })
+        patch(
+            move |Path(id): Path<String>, Json(req): Json<UpdateMemoryRequest>| async move {
+                handle_update_memory(store, id, Json(req)).await
+            },
+        )
     };
 
     // GET /memory/latest — most recent unique fact per (actor, action)
@@ -638,11 +657,17 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
 
     let audit_verify_route = {
         let store = memory_store.clone();
-        get(move || { let s = store.clone(); async move { handle_audit_verify(s).await } })
+        get(move || {
+            let s = store.clone();
+            async move { handle_audit_verify(s).await }
+        })
     };
     let audit_export_route = {
         let store = memory_store.clone();
-        get(move || { let s = store.clone(); async move { handle_audit_export(s).await } })
+        get(move || {
+            let s = store.clone();
+            async move { handle_audit_export(s).await }
+        })
     };
 
     let create_node_route = {
@@ -659,9 +684,7 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     };
     let delete_node_route = {
         let ss = symbolic_store.clone();
-        delete(move |Path(id): Path<String>| async move {
-            handle_delete_node(ss, id).await
-        })
+        delete(move |Path(id): Path<String>| async move { handle_delete_node(ss, id).await })
     };
     let graph_search_route = {
         let ss = symbolic_store.clone();
@@ -677,8 +700,8 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     };
 
     let memory_link_route: axum::routing::MethodRouter = {
-        let ms  = memory_store.clone();
-        let tg  = topo_arc.clone();
+        let ms = memory_store.clone();
+        let tg = topo_arc.clone();
         post(move |Json(req): Json<MemoryLinkRequest>| {
             let ms2 = ms.clone();
             let tg2 = tg.clone();
@@ -688,9 +711,7 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     let memory_neighbors_route: axum::routing::MethodRouter = {
         let tg = topo_arc.clone();
         let ms = memory_store.clone();
-        get(move |Path(id): Path<String>| async move {
-            handle_memory_neighbors(tg, ms, id).await
-        })
+        get(move |Path(id): Path<String>| async move { handle_memory_neighbors(tg, ms, id).await })
     };
 
     let memory_search_related_route: axum::routing::MethodRouter = {
@@ -711,19 +732,31 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
 
     let quarantine_route = {
         let store = memory_store.clone();
-        post(move |Path(id): Path<String>| { let s = store.clone(); async move { handle_quarantine_memory(s, id).await } })
+        post(move |Path(id): Path<String>| {
+            let s = store.clone();
+            async move { handle_quarantine_memory(s, id).await }
+        })
     };
     let restore_route = {
         let store = memory_store.clone();
-        post(move |Path(id): Path<String>| { let s = store.clone(); async move { handle_restore_memory(s, id).await } })
+        post(move |Path(id): Path<String>| {
+            let s = store.clone();
+            async move { handle_restore_memory(s, id).await }
+        })
     };
     let corroborate_route = {
         let store = memory_store.clone();
-        post(move |Path(id): Path<String>| { let s = store.clone(); async move { handle_corroborate(s, id).await } })
+        post(move |Path(id): Path<String>| {
+            let s = store.clone();
+            async move { handle_corroborate(s, id).await }
+        })
     };
     let contradict_route = {
         let store = memory_store.clone();
-        post(move |Path(id): Path<String>| { let s = store.clone(); async move { handle_contradict(s, id).await } })
+        post(move |Path(id): Path<String>| {
+            let s = store.clone();
+            async move { handle_contradict(s, id).await }
+        })
     };
     let context_route = {
         let store = memory_store.clone();
@@ -747,20 +780,26 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
 
     let delete_memory_route = {
         let ms = memory_store.clone();
-        delete(move |Path(id): Path<String>| async move {
-            handle_delete_memory(ms, Path(id)).await
-        })
+        delete(
+            move |Path(id): Path<String>| async move { handle_delete_memory(ms, Path(id)).await },
+        )
     };
 
     let metrics_route = {
         let store = memory_store.clone();
-        get(move || { let s = store.clone(); async move { handle_prometheus_metrics(s).await } })
+        get(move || {
+            let s = store.clone();
+            async move { handle_prometheus_metrics(s).await }
+        })
     };
 
     // ── Intelligence routes (filled in Tasks 5-8) ────────────────────────
     let wm_states_route = {
         let wm = world_model.clone();
-        get(move || { let w = wm.clone(); async move { handle_wm_states(w).await } })
+        get(move || {
+            let w = wm.clone();
+            async move { handle_wm_states(w).await }
+        })
     };
     let wm_transitions_route = {
         let wm = world_model.clone();
@@ -770,7 +809,10 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     };
     let wm_uncertainty_route = {
         let wm = world_model.clone();
-        get(move || { let w = wm.clone(); async move { handle_wm_uncertainty(w).await } })
+        get(move || {
+            let w = wm.clone();
+            async move { handle_wm_uncertainty(w).await }
+        })
     };
     let wm_observe_route = {
         let wm = world_model.clone();
@@ -790,7 +832,10 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     };
     let wm_entities_route = {
         let wm = world_model.clone();
-        get(move || { let w = wm.clone(); async move { handle_wm_entities(w).await } })
+        get(move || {
+            let w = wm.clone();
+            async move { handle_wm_entities(w).await }
+        })
     };
     let wm_entity_route = {
         let wm = world_model.clone();
@@ -800,7 +845,10 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     };
     let wm_causal_route = {
         let wm = world_model.clone();
-        get(move || { let w = wm.clone(); async move { handle_wm_causal(w).await } })
+        get(move || {
+            let w = wm.clone();
+            async move { handle_wm_causal(w).await }
+        })
     };
     let wm_intervention_route = {
         let wm = world_model.clone();
@@ -823,11 +871,17 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     };
     let memory_hypotheses_route = {
         let au = aureus.clone();
-        get(move || { let a = au.clone(); async move { handle_memory_hypotheses(a).await } })
+        get(move || {
+            let a = au.clone();
+            async move { handle_memory_hypotheses(a).await }
+        })
     };
     let self_health_route = {
         let sm = self_model_arc.clone();
-        get(move || { let s = sm.clone(); async move { handle_self_health(s).await } })
+        get(move || {
+            let s = sm.clone();
+            async move { handle_self_health(s).await }
+        })
     };
     let app = Router::new()
         .route("/", get(|| async { axum::response::Redirect::permanent("/pricing") }))
@@ -1004,8 +1058,7 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     {
         let eviction_store = memory_store.clone();
         tokio::spawn(async move {
-            let mut interval =
-                tokio::time::interval(tokio::time::Duration::from_secs(300));
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(300));
             loop {
                 interval.tick().await;
                 if let Ok(mut ms) = eviction_store.lock() {
@@ -1028,7 +1081,10 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
                 match coherence_bg.check_consistency() {
                     Ok(reports) => {
                         if !reports.is_empty() {
-                            eprintln!("[CoherenceChecker] {} inconsistencies detected", reports.len());
+                            eprintln!(
+                                "[CoherenceChecker] {} inconsistencies detected",
+                                reports.len()
+                            );
                         }
                     }
                     Err(e) => eprintln!("[CoherenceChecker] check_consistency error: {}", e),
@@ -1066,14 +1122,20 @@ pub async fn run_with_store(addr: SocketAddr, store: Arc<Mutex<SymbolicStore<InM
         })
     };
     let app = Router::new()
-        .route("/", get(|| async { axum::response::Redirect::permanent("/pricing") }))
-        .route("/health", get(|| async {
-    axum::Json(serde_json::json!({
-        "service": "hipcortex",
-        "version": env!("CARGO_PKG_VERSION"),
-        "status": "ok"
-    }))
-}))
+        .route(
+            "/",
+            get(|| async { axum::response::Redirect::permanent("/pricing") }),
+        )
+        .route(
+            "/health",
+            get(|| async {
+                axum::Json(serde_json::json!({
+                    "service": "hipcortex",
+                    "version": env!("CARGO_PKG_VERSION"),
+                    "status": "ok"
+                }))
+            }),
+        )
         .route("/graph", graph_route)
         .route("/node/:id", node_route);
     axum::Server::bind(&addr)
@@ -1094,18 +1156,18 @@ lazy_static::lazy_static! {
 #[cfg(feature = "web-server")]
 #[derive(Clone, Serialize, Deserialize)]
 pub struct RegulatoryHoldRequest {
-    pub actor:  String,
+    pub actor: String,
     pub reason: String,
-    pub until:  Option<String>,
+    pub until: Option<String>,
 }
 
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
 pub struct RegulatoryHoldResponse {
-    actor:   String,
-    held:    bool,
-    reason:  String,
-    until:   Option<String>,
+    actor: String,
+    held: bool,
+    reason: String,
+    until: Option<String>,
     message: String,
 }
 
@@ -1113,9 +1175,9 @@ pub struct RegulatoryHoldResponse {
 async fn handle_set_regulatory_hold(
     Json(req): Json<RegulatoryHoldRequest>,
 ) -> Json<RegulatoryHoldResponse> {
-    let actor  = req.actor.clone();
+    let actor = req.actor.clone();
     let reason = req.reason.clone();
-    let until  = req.until.clone();
+    let until = req.until.clone();
     if let Ok(mut holds) = REGULATORY_HOLDS.lock() {
         holds.retain(|h| h.actor != actor);
         holds.push(req);
@@ -1130,9 +1192,7 @@ async fn handle_set_regulatory_hold(
 }
 
 #[cfg(feature = "web-server")]
-async fn handle_release_regulatory_hold(
-    Path(actor): Path<String>,
-) -> Json<serde_json::Value> {
+async fn handle_release_regulatory_hold(Path(actor): Path<String>) -> Json<serde_json::Value> {
     if let Ok(mut holds) = REGULATORY_HOLDS.lock() {
         let before = holds.len();
         holds.retain(|h| h.actor != actor);
@@ -1145,7 +1205,10 @@ async fn handle_release_regulatory_hold(
 
 #[cfg(feature = "web-server")]
 async fn handle_list_regulatory_holds() -> Json<serde_json::Value> {
-    let holds = REGULATORY_HOLDS.lock().map(|h| h.clone()).unwrap_or_default();
+    let holds = REGULATORY_HOLDS
+        .lock()
+        .map(|h| h.clone())
+        .unwrap_or_default();
     let total = holds.len();
     Json(serde_json::json!({"holds": holds, "total": total}))
 }
@@ -1164,7 +1227,7 @@ async fn handle_list_namespaces() -> Json<serde_json::Value> {
 pub struct WebhookRegistration {
     pub id: String,
     pub url: String,
-    pub events: Vec<String>,  // ["memory.added", "memory.deleted", "memory.updated"]
+    pub events: Vec<String>, // ["memory.added", "memory.deleted", "memory.updated"]
 }
 
 #[cfg(feature = "web-server")]
@@ -1187,16 +1250,20 @@ pub struct RegisterWebhookResponse {
 fn fire_webhook(event: &str, payload: serde_json::Value) {
     if let Ok(hooks) = WEBHOOKS.lock() {
         let event_str = event.to_string();
-        let matching: Vec<String> = hooks.iter()
+        let matching: Vec<String> = hooks
+            .iter()
             .filter(|h| h.events.contains(&event_str) || h.events.contains(&"*".to_string()))
             .map(|h| h.url.clone())
             .collect();
-        if matching.is_empty() { return; }
+        if matching.is_empty() {
+            return;
+        }
         let body = serde_json::json!({"event": event, "data": payload});
         tokio::spawn(async move {
             let client = reqwest::Client::new();
             for url in matching {
-                let _ = client.post(&url)
+                let _ = client
+                    .post(&url)
                     .json(&body)
                     .timeout(std::time::Duration::from_secs(5))
                     .send()
@@ -1211,9 +1278,9 @@ fn fire_webhook(event: &str, payload: serde_json::Value) {
 #[cfg(feature = "web-server")]
 fn check_meter_limit(key: &str, tier: &ApiTier) -> bool {
     let limit = match tier {
-        ApiTier::Free  => Some(10_000u64),
-        ApiTier::Pro   => Some(1_000_000u64),
-        ApiTier::Team  => None,
+        ApiTier::Free => Some(10_000u64),
+        ApiTier::Pro => Some(1_000_000u64),
+        ApiTier::Team => None,
     };
     if let Some(max) = limit {
         if let Ok(mut meter) = GLOBAL_METER.lock() {
@@ -1264,7 +1331,10 @@ async fn api_key_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Respons
     // Namespace prefix: /ns/{namespace}/... routes use same auth
     // This is the foundation for full multi-tenancy (Phase 2 implementation)
     let effective_path = if path.starts_with("/ns/") {
-        path.splitn(4, '/').nth(3).map(|p| format!("/{}", p)).unwrap_or_else(|| "/".to_string())
+        path.splitn(4, '/')
+            .nth(3)
+            .map(|p| format!("/{}", p))
+            .unwrap_or_else(|| "/".to_string())
     } else {
         path.to_string()
     };
@@ -1288,12 +1358,17 @@ async fn api_key_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Respons
         header_key
     } else {
         // Parse ?api_key= from query string without external deps
-        req.uri().query()
+        req.uri()
+            .query()
             .and_then(|q| {
                 q.split('&').find_map(|pair| {
                     let mut parts = pair.splitn(2, '=');
                     let key = parts.next()?;
-                    if key == "api_key" { parts.next().map(|v| v.to_string()) } else { None }
+                    if key == "api_key" {
+                        parts.next().map(|v| v.to_string())
+                    } else {
+                        None
+                    }
                 })
             })
             .unwrap_or_default()
@@ -1301,12 +1376,11 @@ async fn api_key_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Respons
 
     let tier = match keys.get(&provided) {
         Some(t) => t,
-        None    => return Err(StatusCode::UNAUTHORIZED),
+        None => return Err(StatusCode::UNAUTHORIZED),
     };
 
     // Enforce write quota on memory write endpoint only
-    let is_write = req.method() == Method::POST
-        && req.uri().path() == "/memory/add";
+    let is_write = req.method() == Method::POST && req.uri().path() == "/memory/add";
     if is_write && check_meter_limit(&provided, tier) {
         return Err(StatusCode::from_u16(429).unwrap()); // 429 Too Many Requests
     }
@@ -1353,7 +1427,10 @@ async fn handle_tier(headers: HeaderMap) -> Json<TierResponse> {
             support: "priority (4h SLA)".to_string(),
         },
     };
-    Json(TierResponse { tier: tier.as_str().to_string(), limits })
+    Json(TierResponse {
+        tier: tier.as_str().to_string(),
+        limits,
+    })
 }
 
 /// POST /memory/search — cosine similarity or keyword search over all stored records.
@@ -1377,10 +1454,15 @@ async fn handle_search_memory<B: MemoryBackend + Send + Sync + 'static>(
         match generate_embedding(model_str, &req.query).await {
             Ok(v) if !v.is_empty() => Some(v),
             Ok(_) => None, // empty = fall back to keyword search
-            Err(_e) => return Err((
-                StatusCode::BAD_GATEWAY,
-                Json(SearchMemoryResponse { results: vec![], total: 0 }),
-            )),
+            Err(_e) => {
+                return Err((
+                    StatusCode::BAD_GATEWAY,
+                    Json(SearchMemoryResponse {
+                        results: vec![],
+                        total: 0,
+                    }),
+                ))
+            }
         }
     } else {
         None
@@ -1401,40 +1483,49 @@ async fn handle_search_memory<B: MemoryBackend + Send + Sync + 'static>(
                 .map(|(r, score)| SearchResult {
                     score,
                     record: MemoryRecordResponse {
-                        id:          r.id.to_string(),
+                        id: r.id.to_string(),
                         record_type: format!("{:?}", r.record_type),
-                        timestamp:   r.timestamp.to_rfc3339(),
-                        actor:       r.actor.clone(),
-                        action:      r.action.clone(),
-                        target:      r.target.clone(),
-                        metadata:    r.metadata.clone(),
-                        integrity:   r.integrity.clone(),
-                        confidence:  r.confidence,
-                        source:      r.source.clone(),
-                        priority:    r.priority.clone(),
-                        tags:        r.tags.clone(),
-                        version:     r.version,
-                        status:      r.status.clone(),
-                        expires_at:  r.expires_at,
+                        timestamp: r.timestamp.to_rfc3339(),
+                        actor: r.actor.clone(),
+                        action: r.action.clone(),
+                        target: r.target.clone(),
+                        metadata: r.metadata.clone(),
+                        integrity: r.integrity.clone(),
+                        confidence: r.confidence,
+                        source: r.source.clone(),
+                        priority: r.priority.clone(),
+                        tags: r.tags.clone(),
+                        version: r.version,
+                        status: r.status.clone(),
+                        expires_at: r.expires_at,
                     },
                 })
                 .collect::<Vec<_>>();
             let response_results = if let Some(max_tok) = req.max_tokens {
                 let max_chars = max_tok * 4;
                 let mut total_chars = 0usize;
-                response_results.into_iter().take_while(|r| {
-                    total_chars += r.record.target.len();
-                    total_chars <= max_chars
-                }).collect::<Vec<_>>()
+                response_results
+                    .into_iter()
+                    .take_while(|r| {
+                        total_chars += r.record.target.len();
+                        total_chars <= max_chars
+                    })
+                    .collect::<Vec<_>>()
             } else {
                 response_results
             };
             let total = response_results.len();
-            Ok(Json(SearchMemoryResponse { results: response_results, total }))
+            Ok(Json(SearchMemoryResponse {
+                results: response_results,
+                total,
+            }))
         }
         Err(_e) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(SearchMemoryResponse { results: vec![], total: 0 }),
+            Json(SearchMemoryResponse {
+                results: vec![],
+                total: 0,
+            }),
         )),
     }
 }
@@ -1472,29 +1563,35 @@ async fn handle_export_memory<B: MemoryBackend + Send + Sync + 'static>(
             let records = ms.all();
             let now_ts = chrono::Utc::now().timestamp();
             let include_expired = params.include_expired.as_deref() == Some("true");
-            let filtered: Vec<_> = records.iter().filter(|r| {
-                params.actor.as_ref().map_or(true, |a| &r.actor == a)
-                    && (include_expired || r.expires_at.map_or(true, |exp| exp > now_ts))
-            }).collect();
-            let json_records: Vec<serde_json::Value> = filtered.iter().map(|r| {
-                serde_json::json!({
-                    "id":          r.id.to_string(),
-                    "record_type": format!("{:?}", r.record_type),
-                    "timestamp":   r.timestamp.to_rfc3339(),
-                    "actor":       r.actor,
-                    "action":      r.action,
-                    "target":      r.target,
-                    "metadata":    r.metadata,
-                    "integrity":   r.integrity,
-                    "confidence":  r.confidence,
-                    "source":      r.source.clone(),
-                    "priority":    r.priority.clone(),
-                    "tags":        r.tags.clone(),
-                    "version":     r.version,
-                    "status":      r.status.clone(),
-                    "expires_at":  r.expires_at,
+            let filtered: Vec<_> = records
+                .iter()
+                .filter(|r| {
+                    params.actor.as_ref().map_or(true, |a| &r.actor == a)
+                        && (include_expired || r.expires_at.map_or(true, |exp| exp > now_ts))
                 })
-            }).collect();
+                .collect();
+            let json_records: Vec<serde_json::Value> = filtered
+                .iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "id":          r.id.to_string(),
+                        "record_type": format!("{:?}", r.record_type),
+                        "timestamp":   r.timestamp.to_rfc3339(),
+                        "actor":       r.actor,
+                        "action":      r.action,
+                        "target":      r.target,
+                        "metadata":    r.metadata,
+                        "integrity":   r.integrity,
+                        "confidence":  r.confidence,
+                        "source":      r.source.clone(),
+                        "priority":    r.priority.clone(),
+                        "tags":        r.tags.clone(),
+                        "version":     r.version,
+                        "status":      r.status.clone(),
+                        "expires_at":  r.expires_at,
+                    })
+                })
+                .collect();
             Ok(Json(serde_json::json!({
                 "records": json_records,
                 "total": json_records.len(),
@@ -1533,11 +1630,16 @@ async fn handle_stats<B: MemoryBackend + Send + Sync + 'static>(
     };
 
     let metering_enabled = !load_api_keys().is_empty();
-    let tier_counts = GLOBAL_METER.lock()
-        .map(|m| m.clone())
-        .unwrap_or_default();
+    let tier_counts = GLOBAL_METER.lock().map(|m| m.clone()).unwrap_or_default();
 
-    Json(StatsResponse { total_records, active_records, by_type, unique_actors, metering_enabled, tier_counts })
+    Json(StatsResponse {
+        total_records,
+        active_records,
+        by_type,
+        unique_actors,
+        metering_enabled,
+        tier_counts,
+    })
 }
 
 /// GET /pricing — static pricing page (HTML)
@@ -1673,7 +1775,9 @@ async fn handle_bulk_add<B: MemoryBackend + Send + Sync + 'static>(
             failed: req.records.len(),
             record_ids: vec![],
             errors: vec![crate::memory_store::BulkAddError {
-                index: 0, actor: String::new(), reason: format!("Lock error: {}", e),
+                index: 0,
+                actor: String::new(),
+                reason: format!("Lock error: {}", e),
             }],
         }),
         Ok(mut ms) => {
@@ -1689,9 +1793,11 @@ async fn handle_bulk_add<B: MemoryBackend + Send + Sync + 'static>(
                 );
                 let id = record.id.to_string();
                 match ms.add(record) {
-                    Ok(_)  => record_ids.push(id),
+                    Ok(_) => record_ids.push(id),
                     Err(e) => errors.push(crate::memory_store::BulkAddError {
-                        index: idx, actor: actor_name, reason: e.to_string(),
+                        index: idx,
+                        actor: actor_name,
+                        reason: e.to_string(),
                     }),
                 }
             }
@@ -1713,8 +1819,8 @@ async fn handle_bulk_add<B: MemoryBackend + Send + Sync + 'static>(
 async fn generate_embedding(model_str: &str, text: &str) -> Result<Vec<f64>, String> {
     if model_str.starts_with("ollama/") {
         let model = &model_str["ollama/".len()..];
-        let ollama_url = std::env::var("OLLAMA_URL")
-            .unwrap_or_else(|_| "http://localhost:11434".to_string());
+        let ollama_url =
+            std::env::var("OLLAMA_URL").unwrap_or_else(|_| "http://localhost:11434".to_string());
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .build()
@@ -1766,16 +1872,23 @@ async fn handle_embed_and_add<B: MemoryBackend + Send + Sync + 'static>(
 ) -> Result<Json<AddMemoryResponse>, (StatusCode, Json<AddMemoryResponse>)> {
     let embedding = match generate_embedding(&req.embedding_model, &req.target).await {
         Ok(v) => v,
-        Err(e) => return Err((
-            StatusCode::BAD_GATEWAY,
-            Json(AddMemoryResponse { success: false, record_id: None, error: Some(e), warning: None }),
-        )),
+        Err(e) => {
+            return Err((
+                StatusCode::BAD_GATEWAY,
+                Json(AddMemoryResponse {
+                    success: false,
+                    record_id: None,
+                    error: Some(e),
+                    warning: None,
+                }),
+            ))
+        }
     };
 
     let record_type = match req.record_type.as_deref() {
-        Some("Symbolic")   => MemoryType::Symbolic,
+        Some("Symbolic") => MemoryType::Symbolic,
         Some("Procedural") => MemoryType::Procedural,
-        Some("Reflexion")  => MemoryType::Reflexion,
+        Some("Reflexion") => MemoryType::Reflexion,
         Some("Perception") => MemoryType::Perception,
         _ => MemoryType::Temporal,
     };
@@ -1788,14 +1901,30 @@ async fn handle_embed_and_add<B: MemoryBackend + Send + Sync + 'static>(
     match store.lock() {
         Ok(mut ms) => match ms.add(record.clone()) {
             Ok(_) => Ok(Json(AddMemoryResponse {
-                success: true, record_id: Some(record.id.to_string()), error: None, warning: None,
+                success: true,
+                record_id: Some(record.id.to_string()),
+                error: None,
+                warning: None,
             })),
-            Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR,
-                Json(AddMemoryResponse { success: false, record_id: None, error: Some(e.to_string()), warning: None }))),
+            Err(e) => Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(AddMemoryResponse {
+                    success: false,
+                    record_id: None,
+                    error: Some(e.to_string()),
+                    warning: None,
+                }),
+            )),
         },
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR,
-            Json(AddMemoryResponse { success: false, record_id: None,
-                error: Some(format!("Lock error: {}", e)), warning: None }))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(AddMemoryResponse {
+                success: false,
+                record_id: None,
+                error: Some(format!("Lock error: {}", e)),
+                warning: None,
+            }),
+        )),
     }
 }
 
@@ -1816,15 +1945,18 @@ async fn handle_search_flat<B: MemoryBackend + Send + Sync + 'static>(
             let memories: Vec<String> = results
                 .into_iter()
                 .filter(|(r, _)| {
-                    r.expires_at.map_or(true, |exp| exp > now_ts) &&
-                    params.actor.as_ref().map_or(true, |a| &r.actor == a)
+                    r.expires_at.map_or(true, |exp| exp > now_ts)
+                        && params.actor.as_ref().map_or(true, |a| &r.actor == a)
                 })
                 .map(|(r, _)| format!("[{}] {}", r.action, r.target))
                 .collect();
             let total = memories.len();
             Json(SearchFlatResponse { memories, total })
         }
-        Err(_) => Json(SearchFlatResponse { memories: vec![], total: 0 }),
+        Err(_) => Json(SearchFlatResponse {
+            memories: vec![],
+            total: 0,
+        }),
     }
 }
 
@@ -1836,13 +1968,17 @@ async fn handle_update_memory<B: MemoryBackend + Send + Sync + 'static>(
 ) -> Result<Json<UpdateMemoryResponse>, (StatusCode, Json<UpdateMemoryResponse>)> {
     let id = match uuid::Uuid::parse_str(&id_str) {
         Ok(u) => u,
-        Err(_) => return Err((
-            StatusCode::BAD_REQUEST,
-            Json(UpdateMemoryResponse {
-                success: false, record_id: id_str,
-                version: 0, error: Some("invalid UUID".to_string()),
-            }),
-        )),
+        Err(_) => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(UpdateMemoryResponse {
+                    success: false,
+                    record_id: id_str,
+                    version: 0,
+                    error: Some("invalid UUID".to_string()),
+                }),
+            ))
+        }
     };
 
     match store.lock() {
@@ -1866,16 +2002,20 @@ async fn handle_update_memory<B: MemoryBackend + Send + Sync + 'static>(
             Err(e) => Err((
                 StatusCode::NOT_FOUND,
                 Json(UpdateMemoryResponse {
-                    success: false, record_id: id.to_string(),
-                    version: 0, error: Some(e.to_string()),
+                    success: false,
+                    record_id: id.to_string(),
+                    version: 0,
+                    error: Some(e.to_string()),
                 }),
             )),
         },
         Err(e) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(UpdateMemoryResponse {
-                success: false, record_id: id_str,
-                version: 0, error: Some(format!("Lock error: {}", e)),
+                success: false,
+                record_id: id_str,
+                version: 0,
+                error: Some(format!("Lock error: {}", e)),
             }),
         )),
     }
@@ -1892,34 +2032,39 @@ async fn handle_latest_memory<B: MemoryBackend + Send + Sync + 'static>(
     let limit = params.limit.unwrap_or(20).min(100);
     match store.lock() {
         Ok(ms) => {
-            let records = ms.find_latest(
-                params.actor.as_deref(),
-                params.action.as_deref(),
-                limit,
-            );
-            let response_records = records.into_iter().map(|r| MemoryRecordResponse {
-                id:          r.id.to_string(),
-                record_type: format!("{:?}", r.record_type),
-                timestamp:   r.timestamp.to_rfc3339(),
-                actor:       r.actor.clone(),
-                action:      r.action.clone(),
-                target:      r.target.clone(),
-                metadata:    r.metadata.clone(),
-                integrity:   r.integrity.clone(),
-                confidence:  r.confidence,
-                source:      r.source.clone(),
-                priority:    r.priority.clone(),
-                tags:        r.tags.clone(),
-                version:     r.version,
-                status:      r.status.clone(),
-                expires_at:  r.expires_at,
-            }).collect::<Vec<_>>();
+            let records = ms.find_latest(params.actor.as_deref(), params.action.as_deref(), limit);
+            let response_records = records
+                .into_iter()
+                .map(|r| MemoryRecordResponse {
+                    id: r.id.to_string(),
+                    record_type: format!("{:?}", r.record_type),
+                    timestamp: r.timestamp.to_rfc3339(),
+                    actor: r.actor.clone(),
+                    action: r.action.clone(),
+                    target: r.target.clone(),
+                    metadata: r.metadata.clone(),
+                    integrity: r.integrity.clone(),
+                    confidence: r.confidence,
+                    source: r.source.clone(),
+                    priority: r.priority.clone(),
+                    tags: r.tags.clone(),
+                    version: r.version,
+                    status: r.status.clone(),
+                    expires_at: r.expires_at,
+                })
+                .collect::<Vec<_>>();
             let total = response_records.len();
-            Ok(Json(QueryMemoryResponse { records: response_records, total }))
+            Ok(Json(QueryMemoryResponse {
+                records: response_records,
+                total,
+            }))
         }
         Err(e) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(QueryMemoryResponse { records: vec![], total: 0 }),
+            Json(QueryMemoryResponse {
+                records: vec![],
+                total: 0,
+            }),
         )),
     }
 }
@@ -1930,26 +2075,25 @@ async fn handle_audit_verify<B: MemoryBackend + Send + Sync + 'static>(
     store: Arc<Mutex<MemoryStore<B>>>,
 ) -> Json<AuditVerifyResponse> {
     match store.lock() {
-        Ok(ms) => {
-            match ms.audit_verify() {
-                Ok((intact, count)) => Json(AuditVerifyResponse {
-                    intact,
-                    entry_count: count,
-                    message: if intact {
-                        format!("Audit log intact — {} entries verified", count)
-                    } else {
-                        "TAMPER DETECTED — Merkle chain broken".to_string()
-                    },
-                }),
-                Err(e) => Json(AuditVerifyResponse {
-                    intact: false,
-                    entry_count: 0,
-                    message: format!("Verification error: {}", e),
-                }),
-            }
-        }
+        Ok(ms) => match ms.audit_verify() {
+            Ok((intact, count)) => Json(AuditVerifyResponse {
+                intact,
+                entry_count: count,
+                message: if intact {
+                    format!("Audit log intact — {} entries verified", count)
+                } else {
+                    "TAMPER DETECTED — Merkle chain broken".to_string()
+                },
+            }),
+            Err(e) => Json(AuditVerifyResponse {
+                intact: false,
+                entry_count: 0,
+                message: format!("Verification error: {}", e),
+            }),
+        },
         Err(e) => Json(AuditVerifyResponse {
-            intact: false, entry_count: 0,
+            intact: false,
+            entry_count: 0,
             message: format!("Lock error: {}", e),
         }),
     }
@@ -1969,7 +2113,7 @@ async fn handle_audit_export<B: MemoryBackend + Send + Sync + 'static>(
                     "total": total,
                     "exported_at": chrono::Utc::now().to_rfc3339(),
                 })))
-            },
+            }
             Err(e) => Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(serde_json::json!({"error": e.to_string()})),
@@ -1991,10 +2135,15 @@ async fn handle_create_node(
         Ok(mut ss) => {
             let props = req.properties.unwrap_or_default();
             let id = ss.add_node(&req.label, props);
-            Json(GraphWriteResponse { success: true, id: Some(id.to_string()), error: None })
+            Json(GraphWriteResponse {
+                success: true,
+                id: Some(id.to_string()),
+                error: None,
+            })
         }
         Err(e) => Json(GraphWriteResponse {
-            success: false, id: None,
+            success: false,
+            id: None,
             error: Some(format!("Lock error: {}", e)),
         }),
     }
@@ -2007,23 +2156,37 @@ async fn handle_create_edge(
 ) -> Json<GraphWriteResponse> {
     let from = match uuid::Uuid::parse_str(&req.from_id) {
         Ok(u) => u,
-        Err(_) => return Json(GraphWriteResponse {
-            success: false, id: None, error: Some("invalid from_id UUID".to_string()),
-        }),
+        Err(_) => {
+            return Json(GraphWriteResponse {
+                success: false,
+                id: None,
+                error: Some("invalid from_id UUID".to_string()),
+            })
+        }
     };
     let to = match uuid::Uuid::parse_str(&req.to_id) {
         Ok(u) => u,
-        Err(_) => return Json(GraphWriteResponse {
-            success: false, id: None, error: Some("invalid to_id UUID".to_string()),
-        }),
+        Err(_) => {
+            return Json(GraphWriteResponse {
+                success: false,
+                id: None,
+                error: Some("invalid to_id UUID".to_string()),
+            })
+        }
     };
     match store.lock() {
         Ok(mut ss) => {
             ss.add_edge(from, to, &req.relation);
-            Json(GraphWriteResponse { success: true, id: None, error: None })
+            Json(GraphWriteResponse {
+                success: true,
+                id: None,
+                error: None,
+            })
         }
         Err(e) => Json(GraphWriteResponse {
-            success: false, id: None, error: Some(format!("Lock error: {}", e)),
+            success: false,
+            id: None,
+            error: Some(format!("Lock error: {}", e)),
         }),
     }
 }
@@ -2035,9 +2198,13 @@ async fn handle_delete_node(
 ) -> Json<GraphWriteResponse> {
     let node_id = match uuid::Uuid::parse_str(&id) {
         Ok(u) => u,
-        Err(_) => return Json(GraphWriteResponse {
-            success: false, id: None, error: Some("invalid UUID".to_string()),
-        }),
+        Err(_) => {
+            return Json(GraphWriteResponse {
+                success: false,
+                id: None,
+                error: Some("invalid UUID".to_string()),
+            })
+        }
     };
     match store.lock() {
         Ok(mut ss) => {
@@ -2045,11 +2212,17 @@ async fn handle_delete_node(
             Json(GraphWriteResponse {
                 success: removed,
                 id: if removed { Some(id) } else { None },
-                error: if removed { None } else { Some("node not found".to_string()) },
+                error: if removed {
+                    None
+                } else {
+                    Some("node not found".to_string())
+                },
             })
         }
         Err(e) => Json(GraphWriteResponse {
-            success: false, id: None, error: Some(format!("Lock error: {}", e)),
+            success: false,
+            id: None,
+            error: Some(format!("Lock error: {}", e)),
         }),
     }
 }
@@ -2076,21 +2249,27 @@ async fn handle_memory_link<B: MemoryBackend + Send + Sync + 'static>(
         }
     }
 
-    let from_uuid = uuid::Uuid::parse_str(&req.from_id).map_err(|_| (
-        StatusCode::BAD_REQUEST,
-        Json(serde_json::json!({"success": false, "error": "invalid from_id UUID"})),
-    ))?;
-    let to_uuid = uuid::Uuid::parse_str(&req.to_id).map_err(|_| (
-        StatusCode::BAD_REQUEST,
-        Json(serde_json::json!({"success": false, "error": "invalid to_id UUID"})),
-    ))?;
+    let from_uuid = uuid::Uuid::parse_str(&req.from_id).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"success": false, "error": "invalid from_id UUID"})),
+        )
+    })?;
+    let to_uuid = uuid::Uuid::parse_str(&req.to_id).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"success": false, "error": "invalid to_id UUID"})),
+        )
+    })?;
 
     // Validate both records exist
     {
-        let ms = memory_store.lock().map_err(|e| (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
-        ))?;
+        let ms = memory_store.lock().map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
+            )
+        })?;
         if ms.find_by_id(from_uuid).is_none() {
             return Err((
                 StatusCode::NOT_FOUND,
@@ -2106,23 +2285,33 @@ async fn handle_memory_link<B: MemoryBackend + Send + Sync + 'static>(
     }
 
     let from_sym = format!("mem-{}", req.from_id);
-    let to_sym   = format!("mem-{}", req.to_id);
+    let to_sym = format!("mem-{}", req.to_id);
 
     let edge_type = match req.relation.as_str() {
         "caused_by" | "causal" => crate::topological_memory::EdgeType::Causal,
-        "follows"   | "temporal" => crate::topological_memory::EdgeType::Temporal,
+        "follows" | "temporal" => crate::topological_memory::EdgeType::Temporal,
         "contradicts" | "taxonomic" => crate::topological_memory::EdgeType::Taxonomic,
         _ => crate::topological_memory::EdgeType::Supports,
     };
 
-    let mut tg = topo.lock().map_err(|e| (
-        StatusCode::INTERNAL_SERVER_ERROR,
-        Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
-    ))?;
+    let mut tg = topo.lock().map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
+        )
+    })?;
 
     // add_node is idempotent — returns Err("exists") which we ignore
-    let _ = tg.add_node(from_sym.clone(), [0.0f32; 128], std::collections::HashMap::new());
-    let _ = tg.add_node(to_sym.clone(), [0.0f32; 128], std::collections::HashMap::new());
+    let _ = tg.add_node(
+        from_sym.clone(),
+        [0.0f32; 128],
+        std::collections::HashMap::new(),
+    );
+    let _ = tg.add_node(
+        to_sym.clone(),
+        [0.0f32; 128],
+        std::collections::HashMap::new(),
+    );
 
     match tg.add_edge(from_sym, to_sym, edge_type, 1.0, 1.0) {
         Ok(_) => Ok(Json(serde_json::json!({"success": true}))),
@@ -2205,7 +2394,7 @@ async fn handle_memory_search_related<B: MemoryBackend + Send + Sync + 'static>(
     memory_store: Arc<Mutex<MemoryStore<B>>>,
     Query(params): Query<MemoryRelatedParams>,
 ) -> Json<serde_json::Value> {
-    let limit    = params.limit.unwrap_or(10).min(50);
+    let limit = params.limit.unwrap_or(10).min(50);
     let seed_sym = format!("mem-{}", params.seed_id);
 
     match topo.lock() {
@@ -2260,13 +2449,15 @@ async fn handle_memory_search_related<B: MemoryBackend + Send + Sync + 'static>(
                             .parse::<uuid::Uuid>()
                             .ok()
                             .and_then(|uid| ms.find_by_id(uid))
-                            .map(|rec| serde_json::json!({
-                                "id":         rec.id.to_string(),
-                                "actor":      rec.actor,
-                                "action":     rec.action,
-                                "target":     rec.target,
-                                "confidence": rec.confidence,
-                            }))
+                            .map(|rec| {
+                                serde_json::json!({
+                                    "id":         rec.id.to_string(),
+                                    "actor":      rec.actor,
+                                    "action":     rec.action,
+                                    "target":     rec.target,
+                                    "confidence": rec.confidence,
+                                })
+                            })
                             .unwrap_or_else(|| serde_json::json!({"id": id_str}));
                         serde_json::json!({ "score": score_rounded, "record": record })
                     })
@@ -2324,8 +2515,7 @@ async fn handle_consolidate<B: MemoryBackend + Send + Sync + 'static>(
                         continue;
                     }
                     let intersection = words_i.intersection(&words_j).count();
-                    let sim = intersection as f64
-                        / words_i.len().max(words_j.len()) as f64;
+                    let sim = intersection as f64 / words_i.len().max(words_j.len()) as f64;
                     if sim >= threshold {
                         // Keep newer; drop older
                         let (keep, drop) = if candidates[i].timestamp >= candidates[j].timestamp {
@@ -2377,9 +2567,13 @@ async fn handle_prometheus_metrics<B: MemoryBackend + Send + Sync + 'static>(
         Ok(ms) => {
             let records = ms.all();
             let total = records.len();
-            let mut by_type: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+            let mut by_type: std::collections::HashMap<String, usize> =
+                std::collections::HashMap::new();
             let mut actors: std::collections::HashSet<&str> = std::collections::HashSet::new();
-            for r in records { *by_type.entry(format!("{:?}", r.record_type)).or_insert(0) += 1; actors.insert(&r.actor); }
+            for r in records {
+                *by_type.entry(format!("{:?}", r.record_type)).or_insert(0) += 1;
+                actors.insert(&r.actor);
+            }
             (total, by_type, actors.len(), !load_api_keys().is_empty())
         }
         Err(_) => (0, std::collections::HashMap::new(), 0, false),
@@ -2397,7 +2591,10 @@ async fn handle_prometheus_metrics<B: MemoryBackend + Send + Sync + 'static>(
         format!("hipcortex_metering_enabled {}", if metered { 1 } else { 0 }),
     ];
     for (t, count) in &by_type {
-        lines.push(format!("hipcortex_records_by_type{{type=\"{}\"}} {}", t, count));
+        lines.push(format!(
+            "hipcortex_records_by_type{{type=\"{}\"}} {}",
+            t, count
+        ));
     }
     lines.push(String::new());
 
@@ -2431,11 +2628,19 @@ async fn handle_graph_search(
             let mut scored: Vec<(usize, crate::symbolic_store::SymbolicNode)> = nodes
                 .iter()
                 .filter_map(|n| {
-                    let label_score = if n.label.to_lowercase().contains(&q) { 2usize } else { 0 };
-                    let prop_score = n.properties.values()
-                        .any(|v| v.to_lowercase().contains(&q)) as usize;
+                    let label_score = if n.label.to_lowercase().contains(&q) {
+                        2usize
+                    } else {
+                        0
+                    };
+                    let prop_score =
+                        n.properties.values().any(|v| v.to_lowercase().contains(&q)) as usize;
                     let score = label_score + prop_score;
-                    if score > 0 { Some((score, n.clone())) } else { None }
+                    if score > 0 {
+                        Some((score, n.clone()))
+                    } else {
+                        None
+                    }
                 })
                 .collect();
 
@@ -2449,9 +2654,13 @@ async fn handle_graph_search(
             let neighbor_ids: std::collections::HashSet<uuid::Uuid> = all_edges
                 .iter()
                 .filter_map(|e| {
-                    if matching_ids.contains(&e.from) { Some(e.to) }
-                    else if matching_ids.contains(&e.to) { Some(e.from) }
-                    else { None }
+                    if matching_ids.contains(&e.from) {
+                        Some(e.to)
+                    } else if matching_ids.contains(&e.to) {
+                        Some(e.from)
+                    } else {
+                        None
+                    }
                 })
                 .filter(|id| !matching_ids.contains(id))
                 .take(limit * 2)
@@ -2460,23 +2669,27 @@ async fn handle_graph_search(
             let neighbor_nodes: Vec<serde_json::Value> = nodes
                 .iter()
                 .filter(|n| neighbor_ids.contains(&n.id))
-                .map(|n| serde_json::json!({
-                    "id": n.id.to_string(),
-                    "label": n.label,
-                    "properties": n.properties,
-                    "match": false,
-                }))
+                .map(|n| {
+                    serde_json::json!({
+                        "id": n.id.to_string(),
+                        "label": n.label,
+                        "properties": n.properties,
+                        "match": false,
+                    })
+                })
                 .collect();
 
             let matched: Vec<serde_json::Value> = scored
                 .iter()
-                .map(|(score, n)| serde_json::json!({
-                    "id": n.id.to_string(),
-                    "label": n.label,
-                    "properties": n.properties,
-                    "score": score,
-                    "match": true,
-                }))
+                .map(|(score, n)| {
+                    serde_json::json!({
+                        "id": n.id.to_string(),
+                        "label": n.label,
+                        "properties": n.properties,
+                        "score": score,
+                        "match": true,
+                    })
+                })
                 .collect();
 
             let total = matched.len();
@@ -2572,9 +2785,9 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
     let forget_route = {
         let ms = memory_store.clone();
         let ss = symbolic_store.clone();
-        delete(move |Path(actor): Path<String>| async move {
-            handle_forget_actor(ms, ss, actor).await
-        })
+        delete(
+            move |Path(actor): Path<String>| async move { handle_forget_actor(ms, ss, actor).await },
+        )
     };
 
     // Embed and add: POST /memory/embed
@@ -2588,7 +2801,10 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
     // Coherence status: GET /coherence/status (backward-compat: fresh checker per request)
     let coherence_route = {
         let c = Arc::new(CoherenceChecker::new());
-        get(move || { let cc = c.clone(); async move { handle_coherence_status(cc).await } })
+        get(move || {
+            let cc = c.clone();
+            async move { handle_coherence_status(cc).await }
+        })
     };
 
     // Live stats: GET /stats
@@ -2616,9 +2832,11 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
     // PATCH /memory/update/:id — versioned in-place update
     let update_route = {
         let store = memory_store.clone();
-        patch(move |Path(id): Path<String>, Json(req): Json<UpdateMemoryRequest>| async move {
-            handle_update_memory(store, id, Json(req)).await
-        })
+        patch(
+            move |Path(id): Path<String>, Json(req): Json<UpdateMemoryRequest>| async move {
+                handle_update_memory(store, id, Json(req)).await
+            },
+        )
     };
 
     // GET /memory/latest — most recent unique fact per (actor, action)
@@ -2631,11 +2849,17 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
 
     let audit_verify_route = {
         let store = memory_store.clone();
-        get(move || { let s = store.clone(); async move { handle_audit_verify(s).await } })
+        get(move || {
+            let s = store.clone();
+            async move { handle_audit_verify(s).await }
+        })
     };
     let audit_export_route = {
         let store = memory_store.clone();
-        get(move || { let s = store.clone(); async move { handle_audit_export(s).await } })
+        get(move || {
+            let s = store.clone();
+            async move { handle_audit_export(s).await }
+        })
     };
 
     let create_node_route = {
@@ -2652,9 +2876,7 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
     };
     let delete_node_route = {
         let ss = symbolic_store.clone();
-        delete(move |Path(id): Path<String>| async move {
-            handle_delete_node(ss, id).await
-        })
+        delete(move |Path(id): Path<String>| async move { handle_delete_node(ss, id).await })
     };
     let graph_search_route = {
         let ss = symbolic_store.clone();
@@ -2679,19 +2901,31 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
 
     let quarantine_route = {
         let store = memory_store.clone();
-        post(move |Path(id): Path<String>| { let s = store.clone(); async move { handle_quarantine_memory(s, id).await } })
+        post(move |Path(id): Path<String>| {
+            let s = store.clone();
+            async move { handle_quarantine_memory(s, id).await }
+        })
     };
     let restore_route = {
         let store = memory_store.clone();
-        post(move |Path(id): Path<String>| { let s = store.clone(); async move { handle_restore_memory(s, id).await } })
+        post(move |Path(id): Path<String>| {
+            let s = store.clone();
+            async move { handle_restore_memory(s, id).await }
+        })
     };
     let corroborate_route = {
         let store = memory_store.clone();
-        post(move |Path(id): Path<String>| { let s = store.clone(); async move { handle_corroborate(s, id).await } })
+        post(move |Path(id): Path<String>| {
+            let s = store.clone();
+            async move { handle_corroborate(s, id).await }
+        })
     };
     let contradict_route = {
         let store = memory_store.clone();
-        post(move |Path(id): Path<String>| { let s = store.clone(); async move { handle_contradict(s, id).await } })
+        post(move |Path(id): Path<String>| {
+            let s = store.clone();
+            async move { handle_contradict(s, id).await }
+        })
     };
     let context_route = {
         let store = memory_store.clone();
@@ -2702,7 +2936,10 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
 
     let metrics_route = {
         let store = memory_store.clone();
-        get(move || { let s = store.clone(); async move { handle_prometheus_metrics(s).await } })
+        get(move || {
+            let s = store.clone();
+            async move { handle_prometheus_metrics(s).await }
+        })
     };
 
     let goal_react_route = {
@@ -2718,7 +2955,9 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
                 engine.run(&mut s, goal_id, 0)
             };
             match result {
-                Ok(status) => Json(serde_json::json!({"goal_id": goal_id.to_string(), "status": format!("{:?}", status)})),
+                Ok(status) => Json(
+                    serde_json::json!({"goal_id": goal_id.to_string(), "status": format!("{:?}", status)}),
+                ),
                 Err(e) => Json(serde_json::json!({"error": e})),
             }
         })
@@ -2740,15 +2979,23 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
                     .collect()
             };
             let count = records.len();
-            Json(serde_json::json!({"goal_id": goal_id.to_string(), "trace": records, "count": count}))
+            Json(
+                serde_json::json!({"goal_id": goal_id.to_string(), "trace": records, "count": count}),
+            )
         })
     };
 
     let memory_diff_route = {
         let store = memory_store.clone();
         post(move |Json(req): Json<serde_json::Value>| async move {
-            let from_id = req.get("from_id").and_then(|v| v.as_str()).and_then(|s| uuid::Uuid::parse_str(s).ok());
-            let to_id   = req.get("to_id").and_then(|v| v.as_str()).and_then(|s| uuid::Uuid::parse_str(s).ok());
+            let from_id = req
+                .get("from_id")
+                .and_then(|v| v.as_str())
+                .and_then(|s| uuid::Uuid::parse_str(s).ok());
+            let to_id = req
+                .get("to_id")
+                .and_then(|v| v.as_str())
+                .and_then(|s| uuid::Uuid::parse_str(s).ok());
             let (from_id, to_id) = match (from_id, to_id) {
                 (Some(a), Some(b)) => (a, b),
                 _ => return Json(serde_json::json!({"error": "from_id and to_id required"})),
@@ -2766,25 +3013,30 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
                 (from, to)
             };
             let diff = crate::memory_diff::compute_diff(&from, &to);
-            Json(serde_json::to_value(diff).unwrap_or(serde_json::json!({"error": "serialization failed"})))
+            Json(
+                serde_json::to_value(diff)
+                    .unwrap_or(serde_json::json!({"error": "serialization failed"})),
+            )
         })
     };
 
     // POST /v1/state/diff — tx-range StateDiff
     let v1_state_diff_route = {
         let store = memory_store.clone();
-        let txl   = tx_log_arc.clone();
+        let txl = tx_log_arc.clone();
         post(move |Json(req): Json<serde_json::Value>| async move {
             let from_tx = req.get("from_tx").and_then(|v| v.as_u64()).unwrap_or(0);
-            let to_tx   = req.get("to_tx")  .and_then(|v| v.as_u64()).unwrap_or(0);
+            let to_tx = req.get("to_tx").and_then(|v| v.as_u64()).unwrap_or(0);
             match &txl {
                 None => Json(serde_json::json!({"error": "tx_log not configured"})),
                 Some(log) => {
                     let ms = store.lock().unwrap();
                     match crate::state_diff::compute_tx_diff(log, from_tx, to_tx, &*ms) {
-                        Ok(diff) => Json(serde_json::to_value(diff)
-                            .unwrap_or(serde_json::json!({"error": "serialization failed"}))),
-                        Err(e)   => Json(serde_json::json!({"error": e})),
+                        Ok(diff) => Json(
+                            serde_json::to_value(diff)
+                                .unwrap_or(serde_json::json!({"error": "serialization failed"})),
+                        ),
+                        Err(e) => Json(serde_json::json!({"error": e})),
                     }
                 }
             }
@@ -2794,11 +3046,14 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
     // POST /v1/memory/consolidate — manual consolidation trigger
     let v1_consolidate_route = {
         let store = memory_store.clone();
-        let arc   = archive_store.clone();
-        let sym   = symbolic_store.clone();
-        let txl   = tx_log_arc.clone();
+        let arc = archive_store.clone();
+        let sym = symbolic_store.clone();
+        let txl = tx_log_arc.clone();
         post(move |Json(req): Json<serde_json::Value>| async move {
-            let min_group = req.get("min_group_size").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
+            let min_group = req
+                .get("min_group_size")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(3) as usize;
             let config = crate::consolidation::ConsolidationConfig {
                 min_group_size: min_group,
                 ..Default::default()
@@ -2808,17 +3063,19 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
                 Some(l) => l,
                 None => {
                     let dir = std::env::temp_dir();
-                    dummy_log = crate::tx_log::TxLog::open(dir.join("hc-consolidate-tmp.jsonl"))
-                        .unwrap();
+                    dummy_log =
+                        crate::tx_log::TxLog::open(dir.join("hc-consolidate-tmp.jsonl")).unwrap();
                     &dummy_log
                 }
             };
-            let mut ms  = store.lock().unwrap();
+            let mut ms = store.lock().unwrap();
             let mut arc = arc.lock().unwrap();
             let mut sym = sym.lock().unwrap();
             match crate::consolidation::consolidate(&mut ms, &mut arc, &mut sym, log_ref, &config) {
-                Ok(r)  => Json(serde_json::to_value(r)
-                    .unwrap_or(serde_json::json!({"error": "serialization failed"}))),
+                Ok(r) => Json(
+                    serde_json::to_value(r)
+                        .unwrap_or(serde_json::json!({"error": "serialization failed"})),
+                ),
                 Err(e) => Json(serde_json::json!({"error": e})),
             }
         })
@@ -2829,21 +3086,29 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         let txl = tx_log_arc.clone();
         get(move || async move {
             match &txl {
-                None      => Json(serde_json::json!({"current_tx": null, "configured": false})),
-                Some(log) => Json(serde_json::json!({"current_tx": log.current_tx(), "configured": true})),
+                None => Json(serde_json::json!({"current_tx": null, "configured": false})),
+                Some(log) => {
+                    Json(serde_json::json!({"current_tx": log.current_tx(), "configured": true}))
+                }
             }
         })
     };
 
     let app = Router::new()
-        .route("/", get(|| async { axum::response::Redirect::permanent("/pricing") }))
-        .route("/health", get(|| async {
-    axum::Json(serde_json::json!({
-        "service": "hipcortex",
-        "version": env!("CARGO_PKG_VERSION"),
-        "status": "ok"
-    }))
-}))
+        .route(
+            "/",
+            get(|| async { axum::response::Redirect::permanent("/pricing") }),
+        )
+        .route(
+            "/health",
+            get(|| async {
+                axum::Json(serde_json::json!({
+                    "service": "hipcortex",
+                    "version": env!("CARGO_PKG_VERSION"),
+                    "status": "ok"
+                }))
+            }),
+        )
         .route("/graph", graph_route)
         .route("/node/:id", node_route)
         .route("/memory/add", add_memory_route)
@@ -2859,12 +3124,21 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/audit/verify", audit_verify_route)
         .route("/audit/export", audit_export_route)
         .route("/coherence/status", coherence_route)
-        .route("/coherence/inconsistencies", get(handle_coherence_inconsistencies_fresh))
+        .route(
+            "/coherence/inconsistencies",
+            get(handle_coherence_inconsistencies_fresh),
+        )
         .route("/worldmodel/status", {
             let wm = world_model.clone();
-            get(move || { let w = wm.clone(); async move { handle_worldmodel_status(w).await } })
+            get(move || {
+                let w = wm.clone();
+                async move { handle_worldmodel_status(w).await }
+            })
         })
-        .route("/webhooks", get(handle_list_webhooks).post(handle_register_webhook))
+        .route(
+            "/webhooks",
+            get(handle_list_webhooks).post(handle_register_webhook),
+        )
         .route("/webhooks/:id", delete(handle_delete_webhook))
         .route("/graph/node", create_node_route)
         .route("/graph/edge", create_edge_route)
@@ -2883,8 +3157,14 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/pricing", get(handle_pricing))
         .route("/openapi.json", get(handle_openapi))
         .route("/ns", get(handle_list_namespaces))
-        .route("/regulatory/hold", get(handle_list_regulatory_holds).post(handle_set_regulatory_hold))
-        .route("/regulatory/hold/:actor", delete(handle_release_regulatory_hold))
+        .route(
+            "/regulatory/hold",
+            get(handle_list_regulatory_holds).post(handle_set_regulatory_hold),
+        )
+        .route(
+            "/regulatory/hold/:actor",
+            delete(handle_release_regulatory_hold),
+        )
         .route("/goal/:id/react", goal_react_route)
         .route("/goal/:id/trace", goal_trace_route)
         .route("/memory/diff", memory_diff_route)
@@ -2902,26 +3182,105 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
 /// Heuristic memory classification — no ML required.
 /// Returns (record_type, priority, ttl_seconds, confidence, actor, action, tags)
 #[cfg(feature = "web-server")]
-fn classify_ingest(text: &str, actor_hint: Option<&str>, context_hint: Option<&str>) -> (String, String, Option<u64>, f32, String, String, Vec<String>) {
+fn classify_ingest(
+    text: &str,
+    actor_hint: Option<&str>,
+    context_hint: Option<&str>,
+) -> (
+    String,
+    String,
+    Option<u64>,
+    f32,
+    String,
+    String,
+    Vec<String>,
+) {
     let lower = text.to_lowercase();
 
     // ── record_type detection ─────────────────────────────────────────
     let record_type = if context_hint == Some("code") || contains_code_pattern(text) {
         "Procedural"
-    } else if contains_any(&lower, &["said", "told me", "asked me", "replied", "mentioned", "responded", "user:", "assistant:", "human:"]) {
+    } else if contains_any(
+        &lower,
+        &[
+            "said",
+            "told me",
+            "asked me",
+            "replied",
+            "mentioned",
+            "responded",
+            "user:",
+            "assistant:",
+            "human:",
+        ],
+    ) {
         "Reflexion"
-    } else if contains_any(&lower, &["decided", "chose", "choosing", "selected", "going with", "will use", "adopted", "switched to", "we use", "use ", "using "]) {
+    } else if contains_any(
+        &lower,
+        &[
+            "decided",
+            "chose",
+            "choosing",
+            "selected",
+            "going with",
+            "will use",
+            "adopted",
+            "switched to",
+            "we use",
+            "use ",
+            "using ",
+        ],
+    ) {
         "Symbolic"
     } else {
         "Temporal"
     };
 
     // ── priority detection ────────────────────────────────────────────
-    let priority = if contains_any(&lower, &["never ", "always ", "must ", "must not", "required", "constraint", "rule:", "policy:", "forbidden", "critical", "allerg"]) {
+    let priority = if contains_any(
+        &lower,
+        &[
+            "never ",
+            "always ",
+            "must ",
+            "must not",
+            "required",
+            "constraint",
+            "rule:",
+            "policy:",
+            "forbidden",
+            "critical",
+            "allerg",
+        ],
+    ) {
         "pinned"
-    } else if contains_any(&lower, &["decided", "chose", "selected", "confirmed", "approved", "deployed", "released", "launch"]) {
+    } else if contains_any(
+        &lower,
+        &[
+            "decided",
+            "chose",
+            "selected",
+            "confirmed",
+            "approved",
+            "deployed",
+            "released",
+            "launch",
+        ],
+    ) {
         "high"
-    } else if contains_any(&lower, &["maybe", "might ", "could ", "possibly", "not sure", "uncertain", "think ", "believe "]) {
+    } else if contains_any(
+        &lower,
+        &[
+            "maybe",
+            "might ",
+            "could ",
+            "possibly",
+            "not sure",
+            "uncertain",
+            "think ",
+            "believe ",
+        ],
+    ) {
         "low"
     } else {
         "normal"
@@ -2932,9 +3291,31 @@ fn classify_ingest(text: &str, actor_hint: Option<&str>, context_hint: Option<&s
         Some(3600u64) // sensor data: 1 hour
     } else if priority == "pinned" || record_type == "Symbolic" {
         None // decisions + constraints: permanent
-    } else if contains_any(&lower, &["today", "tomorrow", "this morning", "tonight", "right now", "currently", "at the moment"]) {
+    } else if contains_any(
+        &lower,
+        &[
+            "today",
+            "tomorrow",
+            "this morning",
+            "tonight",
+            "right now",
+            "currently",
+            "at the moment",
+        ],
+    ) {
         Some(86400u64) // today-specific: 24 hours
-    } else if contains_any(&lower, &["this week", "by friday", "by monday", "by wednesday", "by thursday", "by tuesday", "next week"]) {
+    } else if contains_any(
+        &lower,
+        &[
+            "this week",
+            "by friday",
+            "by monday",
+            "by wednesday",
+            "by thursday",
+            "by tuesday",
+            "next week",
+        ],
+    ) {
         Some(604800u64) // week-specific: 7 days
     } else if record_type == "Reflexion" {
         Some(86400u64) // conversation: 24 hours
@@ -2945,9 +3326,30 @@ fn classify_ingest(text: &str, actor_hint: Option<&str>, context_hint: Option<&s
     };
 
     // ── confidence detection ──────────────────────────────────────────
-    let confidence = if contains_any(&lower, &["maybe", "might", "possibly", "not sure", "uncertain", "think", "believe"]) {
+    let confidence = if contains_any(
+        &lower,
+        &[
+            "maybe",
+            "might",
+            "possibly",
+            "not sure",
+            "uncertain",
+            "think",
+            "believe",
+        ],
+    ) {
         0.6f32
-    } else if contains_any(&lower, &["confirmed", "verified", "deployed", "released", "decided", "chose"]) {
+    } else if contains_any(
+        &lower,
+        &[
+            "confirmed",
+            "verified",
+            "deployed",
+            "released",
+            "decided",
+            "chose",
+        ],
+    ) {
         0.95f32
     } else {
         0.85f32
@@ -2966,7 +3368,15 @@ fn classify_ingest(text: &str, actor_hint: Option<&str>, context_hint: Option<&s
     // ── tag extraction ────────────────────────────────────────────────
     let tags = extract_tags(&lower, context_hint);
 
-    (record_type.to_string(), priority.to_string(), ttl, confidence, actor, action, tags)
+    (
+        record_type.to_string(),
+        priority.to_string(),
+        ttl,
+        confidence,
+        actor,
+        action,
+        tags,
+    )
 }
 
 #[cfg(feature = "web-server")]
@@ -2976,9 +3386,15 @@ fn contains_any(text: &str, patterns: &[&str]) -> bool {
 
 #[cfg(feature = "web-server")]
 fn contains_code_pattern(text: &str) -> bool {
-    text.contains("def ") || text.contains("fn ") || text.contains("class ") ||
-    text.contains("function ") || text.contains("import ") || text.contains("return ") ||
-    text.contains("```") || text.contains("//") || (text.contains("{") && text.contains("}"))
+    text.contains("def ")
+        || text.contains("fn ")
+        || text.contains("class ")
+        || text.contains("function ")
+        || text.contains("import ")
+        || text.contains("return ")
+        || text.contains("```")
+        || text.contains("//")
+        || (text.contains("{") && text.contains("}"))
 }
 
 #[cfg(feature = "web-server")]
@@ -2987,13 +3403,37 @@ fn extract_actor(text: &str) -> String {
     let words: Vec<&str> = text.split_whitespace().collect();
     if words.len() >= 2 {
         let first = words[0];
-        if first.len() > 1 && first.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
-            let action_verbs = ["decided", "chose", "said", "told", "asked", "replied",
-                                "found", "created", "built", "deployed", "fixed", "updated",
-                                "switched", "selected", "approved", "confirmed", "mentioned"];
+        if first.len() > 1
+            && first
+                .chars()
+                .next()
+                .map(|c| c.is_uppercase())
+                .unwrap_or(false)
+        {
+            let action_verbs = [
+                "decided",
+                "chose",
+                "said",
+                "told",
+                "asked",
+                "replied",
+                "found",
+                "created",
+                "built",
+                "deployed",
+                "fixed",
+                "updated",
+                "switched",
+                "selected",
+                "approved",
+                "confirmed",
+                "mentioned",
+            ];
             let second_lower = words[1].to_lowercase();
             if action_verbs.iter().any(|v| second_lower.starts_with(v)) {
-                return first.trim_matches(|c: char| !c.is_alphabetic()).to_lowercase();
+                return first
+                    .trim_matches(|c: char| !c.is_alphabetic())
+                    .to_lowercase();
             }
         }
     }
@@ -3003,13 +3443,28 @@ fn extract_actor(text: &str) -> String {
 #[cfg(feature = "web-server")]
 fn extract_action(lower: &str) -> String {
     let action_map = [
-        ("decided", "decided"), ("chose", "decided"), ("selected", "decided"),
-        ("said", "said"), ("told", "said"), ("mentioned", "said"), ("replied", "said"),
-        ("fixed", "fixed"), ("resolved", "fixed"), ("deployed", "deployed"),
-        ("created", "created"), ("built", "created"), ("implemented", "created"),
-        ("found", "observed"), ("noticed", "observed"), ("detected", "observed"),
-        ("constraint", "constraint"), ("must ", "constraint"), ("never ", "constraint"),
-        ("updated", "updated"), ("changed", "updated"), ("switched", "updated"),
+        ("decided", "decided"),
+        ("chose", "decided"),
+        ("selected", "decided"),
+        ("said", "said"),
+        ("told", "said"),
+        ("mentioned", "said"),
+        ("replied", "said"),
+        ("fixed", "fixed"),
+        ("resolved", "fixed"),
+        ("deployed", "deployed"),
+        ("created", "created"),
+        ("built", "created"),
+        ("implemented", "created"),
+        ("found", "observed"),
+        ("noticed", "observed"),
+        ("detected", "observed"),
+        ("constraint", "constraint"),
+        ("must ", "constraint"),
+        ("never ", "constraint"),
+        ("updated", "updated"),
+        ("changed", "updated"),
+        ("switched", "updated"),
     ];
     for (pattern, action) in &action_map {
         if lower.contains(pattern) {
@@ -3022,19 +3477,80 @@ fn extract_action(lower: &str) -> String {
 #[cfg(feature = "web-server")]
 fn extract_tags(lower: &str, context: Option<&str>) -> Vec<String> {
     let mut tags = Vec::new();
-    if let Some(ctx) = context { tags.push(ctx.to_string()); }
+    if let Some(ctx) = context {
+        tags.push(ctx.to_string());
+    }
 
     let tag_map: &[(&[&str], &str)] = &[
-        (&["postgresql", "mysql", "sqlite", "mongodb", "redis", "database", "db "], "database"),
-        (&["react", "vue", "angular", "svelte", "frontend", "css", "html"], "frontend"),
-        (&["fastapi", "django", "flask", "express", "backend", "api", "endpoint"], "backend"),
-        (&["auth", "jwt", "oauth", "login", "password", "token", "session"], "auth"),
-        (&["bug", "error", "crash", "exception", "fix", "broken", "failed"], "bug"),
-        (&["deploy", "deployment", "kubernetes", "docker", "k8s", "ci/cd"], "infrastructure"),
-        (&["test", "testing", "pytest", "jest", "spec", "coverage"], "testing"),
-        (&["security", "vulnerability", "cve", "xss", "injection"], "security"),
-        (&["performance", "latency", "slow", "optimize", "cache"], "performance"),
-        (&["architecture", "design", "structure", "pattern"], "architecture"),
+        (
+            &[
+                "postgresql",
+                "mysql",
+                "sqlite",
+                "mongodb",
+                "redis",
+                "database",
+                "db ",
+            ],
+            "database",
+        ),
+        (
+            &[
+                "react", "vue", "angular", "svelte", "frontend", "css", "html",
+            ],
+            "frontend",
+        ),
+        (
+            &[
+                "fastapi", "django", "flask", "express", "backend", "api", "endpoint",
+            ],
+            "backend",
+        ),
+        (
+            &[
+                "auth", "jwt", "oauth", "login", "password", "token", "session",
+            ],
+            "auth",
+        ),
+        (
+            &[
+                "bug",
+                "error",
+                "crash",
+                "exception",
+                "fix",
+                "broken",
+                "failed",
+            ],
+            "bug",
+        ),
+        (
+            &[
+                "deploy",
+                "deployment",
+                "kubernetes",
+                "docker",
+                "k8s",
+                "ci/cd",
+            ],
+            "infrastructure",
+        ),
+        (
+            &["test", "testing", "pytest", "jest", "spec", "coverage"],
+            "testing",
+        ),
+        (
+            &["security", "vulnerability", "cve", "xss", "injection"],
+            "security",
+        ),
+        (
+            &["performance", "latency", "slow", "optimize", "cache"],
+            "performance",
+        ),
+        (
+            &["architecture", "design", "structure", "pattern"],
+            "architecture",
+        ),
         (&["meeting", "standup", "sprint", "planning"], "meeting"),
     ];
 
@@ -3060,10 +3576,10 @@ async fn handle_ingest<B: MemoryBackend + Send + Sync + 'static>(
         classify_ingest(&req.text, req.actor.as_deref(), req.context.as_deref());
 
     let record_type = match record_type_str.as_str() {
-        "Symbolic"   => MemoryType::Symbolic,
+        "Symbolic" => MemoryType::Symbolic,
         "Procedural" => MemoryType::Procedural,
-        "Reflexion"  => MemoryType::Reflexion,
-        _            => MemoryType::Temporal,
+        "Reflexion" => MemoryType::Reflexion,
+        _ => MemoryType::Temporal,
     };
 
     let mut metadata = serde_json::json!({});
@@ -3085,9 +3601,7 @@ async fn handle_ingest<B: MemoryBackend + Send + Sync + 'static>(
     record.priority = priority.clone();
     record.tags = tags.clone();
     if let Some(ttl_secs) = ttl {
-        record.expires_at = Some(
-            (chrono::Utc::now().timestamp()) + ttl_secs as i64
-        );
+        record.expires_at = Some((chrono::Utc::now().timestamp()) + ttl_secs as i64);
     }
 
     // Check contradiction
@@ -3140,22 +3654,40 @@ async fn handle_ingest<B: MemoryBackend + Send + Sync + 'static>(
                     working_memory,
                     warning,
                 }))
-            },
-            Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(IngestResponse {
-                record_id: String::new(), record_type: String::new(), priority: String::new(),
-                tags: vec![], ttl_seconds: None, confidence: 0.0, actor: String::new(),
-                action: String::new(), target: req.text,
-                working_memory: false,
-                warning: Some(serde_json::json!({"error": e.to_string()})),
-            }))),
+            }
+            Err(e) => Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(IngestResponse {
+                    record_id: String::new(),
+                    record_type: String::new(),
+                    priority: String::new(),
+                    tags: vec![],
+                    ttl_seconds: None,
+                    confidence: 0.0,
+                    actor: String::new(),
+                    action: String::new(),
+                    target: req.text,
+                    working_memory: false,
+                    warning: Some(serde_json::json!({"error": e.to_string()})),
+                }),
+            )),
         },
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(IngestResponse {
-            record_id: String::new(), record_type: String::new(), priority: String::new(),
-            tags: vec![], ttl_seconds: None, confidence: 0.0, actor: String::new(),
-            action: String::new(), target: req.text,
-            working_memory: false,
-            warning: Some(serde_json::json!({"error": format!("Lock error: {}", e)})),
-        }))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(IngestResponse {
+                record_id: String::new(),
+                record_type: String::new(),
+                priority: String::new(),
+                tags: vec![],
+                ttl_seconds: None,
+                confidence: 0.0,
+                actor: String::new(),
+                action: String::new(),
+                target: req.text,
+                working_memory: false,
+                warning: Some(serde_json::json!({"error": format!("Lock error: {}", e)})),
+            }),
+        )),
     }
 }
 
@@ -3163,7 +3695,9 @@ async fn handle_ingest<B: MemoryBackend + Send + Sync + 'static>(
 fn parse_record_type_alias(s: Option<&str>) -> crate::memory_record::MemoryType {
     use crate::memory_record::MemoryType;
     match s {
-        Some("Temporal") | Some("Episodic") | Some("ShortTerm") | Some("Working") => MemoryType::Temporal,
+        Some("Temporal") | Some("Episodic") | Some("ShortTerm") | Some("Working") => {
+            MemoryType::Temporal
+        }
         Some("Symbolic") | Some("Semantic") | Some("LongTerm") => MemoryType::Symbolic,
         Some("Procedural") => MemoryType::Procedural,
         Some("Reflexion") | Some("Reflexive") => MemoryType::Reflexion,
@@ -3210,9 +3744,7 @@ async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
         req.metadata.unwrap_or_else(|| serde_json::json!({})),
     );
     if let Some(ttl) = req.ttl_seconds {
-        record.expires_at = Some(
-            (chrono::Utc::now().timestamp()) + ttl as i64
-        );
+        record.expires_at = Some((chrono::Utc::now().timestamp()) + ttl as i64);
     }
     // Set confidence and source if provided
     if let Some(conf) = req.confidence {
@@ -3232,7 +3764,10 @@ async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
     if req.decay_factor.is_some() || req.decay_half_life_secs.is_some() {
         if let serde_json::Value::Object(ref mut map) = record.metadata {
             if let Some(df) = req.decay_factor {
-                map.insert("decay_factor".to_string(), serde_json::json!(df.clamp(0.0, 2.0)));
+                map.insert(
+                    "decay_factor".to_string(),
+                    serde_json::json!(df.clamp(0.0, 2.0)),
+                );
             }
             if let Some(hl) = req.decay_half_life_secs {
                 map.insert("decay_half_life_secs".to_string(), serde_json::json!(hl));
@@ -3267,16 +3802,21 @@ async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
             // P0.2 — Sync contradiction check: keyword overlap with existing same-actor records
             let contradiction_warning: Option<serde_json::Value> = {
                 let existing = ms.find_by_actor(&record.actor);
-                let new_words: std::collections::HashSet<&str> = record.target
-                    .split_whitespace().collect();
+                let new_words: std::collections::HashSet<&str> =
+                    record.target.split_whitespace().collect();
                 let mut conflicts: Vec<serde_json::Value> = Vec::new();
                 for existing_rec in existing.iter().take(50) {
-                    if existing_rec.id == record.id { continue; }
-                    let old_words: std::collections::HashSet<&str> = existing_rec.target
-                        .split_whitespace().collect();
-                    if new_words.is_empty() || old_words.is_empty() { continue; }
+                    if existing_rec.id == record.id {
+                        continue;
+                    }
+                    let old_words: std::collections::HashSet<&str> =
+                        existing_rec.target.split_whitespace().collect();
+                    if new_words.is_empty() || old_words.is_empty() {
+                        continue;
+                    }
                     let overlap = new_words.intersection(&old_words).count();
-                    let overlap_ratio = overlap as f64 / new_words.len().max(old_words.len()) as f64;
+                    let overlap_ratio =
+                        overlap as f64 / new_words.len().max(old_words.len()) as f64;
                     // High overlap + different content = possible contradiction
                     if overlap_ratio > 0.5 && existing_rec.target != record.target {
                         conflicts.push(serde_json::json!({
@@ -3285,24 +3825,35 @@ async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
                             "target": existing_rec.target,
                             "overlap_ratio": (overlap_ratio * 100.0) as u32
                         }));
-                        if conflicts.len() >= 3 { break; }
+                        if conflicts.len() >= 3 {
+                            break;
+                        }
                     }
                 }
-                if conflicts.is_empty() { None } else { Some(serde_json::json!(conflicts)) }
+                if conflicts.is_empty() {
+                    None
+                } else {
+                    Some(serde_json::json!(conflicts))
+                }
             };
 
             match ms.add(record.clone()) {
                 Ok(_) => {
                     // TxLog append + auto-consolidation trigger (non-blocking, best-effort)
                     if let Some(ref log) = tx_log {
-                        log.append(crate::tx_log::TxKind::MemoryAdd, vec![record.id], &record.actor);
+                        log.append(
+                            crate::tx_log::TxKind::MemoryAdd,
+                            vec![record.id],
+                            &record.actor,
+                        );
                         let config = ConsolidationConfig::default();
-                        let should_consolidate = compute_pressure(&ms, &config) > config.pressure_threshold;
+                        let should_consolidate =
+                            compute_pressure(&ms, &config) > config.pressure_threshold;
                         if should_consolidate {
                             let store2 = store.clone();
-                            let arc2   = archive_store.clone();
-                            let sym2   = symbolic_store.clone();
-                            let log2   = log.clone();
+                            let arc2 = archive_store.clone();
+                            let sym2 = symbolic_store.clone();
+                            let log2 = log.clone();
                             tokio::task::spawn_blocking(move || {
                                 let cfg = ConsolidationConfig::default();
                                 if let (Ok(mut ms), Ok(mut arc), Ok(mut sym)) =
@@ -3324,24 +3875,28 @@ async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
                         // Register causal edge for any Symbolic record OR any pinned record.
                         // Symbolic = intentional decision (feeds causal reasoning regardless of priority).
                         // Pinned = explicitly important (feeds causal reasoning regardless of type).
-                        if record.record_type == MemoryType::Symbolic || record.priority == "pinned" {
+                        if record.record_type == MemoryType::Symbolic || record.priority == "pinned"
+                        {
                             let _ = wm.add_causal_edge(record.actor.clone(), record.target.clone());
                         }
                     }
                     // P0.4 — fire webhook (best-effort, non-blocking)
-                    fire_webhook("memory.added", serde_json::json!({
-                        "id": record.id.to_string(),
-                        "actor": record.actor,
-                        "action": record.action,
-                        "target": record.target,
-                    }));
+                    fire_webhook(
+                        "memory.added",
+                        serde_json::json!({
+                            "id": record.id.to_string(),
+                            "actor": record.actor,
+                            "action": record.action,
+                            "target": record.target,
+                        }),
+                    );
                     Ok(Json(AddMemoryResponse {
                         success: true,
                         record_id: Some(record.id.to_string()),
                         error: None,
                         warning: contradiction_warning,
                     }))
-                },
+                }
                 Err(e) => Err((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(AddMemoryResponse {
@@ -3398,10 +3953,15 @@ async fn handle_query_memory<B: MemoryBackend + Send + Sync + 'static>(
                     "Procedural" => MemoryType::Procedural,
                     "Reflexion" => MemoryType::Reflexion,
                     "Perception" => MemoryType::Perception,
-                    _ => return Err((
-                        StatusCode::BAD_REQUEST,
-                        Json(QueryMemoryResponse { records: vec![], total: 0 }),
-                    )),
+                    _ => {
+                        return Err((
+                            StatusCode::BAD_REQUEST,
+                            Json(QueryMemoryResponse {
+                                records: vec![],
+                                total: 0,
+                            }),
+                        ))
+                    }
                 };
                 filtered_records.retain(|r| r.record_type == target_type);
             }
@@ -3416,7 +3976,8 @@ async fn handle_query_memory<B: MemoryBackend + Send + Sync + 'static>(
             // Filter by tags (any match)
             if let Some(tags_str) = &params.tags {
                 let tag_list: Vec<&str> = tags_str.split(',').map(|t| t.trim()).collect();
-                filtered_records.retain(|r| tag_list.iter().any(|t| r.tags.contains(&t.to_string())));
+                filtered_records
+                    .retain(|r| tag_list.iter().any(|t| r.tags.contains(&t.to_string())));
             }
             // Filter by priority
             if let Some(priority) = &params.priority {
@@ -3440,21 +4001,21 @@ async fn handle_query_memory<B: MemoryBackend + Send + Sync + 'static>(
             let response_records = filtered_records
                 .into_iter()
                 .map(|r| MemoryRecordResponse {
-                    id:          r.id.to_string(),
+                    id: r.id.to_string(),
                     record_type: format!("{:?}", r.record_type),
-                    timestamp:   r.timestamp.to_rfc3339(),
-                    actor:       r.actor.clone(),
-                    action:      r.action.clone(),
-                    target:      r.target.clone(),
-                    metadata:    r.metadata.clone(),
-                    integrity:   r.integrity.clone(),
-                    confidence:  r.confidence,
-                    source:      r.source.clone(),
-                    priority:    r.priority.clone(),
-                    tags:        r.tags.clone(),
-                    version:     r.version,
-                    status:      r.status.clone(),
-                    expires_at:  r.expires_at,
+                    timestamp: r.timestamp.to_rfc3339(),
+                    actor: r.actor.clone(),
+                    action: r.action.clone(),
+                    target: r.target.clone(),
+                    metadata: r.metadata.clone(),
+                    integrity: r.integrity.clone(),
+                    confidence: r.confidence,
+                    source: r.source.clone(),
+                    priority: r.priority.clone(),
+                    tags: r.tags.clone(),
+                    version: r.version,
+                    status: r.status.clone(),
+                    expires_at: r.expires_at,
                 })
                 .collect::<Vec<_>>();
 
@@ -3476,7 +4037,9 @@ async fn handle_query_memory<B: MemoryBackend + Send + Sync + 'static>(
 #[cfg(feature = "web-server")]
 async fn handle_forget_actor<B: MemoryBackend + Send + Sync + 'static>(
     memory_store: Arc<Mutex<MemoryStore<B>>>,
-    symbolic_store: Arc<Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>>,
+    symbolic_store: Arc<
+        Mutex<crate::symbolic_store::SymbolicStore<crate::symbolic_store::InMemoryGraph>>,
+    >,
     actor: String,
 ) -> Result<Json<ForgetActorResponse>, (StatusCode, Json<ForgetActorResponse>)> {
     // Check regulatory hold — GDPR forget blocked if hold is active
@@ -3499,27 +4062,31 @@ async fn handle_forget_actor<B: MemoryBackend + Send + Sync + 'static>(
     let records_deleted = match memory_store.lock() {
         Ok(mut ms) => match ms.delete_by_actor(&actor) {
             Ok(ids) => ids.len(),
-            Err(e) => return Err((
+            Err(e) => {
+                return Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ForgetActorResponse {
+                        success: false,
+                        actor,
+                        records_deleted: 0,
+                        symbolic_nodes_deleted: 0,
+                        error: Some(e.to_string()),
+                    }),
+                ))
+            }
+        },
+        Err(e) => {
+            return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ForgetActorResponse {
                     success: false,
                     actor,
                     records_deleted: 0,
                     symbolic_nodes_deleted: 0,
-                    error: Some(e.to_string()),
+                    error: Some(format!("Lock error: {}", e)),
                 }),
-            )),
-        },
-        Err(e) => return Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ForgetActorResponse {
-                success: false,
-                actor,
-                records_deleted: 0,
-                symbolic_nodes_deleted: 0,
-                error: Some(format!("Lock error: {}", e)),
-            }),
-        )),
+            ))
+        }
     };
 
     // Delete matching symbolic graph nodes (nodes whose "actor" property equals the actor)
@@ -3536,11 +4103,14 @@ async fn handle_forget_actor<B: MemoryBackend + Send + Sync + 'static>(
     };
 
     // P0.4 — fire webhook for bulk delete event
-    fire_webhook("memory.deleted", serde_json::json!({
-        "actor": actor,
-        "records_deleted": records_deleted,
-        "symbolic_nodes_deleted": symbolic_nodes_deleted,
-    }));
+    fire_webhook(
+        "memory.deleted",
+        serde_json::json!({
+            "actor": actor,
+            "records_deleted": records_deleted,
+            "symbolic_nodes_deleted": symbolic_nodes_deleted,
+        }),
+    );
 
     Ok(Json(ForgetActorResponse {
         success: true,
@@ -3565,7 +4135,11 @@ async fn handle_register_webhook(
     if let Ok(mut hooks) = WEBHOOKS.lock() {
         hooks.push(reg);
     }
-    Json(RegisterWebhookResponse { id, url: req.url, events: req.events })
+    Json(RegisterWebhookResponse {
+        id,
+        url: req.url,
+        events: req.events,
+    })
 }
 
 /// DELETE /webhooks/:id — remove a webhook registration
@@ -3574,7 +4148,11 @@ async fn handle_delete_webhook(Path(id): Path<String>) -> StatusCode {
     if let Ok(mut hooks) = WEBHOOKS.lock() {
         let before = hooks.len();
         hooks.retain(|h| h.id != id);
-        if hooks.len() < before { StatusCode::NO_CONTENT } else { StatusCode::NOT_FOUND }
+        if hooks.len() < before {
+            StatusCode::NO_CONTENT
+        } else {
+            StatusCode::NOT_FOUND
+        }
     } else {
         StatusCode::INTERNAL_SERVER_ERROR
     }
@@ -3586,15 +4164,19 @@ async fn handle_delete_memory<B: MemoryBackend + Send + Sync + 'static>(
     memory_store: Arc<Mutex<MemoryStore<B>>>,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let uuid = uuid::Uuid::parse_str(&id).map_err(|_| (
-        StatusCode::BAD_REQUEST,
-        Json(serde_json::json!({"success": false, "error": "invalid UUID"})),
-    ))?;
+    let uuid = uuid::Uuid::parse_str(&id).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"success": false, "error": "invalid UUID"})),
+        )
+    })?;
 
-    let mut ms = memory_store.lock().map_err(|e| (
-        StatusCode::INTERNAL_SERVER_ERROR,
-        Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
-    ))?;
+    let mut ms = memory_store.lock().map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
+        )
+    })?;
 
     if ms.delete_by_id(uuid) {
         Ok(Json(serde_json::json!({"success": true})))
@@ -3625,17 +4207,27 @@ async fn handle_quarantine_memory<B: MemoryBackend + Send + Sync + 'static>(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let id = match uuid::Uuid::parse_str(&id_str) {
         Ok(u) => u,
-        Err(_) => return Err((StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"success": false, "error": "invalid UUID"})))),
+        Err(_) => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"success": false, "error": "invalid UUID"})),
+            ))
+        }
     };
     match store.lock() {
         Ok(mut ms) => match ms.set_status(id, "quarantine") {
-            Ok(_) => Ok(Json(serde_json::json!({"success": true, "id": id_str, "status": "quarantine"}))),
-            Err(e) => Err((StatusCode::NOT_FOUND,
-                Json(serde_json::json!({"success": false, "error": e.to_string()})))),
+            Ok(_) => Ok(Json(
+                serde_json::json!({"success": true, "id": id_str, "status": "quarantine"}),
+            )),
+            Err(e) => Err((
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"success": false, "error": e.to_string()})),
+            )),
         },
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"success": false, "error": format!("Lock error: {}", e)})))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"success": false, "error": format!("Lock error: {}", e)})),
+        )),
     }
 }
 
@@ -3647,17 +4239,27 @@ async fn handle_restore_memory<B: MemoryBackend + Send + Sync + 'static>(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let id = match uuid::Uuid::parse_str(&id_str) {
         Ok(u) => u,
-        Err(_) => return Err((StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"success": false, "error": "invalid UUID"})))),
+        Err(_) => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"success": false, "error": "invalid UUID"})),
+            ))
+        }
     };
     match store.lock() {
         Ok(mut ms) => match ms.set_status(id, "active") {
-            Ok(_) => Ok(Json(serde_json::json!({"success": true, "id": id_str, "status": "active"}))),
-            Err(e) => Err((StatusCode::NOT_FOUND,
-                Json(serde_json::json!({"success": false, "error": e.to_string()})))),
+            Ok(_) => Ok(Json(
+                serde_json::json!({"success": true, "id": id_str, "status": "active"}),
+            )),
+            Err(e) => Err((
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"success": false, "error": e.to_string()})),
+            )),
         },
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"success": false, "error": format!("Lock error: {}", e)})))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"success": false, "error": format!("Lock error: {}", e)})),
+        )),
     }
 }
 
@@ -3671,8 +4273,12 @@ async fn handle_corroborate<B: MemoryBackend + Send + Sync + 'static>(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let id = match uuid::Uuid::parse_str(&id_str) {
         Ok(u) => u,
-        Err(_) => return Err((StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"success": false, "error": "invalid UUID"})))),
+        Err(_) => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"success": false, "error": "invalid UUID"})),
+            ))
+        }
     };
     match store.lock() {
         Ok(mut ms) => match ms.corroborate(id) {
@@ -3680,11 +4286,15 @@ async fn handle_corroborate<B: MemoryBackend + Send + Sync + 'static>(
                 "success": true, "id": id_str,
                 "confidence_before": before, "confidence_after": after
             }))),
-            Err(e) => Err((StatusCode::NOT_FOUND,
-                Json(serde_json::json!({"success": false, "error": e.to_string()})))),
+            Err(e) => Err((
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"success": false, "error": e.to_string()})),
+            )),
         },
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"success": false, "error": format!("Lock error: {}", e)})))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"success": false, "error": format!("Lock error: {}", e)})),
+        )),
     }
 }
 
@@ -3696,8 +4306,12 @@ async fn handle_contradict<B: MemoryBackend + Send + Sync + 'static>(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let id = match uuid::Uuid::parse_str(&id_str) {
         Ok(u) => u,
-        Err(_) => return Err((StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"success": false, "error": "invalid UUID"})))),
+        Err(_) => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"success": false, "error": "invalid UUID"})),
+            ))
+        }
     };
     match store.lock() {
         Ok(mut ms) => match ms.contradict(id) {
@@ -3706,11 +4320,15 @@ async fn handle_contradict<B: MemoryBackend + Send + Sync + 'static>(
                 "confidence_before": before, "confidence_after": after,
                 "quarantined": quarantined
             }))),
-            Err(e) => Err((StatusCode::NOT_FOUND,
-                Json(serde_json::json!({"success": false, "error": e.to_string()})))),
+            Err(e) => Err((
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"success": false, "error": e.to_string()})),
+            )),
         },
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"success": false, "error": format!("Lock error: {}", e)})))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"success": false, "error": format!("Lock error: {}", e)})),
+        )),
     }
 }
 
@@ -3723,7 +4341,7 @@ struct ContextRequest {
     actor: Option<String>,
     limit: Option<usize>,
     max_tokens: Option<usize>,
-    format: Option<String>,  // "markdown" (default) | "plain" | "xml"
+    format: Option<String>, // "markdown" (default) | "plain" | "xml"
 }
 
 /// GET /memory/live_beliefs?actor=&limit= — unified beliefs surface per unified-beliefs-surface spec.
@@ -3786,14 +4404,29 @@ async fn handle_memory_context<B: MemoryBackend + Send + Sync + 'static>(
             // Truncate by max_tokens if requested (1 token ≈ 4 chars)
             let context = if let Some(max_tok) = req.max_tokens {
                 let max_chars = max_tok * 4;
-                if context.len() > max_chars { context[..max_chars].to_string() } else { context }
-            } else { context };
+                if context.len() > max_chars {
+                    context[..max_chars].to_string()
+                } else {
+                    context
+                }
+            } else {
+                context
+            };
             let estimated_tokens = context.len() / 4;
-            Ok(Json(ContextResponse { context, record_count, estimated_tokens }))
-        },
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, Json(ContextResponse {
-            context: format!("Error: {}", e), record_count: 0, estimated_tokens: 0,
-        }))),
+            Ok(Json(ContextResponse {
+                context,
+                record_count,
+                estimated_tokens,
+            }))
+        }
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ContextResponse {
+                context: format!("Error: {}", e),
+                record_count: 0,
+                estimated_tokens: 0,
+            }),
+        )),
     }
 }
 
@@ -3820,16 +4453,28 @@ async fn handle_memory_live_beliefs<B: MemoryBackend + Send + Sync + 'static>(
             let (all_nodes, all_edges) = ss.export_graph();
             let node_count = all_nodes.len();
             let edge_count = all_edges.len();
-            let limited_nodes: Vec<_> = all_nodes.into_iter().take(limit).map(|n| serde_json::json!({
-                "id": n.id.to_string(),
-                "label": n.label,
-                "properties": n.properties,
-            })).collect();
-            let limited_edges: Vec<_> = all_edges.into_iter().take(limit).map(|e| serde_json::json!({
-                "from": e.from.to_string(),
-                "to": e.to.to_string(),
-                "relation": e.relation,
-            })).collect();
+            let limited_nodes: Vec<_> = all_nodes
+                .into_iter()
+                .take(limit)
+                .map(|n| {
+                    serde_json::json!({
+                        "id": n.id.to_string(),
+                        "label": n.label,
+                        "properties": n.properties,
+                    })
+                })
+                .collect();
+            let limited_edges: Vec<_> = all_edges
+                .into_iter()
+                .take(limit)
+                .map(|e| {
+                    serde_json::json!({
+                        "from": e.from.to_string(),
+                        "to": e.to.to_string(),
+                        "relation": e.relation,
+                    })
+                })
+                .collect();
             serde_json::json!({ "nodes": limited_nodes, "edges": limited_edges, "total_nodes": node_count, "total_edges": edge_count })
         }
         Err(_) => serde_json::json!({ "nodes": [], "edges": [], "error": "lock" }),
@@ -3847,11 +4492,16 @@ async fn handle_memory_live_beliefs<B: MemoryBackend + Send + Sync + 'static>(
     let current_hypotheses = match aureus.lock() {
         Ok(au) => {
             let hyps = au.top_hypotheses(limit);
-            let items: Vec<_> = hyps.into_iter().map(|h| serde_json::json!({
-                "text": h.text,
-                "confidence": h.confidence,
-                "evidence": h.evidence,
-            })).collect();
+            let items: Vec<_> = hyps
+                .into_iter()
+                .map(|h| {
+                    serde_json::json!({
+                        "text": h.text,
+                        "confidence": h.confidence,
+                        "evidence": h.evidence,
+                    })
+                })
+                .collect();
             serde_json::json!({ "top": items, "count": au.hypothesis_count(), "loops": au.loops_run() })
         }
         Err(e) => serde_json::json!({ "top": [], "error": format!("lock: {}", e) }),
@@ -3885,17 +4535,25 @@ async fn handle_memory_live_beliefs<B: MemoryBackend + Send + Sync + 'static>(
     let pinned = match memory_store.lock() {
         Ok(ms) => {
             let all = ms.all();
-            let mut filtered: Vec<_> = all.into_iter().filter(|r| {
-                r.priority == "pinned" && actor.as_ref().map_or(true, |a| &r.actor == a)
-            }).collect();
+            let mut filtered: Vec<_> = all
+                .into_iter()
+                .filter(|r| {
+                    r.priority == "pinned" && actor.as_ref().map_or(true, |a| &r.actor == a)
+                })
+                .collect();
             filtered.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
             filtered.truncate(limit);
-            filtered.into_iter().map(|r| serde_json::json!({
-                "id": r.id.to_string(),
-                "action": r.action,
-                "target": r.target,
-                "confidence": r.confidence,
-            })).collect()
+            filtered
+                .into_iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "id": r.id.to_string(),
+                        "action": r.action,
+                        "target": r.target,
+                        "confidence": r.confidence,
+                    })
+                })
+                .collect()
         }
         Err(_) => vec![],
     };
@@ -3934,9 +4592,7 @@ async fn handle_memory_live_beliefs<B: MemoryBackend + Send + Sync + 'static>(
 
 /// GET /worldmodel/states — all observed states + actions in Dirichlet model
 #[cfg(feature = "web-server")]
-async fn handle_wm_states(
-    world_model: Arc<RwLock<WorldModelEnhanced>>,
-) -> Json<serde_json::Value> {
+async fn handle_wm_states(world_model: Arc<RwLock<WorldModelEnhanced>>) -> Json<serde_json::Value> {
     match world_model.read() {
         Ok(wm) => Json(serde_json::json!({
             "states":            wm.get_states(),
@@ -3950,7 +4606,9 @@ async fn handle_wm_states(
 /// GET /worldmodel/transitions?state=S1 — all predictions from a given state
 #[cfg(feature = "web-server")]
 #[derive(serde::Deserialize)]
-struct WmTransitionsParams { state: Option<String> }
+struct WmTransitionsParams {
+    state: Option<String>,
+}
 
 #[cfg(feature = "web-server")]
 async fn handle_wm_transitions(
@@ -3963,7 +4621,7 @@ async fn handle_wm_transitions(
     };
     let target_states: Vec<String> = match &params.state {
         Some(s) => vec![s.clone()],
-        None    => states,
+        None => states,
     };
     let mut all_predictions = Vec::new();
     if let Ok(wm) = world_model.read() {
@@ -3999,12 +4657,14 @@ async fn handle_wm_uncertainty(
 ) -> Json<serde_json::Value> {
     match world_model.read() {
         Ok(wm) => {
-            let pairs: Vec<serde_json::Value> = wm.get_all_entropy().iter()
+            let pairs: Vec<serde_json::Value> = wm
+                .get_all_entropy()
+                .iter()
                 .map(|(s, a, e)| serde_json::json!({"state": s, "action": a, "entropy": e}))
                 .collect();
             let total = pairs.len();
             Json(serde_json::json!({"pairs": pairs, "total": total, "sorted_by": "entropy_desc"}))
-        },
+        }
         Err(e) => Json(serde_json::json!({"error": format!("lock: {}", e)})),
     }
 }
@@ -4037,7 +4697,9 @@ async fn handle_wm_observe(
     }
     match world_model.write() {
         Ok(mut wm) => match wm.observe_transition(from, action, to) {
-            Ok(_)  => Json(serde_json::json!({"success": true, "total_transitions": wm.transition_count()})),
+            Ok(_) => Json(
+                serde_json::json!({"success": true, "total_transitions": wm.transition_count()}),
+            ),
             Err(e) => Json(serde_json::json!({"success": false, "error": e})),
         },
         Err(e) => Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
@@ -4117,7 +4779,11 @@ async fn handle_wm_rollout(
     let mode = req
         .mode
         .as_deref()
-        .unwrap_or(if req.actions.is_empty() { "mcts" } else { "dirichlet" })
+        .unwrap_or(if req.actions.is_empty() {
+            "mcts"
+        } else {
+            "dirichlet"
+        })
         .to_lowercase();
     let iterations = req.iterations.unwrap_or(50).min(200);
     let max_depth = req.max_depth.unwrap_or(3).min(10);
@@ -4158,7 +4824,9 @@ async fn handle_wm_rollout(
 
             // Prefer Dirichlet transition multi-step (works after observe; no 100-obs train).
             if mode != "ensemble" {
-                if let Ok(pred) = wm.rollout_dirichlet(req.initial_state.clone(), req.actions.clone()) {
+                if let Ok(pred) =
+                    wm.rollout_dirichlet(req.initial_state.clone(), req.actions.clone())
+                {
                     return Json(serde_json::json!({
                         "mode": "dirichlet",
                         "initial_state": req.initial_state,
@@ -4267,9 +4935,7 @@ async fn handle_topo_check_edge(
 }
 
 #[cfg(feature = "web-server")]
-async fn handle_topo_deconstruct(
-    Json(req): Json<serde_json::Value>,
-) -> Json<serde_json::Value> {
+async fn handle_topo_deconstruct(Json(req): Json<serde_json::Value>) -> Json<serde_json::Value> {
     let text = req["text"].as_str().unwrap_or("").to_string();
     if text.trim().is_empty() {
         return Json(serde_json::json!({"success": false, "error": "text required"}));
@@ -4301,10 +4967,7 @@ async fn handle_topo_apply_hyp(
             }
         }
     }
-    let hyp = crate::topological_memory::deconstruct_with_llm_hint(
-        &text,
-        req["llm_json"].as_str(),
-    );
+    let hyp = crate::topological_memory::deconstruct_with_llm_hint(&text, req["llm_json"].as_str());
     match topo.lock() {
         Ok(mut g) => {
             let mut added_nodes = 0usize;
@@ -4351,8 +5014,8 @@ async fn handle_wm_entities(
             Ok(ids) => {
                 let total = ids.len();
                 Json(serde_json::json!({"entities": ids, "total": total}))
-            },
-            Err(e)  => Json(serde_json::json!({"entities": [], "error": e})),
+            }
+            Err(e) => Json(serde_json::json!({"entities": [], "error": e})),
         },
         Err(e) => Json(serde_json::json!({"error": format!("lock: {}", e)})),
     }
@@ -4382,19 +5045,28 @@ async fn handle_wm_register_entity(
     let d = properties.len();
     let covariance: Vec<Vec<f64>> = req["initial_covariance"]
         .as_array()
-        .map(|rows| rows.iter()
-            .filter_map(|row| row.as_array()
-                .map(|r| r.iter().filter_map(|v| v.as_f64()).collect::<Vec<f64>>()))
-            .collect::<Vec<Vec<f64>>>())
+        .map(|rows| {
+            rows.iter()
+                .filter_map(|row| {
+                    row.as_array()
+                        .map(|r| r.iter().filter_map(|v| v.as_f64()).collect::<Vec<f64>>())
+                })
+                .collect::<Vec<Vec<f64>>>()
+        })
         .filter(|m| !m.is_empty())
         .unwrap_or_else(|| {
-            (0..d).map(|i| (0..d).map(|j| if i == j { 1.0f64 } else { 0.0 }).collect()).collect()
+            (0..d)
+                .map(|i| (0..d).map(|j| if i == j { 1.0f64 } else { 0.0 }).collect())
+                .collect()
         });
 
-    let initial = EntityState { properties, covariance };
+    let initial = EntityState {
+        properties,
+        covariance,
+    };
     match world_model.write() {
         Ok(mut wm) => match wm.register_entity(id.clone(), initial) {
-            Ok(_)  => Json(serde_json::json!({"success": true, "id": id})),
+            Ok(_) => Json(serde_json::json!({"success": true, "id": id})),
             Err(e) => Json(serde_json::json!({"success": false, "error": e})),
         },
         Err(e) => Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
@@ -4425,17 +5097,17 @@ async fn handle_predict_entity(
 
 /// GET /worldmodel/causal — dump causal DAG edges
 #[cfg(feature = "web-server")]
-async fn handle_wm_causal(
-    world_model: Arc<RwLock<WorldModelEnhanced>>,
-) -> Json<serde_json::Value> {
+async fn handle_wm_causal(world_model: Arc<RwLock<WorldModelEnhanced>>) -> Json<serde_json::Value> {
     match world_model.read() {
         Ok(wm) => {
-            let edges: Vec<serde_json::Value> = wm.get_causal_edges().iter()
+            let edges: Vec<serde_json::Value> = wm
+                .get_causal_edges()
+                .iter()
                 .map(|e| serde_json::json!({"from": e.from, "to": e.to, "strength": e.strength}))
                 .collect();
             let total = edges.len();
             Json(serde_json::json!({"edges": edges, "total": total}))
-        },
+        }
         Err(e) => Json(serde_json::json!({"error": format!("lock: {}", e)})),
     }
 }
@@ -4448,13 +5120,13 @@ async fn handle_wm_causal_add_edge(
     Json(req): Json<serde_json::Value>,
 ) -> Json<serde_json::Value> {
     let from = req["from"].as_str().unwrap_or("").to_string();
-    let to   = req["to"].as_str().unwrap_or("").to_string();
+    let to = req["to"].as_str().unwrap_or("").to_string();
     if from.is_empty() || to.is_empty() {
         return Json(serde_json::json!({"success": false, "error": "from and to required"}));
     }
     match world_model.write() {
         Ok(mut wm) => match wm.add_causal_edge(from.clone(), to.clone()) {
-            Ok(_)  => Json(serde_json::json!({"success": true, "from": from, "to": to})),
+            Ok(_) => Json(serde_json::json!({"success": true, "from": from, "to": to})),
             Err(e) => Json(serde_json::json!({"success": false, "error": e})),
         },
         Err(e) => Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
@@ -4468,26 +5140,38 @@ async fn handle_wm_causal_intervention(
     world_model: Arc<RwLock<WorldModelEnhanced>>,
     Json(req): Json<serde_json::Value>,
 ) -> Json<serde_json::Value> {
-    let outcome          = req["outcome"].as_str().unwrap_or("").to_string();
+    let outcome = req["outcome"].as_str().unwrap_or("").to_string();
     let intervention_var = req["intervention_var"].as_str().unwrap_or("").to_string();
     let intervention_value = req["intervention_value"].as_f64().unwrap_or(0.0);
     if outcome.is_empty() || intervention_var.is_empty() {
-        return Json(serde_json::json!({"success": false, "error": "outcome and intervention_var required"}));
+        return Json(
+            serde_json::json!({"success": false, "error": "outcome and intervention_var required"}),
+        );
     }
     let conditioned_on: std::collections::HashMap<String, f64> = req["conditioned_on"]
         .as_object()
-        .map(|obj| obj.iter()
-            .filter_map(|(k, v)| v.as_f64().map(|f| (k.clone(), f)))
-            .collect())
+        .map(|obj| {
+            obj.iter()
+                .filter_map(|(k, v)| v.as_f64().map(|f| (k.clone(), f)))
+                .collect()
+        })
         .unwrap_or_default();
 
     use crate::world_model_enhanced::InterventionQuery;
-    let query = InterventionQuery { outcome, intervention_var, intervention_value, conditioned_on, intervention_label: None };
+    let query = InterventionQuery {
+        outcome,
+        intervention_var,
+        intervention_value,
+        conditioned_on,
+        intervention_label: None,
+    };
 
     match world_model.read() {
         Ok(wm) => match wm.causal_intervention(query) {
-            Ok(result) => Json(serde_json::json!({"success": true, "outcome_probabilities": result})),
-            Err(e)     => Json(serde_json::json!({"success": false, "error": e})),
+            Ok(result) => {
+                Json(serde_json::json!({"success": true, "outcome_probabilities": result}))
+            }
+            Err(e) => Json(serde_json::json!({"success": false, "error": e})),
         },
         Err(e) => Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
     }
@@ -4500,22 +5184,26 @@ async fn handle_wm_causal_counterfactual(
     world_model: Arc<RwLock<WorldModelEnhanced>>,
     Json(req): Json<serde_json::Value>,
 ) -> Json<serde_json::Value> {
-    let intervention_var   = req["intervention_var"].as_str().unwrap_or("").to_string();
+    let intervention_var = req["intervention_var"].as_str().unwrap_or("").to_string();
     let intervention_value = req["intervention_value"].as_f64().unwrap_or(0.0);
     if intervention_var.is_empty() {
         return Json(serde_json::json!({"success": false, "error": "intervention_var required"}));
     }
     let actual_state: std::collections::HashMap<String, f64> = req["actual_state"]
         .as_object()
-        .map(|obj| obj.iter()
-            .filter_map(|(k, v)| v.as_f64().map(|f| (k.clone(), f)))
-            .collect())
+        .map(|obj| {
+            obj.iter()
+                .filter_map(|(k, v)| v.as_f64().map(|f| (k.clone(), f)))
+                .collect()
+        })
         .unwrap_or_default();
 
     match world_model.read() {
         Ok(wm) => match wm.counterfactual(actual_state, intervention_var, intervention_value) {
-            Ok(result) => Json(serde_json::json!({"success": true, "counterfactual_outcome": result})),
-            Err(e)     => Json(serde_json::json!({"success": false, "error": e})),
+            Ok(result) => {
+                Json(serde_json::json!({"success": true, "counterfactual_outcome": result}))
+            }
+            Err(e) => Json(serde_json::json!({"success": false, "error": e})),
         },
         Err(e) => Json(serde_json::json!({"success": false, "error": format!("lock: {}", e)})),
     }
@@ -4530,14 +5218,17 @@ async fn handle_memory_reflect<B: MemoryBackend + Send + Sync + 'static>(
     aureus: Arc<Mutex<AureusBridge>>,
     Json(req): Json<serde_json::Value>,
 ) -> Json<serde_json::Value> {
-    let query = req["query"].as_str().unwrap_or("recent decisions").to_string();
+    let query = req["query"]
+        .as_str()
+        .unwrap_or("recent decisions")
+        .to_string();
     // Lock store first, then bridge (consistent lock ordering to avoid deadlock)
     let mut store = match memory_store.lock() {
-        Ok(s)  => s,
+        Ok(s) => s,
         Err(e) => return Json(serde_json::json!({"error": format!("store lock: {}", e)})),
     };
     let mut bridge = match aureus.lock() {
-        Ok(b)  => b,
+        Ok(b) => b,
         Err(e) => return Json(serde_json::json!({"error": format!("bridge lock: {}", e)})),
     };
     let llm_available = bridge.llm_configured();
@@ -4556,18 +5247,19 @@ async fn handle_memory_reflect<B: MemoryBackend + Send + Sync + 'static>(
 
 /// GET /memory/hypotheses — AureusBridge reflexion metadata
 #[cfg(feature = "web-server")]
-async fn handle_memory_hypotheses(
-    aureus: Arc<Mutex<AureusBridge>>,
-) -> Json<serde_json::Value> {
+async fn handle_memory_hypotheses(aureus: Arc<Mutex<AureusBridge>>) -> Json<serde_json::Value> {
     match aureus.lock() {
         Ok(bridge) => {
-            let hyps: Vec<serde_json::Value> = bridge.top_hypotheses(10)
+            let hyps: Vec<serde_json::Value> = bridge
+                .top_hypotheses(10)
                 .iter()
-                .map(|h| serde_json::json!({
-                    "text":       h.text,
-                    "confidence": h.confidence,
-                    "evidence":   h.evidence,
-                }))
+                .map(|h| {
+                    serde_json::json!({
+                        "text":       h.text,
+                        "confidence": h.confidence,
+                        "evidence":   h.evidence,
+                    })
+                })
                 .collect();
             Json(serde_json::json!({
                 "loops_run":        bridge.loops_run(),
@@ -4575,7 +5267,7 @@ async fn handle_memory_hypotheses(
                 "llm_available":    bridge.llm_configured(),
                 "top_hypotheses":   hyps,
             }))
-        },
+        }
         Err(e) => Json(serde_json::json!({"error": format!("lock: {}", e)})),
     }
 }
@@ -4586,7 +5278,10 @@ async fn handle_worldmodel_status(
     world_model: Arc<RwLock<WorldModelEnhanced>>,
 ) -> Json<serde_json::Value> {
     let (total_transitions, entity_count) = match world_model.read() {
-        Ok(wm) => (wm.transition_count(), wm.list_entities().unwrap_or_default().len()),
+        Ok(wm) => (
+            wm.transition_count(),
+            wm.list_entities().unwrap_or_default().len(),
+        ),
         Err(_) => (0, 0),
     };
     Json(serde_json::json!({
@@ -4622,14 +5317,19 @@ async fn handle_coherence_inconsistencies(
 ) -> Json<serde_json::Value> {
     match coherence.check_consistency() {
         Ok(reports) => {
-            let items: Vec<serde_json::Value> = reports.iter().map(|r| serde_json::json!({
-                "id": r.id,
-                "type": format!("{:?}", r.inconsistency_type),
-                "affected": r.affected_entities,
-                "description": r.description,
-                "severity": r.severity,
-                "detected_at": r.detected_at,
-            })).collect();
+            let items: Vec<serde_json::Value> = reports
+                .iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "id": r.id,
+                        "type": format!("{:?}", r.inconsistency_type),
+                        "affected": r.affected_entities,
+                        "description": r.description,
+                        "severity": r.severity,
+                        "detected_at": r.detected_at,
+                    })
+                })
+                .collect();
             let total = items.len();
             Json(serde_json::json!({
                 "inconsistencies": items,
@@ -4650,9 +5350,13 @@ async fn handle_coherence_inconsistencies(
 /// GET /self/can-execute?operation=add_memory — SelfModel decision engine query
 #[cfg(feature = "web-server")]
 #[derive(serde::Deserialize)]
-struct SelfCanExecuteParams { operation: String }
+struct SelfCanExecuteParams {
+    operation: String,
+}
 #[derive(serde::Deserialize)]
-struct PredictEntityParams { steps: Option<usize> }
+struct PredictEntityParams {
+    steps: Option<usize>,
+}
 
 #[cfg(feature = "web-server")]
 async fn handle_self_can_execute(
@@ -4692,11 +5396,11 @@ async fn handle_self_register_capability(
         name: name.clone(),
         description: req["description"].as_str().unwrap_or("").to_string(),
         required_cpu_percent: req["required_cpu_percent"].as_f64().unwrap_or(5.0),
-        required_memory_mb:   req["required_memory_mb"].as_f64().unwrap_or(50.0),
+        required_memory_mb: req["required_memory_mb"].as_f64().unwrap_or(50.0),
         limitations: vec![],
     };
     match self_model.register_capability(cap) {
-        Ok(_)  => Json(serde_json::json!({"success": true, "name": name})),
+        Ok(_) => Json(serde_json::json!({"success": true, "name": name})),
         Err(e) => Json(serde_json::json!({"success": false, "error": e})),
     }
 }
@@ -4705,9 +5409,7 @@ async fn handle_self_register_capability(
 
 /// GET /self/health — SelfModel overall health score
 #[cfg(feature = "web-server")]
-async fn handle_self_health(
-    self_model: Arc<SelfModel>,
-) -> Json<serde_json::Value> {
+async fn handle_self_health(self_model: Arc<SelfModel>) -> Json<serde_json::Value> {
     match self_model.get_health() {
         Ok(score) => Json(serde_json::json!({
             "healthy": score.overall >= 0.7,
@@ -4719,13 +5421,20 @@ async fn handle_self_health(
 
 /// GET /self/capabilities — list registered capability descriptors
 #[cfg(feature = "web-server")]
-async fn handle_self_capabilities(
-    self_model: Arc<SelfModel>,
-) -> Json<serde_json::Value> {
-    let ops = ["add_memory", "search_memory", "query_memory", "ingest",
-               "bulk_add", "forget", "reflect", "context"];
-    let capabilities: Vec<serde_json::Value> = ops.iter().map(|op| {
-        match self_model.get_capability(op) {
+async fn handle_self_capabilities(self_model: Arc<SelfModel>) -> Json<serde_json::Value> {
+    let ops = [
+        "add_memory",
+        "search_memory",
+        "query_memory",
+        "ingest",
+        "bulk_add",
+        "forget",
+        "reflect",
+        "context",
+    ];
+    let capabilities: Vec<serde_json::Value> = ops
+        .iter()
+        .map(|op| match self_model.get_capability(op) {
             Ok(cap) => serde_json::json!({
                 "name": cap.name,
                 "description": cap.description,
@@ -4733,8 +5442,8 @@ async fn handle_self_capabilities(
                 "required_memory_mb": cap.required_memory_mb,
             }),
             Err(_) => serde_json::json!({"name": op, "registered": false}),
-        }
-    }).collect();
+        })
+        .collect();
     let total = capabilities.len();
     Json(serde_json::json!({"capabilities": capabilities, "total": total}))
 }
@@ -4769,7 +5478,11 @@ async fn handle_decide_batch(
     let operations: Vec<String> = req
         .get("operations")
         .and_then(|v| v.as_array())
-        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_default();
 
     let context = crate::self_model::DecisionContext::default_context();
@@ -4795,19 +5508,20 @@ async fn handle_decide_batch(
 // ── 12.9: POST /coherence/check ───────────────────────────────────────────
 
 #[cfg(feature = "web-server")]
-async fn handle_coherence_check(
-    coherence: Arc<CoherenceChecker>,
-) -> Json<serde_json::Value> {
+async fn handle_coherence_check(coherence: Arc<CoherenceChecker>) -> Json<serde_json::Value> {
     let inconsistencies = match coherence.check_consistency() {
-        Ok(reports) => {
-            reports.iter().map(|r| serde_json::json!({
-                "id": r.id,
-                "type": format!("{:?}", r.inconsistency_type),
-                "affected": r.affected_entities,
-                "description": r.description,
-                "detected_at": r.detected_at,
-            })).collect::<Vec<_>>()
-        }
+        Ok(reports) => reports
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "id": r.id,
+                    "type": format!("{:?}", r.inconsistency_type),
+                    "affected": r.affected_entities,
+                    "description": r.description,
+                    "detected_at": r.detected_at,
+                })
+            })
+            .collect::<Vec<_>>(),
         Err(e) => {
             return Json(serde_json::json!({
                 "inconsistencies": [],
@@ -4819,13 +5533,16 @@ async fn handle_coherence_check(
     };
 
     let invariant_violations = match coherence.enforce_invariants() {
-        Ok(violations) => {
-            violations.iter().map(|v| serde_json::json!({
-                "type": format!("{:?}", v.invariant_type),
-                "description": v.description,
-                "affected": v.affected,
-            })).collect::<Vec<_>>()
-        }
+        Ok(violations) => violations
+            .iter()
+            .map(|v| {
+                serde_json::json!({
+                    "type": format!("{:?}", v.invariant_type),
+                    "description": v.description,
+                    "affected": v.affected,
+                })
+            })
+            .collect::<Vec<_>>(),
         Err(e) => {
             return Json(serde_json::json!({
                 "inconsistencies": [],
@@ -4836,7 +5553,9 @@ async fn handle_coherence_check(
         }
     };
 
-    let metrics = coherence.get_metrics().unwrap_or_else(|_| crate::coherence::CoherenceMetrics::new());
+    let metrics = coherence
+        .get_metrics()
+        .unwrap_or_else(|_| crate::coherence::CoherenceMetrics::new());
     Json(serde_json::json!({
         "inconsistencies": inconsistencies,
         "total_inconsistencies": inconsistencies.len(),
@@ -4871,11 +5590,16 @@ async fn handle_coherence_resolve(
     // Resolve all active inconsistencies with chosen strategy
     match coherence.resolve_all(strategy) {
         Ok(results) => {
-            let attempts: Vec<serde_json::Value> = results.iter().map(|r| serde_json::json!({
-                "id": r.inconsistency_id,
-                "success": r.success,
-                "rationale": r.rationale,
-            })).collect();
+            let attempts: Vec<serde_json::Value> = results
+                .iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "id": r.inconsistency_id,
+                        "success": r.success,
+                        "rationale": r.rationale,
+                    })
+                })
+                .collect();
             Json(serde_json::json!({
                 "strategy": strategy_str,
                 "total_attempted": results.len(),
@@ -4899,18 +5623,21 @@ async fn handle_health_summary(
     let self_healthy = self_model.is_healthy().unwrap_or(false);
 
     // Coherence metrics
-    let coherence_metrics = coherence.get_metrics().unwrap_or_else(|_| crate::coherence::CoherenceMetrics::new());
+    let coherence_metrics = coherence
+        .get_metrics()
+        .unwrap_or_else(|_| crate::coherence::CoherenceMetrics::new());
     let coherence_healthy = coherence_metrics.coherence_score >= 0.8;
 
     // World-model metrics (need lock)
     let wm = world_model.read().ok();
-    let wm_entity_count = wm.as_ref().and_then(|w| w.list_entities().ok()).map(|e| e.len()).unwrap_or(0);
+    let wm_entity_count = wm
+        .as_ref()
+        .and_then(|w| w.list_entities().ok())
+        .map(|e| e.len())
+        .unwrap_or(0);
     let wm_transition_count = wm.as_ref().map(|w| w.transition_count()).unwrap_or(0);
     let wm_calibration = wm.as_ref().and_then(|w| w.get_calibration_metrics().ok());
-    let wm_healthy = wm_calibration
-        .as_ref()
-        .map(|c| c.ece < 0.2)
-        .unwrap_or(true);
+    let wm_healthy = wm_calibration.as_ref().map(|c| c.ece < 0.2).unwrap_or(true);
 
     let overall_healthy = self_healthy && coherence_healthy && wm_healthy;
 

@@ -48,7 +48,7 @@ mod unit_tests {
     fn test_memory_store_creation() {
         let temp_dir = tempdir().unwrap();
         let file_path = temp_dir.path().join("test_memory.jsonl");
-        
+
         let store = MemoryStore::new(file_path.to_str().unwrap());
         assert!(store.is_ok());
     }
@@ -57,9 +57,9 @@ mod unit_tests {
     fn test_memory_store_add_and_retrieve() {
         let temp_dir = tempdir().unwrap();
         let file_path = temp_dir.path().join("test_add_retrieve.jsonl");
-        
+
         let mut store = MemoryStore::new(file_path.to_str().unwrap()).unwrap();
-        
+
         let record = MemoryRecord::new(
             MemoryType::Temporal,
             "UnitTest".into(),
@@ -82,7 +82,7 @@ mod unit_tests {
     fn test_memory_store_persistence() {
         let temp_dir = tempdir().unwrap();
         let file_path = temp_dir.path().join("test_persistence.jsonl");
-        
+
         // Add record to store
         {
             let mut store = MemoryStore::new(file_path.to_str().unwrap()).unwrap();
@@ -156,9 +156,9 @@ mod unit_tests {
 
         let temp_dir = tempdir().unwrap();
         let file_path = temp_dir.path().join("test_concurrent.jsonl");
-        
+
         let store = Arc::new(Mutex::new(
-            MemoryStore::new(file_path.to_str().unwrap()).unwrap()
+            MemoryStore::new(file_path.to_str().unwrap()).unwrap(),
         ));
 
         let mut handles = vec![];

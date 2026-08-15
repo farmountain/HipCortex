@@ -17,23 +17,23 @@
 // S11: Conflict resolution end-to-end
 // S12: Resource exhaustion decision rejection
 
-use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
-use hipcortex::symbolic_store::SymbolicStore;
 use hipcortex::coherence::{
-    ConsistencyChecker, ConflictResolver, InconsistencyReport, InconsistencyType,
-    ResolutionStrategy, CandidateValue, SystemInvariants, InvariantType,
-};
-use hipcortex::world_model_enhanced::{
-    WorldModelEnhanced, CausalGraph, EntityTracker, EntityState, EntityObservation,
-    TransitionModel, StateTransition, UncertaintyEstimator, InterventionQuery,
-};
-use hipcortex::self_model::{
-    CapabilityDescriptor, CapabilityRegistry, DecisionEngine, DecisionContext,
-    ResourceMonitor, ResourceUsage,
+    CandidateValue, ConflictResolver, ConsistencyChecker, InconsistencyReport, InconsistencyType,
+    InvariantType, ResolutionStrategy, SystemInvariants,
 };
 use hipcortex::memory_store::MemoryStore;
+use hipcortex::self_model::{
+    CapabilityDescriptor, CapabilityRegistry, DecisionContext, DecisionEngine, ResourceMonitor,
+    ResourceUsage,
+};
+use hipcortex::symbolic_store::SymbolicStore;
+use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
+use hipcortex::world_model_enhanced::{
+    CausalGraph, EntityObservation, EntityState, EntityTracker, InterventionQuery, StateTransition,
+    TransitionModel, UncertaintyEstimator, WorldModelEnhanced,
+};
 use std::collections::HashMap;
-use std::time::{SystemTime, Duration};
+use std::time::{Duration, SystemTime};
 use uuid::Uuid;
 
 // ============================================================================
@@ -68,7 +68,12 @@ fn intelligence_temporal_symbolic_consistency() {
 
     let temporal_symbolic_mismatches: Vec<_> = inconsistencies
         .iter()
-        .filter(|r| matches!(r.inconsistency_type, InconsistencyType::TemporalSymbolicMismatch))
+        .filter(|r| {
+            matches!(
+                r.inconsistency_type,
+                InconsistencyType::TemporalSymbolicMismatch
+            )
+        })
         .collect();
 
     // Currently returns empty — when check_temporal_symbolic is wired,
@@ -95,7 +100,12 @@ fn intelligence_procedural_world_conflict() {
     let results = checker.check_all().unwrap();
     let procedural_conflicts: Vec<_> = results
         .iter()
-        .filter(|r| matches!(r.inconsistency_type, InconsistencyType::ProceduralWorldConflict))
+        .filter(|r| {
+            matches!(
+                r.inconsistency_type,
+                InconsistencyType::ProceduralWorldConflict
+            )
+        })
         .collect();
 
     // Currently empty (stub) — verifies the API shape
@@ -113,7 +123,12 @@ fn intelligence_entity_permanence_tracking() {
     let results = checker.check_all().unwrap();
     let permanence_violations: Vec<_> = results
         .iter()
-        .filter(|r| matches!(r.inconsistency_type, InconsistencyType::EntityPermanenceViolation))
+        .filter(|r| {
+            matches!(
+                r.inconsistency_type,
+                InconsistencyType::EntityPermanenceViolation
+            )
+        })
         .collect();
 
     // Currently empty (stub)
@@ -160,9 +175,15 @@ fn intelligence_self_model_capability_gating() {
     };
 
     let decision = engine.evaluate("memory_store", context, 1.0, usage, 1.0);
-    assert!(decision.confidence >= 0.0 && decision.confidence <= 1.0,
-        "Decision confidence must be in [0, 1], got {}", decision.confidence);
-    assert!(!decision.rationale.is_empty(), "Decision must have a rationale");
+    assert!(
+        decision.confidence >= 0.0 && decision.confidence <= 1.0,
+        "Decision confidence must be in [0, 1], got {}",
+        decision.confidence
+    );
+    assert!(
+        !decision.rationale.is_empty(),
+        "Decision must have a rationale"
+    );
 }
 
 // ============================================================================
@@ -187,13 +208,19 @@ fn intelligence_world_model_prediction_roundtrip() {
 
     // Predict next state
     let prediction = model.predict("S0", "toggle");
-    assert!(prediction.is_ok(), "Prediction should succeed after training");
+    assert!(
+        prediction.is_ok(),
+        "Prediction should succeed after training"
+    );
 
     if let Ok(probs) = prediction {
         // Probabilities should sum to approximately 1.0
         let total: f64 = probs.probabilities.values().sum();
-        assert!((total - 1.0).abs() < 0.001,
-            "Prediction probabilities should sum to 1.0, got {}", total);
+        assert!(
+            (total - 1.0).abs() < 0.001,
+            "Prediction probabilities should sum to 1.0, got {}",
+            total
+        );
     }
 }
 
@@ -209,10 +236,23 @@ fn intelligence_coherence_full_pipeline() {
 
     // Verify results have required structure
     for report in &results {
-        assert!(!report.id.is_empty(), "Every report must have a non-empty ID");
-        assert!(report.severity <= 10, "Severity must be 0-10, got {}", report.severity);
-        assert!(!report.description.is_empty(), "Report must have description");
-        assert!(report.detected_at > 0, "Report must have detection timestamp");
+        assert!(
+            !report.id.is_empty(),
+            "Every report must have a non-empty ID"
+        );
+        assert!(
+            report.severity <= 10,
+            "Severity must be 0-10, got {}",
+            report.severity
+        );
+        assert!(
+            !report.description.is_empty(),
+            "Report must have description"
+        );
+        assert!(
+            report.detected_at > 0,
+            "Report must have detection timestamp"
+        );
     }
 }
 
@@ -233,10 +273,13 @@ fn intelligence_invariant_validation_on_operations() {
     let violations = invariants.validate_all().unwrap();
 
     // Should be empty (created=2, deleted=1 — valid state)
-    let conservation = violations.iter()
+    let conservation = violations
+        .iter()
         .find(|v| v.invariant_type == InvariantType::Conservation);
-    assert!(conservation.is_none(),
-        "No conservation violation when created >= deleted");
+    assert!(
+        conservation.is_none(),
+        "No conservation violation when created >= deleted"
+    );
 
     // Verify entity lifecycle tracking
     let (created, deleted) = invariants.get_entity_lifecycle().get("entity_a").unwrap();
@@ -298,10 +341,7 @@ fn intelligence_decision_engine_utility_calculation() {
 fn intelligence_kalman_entity_tracking() {
     let initial_state = EntityState {
         properties: vec![0.0, 1.0], // position, velocity
-        covariance: vec![
-            vec![1.0, 0.0],
-            vec![0.0, 1.0],
-        ],
+        covariance: vec![vec![1.0, 0.0], vec![0.0, 1.0]],
     };
 
     let mut tracker = EntityTracker::new(initial_state);
@@ -310,10 +350,7 @@ fn intelligence_kalman_entity_tracking() {
     for t in 1..=10 {
         let observation = EntityObservation {
             measured_properties: vec![t as f64, 1.0],
-            measurement_noise: vec![
-                vec![0.1, 0.0],
-                vec![0.0, 0.1],
-            ],
+            measurement_noise: vec![vec![0.1, 0.0], vec![0.0, 0.1]],
             timestamp: std::time::Instant::now(),
         };
         tracker.update(observation).unwrap();
@@ -346,12 +383,21 @@ fn intelligence_causal_intervention_query() {
     graph.add_edge("B".to_string(), "C".to_string()).unwrap();
 
     // Verify causal path exists
-    assert!(graph.has_path("A", "C").unwrap(), "Should find path from A to C");
-    assert!(!graph.has_path("C", "A").unwrap(), "Should not find reverse causal path");
+    assert!(
+        graph.has_path("A", "C").unwrap(),
+        "Should find path from A to C"
+    );
+    assert!(
+        !graph.has_path("C", "A").unwrap(),
+        "Should not find reverse causal path"
+    );
 
     // Verify cycle prevention
     let cycle_result = graph.add_edge("C".to_string(), "A".to_string());
-    assert!(cycle_result.is_err(), "Should reject edge that creates cycle C→A (A→B→C→A)");
+    assert!(
+        cycle_result.is_err(),
+        "Should reject edge that creates cycle C→A (A→B→C→A)"
+    );
 
     // Verify graph is acyclic
     assert!(graph.is_acyclic(), "Graph should remain acyclic");
@@ -408,7 +454,10 @@ fn intelligence_conflict_resolution_end_to_end() {
         .resolve_by_consensus(&inconsistency, candidates.clone())
         .unwrap();
 
-    assert!(result.success, "Consensus should succeed with 2/3 agreement");
+    assert!(
+        result.success,
+        "Consensus should succeed with 2/3 agreement"
+    );
     assert_eq!(
         result.chosen_value,
         Some(serde_json::json!("value_consensus")),
@@ -482,7 +531,9 @@ fn intelligence_resource_exhaustion_decision() {
     assert!(
         !decision.should_execute || decision.confidence < 0.5,
         "Low-resource scenario: should_execute={}, confidence={:.4}, rationale='{}'",
-        decision.should_execute, decision.confidence, decision.rationale
+        decision.should_execute,
+        decision.confidence,
+        decision.rationale
     );
 
     // Rationale should mention resources

@@ -2,7 +2,7 @@
 //! Shows real(ish) backdoor + counterfactual after recent impl improvements.
 //! Run: cargo run --example causal_agent_demo
 
-use hipcortex::world_model_enhanced::{WorldModelEnhanced, InterventionQuery};
+use hipcortex::world_model_enhanced::{InterventionQuery, WorldModelEnhanced};
 use std::collections::HashMap;
 
 fn main() {

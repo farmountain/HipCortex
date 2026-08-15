@@ -1,0 +1,43 @@
+{
+  "batchIndex": 11,
+  "nodes": [
+    {
+      "id": "document:docs/superpowers/specs/2026-06-04-intelligence-layer-wiring-design.md",
+      "type": "document",
+      "name": "Intelligence Layer Wiring Design",
+      "filePath": "docs/superpowers/specs/2026-06-04-intelligence-layer-wiring-design.md",
+      "summary": "Approved design (2026-06-04) for wiring HipCortex's three fully-implemented but disconnected intelligence modules (WorldModelEnhanced, AureusBridge, SelfModel, CoherenceChecker) into the REST server. Introduces AppState<B> struct to bundle all stores, adds 9 new REST endpoints for world-model/self-model operations, adds automatic memory-to-WorldModel feeding on every write, and specifies WorldModel JSON persistence with periodic flush and atomic rename. Also covers SelfModel bootstrap on startup and AureusBridge reflect endpoint design.",
+      "tags": ["design-spec", "intelligence-layer", "world-model", "rest-api", "appstate", "aureus-bridge", "self-model", "coherence", "persistence", "web-server"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:docs/superpowers/specs/2026-06-04-query-response-fields-design.md",
+      "type": "document",
+      "name": "QueryMemoryResponse Full Field Exposure Design",
+      "filePath": "docs/superpowers/specs/2026-06-04-query-response-fields-design.md",
+      "summary": "Approved design (2026-06-04) for extending MemoryRecordResponse with 7 missing fields (confidence, source, priority, tags, version, status, expires_at) that agent clients need to make intelligent retrieval and filtering decisions. Identifies the 4 construction sites in web_server.rs that must be updated and confirms backward compatibility since the change is purely additive.",
+      "tags": ["design-spec", "rest-api", "memory-query", "response-schema", "backward-compatible", "web-server"],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:docs/superpowers/specs/2026-06-04-sim11-p1-gaps-design.md",
+      "type": "document",
+      "name": "Sim #11 P1/P2 Gap Closure Design",
+      "filePath": "docs/superpowers/specs/2026-06-04-sim11-p1-gaps-design.md",
+      "summary": "Approved design (2026-06-04) closing 8 gaps identified in MiroFish Sim #11 (100-persona UAT of the intelligence layer). P1 gaps add REST endpoints for WorldModel state-space introspection (states, transitions, uncertainty), causal intervention and counterfactual reasoning, entity initial-state configuration, and a CoherenceChecker background auto-check task. P2 gaps add SelfModel can-execute query and runtime capability registration endpoints.",
+      "tags": ["design-spec", "world-model", "causal-reasoning", "coherence", "self-model", "rest-api", "gap-closure", "sim-uat"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:docs/superpowers/specs/2026-08-13-hipcortex-gap-remediation-design.md",
+      "type": "document",
+      "name": "HipCortex Cohesive Gap Remediation Design",
+      "filePath": "docs/superpowers/specs/2026-08-13-hipcortex-gap-remediation-design.md",
+      "summary": "Implemented 4-sprint design spec remediating critical architectural gaps in HipCortex against its S-Tuple Acceptance Criteria: Sprint 1 fixes silent math/API failures (Rollout API, causal SCM boundary, Kalman Joseph-form covariance, Merkle test correction); Sprint 2 introduces a polyglot CognitiveRecord<T> envelope and Hot/Cold tiered storage to prevent RAG search pollution; Sprint 3 adds provenance reachability tracing via a Cognitive Garbage Collector; Sprint 4 enforces the L0 Cognitive State Infrastructure boundary by extracting execution, consolidation, and planning logic to L4/L1/L2 layers.",
+      "tags": ["design-spec", "architecture", "cognitive-gc", "tiered-storage", "l0-boundary", "provenance", "gap-remediation"],
+      "complexity": "moderate",
+      "languageNotes": "References Rust-specific patterns (CognitiveRecord<T> generic envelope, Deref type aliases for backward compatibility, Joseph-form Kalman update) alongside Python test corrections; status field is IMPLEMENTED indicating all sprints were executed."
+    }
+  ],
+  "edges": []
+}

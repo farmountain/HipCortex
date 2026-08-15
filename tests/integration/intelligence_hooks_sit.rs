@@ -6,12 +6,12 @@
 //
 // These tests do NOT require the web-server feature — they test direct module wiring.
 
-use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
-use hipcortex::symbolic_store::SymbolicStore;
 use hipcortex::coherence::CoherenceChecker;
-use hipcortex::world_model_enhanced::WorldModelEnhanced;
-use hipcortex::self_model::SelfModel;
 use hipcortex::decay::DecayType;
+use hipcortex::self_model::SelfModel;
+use hipcortex::symbolic_store::SymbolicStore;
+use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
+use hipcortex::world_model_enhanced::WorldModelEnhanced;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -70,8 +70,7 @@ fn test_temporal_indexer_constructs_without_intelligence() {
 #[test]
 fn test_temporal_indexer_with_self_model_gating() {
     let sm = setup_self_model();
-    let mut idx: TemporalIndexer<String> = TemporalIndexer::new(10, 3600)
-        .with_self_model(sm);
+    let mut idx: TemporalIndexer<String> = TemporalIndexer::new(10, 3600).with_self_model(sm);
 
     let trace = make_temporal_trace(Uuid::new_v4(), "gated_event".to_string(), 1.0);
     idx.insert(trace);
@@ -82,8 +81,8 @@ fn test_temporal_indexer_with_self_model_gating() {
 #[test]
 fn test_temporal_indexer_with_world_model_observation() {
     let wm = Arc::new(WorldModelEnhanced::new());
-    let mut idx: TemporalIndexer<String> = TemporalIndexer::new(10, 3600)
-        .with_world_model(wm.clone());
+    let mut idx: TemporalIndexer<String> =
+        TemporalIndexer::new(10, 3600).with_world_model(wm.clone());
 
     let trace = make_temporal_trace(Uuid::new_v4(), "observed_event".to_string(), 1.0);
     idx.insert(trace);
@@ -94,8 +93,8 @@ fn test_temporal_indexer_with_world_model_observation() {
 #[test]
 fn test_temporal_indexer_with_coherence_validation() {
     let cc = Arc::new(CoherenceChecker::new());
-    let mut idx: TemporalIndexer<String> = TemporalIndexer::new(10, 3600)
-        .with_coherence(cc.clone());
+    let mut idx: TemporalIndexer<String> =
+        TemporalIndexer::new(10, 3600).with_coherence(cc.clone());
 
     let trace = make_temporal_trace(Uuid::new_v4(), "coherent_event".to_string(), 1.0);
     idx.insert(trace);
@@ -169,7 +168,11 @@ fn test_symbolic_store_constructs_with_intelligence() {
 
     // SymbolicStore::new() always seeds System:Self — baseline is 1, not 0.
     let (nodes, edges) = store.export_graph();
-    assert_eq!(nodes.len(), 1, "Fresh store should contain only the System:Self anchor");
+    assert_eq!(
+        nodes.len(),
+        1,
+        "Fresh store should contain only the System:Self anchor"
+    );
     assert!(edges.is_empty());
 }
 
@@ -184,7 +187,11 @@ fn test_symbolic_store_add_node_with_self_model() {
     assert_ne!(node_id, Uuid::nil());
 
     let (nodes, _) = store.export_graph();
-    assert_eq!(nodes.len(), baseline + 1, "Should have 1 user node beyond the anchor");
+    assert_eq!(
+        nodes.len(),
+        baseline + 1,
+        "Should have 1 user node beyond the anchor"
+    );
 }
 
 #[test]
@@ -235,7 +242,11 @@ fn test_symbolic_store_nodes_and_edges_with_intelligence() {
     store.add_edge(a, b, "knows");
 
     let (nodes, edges) = store.export_graph();
-    assert_eq!(nodes.len(), baseline + 2, "Should have 2 user nodes beyond the anchor");
+    assert_eq!(
+        nodes.len(),
+        baseline + 2,
+        "Should have 2 user nodes beyond the anchor"
+    );
     // Edge count depends on safety guardrail — may be 0 if blocked
     // The important thing is that add_edge didn't panic
     let _ = edges;
@@ -270,12 +281,14 @@ fn test_symbolic_store_full_intelligence_pipeline() {
     let baseline = initial.len(); // includes System:Self anchor
 
     // Add nodes
-    let e1 = store.add_node("entity_1", HashMap::from([
-        ("type".to_string(), "person".to_string()),
-    ]));
-    let e2 = store.add_node("entity_2", HashMap::from([
-        ("type".to_string(), "document".to_string()),
-    ]));
+    let e1 = store.add_node(
+        "entity_1",
+        HashMap::from([("type".to_string(), "person".to_string())]),
+    );
+    let e2 = store.add_node(
+        "entity_2",
+        HashMap::from([("type".to_string(), "document".to_string())]),
+    );
     assert_ne!(e1, Uuid::nil(), "entity_1 should have valid UUID");
     assert_ne!(e2, Uuid::nil(), "entity_2 should have valid UUID");
 
@@ -284,7 +297,11 @@ fn test_symbolic_store_full_intelligence_pipeline() {
 
     // Verify graph has nodes (delta from baseline to account for System:Self)
     let (nodes, _edges) = store.export_graph();
-    assert_eq!(nodes.len(), baseline + 2, "Should have 2 user nodes beyond the anchor");
+    assert_eq!(
+        nodes.len(),
+        baseline + 2,
+        "Should have 2 user nodes beyond the anchor"
+    );
 
     // Verify intelligence layer state
     assert!(sm.is_healthy().unwrap());
@@ -313,7 +330,10 @@ fn test_temporal_indexer_health_reporter() {
     assert!(health.error_rate >= 0.0);
     assert!(health.resource_usage >= 0.0 && health.resource_usage <= 1.0);
     // After 5 inserts, resource usage should reflect buffer fullness
-    assert!(health.resource_usage > 0.0, "Resource usage should be >0 after inserts");
+    assert!(
+        health.resource_usage > 0.0,
+        "Resource usage should be >0 after inserts"
+    );
 }
 
 #[test]
@@ -323,7 +343,10 @@ fn test_temporal_indexer_health_reporter_initial_state() {
     let idx: TemporalIndexer<String> = TemporalIndexer::new(10, 3600);
     let health = idx.report_health();
     assert_eq!(health.error_rate, 0.0, "No errors in fresh indexer");
-    assert_eq!(health.resource_usage, 0.0, "Empty buffer means 0 resource usage");
+    assert_eq!(
+        health.resource_usage, 0.0,
+        "Empty buffer means 0 resource usage"
+    );
 }
 
 #[test]
@@ -350,7 +373,8 @@ fn test_symbolic_store_health_reporter_initial_state() {
     assert_eq!(health.error_rate, 0.0, "No errors in fresh store");
     assert!(
         health.resource_usage >= 0.0 && health.resource_usage <= 1.0,
-        "resource_usage must be in [0,1], got {}", health.resource_usage
+        "resource_usage must be in [0,1], got {}",
+        health.resource_usage
     );
 }
 

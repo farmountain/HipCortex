@@ -1,7 +1,7 @@
+use chrono::Utc;
+use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Mutex;
-use serde_json::json;
-use chrono::Utc;
 
 use crate::safety_classifier::{ClassificationResult, SafetyClassifier};
 
@@ -35,7 +35,10 @@ impl SafetyGuardrail {
             }
             _ => {
                 // Flag but don't block — log for audit
-                if !matches!(result.category, crate::safety_classifier::ContentCategory::Safe) {
+                if !matches!(
+                    result.category,
+                    crate::safety_classifier::ContentCategory::Safe
+                ) {
                     self.log_violation(
                         op_context,
                         &format!(

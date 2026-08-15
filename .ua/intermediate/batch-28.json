@@ -1,0 +1,172 @@
+{
+  "batchIndex": 28,
+  "nodes": [
+    {
+      "id": "tests/test_report/PerformanceTestReport.md",
+      "label": "PerformanceTestReport.md",
+      "type": "document",
+      "tags": ["testing", "test-report", "performance"],
+      "path": "tests/test_report/PerformanceTestReport.md",
+      "summary": "Criterion benchmark report (June 5 2025). Covers temporal_indexer_bench which inserts 100 traces repeatedly to measure throughput. All benchmarks complete successfully.",
+      "metadata": {
+        "date": "June 5, 2025",
+        "benchmark": "temporal_indexer_bench",
+        "result": "pass"
+      }
+    },
+    {
+      "id": "tests/test_report/RegressionTestReport.md",
+      "label": "RegressionTestReport.md",
+      "type": "document",
+      "tags": ["testing", "test-report", "regression"],
+      "path": "tests/test_report/RegressionTestReport.md",
+      "summary": "Regression test report (June 5 2025). Validates get_recent_zero_returns_empty and inserting_trace_preserves_id. All regression tests pass.",
+      "metadata": {
+        "date": "June 5, 2025",
+        "tests": [
+          "get_recent_zero_returns_empty",
+          "inserting_trace_preserves_id"
+        ],
+        "result": "pass"
+      }
+    },
+    {
+      "id": "tests/test_report/RetrievalPipelineTestPlan.md",
+      "label": "RetrievalPipelineTestPlan.md",
+      "type": "document",
+      "tags": ["testing", "test-report", "retrieval", "rag"],
+      "path": "tests/test_report/RetrievalPipelineTestPlan.md",
+      "summary": "Test plan for RAG retrieval pipelines built on SymbolicStore and TemporalIndexer (June 5 2025). Covers unit tests (recent_symbols_returns_nodes, recent_symbols_limit, local_rag_retrieve_match), SIT tests (retrieval_round_trip, rag_to_pdf_round_trip), and UAT tests (user_retrieve_recent_document, user_export_to_notion). All pass.",
+      "metadata": {
+        "date": "June 5, 2025",
+        "scope": "retrieval-pipeline",
+        "modules": ["SymbolicStore", "TemporalIndexer", "LocalRagAdapter"],
+        "unit_tests": [
+          "recent_symbols_returns_nodes",
+          "recent_symbols_limit",
+          "local_rag_retrieve_match"
+        ],
+        "sit_tests": [
+          "retrieval_round_trip",
+          "rag_to_pdf_round_trip"
+        ],
+        "uat_tests": [
+          "user_retrieve_recent_document",
+          "user_export_to_notion"
+        ],
+        "result": "pass"
+      }
+    },
+    {
+      "id": "tests/test_report/SITTestReport.md",
+      "label": "SITTestReport.md",
+      "type": "document",
+      "tags": ["testing", "test-report", "sit", "integration"],
+      "path": "tests/test_report/SITTestReport.md",
+      "summary": "System Integration Test report (June 5 2025). Validates cross-module interactions: memory_round_trip, integration_and_reflexion, integration_chain_of_thought, grpc_add_and_list, web_server_graph_endpoint, mcp_server_handles_grpc_and_http, store_reasoning_trace_via_adapter_and_indexer, query_symbol_via_indexer, vision_compress_round_trip, rag_to_pdf_round_trip. All pass.",
+      "metadata": {
+        "date": "June 5, 2025",
+        "scope": "system-integration",
+        "tests": [
+          "memory_round_trip",
+          "integration_and_reflexion",
+          "integration_chain_of_thought",
+          "grpc_add_and_list",
+          "web_server_graph_endpoint",
+          "mcp_server_handles_grpc_and_http",
+          "store_reasoning_trace_via_adapter_and_indexer",
+          "query_symbol_via_indexer",
+          "vision_compress_round_trip",
+          "rag_to_pdf_round_trip"
+        ],
+        "result": "pass"
+      }
+    },
+    {
+      "id": "tests/test_report/UATTestReport.md",
+      "label": "UATTestReport.md",
+      "type": "document",
+      "tags": ["testing", "test-report", "uat"],
+      "path": "tests/test_report/UATTestReport.md",
+      "summary": "User Acceptance Test report (June 5 2025). Validates end-user workflows: travelg3n_store_and_retrieve_city, athena_reflexion_placeholder, athena_chain_of_thought_reasoning, user_store_reasoning_trace, user_query_city_by_label, web_server_graph_endpoint, user_launches_combined_mcp_server, store_compressed_embedding, user_export_to_notion. All pass.",
+      "metadata": {
+        "date": "June 5, 2025",
+        "scope": "user-acceptance",
+        "tests": [
+          "travelg3n_store_and_retrieve_city",
+          "athena_reflexion_placeholder",
+          "athena_chain_of_thought_reasoning",
+          "user_store_reasoning_trace",
+          "user_query_city_by_label",
+          "web_server_graph_endpoint",
+          "user_launches_combined_mcp_server",
+          "store_compressed_embedding",
+          "user_export_to_notion"
+        ],
+        "result": "pass"
+      }
+    },
+    {
+      "id": "tests/test_report/SymbolicProceduralTestPlan.md",
+      "label": "SymbolicProceduralTestPlan.md",
+      "type": "document",
+      "tags": ["testing", "test-report", "symbolic", "procedural"],
+      "path": "tests/test_report/SymbolicProceduralTestPlan.md",
+      "summary": "Test plan for symbolic reasoning and procedural state management (June 5 2025). Unit tests cover SymbolicStore CRUD and ProceduralCache FSM transitions. SIT tests include edge_workflow_small_device, memory_round_trip, store_reasoning_trace_via_adapter_and_indexer, query_symbol_via_indexer, retrieval_round_trip. UAT tests cover user_runs_edge_workflow, user_flow_conversation_memory, user_retrieve_recent_document. All pass.",
+      "metadata": {
+        "date": "June 5, 2025",
+        "scope": "symbolic-procedural",
+        "modules": ["SymbolicStore", "ProceduralCache", "TemporalIndexer"],
+        "unit_tests": [
+          "add_and_get_node",
+          "add_edge_and_neighbors",
+          "add_edge_to_nonexistent_node",
+          "duplicate_node",
+          "update_find_and_remove_node",
+          "edges_from_query",
+          "query_by_label_and_property",
+          "advance_transition",
+          "checkpoint_roundtrip"
+        ],
+        "sit_tests": [
+          "edge_workflow_small_device",
+          "memory_round_trip",
+          "store_reasoning_trace_via_adapter_and_indexer",
+          "query_symbol_via_indexer",
+          "retrieval_round_trip"
+        ],
+        "uat_tests": [
+          "user_runs_edge_workflow",
+          "user_flow_conversation_memory",
+          "user_retrieve_recent_document"
+        ],
+        "result": "pass"
+      }
+    },
+    {
+      "id": "tests/test_report/UnitTestReport.md",
+      "label": "UnitTestReport.md",
+      "type": "document",
+      "tags": ["testing", "test-report", "unit"],
+      "path": "tests/test_report/UnitTestReport.md",
+      "summary": "Unit test report (June 5 2025). Covers TemporalIndexer (insert/retrieve, buffer overflow, decay/prune, remove/get, decay factor), ProceduralCache (FSM transitions, invalid transition, remove/reset), SymbolicStore (add/get node, edges, neighbors, duplicates, query by label/property), PerceptionAdapter (text, embedding, invalid, image, symbolic concept inputs), IntegrationLayer (connect, multiple connects, send/disconnect, connection state), AureusBridge (reflexion loop, CoT prompt), reasoning trace store, RAG and export modules (PDF/Notion), MCP server init. All pass.",
+      "metadata": {
+        "date": "June 5, 2025",
+        "scope": "unit",
+        "modules": [
+          "TemporalIndexer",
+          "ProceduralCache",
+          "SymbolicStore",
+          "PerceptionAdapter",
+          "IntegrationLayer",
+          "AureusBridge",
+          "LocalRagAdapter",
+          "KnowledgeExport",
+          "McpServer"
+        ],
+        "result": "pass"
+      }
+    }
+  ],
+  "edges": []
+}

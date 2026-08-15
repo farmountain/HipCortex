@@ -1,3 +1,4 @@
+use chrono::{Duration, Utc};
 /// SIT tests for Sim #10 gap closure:
 /// G1 recall_with_metadata (Python — skipped here, tested in sdk/python/)
 /// G2 multi-actor query (actors= param)
@@ -5,11 +6,9 @@
 /// G5 quarantine/restore/search exclusion
 /// G8 corroborate / contradict confidence
 /// G13 /memory/context LLM prompt endpoint
-
 use hipcortex::memory_record::{MemoryRecord, MemoryType};
 use hipcortex::memory_store::MemoryStore;
 use hipcortex::persistence::InMemoryBackend;
-use chrono::{Duration, Utc};
 
 fn make_store() -> MemoryStore<InMemoryBackend> {
     MemoryStore::new_in_memory()
@@ -89,7 +88,10 @@ fn test_search_excludes_quarantined() {
     store.add(r).unwrap();
     store.set_status(id, "quarantine").unwrap();
     let results = store.search_semantic(None, "postgres", 10, false);
-    assert!(results.iter().all(|(rec, _)| rec.id != id), "quarantined record appeared in search");
+    assert!(
+        results.iter().all(|(rec, _)| rec.id != id),
+        "quarantined record appeared in search"
+    );
 }
 
 #[test]
@@ -100,7 +102,10 @@ fn test_search_includes_quarantined_when_flag_set() {
     store.add(r).unwrap();
     store.set_status(id, "quarantine").unwrap();
     let results = store.search_semantic(None, "postgres", 10, true);
-    assert!(results.iter().any(|(rec, _)| rec.id == id), "quarantined record missing when include=true");
+    assert!(
+        results.iter().any(|(rec, _)| rec.id == id),
+        "quarantined record missing when include=true"
+    );
 }
 
 // ── G2: multi-actor query in MemoryStore ─────────────────────────────────────
@@ -108,9 +113,15 @@ fn test_search_includes_quarantined_when_flag_set() {
 #[test]
 fn test_find_by_actors_returns_all_matching() {
     let mut store = make_store();
-    store.add(make_record("alice", "decided", "use postgres")).unwrap();
-    store.add(make_record("bob", "said", "postgres is fine")).unwrap();
-    store.add(make_record("carol", "noted", "redis for cache")).unwrap();
+    store
+        .add(make_record("alice", "decided", "use postgres"))
+        .unwrap();
+    store
+        .add(make_record("bob", "said", "postgres is fine"))
+        .unwrap();
+    store
+        .add(make_record("carol", "noted", "redis for cache"))
+        .unwrap();
 
     let results = store.find_by_actors(&["alice", "bob"]);
     assert_eq!(results.len(), 2);
@@ -123,7 +134,9 @@ fn test_find_by_actors_returns_all_matching() {
 #[test]
 fn test_find_by_actors_empty_list_returns_empty() {
     let mut store = make_store();
-    store.add(make_record("alice", "decided", "use postgres")).unwrap();
+    store
+        .add(make_record("alice", "decided", "use postgres"))
+        .unwrap();
     let results = store.find_by_actors(&[]);
     assert!(results.is_empty());
 }
@@ -131,7 +144,9 @@ fn test_find_by_actors_empty_list_returns_empty() {
 #[test]
 fn test_find_by_actors_unknown_returns_empty() {
     let mut store = make_store();
-    store.add(make_record("alice", "decided", "use postgres")).unwrap();
+    store
+        .add(make_record("alice", "decided", "use postgres"))
+        .unwrap();
     let results = store.find_by_actors(&["nobody"]);
     assert!(results.is_empty());
 }
@@ -141,7 +156,11 @@ fn test_find_by_actors_unknown_returns_empty() {
 #[test]
 fn test_bulk_add_error_has_index_field() {
     use hipcortex::memory_store::BulkAddError;
-    let e = BulkAddError { index: 2, actor: "alice".to_string(), reason: "test".to_string() };
+    let e = BulkAddError {
+        index: 2,
+        actor: "alice".to_string(),
+        reason: "test".to_string(),
+    };
     assert_eq!(e.index, 2);
     let json = serde_json::to_value(&e).unwrap();
     assert_eq!(json["index"], 2);
@@ -160,7 +179,11 @@ fn test_corroborate_increases_confidence() {
 
     let (before, after) = store.corroborate(id).unwrap();
     assert!(after > before);
-    assert!((after - 0.8f32).abs() < 0.01, "expected ~0.8, got {}", after);
+    assert!(
+        (after - 0.8f32).abs() < 0.01,
+        "expected ~0.8, got {}",
+        after
+    );
 }
 
 #[test]
@@ -185,7 +208,11 @@ fn test_contradict_decreases_confidence() {
 
     let (before, after, quarantined) = store.contradict(id).unwrap();
     assert!(after < before);
-    assert!((after - 0.55f32).abs() < 0.01, "expected ~0.55, got {}", after);
+    assert!(
+        (after - 0.55f32).abs() < 0.01,
+        "expected ~0.55, got {}",
+        after
+    );
     assert!(!quarantined);
 }
 
@@ -198,7 +225,10 @@ fn test_contradict_auto_quarantines_at_low_confidence() {
     store.add(r).unwrap();
 
     let (_before, _after, quarantined) = store.contradict(id).unwrap();
-    assert!(quarantined, "should auto-quarantine when confidence drops below 0.3");
+    assert!(
+        quarantined,
+        "should auto-quarantine when confidence drops below 0.3"
+    );
     let found = store.find_by_id(id).unwrap();
     assert_eq!(found.status, "quarantine");
 }
@@ -276,13 +306,27 @@ fn test_pinned_record_with_query_match_scores_2_0_not_decayed() {
     store.add(normal_r.clone()).unwrap();
 
     let results = store.search_semantic(None, "use postgres architecture", 10, false);
-    let pinned_pos = results.iter().position(|(r, _)| r.id == pinned_r.id).expect("pinned missing");
-    let normal_pos = results.iter().position(|(r, _)| r.id == normal_r.id).expect("normal missing");
+    let pinned_pos = results
+        .iter()
+        .position(|(r, _)| r.id == pinned_r.id)
+        .expect("pinned missing");
+    let normal_pos = results
+        .iter()
+        .position(|(r, _)| r.id == normal_r.id)
+        .expect("normal missing");
     let pinned_score = results[pinned_pos].1;
 
-    assert_eq!(pinned_pos, 0, "pinned record must appear first (pos 0), got pos {}", pinned_pos);
+    assert_eq!(
+        pinned_pos, 0,
+        "pinned record must appear first (pos 0), got pos {}",
+        pinned_pos
+    );
     assert!(pinned_pos < normal_pos, "pinned must rank above normal");
-    assert!((pinned_score - 2.0).abs() < f64::EPSILON, "pinned record must score 2.0, got {}", pinned_score);
+    assert!(
+        (pinned_score - 2.0).abs() < f64::EPSILON,
+        "pinned record must score 2.0, got {}",
+        pinned_score
+    );
 }
 
 // ── Task 2: priority multipliers (high=1.5×, low=0.5×) ───────────────────────
@@ -299,12 +343,19 @@ fn test_high_priority_ranks_above_normal_for_same_content() {
     store.add(normal_r.clone()).unwrap();
 
     let results = store.search_semantic(None, "use postgres as database", 10, false);
-    let high_pos = results.iter().position(|(r, _)| r.id == high_r.id).expect("high record missing");
-    let normal_pos = results.iter().position(|(r, _)| r.id == normal_r.id).expect("normal record missing");
+    let high_pos = results
+        .iter()
+        .position(|(r, _)| r.id == high_r.id)
+        .expect("high record missing");
+    let normal_pos = results
+        .iter()
+        .position(|(r, _)| r.id == normal_r.id)
+        .expect("normal record missing");
     assert!(
         high_pos < normal_pos,
         "high priority record (pos {}) must rank above normal priority (pos {})",
-        high_pos, normal_pos
+        high_pos,
+        normal_pos
     );
 }
 
@@ -320,12 +371,19 @@ fn test_low_priority_ranks_below_normal_for_same_content() {
     store.add(normal_r.clone()).unwrap();
 
     let results = store.search_semantic(None, "use redis for cache", 10, false);
-    let low_pos = results.iter().position(|(r, _)| r.id == low_r.id).expect("low record missing");
-    let normal_pos = results.iter().position(|(r, _)| r.id == normal_r.id).expect("normal record missing");
+    let low_pos = results
+        .iter()
+        .position(|(r, _)| r.id == low_r.id)
+        .expect("low record missing");
+    let normal_pos = results
+        .iter()
+        .position(|(r, _)| r.id == normal_r.id)
+        .expect("normal record missing");
     assert!(
         low_pos > normal_pos,
         "low priority record (pos {}) must rank below normal priority (pos {})",
-        low_pos, normal_pos
+        low_pos,
+        normal_pos
     );
 }
 
@@ -349,12 +407,21 @@ fn test_old_record_with_short_half_life_scores_lower_than_fresh() {
     store.add(fresh_r.clone()).unwrap();
 
     let results = store.search_semantic(None, "use postgres now", 10, false);
-    let old_score = results.iter().find(|(r, _)| r.id == old_r.id).map(|(_, s)| *s).unwrap_or(0.0);
-    let fresh_score = results.iter().find(|(r, _)| r.id == fresh_r.id).map(|(_, s)| *s).unwrap_or(0.0);
+    let old_score = results
+        .iter()
+        .find(|(r, _)| r.id == old_r.id)
+        .map(|(_, s)| *s)
+        .unwrap_or(0.0);
+    let fresh_score = results
+        .iter()
+        .find(|(r, _)| r.id == fresh_r.id)
+        .map(|(_, s)| *s)
+        .unwrap_or(0.0);
     assert!(
         old_score < fresh_score,
         "decayed old record (score {:.4}) must score lower than fresh record (score {:.4})",
-        old_score, fresh_score
+        old_score,
+        fresh_score
     );
 }
 
@@ -370,10 +437,18 @@ fn test_zero_decay_factor_record_is_not_decayed() {
     store.add(r.clone()).unwrap();
 
     let results = store.search_semantic(None, "use postgres", 10, false);
-    let score = results.iter().find(|(rec, _)| rec.id == r.id).map(|(_, s)| *s).unwrap_or(0.0);
+    let score = results
+        .iter()
+        .find(|(rec, _)| rec.id == r.id)
+        .map(|(_, s)| *s)
+        .unwrap_or(0.0);
     // λ=0 → decay=1.0, conf=1.0, trust default=0.5, keyword=1.0, priority=1.0
     // weighted = 1.0 * (0.5 + 0.5*0.5) * 1.0 * 1.0 = 0.75
-    assert!(score > 0.5, "λ=0 record must not decay (score {:.4} must be > 0.5)", score);
+    assert!(
+        score > 0.5,
+        "λ=0 record must not decay (score {:.4} must be > 0.5)",
+        score
+    );
 }
 
 // ── Task 4: causal edge condition (OR semantics) ─────────────────────────────
@@ -433,7 +508,9 @@ fn test_search_semantic_pinned_longitudinal_truncation() {
         assert_eq!(
             results[i].0.target,
             format!("fact day {}", expected_day),
-            "Index {} should be Day {} (newest first)", i, expected_day
+            "Index {} should be Day {} (newest first)",
+            i,
+            expected_day
         );
     }
 }
@@ -458,6 +535,9 @@ fn test_longitudinal_pinned_sorting_and_truncation_contract() {
     filtered.truncate(10);
 
     assert_eq!(filtered.len(), 10);
-    assert_eq!(filtered[0].target, "rule 50", "First item must be the newest (rule 50)");
+    assert_eq!(
+        filtered[0].target, "rule 50",
+        "First item must be the newest (rule 50)"
+    );
     assert_eq!(filtered[9].target, "rule 41", "Last item must be rule 41");
 }

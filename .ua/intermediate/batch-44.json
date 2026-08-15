@@ -1,0 +1,203 @@
+{
+  "batchIndex": 44,
+  "nodes": [
+    {
+      "id": "file::tests/integration/retrieval_pipeline_sit.rs",
+      "type": "file",
+      "label": "retrieval_pipeline_sit.rs",
+      "path": "tests/integration/retrieval_pipeline_sit.rs",
+      "tags": ["rust", "testing", "integration", "sit"],
+      "exists": true,
+      "summary": "SIT test: verifies full retrieval round-trip — adds a node to SymbolicStore, processes text input through PerceptionAdapter, indexes via TemporalIndexer, then calls recent_symbols and asserts the correct label is returned.",
+      "tests": ["retrieval_round_trip"],
+      "imports": [
+        "hipcortex::perception_adapter::Modality",
+        "hipcortex::perception_adapter::PerceptInput",
+        "hipcortex::perception_adapter::PerceptionAdapter",
+        "hipcortex::retrieval_pipeline::recent_symbols",
+        "hipcortex::symbolic_store::SymbolicStore",
+        "hipcortex::temporal_indexer::TemporalIndexer",
+        "hipcortex::temporal_indexer::TemporalTrace",
+        "hipcortex::decay::DecayType"
+      ]
+    },
+    {
+      "id": "file::tests/integration/retrieval_pipeline_uat.rs",
+      "type": "file",
+      "label": "retrieval_pipeline_uat.rs",
+      "path": "tests/integration/retrieval_pipeline_uat.rs",
+      "tags": ["rust", "testing", "integration", "uat"],
+      "exists": true,
+      "summary": "UAT test: simulates concurrent user access via Arc<Mutex<SymbolicStore>>; adds a 'Manual' document node, indexes it in TemporalIndexer, calls recent_symbols and asserts correct label.",
+      "tests": ["user_retrieve_recent_document"],
+      "imports": [
+        "hipcortex::retrieval_pipeline::recent_symbols",
+        "hipcortex::symbolic_store::SymbolicStore",
+        "hipcortex::temporal_indexer::TemporalIndexer",
+        "hipcortex::temporal_indexer::TemporalTrace",
+        "hipcortex::decay::DecayType"
+      ]
+    },
+    {
+      "id": "file::tests/integration/safety_guardrail_sit.rs",
+      "type": "file",
+      "label": "safety_guardrail_sit.rs",
+      "path": "tests/integration/safety_guardrail_sit.rs",
+      "tags": ["rust", "testing", "integration", "sit"],
+      "exists": true,
+      "summary": "SIT test: exercises SafetyGuardrail via TemporalFSMBackend — verifies that a prompt-injection FSM condition is blocked and violation_count increments, while a safe condition is allowed through.",
+      "tests": ["fsm_blocked_by_guardrail", "fsm_allows_safe_condition"],
+      "imports": [
+        "hipcortex::backends::temporal_backend::TemporalFSMBackend",
+        "hipcortex::procedural_cache::FSMBackend",
+        "hipcortex::procedural_cache::FSMState",
+        "hipcortex::procedural_cache::FSMTransition",
+        "hipcortex::procedural_cache::ProceduralTrace",
+        "hipcortex::safety_guardrail::SAFETY_GUARDRAIL"
+      ]
+    },
+    {
+      "id": "file::tests/integration/safety_guardrail_uat.rs",
+      "type": "file",
+      "label": "safety_guardrail_uat.rs",
+      "path": "tests/integration/safety_guardrail_uat.rs",
+      "tags": ["rust", "testing", "integration", "uat"],
+      "exists": false,
+      "summary": "File listed in batch specification but does not exist in the repository."
+    },
+    {
+      "id": "file::tests/integration/world_model_sit.rs",
+      "type": "file",
+      "label": "world_model_sit.rs",
+      "path": "tests/integration/world_model_sit.rs",
+      "tags": ["rust", "testing", "integration", "sit"],
+      "exists": false,
+      "summary": "File listed in batch specification but does not exist in the repository. The existing world_model_cli_sit.rs covers CLI-level world model SIT tests."
+    },
+    {
+      "id": "file::tests/integration/world_model_uat.rs",
+      "type": "file",
+      "label": "world_model_uat.rs",
+      "path": "tests/integration/world_model_uat.rs",
+      "tags": ["rust", "testing", "integration", "uat"],
+      "exists": true,
+      "summary": "UAT test (web-server feature-gated): starts a live Axum server backed by SymbolicStore<InMemoryGraph>, exercises /graph endpoint (asserts 3 nodes, 1 edge) and /node/{id} endpoint (asserts label present). Uses tokio::test with reqwest for HTTP assertions.",
+      "tests": ["web_server_graph_endpoint", "web_server_node_endpoint"],
+      "feature_gates": ["web-server"],
+      "imports": [
+        "hipcortex::symbolic_store::InMemoryGraph",
+        "hipcortex::symbolic_store::SymbolicEdge",
+        "hipcortex::symbolic_store::SymbolicNode",
+        "hipcortex::symbolic_store::SymbolicStore",
+        "hipcortex::web_server::run_with_store"
+      ]
+    },
+    {
+      "id": "file::tests/integration_suite.rs",
+      "type": "file",
+      "label": "integration_suite.rs",
+      "path": "tests/integration_suite.rs",
+      "tags": ["rust", "testing", "integration"],
+      "exists": true,
+      "summary": "Top-level integration test binary entry point. Contains only 'mod integration;' which pulls in tests/integration/mod.rs and its full module tree. Registered in Cargo.toml as the 'integration_suite' test binary.",
+      "modules_declared": ["integration"]
+    }
+  ],
+  "edges": [
+    {
+      "from": "file::src/modules/perception_adapter.rs",
+      "to": "file::tests/integration/retrieval_pipeline_sit.rs",
+      "relation": "tested_by"
+    },
+    {
+      "from": "file::src/modules/retrieval_pipeline.rs",
+      "to": "file::tests/integration/retrieval_pipeline_sit.rs",
+      "relation": "tested_by"
+    },
+    {
+      "from": "file::src/modules/symbolic_store.rs",
+      "to": "file::tests/integration/retrieval_pipeline_sit.rs",
+      "relation": "tested_by"
+    },
+    {
+      "from": "file::src/modules/temporal_indexer.rs",
+      "to": "file::tests/integration/retrieval_pipeline_sit.rs",
+      "relation": "tested_by"
+    },
+    {
+      "from": "file::src/modules/decay.rs",
+      "to": "file::tests/integration/retrieval_pipeline_sit.rs",
+      "relation": "tested_by"
+    },
+    {
+      "from": "file::src/modules/retrieval_pipeline.rs",
+      "to": "file::tests/integration/retrieval_pipeline_uat.rs",
+      "relation": "tested_by"
+    },
+    {
+      "from": "file::src/modules/symbolic_store.rs",
+      "to": "file::tests/integration/retrieval_pipeline_uat.rs",
+      "relation": "tested_by"
+    },
+    {
+      "from": "file::src/modules/temporal_indexer.rs",
+      "to": "file::tests/integration/retrieval_pipeline_uat.rs",
+      "relation": "tested_by"
+    },
+    {
+      "from": "file::src/modules/decay.rs",
+      "to": "file::tests/integration/retrieval_pipeline_uat.rs",
+      "relation": "tested_by"
+    },
+    {
+      "from": "file::src/safety_guardrail.rs",
+      "to": "file::tests/integration/safety_guardrail_sit.rs",
+      "relation": "tested_by"
+    },
+    {
+      "from": "file::src/backends/temporal_backend.rs",
+      "to": "file::tests/integration/safety_guardrail_sit.rs",
+      "relation": "tested_by"
+    },
+    {
+      "from": "file::src/modules/procedural_cache.rs",
+      "to": "file::tests/integration/safety_guardrail_sit.rs",
+      "relation": "tested_by"
+    },
+    {
+      "from": "file::src/modules/symbolic_store.rs",
+      "to": "file::tests/integration/world_model_uat.rs",
+      "relation": "tested_by"
+    },
+    {
+      "from": "file::src/web_server.rs",
+      "to": "file::tests/integration/world_model_uat.rs",
+      "relation": "tested_by"
+    },
+    {
+      "from": "file::tests/integration/mod.rs",
+      "to": "file::tests/integration/retrieval_pipeline_sit.rs",
+      "relation": "declares"
+    },
+    {
+      "from": "file::tests/integration/mod.rs",
+      "to": "file::tests/integration/retrieval_pipeline_uat.rs",
+      "relation": "declares"
+    },
+    {
+      "from": "file::tests/integration/mod.rs",
+      "to": "file::tests/integration/safety_guardrail_sit.rs",
+      "relation": "declares"
+    },
+    {
+      "from": "file::tests/integration/mod.rs",
+      "to": "file::tests/integration/world_model_uat.rs",
+      "relation": "declares"
+    },
+    {
+      "from": "file::tests/integration_suite.rs",
+      "to": "file::tests/integration/mod.rs",
+      "relation": "declares"
+    }
+  ]
+}

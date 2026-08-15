@@ -262,9 +262,7 @@ pub fn run() -> Result<()> {
         }
         Commands::SafetyAudit => {
             let snaps = {
-                let guard = crate::safety_guardrail::SAFETY_GUARDRAIL
-                    .lock()
-                    .unwrap();
+                let guard = crate::safety_guardrail::SAFETY_GUARDRAIL.lock().unwrap();
                 guard.recent_snapshots(5)
             };
             println!("{}", serde_json::to_string_pretty(&snaps)?);

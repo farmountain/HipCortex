@@ -22,7 +22,9 @@ pub struct ConstraintEngine {
 
 impl ConstraintEngine {
     pub fn new() -> Self {
-        Self { constraints: Vec::new() }
+        Self {
+            constraints: Vec::new(),
+        }
     }
 
     pub fn add_constraint(&mut self, constraint: Constraint) {
@@ -34,12 +36,12 @@ impl ConstraintEngine {
             if c.target_metric == metric_name {
                 let violated = match c.operator.as_str() {
                     ">=" => value >= c.threshold,
-                    ">"  => value > c.threshold,
+                    ">" => value > c.threshold,
                     "<=" => value <= c.threshold,
-                    "<"  => value < c.threshold,
+                    "<" => value < c.threshold,
                     "==" => (value - c.threshold).abs() < 1e-6,
                     "!=" => (value - c.threshold).abs() >= 1e-6,
-                    _    => false,
+                    _ => false,
                 };
                 if violated {
                     return Some(c.severity.clone());

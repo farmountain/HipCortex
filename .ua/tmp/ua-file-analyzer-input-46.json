@@ -1,0 +1,11 @@
+{
+  "projectRoot": "D:/all_projects/hipcortex",
+  "batchFiles": [
+    {"path": "tests/unit/memory_store_tests.rs", "language": "rust", "sizeLines": 0, "fileCategory": "code"},
+    {"path": "tests/unit/mod.rs", "language": "rust", "sizeLines": 0, "fileCategory": "code"}
+  ],
+  "batchImportData": {
+    "tests/unit/memory_store_tests.rs": ["src/memory_store.rs","src/memory_record.rs","src/payloads.rs"],
+    "tests/unit/mod.rs": ["tests/unit/archive_store_tests.rs","tests/unit/cognitive_gc_tests.rs","tests/unit/execution_gate_tests.rs","tests/unit/memory_diff_tests.rs"]
+  }
+}

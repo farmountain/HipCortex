@@ -1,0 +1,4010 @@
+{
+  "scriptCompleted": true,
+  "contentDigest": "c09611f1c30ac6ce414e763951e5872500d583bc240bbed140f2a4219fd2153b",
+  "files": [
+    {
+      "path": ".claude/PRPs/plans/hipcortex-saas-features.plan.md",
+      "language": "markdown",
+      "sizeLines": 47,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".claude/PRPs/plans/sim10-memory-gaps.plan.md",
+      "language": "markdown",
+      "sizeLines": 347,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".claude/settings.local.json",
+      "language": "json",
+      "sizeLines": 11,
+      "fileCategory": "config"
+    },
+    {
+      "path": ".env.example",
+      "language": "config",
+      "sizeLines": 34,
+      "fileCategory": "config"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE.md",
+      "language": "markdown",
+      "sizeLines": 13,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/PULL_REQUEST_TEMPLATE.md",
+      "language": "markdown",
+      "sizeLines": 9,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "language": "yaml",
+      "sizeLines": 234,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".github/workflows/cognitive_os_token_verification.yml",
+      "language": "yaml",
+      "sizeLines": 28,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".github/workflows/publish-npm.yml",
+      "language": "yaml",
+      "sizeLines": 46,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".github/workflows/publish-pypi.yml",
+      "language": "yaml",
+      "sizeLines": 39,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".github/workflows/release.yml",
+      "language": "yaml",
+      "sizeLines": 148,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".replit",
+      "language": "unknown",
+      "sizeLines": 9,
+      "fileCategory": "code"
+    },
+    {
+      "path": ".superpowers/sdd/briefs2/a3-report.md",
+      "language": "markdown",
+      "sizeLines": 99,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".superpowers/sdd/progress.md",
+      "language": "markdown",
+      "sizeLines": 15,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".tmp-hc-err.txt",
+      "language": "txt",
+      "sizeLines": 0,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".tmp-hc-out.txt",
+      "language": "txt",
+      "sizeLines": 3,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".tours/architect-hipcortex-overview.tour",
+      "language": "tour",
+      "sizeLines": 92,
+      "fileCategory": "code"
+    },
+    {
+      "path": "AGENTS.md",
+      "language": "markdown",
+      "sizeLines": 43,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "BENCHMARK.md",
+      "language": "markdown",
+      "sizeLines": 109,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "CLAUDE.md",
+      "language": "markdown",
+      "sizeLines": 184,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "CODEOWNERS",
+      "language": "unknown",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "language": "markdown",
+      "sizeLines": 27,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "Cargo.toml",
+      "language": "toml",
+      "sizeLines": 153,
+      "fileCategory": "config"
+    },
+    {
+      "path": "DEPLOY.md",
+      "language": "markdown",
+      "sizeLines": 178,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "DEVELOPMENT.md",
+      "language": "markdown",
+      "sizeLines": 141,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "Dockerfile",
+      "language": "dockerfile",
+      "sizeLines": 70,
+      "fileCategory": "infra"
+    },
+    {
+      "path": "Dockerfile.dev",
+      "language": "dockerfile",
+      "sizeLines": 32,
+      "fileCategory": "infra"
+    },
+    {
+      "path": "FINAL_PROJECT_COMPLETION_REPORT.md",
+      "language": "markdown",
+      "sizeLines": 263,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "FINAL_SYSTEM_VALIDATION_REPORT.md",
+      "language": "markdown",
+      "sizeLines": 216,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "HipCortex_E2E_User_Testing_Plan.md",
+      "language": "markdown",
+      "sizeLines": 506,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "Hipcortex_Env_Setup_Guide.md",
+      "language": "markdown",
+      "sizeLines": 515,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "How to Test as a User",
+      "language": "unknown",
+      "sizeLines": 619,
+      "fileCategory": "code"
+    },
+    {
+      "path": "INTELLIGENCE.md",
+      "language": "markdown",
+      "sizeLines": 283,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "LOCAL_DEPLOYMENT_SUCCESS.md",
+      "language": "markdown",
+      "sizeLines": 152,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "MEMORY_ANALYSIS_REPORT.md",
+      "language": "markdown",
+      "sizeLines": 174,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "NOTICE",
+      "language": "unknown",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "OPTIMIZATION_STRATEGY.md",
+      "language": "markdown",
+      "sizeLines": 377,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "PRODUCTION_DEPLOYMENT_GUIDE.md",
+      "language": "markdown",
+      "sizeLines": 586,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "PRODUCTION_READY_REPORT.md",
+      "language": "markdown",
+      "sizeLines": 309,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "QUICK_START_GUIDE.md",
+      "language": "markdown",
+      "sizeLines": 360,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "README.md",
+      "language": "markdown",
+      "sizeLines": 140,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "TEST_VALIDATION_REPORT.md",
+      "language": "markdown",
+      "sizeLines": 86,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "Top-Level Directory Structure.md",
+      "language": "markdown",
+      "sizeLines": 34,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "VERSION",
+      "language": "unknown",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "VSCODE_EXTENSION_USAGE_GUIDE.md",
+      "language": "markdown",
+      "sizeLines": 149,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "benches/coherence_bench.rs",
+      "language": "rust",
+      "sizeLines": 136,
+      "fileCategory": "code"
+    },
+    {
+      "path": "benches/integration_bench.rs",
+      "language": "rust",
+      "sizeLines": 137,
+      "fileCategory": "code"
+    },
+    {
+      "path": "benches/pipeline_latency_bench.rs",
+      "language": "rust",
+      "sizeLines": 79,
+      "fileCategory": "code"
+    },
+    {
+      "path": "benches/retrieval_quality_bench.rs",
+      "language": "rust",
+      "sizeLines": 108,
+      "fileCategory": "code"
+    },
+    {
+      "path": "benches/self_model_bench.rs",
+      "language": "rust",
+      "sizeLines": 154,
+      "fileCategory": "code"
+    },
+    {
+      "path": "benches/symbolic_store_bench.rs",
+      "language": "rust",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "benches/temporal_indexer_bench.rs",
+      "language": "rust",
+      "sizeLines": 28,
+      "fileCategory": "code"
+    },
+    {
+      "path": "benches/world_model_bench.rs",
+      "language": "rust",
+      "sizeLines": 97,
+      "fileCategory": "code"
+    },
+    {
+      "path": "benchmarks/README.md",
+      "language": "markdown",
+      "sizeLines": 54,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "benchmarks/criterion_bench.rs",
+      "language": "rust",
+      "sizeLines": 26,
+      "fileCategory": "code"
+    },
+    {
+      "path": "benchmarks/python_benchmark.py",
+      "language": "python",
+      "sizeLines": 213,
+      "fileCategory": "code"
+    },
+    {
+      "path": "benchmarks/token_reduction_benchmark.py",
+      "language": "python",
+      "sizeLines": 456,
+      "fileCategory": "code"
+    },
+    {
+      "path": "build.rs",
+      "language": "rust",
+      "sizeLines": 9,
+      "fileCategory": "code"
+    },
+    {
+      "path": "deploy/helm/hipcortex/Chart.yaml",
+      "language": "yaml",
+      "sizeLines": 18,
+      "fileCategory": "config"
+    },
+    {
+      "path": "deploy/helm/hipcortex/templates/_helpers.tpl",
+      "language": "tpl",
+      "sizeLines": 14,
+      "fileCategory": "code"
+    },
+    {
+      "path": "deploy/helm/hipcortex/templates/deployment.yaml",
+      "language": "yaml",
+      "sizeLines": 55,
+      "fileCategory": "config"
+    },
+    {
+      "path": "deploy/helm/hipcortex/templates/pvc.yaml",
+      "language": "yaml",
+      "sizeLines": 17,
+      "fileCategory": "config"
+    },
+    {
+      "path": "deploy/helm/hipcortex/templates/secret.yaml",
+      "language": "yaml",
+      "sizeLines": 11,
+      "fileCategory": "config"
+    },
+    {
+      "path": "deploy/helm/hipcortex/templates/service.yaml",
+      "language": "yaml",
+      "sizeLines": 15,
+      "fileCategory": "config"
+    },
+    {
+      "path": "deploy/helm/hipcortex/values.yaml",
+      "language": "yaml",
+      "sizeLines": 62,
+      "fileCategory": "config"
+    },
+    {
+      "path": "docker-compose.dev.yml",
+      "language": "yaml",
+      "sizeLines": 48,
+      "fileCategory": "infra"
+    },
+    {
+      "path": "docker-compose.yml",
+      "language": "yaml",
+      "sizeLines": 96,
+      "fileCategory": "infra"
+    },
+    {
+      "path": "docs/SESSION_HANDOVER.md",
+      "language": "markdown",
+      "sizeLines": 425,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/acceptance.md",
+      "language": "markdown",
+      "sizeLines": 13,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/agent.md",
+      "language": "markdown",
+      "sizeLines": 38,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/api_contract.md",
+      "language": "markdown",
+      "sizeLines": 5,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/architecture.md",
+      "language": "markdown",
+      "sizeLines": 306,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/business_context.md",
+      "language": "markdown",
+      "sizeLines": 53,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/capabilities.md",
+      "language": "markdown",
+      "sizeLines": 99,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/channels.md",
+      "language": "markdown",
+      "sizeLines": 98,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/channels.yaml",
+      "language": "yaml",
+      "sizeLines": 245,
+      "fileCategory": "config"
+    },
+    {
+      "path": "docs/compliance/HIPAA-BAA-template.md",
+      "language": "markdown",
+      "sizeLines": 92,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/contributing.md",
+      "language": "markdown",
+      "sizeLines": 30,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/data_model.md",
+      "language": "markdown",
+      "sizeLines": 35,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/execution_flows.md",
+      "language": "markdown",
+      "sizeLines": 202,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/hosts/README.md",
+      "language": "markdown",
+      "sizeLines": 106,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/hosts/grok-build.md",
+      "language": "markdown",
+      "sizeLines": 78,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/integration.md",
+      "language": "markdown",
+      "sizeLines": 85,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/intelligence_architecture.md",
+      "language": "markdown",
+      "sizeLines": 106,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/intelligence_integration_guide.md",
+      "language": "markdown",
+      "sizeLines": 176,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/launch/DISTRIBUTION.md",
+      "language": "markdown",
+      "sizeLines": 76,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/launch/copilot-extension-plan.md",
+      "language": "markdown",
+      "sizeLines": 63,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/launch/reddit-localllama.md",
+      "language": "markdown",
+      "sizeLines": 126,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/launch/show-hn.md",
+      "language": "markdown",
+      "sizeLines": 72,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/memory_design.md",
+      "language": "markdown",
+      "sizeLines": 170,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/roadmap.md",
+      "language": "markdown",
+      "sizeLines": 65,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-20-500-stars-sprint.md",
+      "language": "markdown",
+      "sizeLines": 2127,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-05-20-golden-path-ux-sprint.md",
+      "language": "markdown",
+      "sizeLines": 1563,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-06-04-intelligence-layer-wiring.md",
+      "language": "markdown",
+      "sizeLines": 1487,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-06-04-query-response-fields.md",
+      "language": "markdown",
+      "sizeLines": 376,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-06-04-sim11-p1-gaps.md",
+      "language": "markdown",
+      "sizeLines": 850,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-06-05-token-reduction-benchmark.md",
+      "language": "markdown",
+      "sizeLines": 599,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-06-05-vscode-extension-enhancement.md",
+      "language": "markdown",
+      "sizeLines": 483,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-06-20-harness-and-omega-loop-engineering.md",
+      "language": "markdown",
+      "sizeLines": 386,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-06-23-vscode-extension-substrate-autonomy.md",
+      "language": "markdown",
+      "sizeLines": 605,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-02-expiry-consistency-ppr-search.md",
+      "language": "markdown",
+      "sizeLines": 888,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-02-tiered-memory-foundation.md",
+      "language": "markdown",
+      "sizeLines": 951,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-06-extension-tier-surface.md",
+      "language": "markdown",
+      "sizeLines": 412,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-06-search-scoring-correctness.md",
+      "language": "markdown",
+      "sizeLines": 480,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-06-v040-contract-fixes.md",
+      "language": "markdown",
+      "sizeLines": 632,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-06-wm-predict-feedback.md",
+      "language": "markdown",
+      "sizeLines": 150,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-11-e2e-user-testing-harness-plan.md",
+      "language": "markdown",
+      "sizeLines": 532,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-11-rewrite-docs-v049-plan.md",
+      "language": "markdown",
+      "sizeLines": 519,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-12-cognitive-os-executable-reality-gaps.md",
+      "language": "markdown",
+      "sizeLines": 673,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-16-align-integration-tests-plan.md",
+      "language": "markdown",
+      "sizeLines": 69,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-17-quickpick-tags-display-option-a.md",
+      "language": "markdown",
+      "sizeLines": 489,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-17-semantic-tag-auto-capture.md",
+      "language": "markdown",
+      "sizeLines": 542,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-17-server-lifecycle-option-a.md",
+      "language": "markdown",
+      "sizeLines": 634,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-18-cross-channel-ux-enhancement-plan.md",
+      "language": "markdown",
+      "sizeLines": 401,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-20-fill-stubs.md",
+      "language": "markdown",
+      "sizeLines": 25,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-20-health-body-shape-dual-contract.md",
+      "language": "markdown",
+      "sizeLines": 16,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-20-mcts-deep-causal.md",
+      "language": "markdown",
+      "sizeLines": 17,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-20-release-pr-vsix.md",
+      "language": "markdown",
+      "sizeLines": 6,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-20-wire-deep-cohesion.md",
+      "language": "markdown",
+      "sizeLines": 9,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-20-worldmodel-self-routes-surface.md",
+      "language": "markdown",
+      "sizeLines": 21,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-06-04-intelligence-layer-wiring-design.md",
+      "language": "markdown",
+      "sizeLines": 177,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-06-04-query-response-fields-design.md",
+      "language": "markdown",
+      "sizeLines": 69,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-06-04-sim11-p1-gaps-design.md",
+      "language": "markdown",
+      "sizeLines": 92,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-06-05-token-reduction-benchmark-design.md",
+      "language": "markdown",
+      "sizeLines": 96,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-06-05-vscode-extension-enhancement-design.md",
+      "language": "markdown",
+      "sizeLines": 83,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-11-e2e-user-testing-harness-design.md",
+      "language": "markdown",
+      "sizeLines": 158,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-11-rewrite-docs-v049-design.md",
+      "language": "markdown",
+      "sizeLines": 102,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-16-align-integration-tests-design.md",
+      "language": "markdown",
+      "sizeLines": 35,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-18-cross-channel-ux-problem-catalog.md",
+      "language": "markdown",
+      "sizeLines": 239,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-08-13-hipcortex-gap-remediation-design.md",
+      "language": "markdown",
+      "sizeLines": 91,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/systemd/README.md",
+      "language": "markdown",
+      "sizeLines": 51,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/systemd/hipcortex.service",
+      "language": "service",
+      "sizeLines": 34,
+      "fileCategory": "code"
+    },
+    {
+      "path": "docs/test_plan.md",
+      "language": "markdown",
+      "sizeLines": 29,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/usage.md",
+      "language": "markdown",
+      "sizeLines": 396,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/usage_guide.md",
+      "language": "markdown",
+      "sizeLines": 3,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/whitepaper.md",
+      "language": "markdown",
+      "sizeLines": 225,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/world_model_vision_alignment.md",
+      "language": "markdown",
+      "sizeLines": 144,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "examples/adapters/README.md",
+      "language": "markdown",
+      "sizeLines": 31,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "examples/adapters/hipcortex_autogen.py",
+      "language": "python",
+      "sizeLines": 25,
+      "fileCategory": "code"
+    },
+    {
+      "path": "examples/adapters/hipcortex_crewai.py",
+      "language": "python",
+      "sizeLines": 25,
+      "fileCategory": "code"
+    },
+    {
+      "path": "examples/adapters/hipcortex_dspy.py",
+      "language": "python",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "examples/adapters/hipcortex_langchain.py",
+      "language": "python",
+      "sizeLines": 18,
+      "fileCategory": "code"
+    },
+    {
+      "path": "examples/adapters/hipcortex_llamaindex.py",
+      "language": "python",
+      "sizeLines": 23,
+      "fileCategory": "code"
+    },
+    {
+      "path": "examples/adapters/hipcortex_n8n_curl.sh",
+      "language": "shell",
+      "sizeLines": 17,
+      "fileCategory": "script"
+    },
+    {
+      "path": "examples/adapters/hipcortex_pydantic_ai.py",
+      "language": "python",
+      "sizeLines": 23,
+      "fileCategory": "code"
+    },
+    {
+      "path": "examples/causal_agent_demo.rs",
+      "language": "rust",
+      "sizeLines": 36,
+      "fileCategory": "code"
+    },
+    {
+      "path": "examples/cognitive_os_autonomy_harness.rs",
+      "language": "rust",
+      "sizeLines": 266,
+      "fileCategory": "code"
+    },
+    {
+      "path": "examples/coherence_checking.rs",
+      "language": "rust",
+      "sizeLines": 111,
+      "fileCategory": "code"
+    },
+    {
+      "path": "examples/mcp_server.rs",
+      "language": "rust",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "examples/plugin_host.rs",
+      "language": "rust",
+      "sizeLines": 19,
+      "fileCategory": "code"
+    },
+    {
+      "path": "examples/quickstart.rs",
+      "language": "rust",
+      "sizeLines": 7,
+      "fileCategory": "code"
+    },
+    {
+      "path": "examples/rag_export.rs",
+      "language": "rust",
+      "sizeLines": 13,
+      "fileCategory": "code"
+    },
+    {
+      "path": "examples/self_model_quickstart.rs",
+      "language": "rust",
+      "sizeLines": 111,
+      "fileCategory": "code"
+    },
+    {
+      "path": "examples/world_model_example.rs",
+      "language": "rust",
+      "sizeLines": 9,
+      "fileCategory": "code"
+    },
+    {
+      "path": "fixtures/sample_memory_trace.json",
+      "language": "json",
+      "sizeLines": 9,
+      "fileCategory": "config"
+    },
+    {
+      "path": "fixtures/sample_perception_input.json",
+      "language": "json",
+      "sizeLines": 8,
+      "fileCategory": "config"
+    },
+    {
+      "path": "fixtures/sample_procedural_policy.json",
+      "language": "json",
+      "sizeLines": 9,
+      "fileCategory": "config"
+    },
+    {
+      "path": "fixtures/sample_reflexion_snapshot.json",
+      "language": "json",
+      "sizeLines": 7,
+      "fileCategory": "config"
+    },
+    {
+      "path": "fixtures/sample_symbolic_node.json",
+      "language": "json",
+      "sizeLines": 6,
+      "fileCategory": "config"
+    },
+    {
+      "path": "fixtures/sample_temporal_event.json",
+      "language": "json",
+      "sizeLines": 8,
+      "fileCategory": "config"
+    },
+    {
+      "path": "fly.toml",
+      "language": "toml",
+      "sizeLines": 39,
+      "fileCategory": "config"
+    },
+    {
+      "path": "hipcortex-memory-0.4.8.vsix",
+      "language": "vsix",
+      "sizeLines": 60726,
+      "fileCategory": "code"
+    },
+    {
+      "path": "hipcortex-memory-0.4.9.vsix",
+      "language": "vsix",
+      "sizeLines": 60565,
+      "fileCategory": "code"
+    },
+    {
+      "path": "huggingface-space/Dockerfile",
+      "language": "dockerfile",
+      "sizeLines": 12,
+      "fileCategory": "infra"
+    },
+    {
+      "path": "huggingface-space/README.md",
+      "language": "markdown",
+      "sizeLines": 49,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "license.md",
+      "language": "markdown",
+      "sizeLines": 6,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "migrations/00000000000000_create_memory_tables/down.sql",
+      "language": "sql",
+      "sizeLines": 6,
+      "fileCategory": "data"
+    },
+    {
+      "path": "migrations/00000000000000_create_memory_tables/up.sql",
+      "language": "sql",
+      "sizeLines": 54,
+      "fileCategory": "data"
+    },
+    {
+      "path": "openspec/changes/agent-substrate-autonomy/design.md",
+      "language": "markdown",
+      "sizeLines": 162,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/agent-substrate-autonomy/proposal.md",
+      "language": "markdown",
+      "sizeLines": 124,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/agent-substrate-autonomy/specs/claude-agent-harness/spec.md",
+      "language": "markdown",
+      "sizeLines": 43,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/agent-substrate-autonomy/specs/engine-agent-defaults/spec.md",
+      "language": "markdown",
+      "sizeLines": 40,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/agent-substrate-autonomy/specs/proactive-skill-policy/spec.md",
+      "language": "markdown",
+      "sizeLines": 44,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/agent-substrate-autonomy/specs/unified-beliefs-surface/spec.md",
+      "language": "markdown",
+      "sizeLines": 41,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/agent-substrate-autonomy/specs/validation-benchmarks/spec.md",
+      "language": "markdown",
+      "sizeLines": 43,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/agent-substrate-autonomy/tasks.md",
+      "language": "markdown",
+      "sizeLines": 109,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/.openspec.yaml",
+      "language": "yaml",
+      "sizeLines": 2,
+      "fileCategory": "config"
+    },
+    {
+      "path": "openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/design.md",
+      "language": "markdown",
+      "sizeLines": 25,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/proposal.md",
+      "language": "markdown",
+      "sizeLines": 27,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/specs/agent-experience-docs/spec.md",
+      "language": "markdown",
+      "sizeLines": 22,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/tasks.md",
+      "language": "markdown",
+      "sizeLines": 11,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-06-26-improve-agent-experience-docs/proposal.md",
+      "language": "markdown",
+      "sizeLines": 40,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-06-26-improve-agent-experience-docs/tasks.md",
+      "language": "markdown",
+      "sizeLines": 21,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-06-28-propose-hybrid-epoch-mirroring/proposal.md",
+      "language": "markdown",
+      "sizeLines": 20,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-06-28-propose-hybrid-epoch-mirroring/specs/self-model-sync/spec.md",
+      "language": "markdown",
+      "sizeLines": 27,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-06-28-propose-hybrid-epoch-mirroring/tasks.md",
+      "language": "markdown",
+      "sizeLines": 12,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-fix-extension-dispatch/.openspec.yaml",
+      "language": "yaml",
+      "sizeLines": 2,
+      "fileCategory": "config"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-fix-extension-dispatch/design.md",
+      "language": "markdown",
+      "sizeLines": 93,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-fix-extension-dispatch/proposal.md",
+      "language": "markdown",
+      "sizeLines": 27,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-fix-extension-dispatch/specs/extension-causal-lm-tool/spec.md",
+      "language": "markdown",
+      "sizeLines": 8,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-fix-extension-dispatch/specs/extension-chat-dispatch/spec.md",
+      "language": "markdown",
+      "sizeLines": 8,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-fix-extension-dispatch/specs/extension-semantic-search/spec.md",
+      "language": "markdown",
+      "sizeLines": 8,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-fix-extension-dispatch/tasks.md",
+      "language": "markdown",
+      "sizeLines": 10,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-implement-cognitive-os/.openspec.yaml",
+      "language": "yaml",
+      "sizeLines": 2,
+      "fileCategory": "config"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-implement-cognitive-os/design.md",
+      "language": "markdown",
+      "sizeLines": 49,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-implement-cognitive-os/proposal.md",
+      "language": "markdown",
+      "sizeLines": 32,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-implement-cognitive-os/specs/actor-concurrency/spec.md",
+      "language": "markdown",
+      "sizeLines": 26,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-implement-cognitive-os/specs/executive-cortex/spec.md",
+      "language": "markdown",
+      "sizeLines": 30,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-implement-cognitive-os/specs/procedural-attention/spec.md",
+      "language": "markdown",
+      "sizeLines": 22,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-implement-cognitive-os/specs/worldmodel-rollout/spec.md",
+      "language": "markdown",
+      "sizeLines": 35,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-implement-cognitive-os/tasks.md",
+      "language": "markdown",
+      "sizeLines": 32,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-python-server-endpoint-parity/.openspec.yaml",
+      "language": "yaml",
+      "sizeLines": 2,
+      "fileCategory": "config"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-python-server-endpoint-parity/design.md",
+      "language": "markdown",
+      "sizeLines": 92,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-python-server-endpoint-parity/proposal.md",
+      "language": "markdown",
+      "sizeLines": 28,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-python-server-endpoint-parity/specs/mcp-add-memory/spec.md",
+      "language": "markdown",
+      "sizeLines": 8,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-python-server-endpoint-parity/specs/mcp-live-beliefs/spec.md",
+      "language": "markdown",
+      "sizeLines": 8,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-python-server-endpoint-parity/specs/mcp-purge-expired/spec.md",
+      "language": "markdown",
+      "sizeLines": 8,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-python-server-endpoint-parity/tasks.md",
+      "language": "markdown",
+      "sizeLines": 10,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-record-type-alias-mapping/.openspec.yaml",
+      "language": "yaml",
+      "sizeLines": 2,
+      "fileCategory": "config"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-record-type-alias-mapping/design.md",
+      "language": "markdown",
+      "sizeLines": 75,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-record-type-alias-mapping/proposal.md",
+      "language": "markdown",
+      "sizeLines": 26,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-record-type-alias-mapping/specs/memory-ingestion/spec.md",
+      "language": "markdown",
+      "sizeLines": 8,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-record-type-alias-mapping/specs/record-type-aliases/spec.md",
+      "language": "markdown",
+      "sizeLines": 8,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-record-type-alias-mapping/tasks.md",
+      "language": "markdown",
+      "sizeLines": 10,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-sdd-post-session-hardening/.openspec.yaml",
+      "language": "yaml",
+      "sizeLines": 2,
+      "fileCategory": "config"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-sdd-post-session-hardening/design.md",
+      "language": "markdown",
+      "sizeLines": 82,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-sdd-post-session-hardening/proposal.md",
+      "language": "markdown",
+      "sizeLines": 30,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-sdd-post-session-hardening/specs/search-scoring-invariants/spec.md",
+      "language": "markdown",
+      "sizeLines": 58,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-sdd-post-session-hardening/tasks.md",
+      "language": "markdown",
+      "sizeLines": 65,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/.openspec.yaml",
+      "language": "yaml",
+      "sizeLines": 2,
+      "fileCategory": "config"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/design.md",
+      "language": "markdown",
+      "sizeLines": 109,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/proposal.md",
+      "language": "markdown",
+      "sizeLines": 27,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/specs/worldmodel-rollout/spec.md",
+      "language": "markdown",
+      "sizeLines": 8,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/tasks.md",
+      "language": "markdown",
+      "sizeLines": 11,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-11-rewrite-docs-v049/.openspec.yaml",
+      "language": "yaml",
+      "sizeLines": 2,
+      "fileCategory": "config"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-11-rewrite-docs-v049/design.md",
+      "language": "markdown",
+      "sizeLines": 31,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-11-rewrite-docs-v049/proposal.md",
+      "language": "markdown",
+      "sizeLines": 23,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-11-rewrite-docs-v049/specs/documentation-rewrite-v049/spec.md",
+      "language": "markdown",
+      "sizeLines": 44,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-11-rewrite-docs-v049/tasks.md",
+      "language": "markdown",
+      "sizeLines": 30,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-16-fix-memory-query-truncation/.openspec.yaml",
+      "language": "yaml",
+      "sizeLines": 2,
+      "fileCategory": "config"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-16-fix-memory-query-truncation/design.md",
+      "language": "markdown",
+      "sizeLines": 31,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-16-fix-memory-query-truncation/proposal.md",
+      "language": "markdown",
+      "sizeLines": 24,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-16-fix-memory-query-truncation/specs/deterministic-slice-ordering/spec.md",
+      "language": "markdown",
+      "sizeLines": 15,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-16-fix-memory-query-truncation/specs/mcp-live-beliefs/spec.md",
+      "language": "markdown",
+      "sizeLines": 8,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-16-fix-memory-query-truncation/specs/search-scoring-invariants/spec.md",
+      "language": "markdown",
+      "sizeLines": 8,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-16-fix-memory-query-truncation/tasks.md",
+      "language": "markdown",
+      "sizeLines": 18,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-16-server-lifecycle-improvements/.openspec.yaml",
+      "language": "yaml",
+      "sizeLines": 2,
+      "fileCategory": "config"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-16-server-lifecycle-improvements/design.md",
+      "language": "markdown",
+      "sizeLines": 41,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-16-server-lifecycle-improvements/proposal.md",
+      "language": "markdown",
+      "sizeLines": 22,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-16-server-lifecycle-improvements/specs/server-lifecycle/spec.md",
+      "language": "markdown",
+      "sizeLines": 30,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/archive/2026-07-16-server-lifecycle-improvements/tasks.md",
+      "language": "markdown",
+      "sizeLines": 20,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/intelligence-foundation/.openspec.yaml",
+      "language": "yaml",
+      "sizeLines": 2,
+      "fileCategory": "config"
+    },
+    {
+      "path": "openspec/changes/intelligence-foundation/design.md",
+      "language": "markdown",
+      "sizeLines": 369,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/intelligence-foundation/proposal.md",
+      "language": "markdown",
+      "sizeLines": 60,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/intelligence-foundation/specs/aureus-bridge/spec.md",
+      "language": "markdown",
+      "sizeLines": 34,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/intelligence-foundation/specs/coherence-checking/spec.md",
+      "language": "markdown",
+      "sizeLines": 127,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/intelligence-foundation/specs/integration-layer/spec.md",
+      "language": "markdown",
+      "sizeLines": 68,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/intelligence-foundation/specs/perception-adapter/spec.md",
+      "language": "markdown",
+      "sizeLines": 34,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/intelligence-foundation/specs/procedural-cache/spec.md",
+      "language": "markdown",
+      "sizeLines": 34,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/intelligence-foundation/specs/self-model/spec.md",
+      "language": "markdown",
+      "sizeLines": 95,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/intelligence-foundation/specs/symbolic-store/spec.md",
+      "language": "markdown",
+      "sizeLines": 42,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/intelligence-foundation/specs/temporal-indexer/spec.md",
+      "language": "markdown",
+      "sizeLines": 42,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/intelligence-foundation/specs/world-model-enhanced/spec.md",
+      "language": "markdown",
+      "sizeLines": 123,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/intelligence-foundation/tasks.md",
+      "language": "markdown",
+      "sizeLines": 251,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/sdk-tmf-surface-update/.openspec.yaml",
+      "language": "yaml",
+      "sizeLines": 1,
+      "fileCategory": "config"
+    },
+    {
+      "path": "openspec/changes/sdk-tmf-surface-update/design.md",
+      "language": "markdown",
+      "sizeLines": 233,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/sdk-tmf-surface-update/proposal.md",
+      "language": "markdown",
+      "sizeLines": 58,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/changes/sdk-tmf-surface-update/tasks.md",
+      "language": "markdown",
+      "sizeLines": 95,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/config.yaml",
+      "language": "yaml",
+      "sizeLines": 20,
+      "fileCategory": "config"
+    },
+    {
+      "path": "openspec/specs/actor-concurrency/spec.md",
+      "language": "markdown",
+      "sizeLines": 30,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/specs/agent-experience-docs/spec.md",
+      "language": "markdown",
+      "sizeLines": 35,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/specs/deterministic-slice-ordering/spec.md",
+      "language": "markdown",
+      "sizeLines": 19,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/specs/documentation-rewrite-v049/spec.md",
+      "language": "markdown",
+      "sizeLines": 48,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/specs/executive-cortex/spec.md",
+      "language": "markdown",
+      "sizeLines": 34,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/specs/extension-causal-lm-tool/spec.md",
+      "language": "markdown",
+      "sizeLines": 12,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/specs/extension-chat-dispatch/spec.md",
+      "language": "markdown",
+      "sizeLines": 12,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/specs/extension-semantic-search/spec.md",
+      "language": "markdown",
+      "sizeLines": 12,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/specs/mcp-add-memory/spec.md",
+      "language": "markdown",
+      "sizeLines": 12,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/specs/mcp-live-beliefs/spec.md",
+      "language": "markdown",
+      "sizeLines": 19,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/specs/mcp-purge-expired/spec.md",
+      "language": "markdown",
+      "sizeLines": 12,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/specs/memory-ingestion/spec.md",
+      "language": "markdown",
+      "sizeLines": 12,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/specs/procedural-attention/spec.md",
+      "language": "markdown",
+      "sizeLines": 26,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/specs/record-type-aliases/spec.md",
+      "language": "markdown",
+      "sizeLines": 12,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/specs/search-scoring-invariants/spec.md",
+      "language": "markdown",
+      "sizeLines": 67,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/specs/self-model-sync/spec.md",
+      "language": "markdown",
+      "sizeLines": 27,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/specs/server-lifecycle/spec.md",
+      "language": "markdown",
+      "sizeLines": 34,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "openspec/specs/worldmodel-rollout/spec.md",
+      "language": "markdown",
+      "sizeLines": 37,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "pgsql-lib",
+      "language": "unknown",
+      "sizeLines": 0,
+      "fileCategory": "code"
+    },
+    {
+      "path": "proto/memory.proto",
+      "language": "protobuf",
+      "sizeLines": 31,
+      "fileCategory": "data"
+    },
+    {
+      "path": "quick-start-basic.ps1",
+      "language": "powershell",
+      "sizeLines": 31,
+      "fileCategory": "script"
+    },
+    {
+      "path": "quick-start-clean.ps1",
+      "language": "powershell",
+      "sizeLines": 185,
+      "fileCategory": "script"
+    },
+    {
+      "path": "quick-start-fixed.ps1",
+      "language": "powershell",
+      "sizeLines": 152,
+      "fileCategory": "script"
+    },
+    {
+      "path": "quick-start-simple.ps1",
+      "language": "powershell",
+      "sizeLines": 134,
+      "fileCategory": "script"
+    },
+    {
+      "path": "quick-start.ps1",
+      "language": "powershell",
+      "sizeLines": 150,
+      "fileCategory": "script"
+    },
+    {
+      "path": "quick-start.sh",
+      "language": "shell",
+      "sizeLines": 105,
+      "fileCategory": "script"
+    },
+    {
+      "path": "replit.nix",
+      "language": "nix",
+      "sizeLines": 9,
+      "fileCategory": "code"
+    },
+    {
+      "path": "schemas/perception_adapter.json",
+      "language": "json",
+      "sizeLines": 14,
+      "fileCategory": "config"
+    },
+    {
+      "path": "schemas/procedural_memory.json",
+      "language": "json",
+      "sizeLines": 15,
+      "fileCategory": "config"
+    },
+    {
+      "path": "schemas/reflexion_memory.json",
+      "language": "json",
+      "sizeLines": 13,
+      "fileCategory": "config"
+    },
+    {
+      "path": "schemas/symbolic_edge.json",
+      "language": "json",
+      "sizeLines": 12,
+      "fileCategory": "config"
+    },
+    {
+      "path": "schemas/symbolic_memory.json",
+      "language": "json",
+      "sizeLines": 12,
+      "fileCategory": "config"
+    },
+    {
+      "path": "schemas/temporal_memory.json",
+      "language": "json",
+      "sizeLines": 14,
+      "fileCategory": "config"
+    },
+    {
+      "path": "scripts/check_capabilities.py",
+      "language": "python",
+      "sizeLines": 183,
+      "fileCategory": "code"
+    },
+    {
+      "path": "scripts/codex_startup.sh",
+      "language": "shell",
+      "sizeLines": 17,
+      "fileCategory": "script"
+    },
+    {
+      "path": "scripts/import_trace.rs",
+      "language": "rust",
+      "sizeLines": 54,
+      "fileCategory": "code"
+    },
+    {
+      "path": "scripts/migrate.rs",
+      "language": "rust",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "scripts/rag_hook.rs",
+      "language": "rust",
+      "sizeLines": 11,
+      "fileCategory": "code"
+    },
+    {
+      "path": "scripts/run_comprehensive_tests.ps1",
+      "language": "powershell",
+      "sizeLines": 247,
+      "fileCategory": "script"
+    },
+    {
+      "path": "scripts/stamp_versions.py",
+      "language": "python",
+      "sizeLines": 171,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/continue/README.md",
+      "language": "markdown",
+      "sizeLines": 62,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "sdk/continue/index.ts",
+      "language": "typescript",
+      "sizeLines": 118,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/gradio/README.md",
+      "language": "markdown",
+      "sizeLines": 29,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "sdk/gradio/app.py",
+      "language": "python",
+      "sizeLines": 174,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/gradio/requirements.txt",
+      "language": "txt",
+      "sizeLines": 2,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "sdk/mcp/README.md",
+      "language": "markdown",
+      "sizeLines": 215,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "sdk/mcp/__init__.py",
+      "language": "python",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/mcp/install.sh",
+      "language": "shell",
+      "sizeLines": 76,
+      "fileCategory": "script"
+    },
+    {
+      "path": "sdk/mcp/server.py",
+      "language": "python",
+      "sizeLines": 794,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/mcp/test_server.py",
+      "language": "python",
+      "sizeLines": 304,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/README.md",
+      "language": "markdown",
+      "sizeLines": 122,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "sdk/python/hipcortex/__init__.py",
+      "language": "python",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/adapters/__init__.py",
+      "language": "python",
+      "sizeLines": 13,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/adapters/autogen.py",
+      "language": "python",
+      "sizeLines": 175,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/adapters/common.py",
+      "language": "python",
+      "sizeLines": 151,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/adapters/crewai.py",
+      "language": "python",
+      "sizeLines": 173,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/async_client.py",
+      "language": "python",
+      "sizeLines": 378,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/cli.py",
+      "language": "python",
+      "sizeLines": 1652,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/client.py",
+      "language": "python",
+      "sizeLines": 615,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/config.py",
+      "language": "python",
+      "sizeLines": 270,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/daemon.py",
+      "language": "python",
+      "sizeLines": 543,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/doctor.py",
+      "language": "python",
+      "sizeLines": 594,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/framework_scaffold.py",
+      "language": "python",
+      "sizeLines": 405,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/indexer.py",
+      "language": "python",
+      "sizeLines": 219,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/install/SKILL.md",
+      "language": "markdown",
+      "sizeLines": 162,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "sdk/python/hipcortex/install/__init__.py",
+      "language": "python",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/install/mcp_server.py",
+      "language": "python",
+      "sizeLines": 794,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/install/templates/autogen.py.tmpl",
+      "language": "tmpl",
+      "sizeLines": 24,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/install/templates/crewai.py.tmpl",
+      "language": "tmpl",
+      "sizeLines": 24,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/install/templates/dspy.py.tmpl",
+      "language": "tmpl",
+      "sizeLines": 21,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/install/templates/langchain.py.tmpl",
+      "language": "tmpl",
+      "sizeLines": 17,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/install/templates/llamaindex.py.tmpl",
+      "language": "tmpl",
+      "sizeLines": 23,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/install/templates/n8n_curl.sh.tmpl",
+      "language": "tmpl",
+      "sizeLines": 17,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/install/templates/pydantic_ai.py.tmpl",
+      "language": "tmpl",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/install_hosts.py",
+      "language": "python",
+      "sizeLines": 997,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/langchain_memory.py",
+      "language": "python",
+      "sizeLines": 282,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/hipcortex/llamaindex_storage.py",
+      "language": "python",
+      "sizeLines": 107,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/langchain_contrib/__init__.py",
+      "language": "python",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/langchain_contrib/autogen_hipcortex.py",
+      "language": "python",
+      "sizeLines": 242,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/langchain_contrib/hipcortex_memory.py",
+      "language": "python",
+      "sizeLines": 223,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/langchain_contrib/test_hipcortex_memory.py",
+      "language": "python",
+      "sizeLines": 130,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/pyproject.toml",
+      "language": "toml",
+      "sizeLines": 53,
+      "fileCategory": "config"
+    },
+    {
+      "path": "sdk/python/setup.py",
+      "language": "python",
+      "sizeLines": 35,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/tests/__init__.py",
+      "language": "python",
+      "sizeLines": 0,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/tests/test_adapters_common.py",
+      "language": "python",
+      "sizeLines": 178,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/tests/test_async_client.py",
+      "language": "python",
+      "sizeLines": 101,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/tests/test_async_langchain.py",
+      "language": "python",
+      "sizeLines": 61,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/tests/test_can_execute.py",
+      "language": "python",
+      "sizeLines": 33,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/tests/test_cli_install.py",
+      "language": "python",
+      "sizeLines": 2241,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/tests/test_client_config.py",
+      "language": "python",
+      "sizeLines": 57,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/tests/test_config.py",
+      "language": "python",
+      "sizeLines": 343,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/tests/test_daemon.py",
+      "language": "python",
+      "sizeLines": 415,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/tests/test_doctor.py",
+      "language": "python",
+      "sizeLines": 844,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/tests/test_harness_with_loop.py",
+      "language": "python",
+      "sizeLines": 80,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/tests/test_host_install_e2e.py",
+      "language": "python",
+      "sizeLines": 145,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/python/tests/test_reflect_predict.py",
+      "language": "python",
+      "sizeLines": 64,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/smoke_verify.py",
+      "language": "python",
+      "sizeLines": 83,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/typescript/README.md",
+      "language": "markdown",
+      "sizeLines": 125,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "sdk/typescript/package.json",
+      "language": "json",
+      "sizeLines": 37,
+      "fileCategory": "config"
+    },
+    {
+      "path": "sdk/typescript/src/client.test.ts",
+      "language": "typescript",
+      "sizeLines": 111,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/typescript/src/client.ts",
+      "language": "typescript",
+      "sizeLines": 185,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/typescript/src/index.ts",
+      "language": "typescript",
+      "sizeLines": 13,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/typescript/src/types.ts",
+      "language": "typescript",
+      "sizeLines": 228,
+      "fileCategory": "code"
+    },
+    {
+      "path": "sdk/typescript/tsconfig.json",
+      "language": "json",
+      "sizeLines": 17,
+      "fileCategory": "config"
+    },
+    {
+      "path": "shaders/avg.wgsl",
+      "language": "wgsl",
+      "sizeLines": 23,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/a2a_protocol.rs",
+      "language": "rust",
+      "sizeLines": 48,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/actors/world_model_actor.rs",
+      "language": "rust",
+      "sizeLines": 242,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/async_memory_store.rs",
+      "language": "rust",
+      "sizeLines": 64,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/audit_log.rs",
+      "language": "rust",
+      "sizeLines": 233,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/backends/neo4j_backend.rs",
+      "language": "rust",
+      "sizeLines": 134,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/backends/petgraph_backend.rs",
+      "language": "rust",
+      "sizeLines": 4,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/backends/postgres_backend.rs",
+      "language": "rust",
+      "sizeLines": 170,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/backends/rustfsm_backend.rs",
+      "language": "rust",
+      "sizeLines": 116,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/backends/temporal_backend.rs",
+      "language": "rust",
+      "sizeLines": 105,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/bin/cli.rs",
+      "language": "rust",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/bin/webserver.rs",
+      "language": "rust",
+      "sizeLines": 127,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/conversation_memory.rs",
+      "language": "rust",
+      "sizeLines": 56,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/dashboard.rs",
+      "language": "rust",
+      "sizeLines": 37,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/decay.rs",
+      "language": "rust",
+      "sizeLines": 41,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/embedding_provider.rs",
+      "language": "rust",
+      "sizeLines": 178,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/grpc_server.rs",
+      "language": "rust",
+      "sizeLines": 109,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/gui.rs",
+      "language": "rust",
+      "sizeLines": 145,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/knowledge_export.rs",
+      "language": "rust",
+      "sizeLines": 64,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib.rs",
+      "language": "rust",
+      "sizeLines": 135,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/llm_clients/claude.rs",
+      "language": "rust",
+      "sizeLines": 43,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/llm_clients/deepseek_client.rs",
+      "language": "rust",
+      "sizeLines": 71,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/llm_clients/falcon_client.rs",
+      "language": "rust",
+      "sizeLines": 71,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/llm_clients/llama.rs",
+      "language": "rust",
+      "sizeLines": 32,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/llm_clients/local_llm_client.rs",
+      "language": "rust",
+      "sizeLines": 56,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/llm_clients/mistral_client.rs",
+      "language": "rust",
+      "sizeLines": 73,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/llm_clients/mock.rs",
+      "language": "rust",
+      "sizeLines": 9,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/llm_clients/mod.rs",
+      "language": "rust",
+      "sizeLines": 20,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/llm_clients/ollama.rs",
+      "language": "rust",
+      "sizeLines": 33,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/llm_clients/openai.rs",
+      "language": "rust",
+      "sizeLines": 50,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/markov.rs",
+      "language": "rust",
+      "sizeLines": 61,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/mcp_server.rs",
+      "language": "rust",
+      "sizeLines": 103,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/memory/mod.rs",
+      "language": "rust",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/memory/perception.rs",
+      "language": "rust",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/memory/procedural.rs",
+      "language": "rust",
+      "sizeLines": 13,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/memory/reflexion.rs",
+      "language": "rust",
+      "sizeLines": 11,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/memory/symbolic.rs",
+      "language": "rust",
+      "sizeLines": 33,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/memory/temporal.rs",
+      "language": "rust",
+      "sizeLines": 26,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/memory_cli.rs",
+      "language": "rust",
+      "sizeLines": 274,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/memory_diff.rs",
+      "language": "rust",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/memory_processor.rs",
+      "language": "rust",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/memory_query.rs",
+      "language": "rust",
+      "sizeLines": 80,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/memory_record.rs",
+      "language": "rust",
+      "sizeLines": 222,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/memory_store.rs",
+      "language": "rust",
+      "sizeLines": 859,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/aureus_bridge.rs",
+      "language": "rust",
+      "sizeLines": 346,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/broker_policy.rs",
+      "language": "rust",
+      "sizeLines": 510,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/coherence/checker.rs",
+      "language": "rust",
+      "sizeLines": 902,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/coherence/invariants.rs",
+      "language": "rust",
+      "sizeLines": 722,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/coherence/mod.rs",
+      "language": "rust",
+      "sizeLines": 625,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/coherence/resolver.rs",
+      "language": "rust",
+      "sizeLines": 907,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/coherence/write_actor.rs",
+      "language": "rust",
+      "sizeLines": 114,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/continuation_checkpoint.rs",
+      "language": "rust",
+      "sizeLines": 280,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/effort.rs",
+      "language": "rust",
+      "sizeLines": 79,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/enhancement_advisor.rs",
+      "language": "rust",
+      "sizeLines": 62,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/executive/scheduler.rs",
+      "language": "rust",
+      "sizeLines": 88,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/executive/task_graph.rs",
+      "language": "rust",
+      "sizeLines": 144,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/health_reporter.rs",
+      "language": "rust",
+      "sizeLines": 20,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/hypotheses_graph.rs",
+      "language": "rust",
+      "sizeLines": 109,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/hypothesis_manager.rs",
+      "language": "rust",
+      "sizeLines": 222,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/integration_layer.rs",
+      "language": "rust",
+      "sizeLines": 256,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/latent_map.rs",
+      "language": "rust",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/latent_map_evaluator.rs",
+      "language": "rust",
+      "sizeLines": 68,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/lease_manager.rs",
+      "language": "rust",
+      "sizeLines": 425,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/loop_engine.rs",
+      "language": "rust",
+      "sizeLines": 557,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/mcp_bridge.rs",
+      "language": "rust",
+      "sizeLines": 55,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/openmanus_bridge.rs",
+      "language": "rust",
+      "sizeLines": 55,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/perception_adapter.rs",
+      "language": "rust",
+      "sizeLines": 411,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/procedural_cache.rs",
+      "language": "rust",
+      "sizeLines": 400,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/procedural_cache/skill_compiler.rs",
+      "language": "rust",
+      "sizeLines": 101,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/puzzle.rs",
+      "language": "rust",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/reflexion_hooks.rs",
+      "language": "rust",
+      "sizeLines": 24,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/representation_auditor.rs",
+      "language": "rust",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/self_model/capability.rs",
+      "language": "rust",
+      "sizeLines": 391,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/self_model/decision.rs",
+      "language": "rust",
+      "sizeLines": 748,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/self_model/health.rs",
+      "language": "rust",
+      "sizeLines": 490,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/self_model/mod.rs",
+      "language": "rust",
+      "sizeLines": 344,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/self_model/performance.rs",
+      "language": "rust",
+      "sizeLines": 511,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/self_model/resource.rs",
+      "language": "rust",
+      "sizeLines": 492,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/session_context.rs",
+      "language": "rust",
+      "sizeLines": 386,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/symbolic_store.rs",
+      "language": "rust",
+      "sizeLines": 788,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/temporal_indexer.rs",
+      "language": "rust",
+      "sizeLines": 297,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/topological_memory/contradiction.rs",
+      "language": "rust",
+      "sizeLines": 95,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/topological_memory/deconstructor.rs",
+      "language": "rust",
+      "sizeLines": 185,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/topological_memory/graph.rs",
+      "language": "rust",
+      "sizeLines": 526,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/topological_memory/mod.rs",
+      "language": "rust",
+      "sizeLines": 11,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/topological_memory/search.rs",
+      "language": "rust",
+      "sizeLines": 108,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/working_set_broker.rs",
+      "language": "rust",
+      "sizeLines": 456,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/world_model.rs",
+      "language": "rust",
+      "sizeLines": 42,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/world_model_enhanced/causal.rs",
+      "language": "rust",
+      "sizeLines": 773,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/world_model_enhanced/constraint.rs",
+      "language": "rust",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/world_model_enhanced/entity.rs",
+      "language": "rust",
+      "sizeLines": 581,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/world_model_enhanced/metalaw.rs",
+      "language": "rust",
+      "sizeLines": 71,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/world_model_enhanced/mod.rs",
+      "language": "rust",
+      "sizeLines": 1055,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/world_model_enhanced/policy.rs",
+      "language": "rust",
+      "sizeLines": 56,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/world_model_enhanced/predictor.rs",
+      "language": "rust",
+      "sizeLines": 489,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/world_model_enhanced/simulator.rs",
+      "language": "rust",
+      "sizeLines": 279,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/world_model_enhanced/transition.rs",
+      "language": "rust",
+      "sizeLines": 479,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/modules/world_model_enhanced/uncertainty.rs",
+      "language": "rust",
+      "sizeLines": 486,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/monitoring.rs",
+      "language": "rust",
+      "sizeLines": 83,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/openapi_spec.rs",
+      "language": "rust",
+      "sizeLines": 430,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/optimized_memory_store.rs",
+      "language": "rust",
+      "sizeLines": 638,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/persistence.rs",
+      "language": "rust",
+      "sizeLines": 578,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/plugin_host.rs",
+      "language": "rust",
+      "sizeLines": 36,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/poisson.rs",
+      "language": "rust",
+      "sizeLines": 70,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/rag_adapter.rs",
+      "language": "rust",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/retrieval_pipeline.rs",
+      "language": "rust",
+      "sizeLines": 16,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/rocksdb_backend.rs",
+      "language": "rust",
+      "sizeLines": 73,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/safety_classifier.rs",
+      "language": "rust",
+      "sizeLines": 328,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/safety_guardrail.rs",
+      "language": "rust",
+      "sizeLines": 130,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/sandbox.rs",
+      "language": "rust",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/schema.rs",
+      "language": "rust",
+      "sizeLines": 82,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/segmented_buffer.rs",
+      "language": "rust",
+      "sizeLines": 228,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/semantic_cache.rs",
+      "language": "rust",
+      "sizeLines": 127,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/semantic_compression.rs",
+      "language": "rust",
+      "sizeLines": 32,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/snapshot_manager.rs",
+      "language": "rust",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/source_trust.rs",
+      "language": "rust",
+      "sizeLines": 288,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/vision_encoder.rs",
+      "language": "rust",
+      "sizeLines": 181,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/web_server.rs",
+      "language": "rust",
+      "sizeLines": 4754,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/world_model_client.rs",
+      "language": "rust",
+      "sizeLines": 13,
+      "fileCategory": "code"
+    },
+    {
+      "path": "start.sh",
+      "language": "shell",
+      "sizeLines": 24,
+      "fileCategory": "script"
+    },
+    {
+      "path": "tauri.conf.json",
+      "language": "json",
+      "sizeLines": 22,
+      "fileCategory": "config"
+    },
+    {
+      "path": "test-script.ps1",
+      "language": "powershell",
+      "sizeLines": 20,
+      "fileCategory": "script"
+    },
+    {
+      "path": "test_e2e_cognitive_os_live.py",
+      "language": "python",
+      "sizeLines": 164,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/__init__.py",
+      "language": "python",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/e2e_user_harness/__init__.py",
+      "language": "python",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/e2e_user_harness/assertions.py",
+      "language": "python",
+      "sizeLines": 49,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/e2e_user_harness/client_factory.py",
+      "language": "python",
+      "sizeLines": 20,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/e2e_user_harness/conftest.py",
+      "language": "python",
+      "sizeLines": 27,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/e2e_user_harness/data_generators.py",
+      "language": "python",
+      "sizeLines": 39,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/e2e_user_harness/pytest.ini",
+      "language": "config",
+      "sizeLines": 8,
+      "fileCategory": "config"
+    },
+    {
+      "path": "tests/e2e_user_harness/server_manager.py",
+      "language": "python",
+      "sizeLines": 114,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/e2e_user_harness/suites/__init__.py",
+      "language": "python",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/e2e_user_harness/suites/test_phase0_bootstrap.py",
+      "language": "python",
+      "sizeLines": 10,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/e2e_user_harness/suites/test_phase1_core_memory_ops.py",
+      "language": "python",
+      "sizeLines": 16,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/e2e_user_harness/suites/test_phase2_cognitive_and_token_optimization.py",
+      "language": "python",
+      "sizeLines": 18,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/e2e_user_harness/suites/test_phase3_framework_integrations.py",
+      "language": "python",
+      "sizeLines": 61,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/e2e_user_harness/suites/test_phase4_vscode_extension.py",
+      "language": "python",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/e2e_user_harness/suites/test_phase5_persistence_and_merkle.py",
+      "language": "python",
+      "sizeLines": 72,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/agent_bridge_sit.rs",
+      "language": "rust",
+      "sizeLines": 18,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/cli_tests.rs",
+      "language": "rust",
+      "sizeLines": 147,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/cognitive_os_test.rs",
+      "language": "rust",
+      "sizeLines": 117,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/conversation_memory_sit.rs",
+      "language": "rust",
+      "sizeLines": 25,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/conversation_memory_uat.rs",
+      "language": "rust",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/edge_workflow_sit.rs",
+      "language": "rust",
+      "sizeLines": 55,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/edge_workflow_uat.rs",
+      "language": "rust",
+      "sizeLines": 10,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/effort_confidence_sit.rs",
+      "language": "rust",
+      "sizeLines": 17,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/effort_confidence_uat.rs",
+      "language": "rust",
+      "sizeLines": 17,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/graph_backend_sit.rs",
+      "language": "rust",
+      "sizeLines": 41,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/grpc_tests.rs",
+      "language": "rust",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/humanoid_perception_uat.rs",
+      "language": "rust",
+      "sizeLines": 38,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/integration_tests.rs",
+      "language": "rust",
+      "sizeLines": 179,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/intelligence_hooks_sit.rs",
+      "language": "rust",
+      "sizeLines": 402,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/intelligence_sit.rs",
+      "language": "rust",
+      "sizeLines": 498,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/intelligence_uat.rs",
+      "language": "rust",
+      "sizeLines": 566,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/intelligence_wiring_sit.rs",
+      "language": "rust",
+      "sizeLines": 478,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/llm_integration_tests.rs",
+      "language": "rust",
+      "sizeLines": 19,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/mcp_server_sit.rs",
+      "language": "rust",
+      "sizeLines": 50,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/mcp_server_uat.rs",
+      "language": "rust",
+      "sizeLines": 50,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/mod.rs",
+      "language": "rust",
+      "sizeLines": 53,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/omega_loop_auditable_tests.rs",
+      "language": "rust",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/openmanus_integration_sit.rs",
+      "language": "rust",
+      "sizeLines": 27,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/plugin_host_sit.rs",
+      "language": "rust",
+      "sizeLines": 34,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/plugin_host_uat.rs",
+      "language": "rust",
+      "sizeLines": 17,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/rag_export_sit.rs",
+      "language": "rust",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/rag_export_uat.rs",
+      "language": "rust",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/reasoning_trace_sit_tests.rs",
+      "language": "rust",
+      "sizeLines": 32,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/retrieval_pipeline_sit.rs",
+      "language": "rust",
+      "sizeLines": 39,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/retrieval_pipeline_uat.rs",
+      "language": "rust",
+      "sizeLines": 32,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/safety_guardrail_sit.rs",
+      "language": "rust",
+      "sizeLines": 53,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/semantic_cache_sit.rs",
+      "language": "rust",
+      "sizeLines": 14,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/semantic_cache_uat.rs",
+      "language": "rust",
+      "sizeLines": 39,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/semantic_compression_sit.rs",
+      "language": "rust",
+      "sizeLines": 11,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/semantic_compression_uat.rs",
+      "language": "rust",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/sit_tests.rs",
+      "language": "rust",
+      "sizeLines": 424,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/smart_glasses_sit.rs",
+      "language": "rust",
+      "sizeLines": 47,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/system_integration_tests.rs",
+      "language": "rust",
+      "sizeLines": 101,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/test_end_to_end.rs",
+      "language": "rust",
+      "sizeLines": 64,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/topological_substrate_tests.rs",
+      "language": "rust",
+      "sizeLines": 64,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/uat_tests.rs",
+      "language": "rust",
+      "sizeLines": 425,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/v040_contract_sit.rs",
+      "language": "rust",
+      "sizeLines": 247,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/web_server_gaps_sit.rs",
+      "language": "rust",
+      "sizeLines": 463,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/world_model_cli_sit.rs",
+      "language": "rust",
+      "sizeLines": 29,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/world_model_uat.rs",
+      "language": "rust",
+      "sizeLines": 55,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration/worldmodel_self_http_sit.rs",
+      "language": "rust",
+      "sizeLines": 202,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/integration_suite.rs",
+      "language": "rust",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/llm_clients.rs",
+      "language": "rust",
+      "sizeLines": 118,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/property/coherence_props.proptest-regressions",
+      "language": "proptest-regressions",
+      "sizeLines": 9,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/property/coherence_props.rs",
+      "language": "rust",
+      "sizeLines": 283,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/property/connectivity.rs",
+      "language": "rust",
+      "sizeLines": 33,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/property/fsm_reachability.rs",
+      "language": "rust",
+      "sizeLines": 27,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/property/mod.rs",
+      "language": "rust",
+      "sizeLines": 7,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/property/regression_tests.rs",
+      "language": "rust",
+      "sizeLines": 29,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/property/self_model_props.rs",
+      "language": "rust",
+      "sizeLines": 381,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/property/test_graph.rs",
+      "language": "rust",
+      "sizeLines": 23,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/property/world_model_props.rs",
+      "language": "rust",
+      "sizeLines": 363,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/property_suite.rs",
+      "language": "rust",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/test_closed_loop_simulator.rs",
+      "language": "rust",
+      "sizeLines": 29,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/test_meta_laws.rs",
+      "language": "rust",
+      "sizeLines": 41,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/test_omega_loop_system_id.rs",
+      "language": "rust",
+      "sizeLines": 43,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/test_policy_action_sampling.rs",
+      "language": "rust",
+      "sizeLines": 26,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/test_report/PerformanceTestReport.md",
+      "language": "markdown",
+      "sizeLines": 9,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "tests/test_report/RegressionTestReport.md",
+      "language": "markdown",
+      "sizeLines": 10,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "tests/test_report/RetrievalPipelineTestPlan.md",
+      "language": "markdown",
+      "sizeLines": 20,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "tests/test_report/SITTestReport.md",
+      "language": "markdown",
+      "sizeLines": 20,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "tests/test_report/SymbolicProceduralTestPlan.md",
+      "language": "markdown",
+      "sizeLines": 30,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "tests/test_report/UATTestReport.md",
+      "language": "markdown",
+      "sizeLines": 18,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "tests/test_report/UnitTestReport.md",
+      "language": "markdown",
+      "sizeLines": 92,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "tests/test_simulation_constraints.rs",
+      "language": "rust",
+      "sizeLines": 24,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/api_tests.rs",
+      "language": "rust",
+      "sizeLines": 302,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/async_memory_store_tests.rs",
+      "language": "rust",
+      "sizeLines": 91,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/audit_log_tests.rs",
+      "language": "rust",
+      "sizeLines": 12,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/aureus_bridge_tests.rs",
+      "language": "rust",
+      "sizeLines": 95,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/coherence_tests.rs",
+      "language": "rust",
+      "sizeLines": 882,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/conversation_memory_tests.rs",
+      "language": "rust",
+      "sizeLines": 18,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/edge_workflow_small.rs",
+      "language": "rust",
+      "sizeLines": 21,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/effort_tests.rs",
+      "language": "rust",
+      "sizeLines": 46,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/enhancement_advisor_tests.rs",
+      "language": "rust",
+      "sizeLines": 21,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/graph_connectivity_tests.rs",
+      "language": "rust",
+      "sizeLines": 27,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/hypothesis_manager_tests.rs",
+      "language": "rust",
+      "sizeLines": 54,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/integration_layer_tests.rs",
+      "language": "rust",
+      "sizeLines": 42,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/knowledge_export_tests.rs",
+      "language": "rust",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/latent_map_tests.rs",
+      "language": "rust",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/llama_client_tests.rs",
+      "language": "rust",
+      "sizeLines": 17,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/mcp_server_tests.rs",
+      "language": "rust",
+      "sizeLines": 18,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/memory_expiry_consistency_tests.rs",
+      "language": "rust",
+      "sizeLines": 124,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/memory_graph_tests.rs",
+      "language": "rust",
+      "sizeLines": 71,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/memory_ppr_tests.rs",
+      "language": "rust",
+      "sizeLines": 136,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/memory_store_delete_tests.rs",
+      "language": "rust",
+      "sizeLines": 68,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/memory_store_eviction_tests.rs",
+      "language": "rust",
+      "sizeLines": 94,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/memory_store_tests.rs",
+      "language": "rust",
+      "sizeLines": 175,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/memory_tests.rs",
+      "language": "rust",
+      "sizeLines": 225,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/mod.rs",
+      "language": "rust",
+      "sizeLines": 50,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/multimodal_perception_tests.rs",
+      "language": "rust",
+      "sizeLines": 37,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/perception_adapter_tests.rs",
+      "language": "rust",
+      "sizeLines": 66,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/plugin_host_tests.rs",
+      "language": "rust",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/procedural_cache_map_tests.rs",
+      "language": "rust",
+      "sizeLines": 17,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/procedural_cache_tests.rs",
+      "language": "rust",
+      "sizeLines": 46,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/puzzle_tests.rs",
+      "language": "rust",
+      "sizeLines": 9,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/rag_adapter_tests.rs",
+      "language": "rust",
+      "sizeLines": 12,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/reasoning_trace_store_tests.rs",
+      "language": "rust",
+      "sizeLines": 30,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/retrieval_pipeline_tests.rs",
+      "language": "rust",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/safety_guardrail_tests.rs",
+      "language": "rust",
+      "sizeLines": 122,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/segmented_ring_buffer_tests.rs",
+      "language": "rust",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/semantic_cache_tests.rs",
+      "language": "rust",
+      "sizeLines": 21,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/sled_graph_tests.rs",
+      "language": "rust",
+      "sizeLines": 23,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/snapshot_manager_tests.rs",
+      "language": "rust",
+      "sizeLines": 26,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/symbolic_store_tests.rs",
+      "language": "rust",
+      "sizeLines": 117,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/temporal_fsm_backend_tests.rs",
+      "language": "rust",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/temporal_indexer_feature_tests.rs",
+      "language": "rust",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/temporal_indexer_tests.rs",
+      "language": "rust",
+      "sizeLines": 20,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/vision_encoder_tests.rs",
+      "language": "rust",
+      "sizeLines": 81,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/world_model_export_tests.rs",
+      "language": "rust",
+      "sizeLines": 13,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit/world_model_tests.rs",
+      "language": "rust",
+      "sizeLines": 10,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/unit_suite.rs",
+      "language": "rust",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/verify_token_optimization.py",
+      "language": "python",
+      "sizeLines": 136,
+      "fileCategory": "code"
+    },
+    {
+      "path": "tests/world_model_client.rs",
+      "language": "rust",
+      "sizeLines": 8,
+      "fileCategory": "code"
+    },
+    {
+      "path": "ui/index.html",
+      "language": "html",
+      "sizeLines": 42,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "ui/main.js",
+      "language": "javascript",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": "ui/style.css",
+      "language": "css",
+      "sizeLines": 24,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "user_value_stream.md",
+      "language": "markdown",
+      "sizeLines": 172,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "vscode-extension/README.md",
+      "language": "markdown",
+      "sizeLines": 103,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.1.0.vsix",
+      "language": "vsix",
+      "sizeLines": 3303,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.1.1.vsix",
+      "language": "vsix",
+      "sizeLines": 3899,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.1.2.vsix",
+      "language": "vsix",
+      "sizeLines": 3930,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.1.3.vsix",
+      "language": "vsix",
+      "sizeLines": 3922,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.1.4.vsix",
+      "language": "vsix",
+      "sizeLines": 3886,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.1.5.vsix",
+      "language": "vsix",
+      "sizeLines": 3879,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.1.6.vsix",
+      "language": "vsix",
+      "sizeLines": 109,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.2.1.vsix",
+      "language": "vsix",
+      "sizeLines": 9742,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.4.0.vsix",
+      "language": "vsix",
+      "sizeLines": 17147,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.4.1.vsix",
+      "language": "vsix",
+      "sizeLines": 17149,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.4.5.vsix",
+      "language": "vsix",
+      "sizeLines": 60688,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.4.6.vsix",
+      "language": "vsix",
+      "sizeLines": 60692,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.4.7.vsix",
+      "language": "vsix",
+      "sizeLines": 60686,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.4.8.vsix",
+      "language": "vsix",
+      "sizeLines": 60726,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.4.9.vsix",
+      "language": "vsix",
+      "sizeLines": 60565,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.5.0.vsix",
+      "language": "vsix",
+      "sizeLines": 59837,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.5.1.vsix",
+      "language": "vsix",
+      "sizeLines": 60525,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.5.2.vsix",
+      "language": "vsix",
+      "sizeLines": 60567,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.5.3.vsix",
+      "language": "vsix",
+      "sizeLines": 60596,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.5.4.vsix",
+      "language": "vsix",
+      "sizeLines": 60644,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.5.5.vsix",
+      "language": "vsix",
+      "sizeLines": 60676,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.5.6.vsix",
+      "language": "vsix",
+      "sizeLines": 52572,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.5.7.vsix",
+      "language": "vsix",
+      "sizeLines": 52678,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/hipcortex-memory-0.5.8.vsix",
+      "language": "vsix",
+      "sizeLines": 53075,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/jest.config.js",
+      "language": "javascript",
+      "sizeLines": 14,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/package.json",
+      "language": "json",
+      "sizeLines": 306,
+      "fileCategory": "config"
+    },
+    {
+      "path": "vscode-extension/scripts/fetch-bins.js",
+      "language": "javascript",
+      "sizeLines": 90,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/src/extension.ts",
+      "language": "typescript",
+      "sizeLines": 2024,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/src/test/__mocks__/vscode.ts",
+      "language": "typescript",
+      "sizeLines": 49,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/src/test/extension.test.ts",
+      "language": "typescript",
+      "sizeLines": 888,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/src/token-tracker.ts",
+      "language": "typescript",
+      "sizeLines": 88,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vscode-extension/tsconfig.json",
+      "language": "json",
+      "sizeLines": 22,
+      "fileCategory": "config"
+    },
+    {
+      "path": "vscode-extension/webpack.config.js",
+      "language": "javascript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    }
+  ],
+  "totalFiles": 657,
+  "filteredByIgnore": 12,
+  "estimatedComplexity": "very-large",
+  "stats": {
+    "filesScanned": 657,
+    "byCategory": {
+      "docs": 213,
+      "config": 43,
+      "infra": 10,
+      "code": 374,
+      "script": 12,
+      "data": 3,
+      "markup": 2
+    },
+    "byLanguage": {
+      "markdown": 210,
+      "json": 18,
+      "config": 2,
+      "yaml": 27,
+      "unknown": 6,
+      "txt": 3,
+      "tour": 1,
+      "toml": 3,
+      "dockerfile": 3,
+      "rust": 249,
+      "python": 67,
+      "tpl": 1,
+      "service": 1,
+      "shell": 5,
+      "vsix": 26,
+      "sql": 2,
+      "protobuf": 1,
+      "powershell": 7,
+      "nix": 1,
+      "typescript": 9,
+      "tmpl": 7,
+      "wgsl": 1,
+      "proptest-regressions": 1,
+      "html": 1,
+      "javascript": 4,
+      "css": 1
+    }
+  },
+  "name": "HipCortex",
+  "description": "Modular Rust AI memory engine combining temporal, procedural, and symbolic memory with a metacognitive intelligence layer (self-model, predictive world-model, coherence checker). Library + CLI + REST/gRPC server + VS Code extension.",
+  "languages": [
+    "rust",
+    "python",
+    "typescript",
+    "markdown",
+    "yaml",
+    "protobuf"
+  ],
+  "frameworks": [
+    "axum",
+    "tokio",
+    "tonic",
+    "proptest",
+    "criterion",
+    "tauri"
+  ],
+  "importMap": {}
+}

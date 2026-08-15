@@ -1,56 +1,55 @@
+mod archive_store_tests;
 #[cfg(feature = "async-store")]
 mod async_memory_store_tests;
-mod archive_store_tests;
-mod cognitive_gc_tests;
 mod audit_log_tests;
 mod aureus_bridge_tests;
+mod cognitive_gc_tests;
 // #[cfg(feature = "web-server")]
 // mod api_tests;
 mod coherence_tests;
+mod consolidation_tests;
 mod conversation_memory_tests;
 mod edge_workflow_small;
 mod effort_tests;
-mod execution_gate_tests;
 mod enhancement_advisor_tests;
+mod execution_gate_tests;
 mod graph_connectivity_tests;
 mod hypothesis_manager_tests;
 mod integration_layer_tests;
 mod knowledge_export_tests;
+mod latent_map_tests;
 mod llama_client_tests;
+#[cfg(all(feature = "web-server", feature = "grpc-server"))]
+mod mcp_server_tests;
 mod memory_diff_tests;
+mod memory_expiry_consistency_tests;
+mod memory_graph_tests;
+mod memory_ppr_tests;
+mod memory_store_delete_tests;
+mod memory_store_eviction_tests;
 mod memory_store_tests;
 mod memory_tests;
 mod multimodal_perception_tests;
 mod perception_adapter_tests;
 #[cfg(feature = "plugin")]
 mod plugin_host_tests;
-#[cfg(all(feature = "web-server", feature = "grpc-server"))]
-mod mcp_server_tests;
+mod procedural_cache_map_tests;
 mod procedural_cache_tests;
 mod puzzle_tests;
 mod rag_adapter_tests;
 mod reasoning_trace_store_tests;
 mod retrieval_pipeline_tests;
+mod safety_guardrail_tests;
 mod segmented_ring_buffer_tests;
 mod semantic_cache_tests;
-mod safety_guardrail_tests;
 mod sled_graph_tests;
 mod snapshot_manager_tests;
+mod state_diff_tests;
 mod symbolic_store_tests;
-mod latent_map_tests;
 mod temporal_fsm_backend_tests;
 mod temporal_indexer_feature_tests;
 mod temporal_indexer_tests;
-mod procedural_cache_map_tests;
+mod tx_log_tests;
 mod vision_encoder_tests;
 mod world_model_export_tests;
 mod world_model_tests;
-mod memory_store_eviction_tests;
-mod memory_store_delete_tests;
-mod memory_graph_tests;
-mod memory_expiry_consistency_tests;
-mod memory_ppr_tests;
-mod tx_log_tests;
-mod state_diff_tests;
-mod consolidation_tests;
-

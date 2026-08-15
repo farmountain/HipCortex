@@ -1,8 +1,8 @@
+use hipcortex::decay::DecayType;
 use hipcortex::perception_adapter::{Modality, PerceptInput, PerceptionAdapter};
 use hipcortex::retrieval_pipeline::recent_symbols;
 use hipcortex::symbolic_store::SymbolicStore;
 use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
-use hipcortex::decay::DecayType;
 use hipcortex::vision_encoder::VisionEncoder;
 use image::{DynamicImage, ImageOutputFormat, RgbImage};
 use std::collections::HashMap;
@@ -17,7 +17,9 @@ fn smart_glasses_capture_and_retrieve() {
     // simulate smart glasses snapshot
     let img = RgbImage::from_pixel(1, 1, image::Rgb([0, 0, 255]));
     let mut buf = std::io::Cursor::new(Vec::new());
-    DynamicImage::ImageRgb8(img).write_to(&mut buf, ImageOutputFormat::Png).unwrap();
+    DynamicImage::ImageRgb8(img)
+        .write_to(&mut buf, ImageOutputFormat::Png)
+        .unwrap();
     let bytes = buf.into_inner();
     let embedding = VisionEncoder::encode_bytes(&bytes).unwrap();
 
@@ -29,7 +31,9 @@ fn smart_glasses_capture_and_retrieve() {
         relevance: 1.0,
         decay_factor: 1.0,
         last_access: SystemTime::now(),
-        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
+        decay_type: DecayType::Exponential {
+            half_life: Duration::from_secs(1),
+        },
     });
 
     let input = PerceptInput {

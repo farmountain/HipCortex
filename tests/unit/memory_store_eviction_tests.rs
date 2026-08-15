@@ -76,7 +76,11 @@ fn purge_expired_rebuilds_actor_index() {
 
     // Index must be consistent: alice should only have 1 result
     let alice_records = store.find_by_actor("alice");
-    assert_eq!(alice_records.len(), 1, "alice index must be rebuilt after purge");
+    assert_eq!(
+        alice_records.len(),
+        1,
+        "alice index must be rebuilt after purge"
+    );
     assert_eq!(alice_records[0].target, "current_task");
 }
 

@@ -1,13 +1,16 @@
 use petgraph::graph::{DiGraph, NodeIndex};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
-use serde::{Serialize, Deserialize};
 
 use nalgebra::DVector;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TopoNode {
     pub symbolic_id: String,
-    #[serde(serialize_with = "serialize_embedding", deserialize_with = "deserialize_embedding")]
+    #[serde(
+        serialize_with = "serialize_embedding",
+        deserialize_with = "deserialize_embedding"
+    )]
     pub micro_embedding: [f32; 128],
     pub properties: HashMap<String, String>,
 }
@@ -74,26 +77,51 @@ impl CausalTopoGraph {
         self.graph.node_count()
     }
 
-    pub fn add_node(&mut self, symbolic_id: String, embedding: [f32; 128], props: HashMap<String, String>) -> Result<String, String> {
+    pub fn add_node(
+        &mut self,
+        symbolic_id: String,
+        embedding: [f32; 128],
+        props: HashMap<String, String>,
+    ) -> Result<String, String> {
         if self.id_map.contains_key(&symbolic_id) {
             return Err("exists".into());
         }
-        let node = TopoNode { symbolic_id: symbolic_id.clone(), micro_embedding: embedding, properties: props };
+        let node = TopoNode {
+            symbolic_id: symbolic_id.clone(),
+            micro_embedding: embedding,
+            properties: props,
+        };
         let idx = self.graph.add_node(node);
         self.id_map.insert(symbolic_id.clone(), idx);
         Ok(symbolic_id)
     }
 
-    pub fn add_edge(&mut self, from: String, to: String, et: EdgeType, strength: f32, confidence: f32) -> Result<(), String> {
+    pub fn add_edge(
+        &mut self,
+        from: String,
+        to: String,
+        et: EdgeType,
+        strength: f32,
+        confidence: f32,
+    ) -> Result<(), String> {
         if !self.id_map.contains_key(&from) || !self.id_map.contains_key(&to) {
             return Err("missing nodes".into());
         }
         // cycle check adapted from causal.rs has_path / is_acyclic
-        if from == to { return Err("self loop".into()); }
-        if self.has_path(&to, &from) { return Err("would cycle".into()); }
+        if from == to {
+            return Err("self loop".into());
+        }
+        if self.has_path(&to, &from) {
+            return Err("would cycle".into());
+        }
         let fidx = self.id_map[&from];
         let tidx = self.id_map[&to];
-        let edge = TopoEdge { edge_type: et, strength, confidence, last_updated: 0 };
+        let edge = TopoEdge {
+            edge_type: et,
+            strength,
+            confidence,
+            last_updated: 0,
+        };
         self.graph.add_edge(fidx, tidx, edge);
         Ok(())
     }
@@ -144,7 +172,10 @@ impl CausalTopoGraph {
                 }
 
                 // parents (incoming)
-                for pidx in self.graph.neighbors_directed(idx, petgraph::Direction::Incoming) {
+                for pidx in self
+                    .graph
+                    .neighbors_directed(idx, petgraph::Direction::Incoming)
+                {
                     if let Some(pnode) = self.graph.node_weight(pidx) {
                         let pid = pnode.symbolic_id.clone();
                         if seen.insert(pid.clone()) && to_include.len() < max_size {
@@ -162,10 +193,16 @@ impl CausalTopoGraph {
                         }
 
                         // co-parents (spouses): other parents of this child
-                        for spidx in self.graph.neighbors_directed(cidx, petgraph::Direction::Incoming) {
+                        for spidx in self
+                            .graph
+                            .neighbors_directed(cidx, petgraph::Direction::Incoming)
+                        {
                             if let Some(spnode) = self.graph.node_weight(spidx) {
                                 let spid = spnode.symbolic_id.clone();
-                                if spid != *seed && seen.insert(spid.clone()) && to_include.len() < max_size {
+                                if spid != *seed
+                                    && seen.insert(spid.clone())
+                                    && to_include.len() < max_size
+                                {
                                     to_include.push(spid);
                                 }
                             }
@@ -274,14 +311,17 @@ impl CausalTopoGraph {
         }
 
         let seed_idx = match self.id_map.get(seed_id) {
-            None     => return vec![],
+            None => return vec![],
             Some(&i) => i,
         };
 
         // Build a contiguous usize position for each NodeIndex so we can use plain Vec
         let all_indices: Vec<petgraph::graph::NodeIndex> = self.graph.node_indices().collect();
-        let idx_to_pos: std::collections::HashMap<petgraph::graph::NodeIndex, usize> =
-            all_indices.iter().enumerate().map(|(pos, &idx)| (idx, pos)).collect();
+        let idx_to_pos: std::collections::HashMap<petgraph::graph::NodeIndex, usize> = all_indices
+            .iter()
+            .enumerate()
+            .map(|(pos, &idx)| (idx, pos))
+            .collect();
         let seed_pos = idx_to_pos[&seed_idx];
 
         // Build normalized adjacency list: adj[src_pos] = Vec<(dst_pos, weight)>
@@ -313,12 +353,14 @@ impl CausalTopoGraph {
         }
 
         // Power iteration
-        let mut scores     = vec![0.0f64; node_count];
+        let mut scores = vec![0.0f64; node_count];
         let mut new_scores = vec![0.0f64; node_count];
         scores[seed_pos] = 1.0;
 
         for _ in 0..iterations {
-            for s in new_scores.iter_mut() { *s = 0.0; }
+            for s in new_scores.iter_mut() {
+                *s = 0.0;
+            }
             // Teleport: (1 - alpha) of all mass returns to seed
             new_scores[seed_pos] += 1.0 - alpha;
             // Diffusion: alpha * normalized adjacency * current scores
@@ -335,10 +377,16 @@ impl CausalTopoGraph {
             .iter()
             .enumerate()
             .filter_map(|(pos, &idx)| {
-                if idx == seed_idx { return None; }
+                if idx == seed_idx {
+                    return None;
+                }
                 let score = scores[pos];
-                if score <= 0.0 { return None; }
-                self.graph.node_weight(idx).map(|n| (n.symbolic_id.clone(), score))
+                if score <= 0.0 {
+                    return None;
+                }
+                self.graph
+                    .node_weight(idx)
+                    .map(|n| (n.symbolic_id.clone(), score))
             })
             .collect();
 
@@ -350,14 +398,23 @@ impl CausalTopoGraph {
     /// Personalized PageRank using iterative method with nalgebra::DVector.
     /// Seeds receive initial preference mass. Damping default 0.85.
     /// Returns normalized ranks by symbolic id.
-    pub fn personalized_pagerank(&self, seeds: &[String], damping: f32, max_iter: usize) -> HashMap<String, f32> {
+    pub fn personalized_pagerank(
+        &self,
+        seeds: &[String],
+        damping: f32,
+        max_iter: usize,
+    ) -> HashMap<String, f32> {
         let n = self.graph.node_count();
         if n == 0 {
             return HashMap::new();
         }
         let mut node_list: Vec<String> = self.id_map.keys().cloned().collect();
         node_list.sort();
-        let idx_of: HashMap<String, usize> = node_list.iter().enumerate().map(|(i, s)| (s.clone(), i)).collect();
+        let idx_of: HashMap<String, usize> = node_list
+            .iter()
+            .enumerate()
+            .map(|(i, s)| (s.clone(), i))
+            .collect();
 
         let mut pref = vec![0.0f32; n];
         let num_seeds = seeds.len().max(1) as f32;
@@ -382,7 +439,10 @@ impl CausalTopoGraph {
             for (i, nid) in node_list.iter().enumerate() {
                 if let Some(&gidx) = self.id_map.get(nid) {
                     let mut sum_in = 0.0f32;
-                    for in_idx in self.graph.neighbors_directed(gidx, petgraph::Direction::Incoming) {
+                    for in_idx in self
+                        .graph
+                        .neighbors_directed(gidx, petgraph::Direction::Incoming)
+                    {
                         if let Some(in_node) = self.graph.node_weight(in_idx) {
                             if let Some(&src_pos) = idx_of.get(&in_node.symbolic_id) {
                                 if out_deg[src_pos] > 0.0 {
@@ -463,7 +523,11 @@ impl CausalTopoGraph {
         if let (Some(&fidx), Some(&tidx)) = (self.id_map.get(&new_from), self.id_map.get(&new_to)) {
             if let Some(eidx) = self.graph.find_edge(tidx, fidx) {
                 if let Some(e) = self.graph.edge_weight(eidx) {
-                    if matches!(e.edge_type, EdgeType::Causal) && et == EdgeType::Causal && e.strength > 0.5 && e.confidence > 0.5 {
+                    if matches!(e.edge_type, EdgeType::Causal)
+                        && et == EdgeType::Causal
+                        && e.strength > 0.5
+                        && e.confidence > 0.5
+                    {
                         return true;
                     }
                 }

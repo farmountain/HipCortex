@@ -1,0 +1,3 @@
+WorldModel: loaded 0 transitions from ./worldmodel.json
+HipCortex REST API  |  listening on http://0.0.0.0:3030
+Auth: open (set HIPCORTEX_API_KEYS to enable)

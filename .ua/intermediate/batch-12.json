@@ -1,0 +1,60 @@
+{
+  "batchIndex": 12,
+  "nodes": [
+    {
+      "id": "config:fixtures/sample_memory_trace.json",
+      "type": "config",
+      "name": "sample_memory_trace",
+      "filePath": "fixtures/sample_memory_trace.json",
+      "summary": "Minimal fixture representing a single Temporal MemoryRecord with actor/action/target fields and an empty metadata map. Used in tests that exercise the MemoryStore read/write round-trip and SHA-256 integrity verification paths. Carries a fixed UUID so tests can assert deterministic record identity.",
+      "tags": ["fixture", "test-data", "temporal", "memory-record", "memory-store"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:fixtures/sample_perception_input.json",
+      "type": "config",
+      "name": "sample_perception_input",
+      "filePath": "fixtures/sample_perception_input.json",
+      "summary": "Fixture for a single Text-modality perception event produced by PerceptionAdapter. Contains source, modality, raw data payload, and a pre-computed meaning field to verify downstream semantic extraction. Used in tests that validate schema validation, PCA decorrelation stubs, and modality dispatch logic.",
+      "tags": ["fixture", "test-data", "perception", "multimodal", "text-modality"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:fixtures/sample_procedural_policy.json",
+      "type": "config",
+      "name": "sample_procedural_policy",
+      "filePath": "fixtures/sample_procedural_policy.json",
+      "summary": "FSM policy fixture defining a single state transition from 'Start' to 'Observe' with a trigger condition, effect label, version counter, and zero reward signal. Exercises ProceduralCache FSM transition logic and checkpoint save/load; the zero reward provides a baseline for reward-shaping tests.",
+      "tags": ["fixture", "test-data", "procedural", "fsm", "state-machine", "policy"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:fixtures/sample_reflexion_snapshot.json",
+      "type": "config",
+      "name": "sample_reflexion_snapshot",
+      "filePath": "fixtures/sample_reflexion_snapshot.json",
+      "summary": "Fixture capturing an AureusBridge reflexion snapshot linking a chain-of-thought trace (two reasoning steps) to an outcome label and a numeric feedback score of 0.9. References a temporal trace record by UUID, enabling integration tests that validate the reflexion-to-temporal linkage and feedback ingestion pipeline.",
+      "tags": ["fixture", "test-data", "reflexion", "chain-of-thought", "aureus-bridge"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:fixtures/sample_symbolic_node.json",
+      "type": "config",
+      "name": "sample_symbolic_node",
+      "filePath": "fixtures/sample_symbolic_node.json",
+      "summary": "Fixture for a single SymbolicStore graph node carrying dual labels ('Concept', 'Example'), a confidence weight, and a freeform metadata map. Used to verify node insertion, label-based LRU cache lookup, and weight-based ranking in SymbolicStore tests against both the petgraph and sled backends.",
+      "tags": ["fixture", "test-data", "symbolic", "graph-node", "symbolic-store"],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:fixtures/sample_temporal_event.json",
+      "type": "config",
+      "name": "sample_temporal_event",
+      "filePath": "fixtures/sample_temporal_event.json",
+      "summary": "Fixture representing a raw temporal event as ingested by TemporalIndexer, containing a timestamped content string, agent tags, a trigger type, and a floating-point weight. Acts as the canonical seed record referenced by the reflexion snapshot fixture and used in segmented ring-buffer and Markov-ordering tests.",
+      "tags": ["fixture", "test-data", "temporal", "temporal-indexer", "ring-buffer", "event"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": []
+}

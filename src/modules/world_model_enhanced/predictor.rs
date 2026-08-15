@@ -14,13 +14,13 @@ use std::collections::HashMap;
 pub struct PredictionResult {
     /// Final predicted state
     pub predicted_state: String,
-    
+
     /// Probability distribution over states
     pub distribution: HashMap<String, f64>,
-    
+
     /// Confidence score (0.0 to 1.0)
     pub confidence: f64,
-    
+
     /// Number of steps predicted
     pub steps: usize,
 }
@@ -62,8 +62,8 @@ impl PredictionResult {
             .ok_or("No states in distribution")?;
 
         // Average confidence
-        let avg_confidence: f64 = predictions.iter().map(|p| p.confidence).sum::<f64>()
-            / predictions.len() as f64;
+        let avg_confidence: f64 =
+            predictions.iter().map(|p| p.confidence).sum::<f64>() / predictions.len() as f64;
 
         Ok(Self {
             predicted_state,
@@ -95,10 +95,10 @@ pub trait PredictiveModel {
 pub struct LearnedTransitionPredictor {
     /// Underlying transition model
     model: TransitionModel,
-    
+
     /// Training accuracy
     accuracy: f64,
-    
+
     /// Number of training samples
     training_samples: usize,
 }
@@ -191,7 +191,7 @@ impl PredictiveModel for LearnedTransitionPredictor {
 pub struct EnsemblePredictor {
     /// Component predictors
     predictors: Vec<Box<dyn PredictiveModel + Send + Sync>>,
-    
+
     /// Weights for each predictor (based on accuracy)
     weights: Vec<f64>,
 }
@@ -202,14 +202,17 @@ impl EnsemblePredictor {
         // Weight by accuracy
         let accuracies: Vec<f64> = predictors.iter().map(|p| p.get_accuracy()).collect();
         let total_accuracy: f64 = accuracies.iter().sum();
-        
+
         let weights = if total_accuracy > 0.0 {
             accuracies.iter().map(|a| a / total_accuracy).collect()
         } else {
             vec![1.0 / predictors.len() as f64; predictors.len()]
         };
 
-        Self { predictors, weights }
+        Self {
+            predictors,
+            weights,
+        }
     }
 }
 
@@ -233,7 +236,7 @@ impl PredictiveModel for EnsemblePredictor {
 
         // Weighted average
         let mut weighted_distribution: HashMap<String, f64> = HashMap::new();
-        
+
         for (pred, &weight) in predictions.iter().zip(self.weights.iter()) {
             for (state, prob) in &pred.distribution {
                 *weighted_distribution.entry(state.clone()).or_insert(0.0) += prob * weight;
@@ -254,7 +257,8 @@ impl PredictiveModel for EnsemblePredictor {
             .ok_or("No states in distribution")?;
 
         // Weighted average confidence
-        let confidence: f64 = predictions.iter()
+        let confidence: f64 = predictions
+            .iter()
             .zip(self.weights.iter())
             .map(|(p, w)| p.confidence * w)
             .sum();
@@ -335,14 +339,14 @@ mod tests {
         let avg = PredictionResult::ensemble_average(vec![pred1, pred2]).unwrap();
 
         assert_eq!(avg.predicted_state, "S2");
-        assert!((avg.distribution["S2"] - 0.75).abs() < 0.01);  // (0.8 + 0.7) / 2
-        assert!((avg.confidence - 0.85).abs() < 0.01);  // (0.9 + 0.8) / 2
+        assert!((avg.distribution["S2"] - 0.75).abs() < 0.01); // (0.8 + 0.7) / 2
+        assert!((avg.confidence - 0.85).abs() < 0.01); // (0.9 + 0.8) / 2
     }
 
     #[test]
     fn test_learned_predictor_training_requirement() {
         let model = TransitionModel::new();
-        
+
         // Should fail with insufficient data
         let result = LearnedTransitionPredictor::train(&model);
         assert!(result.is_err());
@@ -352,7 +356,7 @@ mod tests {
     #[test]
     fn test_ensemble_with_no_predictors() {
         let ensemble = EnsemblePredictor::new(Vec::new());
-        
+
         let result = ensemble.predict("S1", "A1");
         assert!(result.is_err());
     }
@@ -360,7 +364,7 @@ mod tests {
     #[test]
     fn test_predict_sequence_empty_actions() {
         let model = TransitionModel::new();
-        
+
         // Create a mock predictor (would normally train from model)
         struct MockPredictor;
         impl PredictiveModel for MockPredictor {
@@ -372,7 +376,7 @@ mod tests {
                     steps: 1,
                 })
             }
-            
+
             fn predict_sequence(
                 &self,
                 _initial_state: String,
@@ -383,7 +387,7 @@ mod tests {
                 }
                 self.predict("", "")
             }
-            
+
             fn get_accuracy(&self) -> f64 {
                 0.9
             }
@@ -409,7 +413,7 @@ mod tests {
                     steps: 1,
                 })
             }
-            
+
             fn predict_sequence(
                 &self,
                 initial_state: String,
@@ -417,7 +421,7 @@ mod tests {
             ) -> Result<PredictionResult, String> {
                 let mut confidence = 1.0;
                 for _ in &actions {
-                    confidence *= 0.8;  // Decay by 20% per step
+                    confidence *= 0.8; // Decay by 20% per step
                 }
                 Ok(PredictionResult {
                     predicted_state: "S2".to_string(),
@@ -426,20 +430,24 @@ mod tests {
                     steps: actions.len(),
                 })
             }
-            
+
             fn get_accuracy(&self) -> f64 {
                 0.9
             }
         }
 
         let predictor = MockPredictor;
-        
-        let pred1 = predictor.predict_sequence("S1".to_string(), vec!["A1".to_string()]).unwrap();
-        let pred3 = predictor.predict_sequence(
-            "S1".to_string(),
-            vec!["A1".to_string(), "A2".to_string(), "A3".to_string()],
-        ).unwrap();
-        
+
+        let pred1 = predictor
+            .predict_sequence("S1".to_string(), vec!["A1".to_string()])
+            .unwrap();
+        let pred3 = predictor
+            .predict_sequence(
+                "S1".to_string(),
+                vec!["A1".to_string(), "A2".to_string(), "A3".to_string()],
+            )
+            .unwrap();
+
         // Confidence should decrease with more steps
         assert!(pred3.confidence < pred1.confidence);
     }
@@ -458,7 +466,7 @@ mod tests {
                     steps: 1,
                 })
             }
-            
+
             fn predict_sequence(
                 &self,
                 _initial_state: String,
@@ -466,7 +474,7 @@ mod tests {
             ) -> Result<PredictionResult, String> {
                 self.predict("", "")
             }
-            
+
             fn get_accuracy(&self) -> f64 {
                 self.accuracy
             }
@@ -478,10 +486,10 @@ mod tests {
         ];
 
         let ensemble = EnsemblePredictor::new(predictors);
-        
+
         // Higher accuracy predictor should have more weight
         assert!(ensemble.weights[0] > ensemble.weights[1]);
-        
+
         // Weights should sum to 1.0
         let sum: f64 = ensemble.weights.iter().sum();
         assert!((sum - 1.0).abs() < 1e-6);

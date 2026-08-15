@@ -1,0 +1,15 @@
+{
+  "batchIndex": 2,
+  "nodes": [
+    {
+      "id": "service:huggingface-space/Dockerfile",
+      "type": "service",
+      "name": "HuggingFace Space Dockerfile",
+      "filePath": "huggingface-space/Dockerfile",
+      "summary": "Multi-stage Dockerfile that builds the HipCortex web server binary from source using Rust 1.78 with only the `web-server` and `petgraph_backend` features enabled, then packages the release binary into a minimal Debian Bookworm slim image. The container exposes port 3030 and launches the `hipcortex-webserver` binary with `RUST_LOG=info`. This targets a HuggingFace Spaces deployment of the REST API surface.",
+      "tags": ["docker", "infra", "multi-stage-build", "huggingface", "web-server", "petgraph_backend", "rust", "deployment", "release"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": []
+}

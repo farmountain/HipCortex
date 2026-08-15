@@ -1,0 +1,16 @@
+{
+  "version": "2.9.4",
+  "gitCommitHash": "02b51027cbe9d5f7c5c759d87a383fbe6cda030c",
+  "generatedAt": "2026-08-14T00:00:00.000Z",
+  "projectName": "HipCortex",
+  "outputLanguage": "en",
+  "stats": {
+    "totalNodes": 305,
+    "totalEdges": 91,
+    "totalLayers": 11,
+    "totalTourSteps": 12
+  },
+  "updatedAt": "2026-08-14T08:24:19.286163Z",
+  "nodeCount": 396,
+  "edgeCount": 324
+}

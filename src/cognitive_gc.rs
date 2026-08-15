@@ -23,17 +23,25 @@ pub struct CognitiveGC {
 
 impl CognitiveGC {
     pub fn new() -> Self {
-        Self { references: HashMap::new() }
+        Self {
+            references: HashMap::new(),
+        }
     }
 
     /// Register that `referencing_id` holds `record_id` in its evidence[].
     pub fn register_reference(&mut self, record_id: Uuid, referencing_id: Uuid) {
-        self.references.entry(record_id).or_default().insert(referencing_id);
+        self.references
+            .entry(record_id)
+            .or_default()
+            .insert(referencing_id);
     }
 
     /// Remove all references held by `referencing_id` (called when Goal/Belief is deleted).
     pub fn deregister_referencing(&mut self, referencing_id: Uuid) {
-        self.references.retain(|_, refs| { refs.remove(&referencing_id); !refs.is_empty() });
+        self.references.retain(|_, refs| {
+            refs.remove(&referencing_id);
+            !refs.is_empty()
+        });
     }
 
     /// Determine GC action for a record whose relevance_score has reached 0.
@@ -56,4 +64,8 @@ impl CognitiveGC {
     }
 }
 
-impl Default for CognitiveGC { fn default() -> Self { Self::new() } }
+impl Default for CognitiveGC {
+    fn default() -> Self {
+        Self::new()
+    }
+}

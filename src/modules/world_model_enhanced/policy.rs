@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
 use super::entity::EntityState;
 use super::transition::TransitionModel;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// A first-class behavioral policy attached to an Entity inside the World Model.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,7 +18,11 @@ impl Policy {
             entity_id,
             utility_weights: HashMap::new(),
             action_distribution: HashMap::new(),
-            temperature: if temperature <= 0.0 { 0.0001 } else { temperature },
+            temperature: if temperature <= 0.0 {
+                0.0001
+            } else {
+                temperature
+            },
         }
     }
 

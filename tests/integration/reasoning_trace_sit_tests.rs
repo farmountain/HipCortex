@@ -1,6 +1,6 @@
+use hipcortex::decay::DecayType;
 use hipcortex::perception_adapter::{Modality, PerceptInput, PerceptionAdapter};
 use hipcortex::temporal_indexer::{TemporalIndexer, TemporalTrace};
-use hipcortex::decay::DecayType;
 use std::time::{Duration, SystemTime};
 use uuid::Uuid;
 
@@ -23,7 +23,9 @@ fn store_reasoning_trace_via_adapter_and_indexer() {
         relevance: 1.0,
         decay_factor: 1.0,
         last_access: SystemTime::now(),
-        decay_type: DecayType::Exponential { half_life: Duration::from_secs(1) },
+        decay_type: DecayType::Exponential {
+            half_life: Duration::from_secs(1),
+        },
     };
     indexer.insert(trace);
     let recent = indexer.get_recent(1);

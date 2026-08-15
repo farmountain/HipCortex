@@ -1,0 +1,1226 @@
+{
+  "gitCommitHash": "15ed44efa4c708c6f93f349c399dd963a274e3e7",
+  "generatedAt": "2026-08-14T00:00:00.000Z",
+  "nodes": [
+    {
+      "id": "service:Dockerfile",
+      "type": "service"
+    },
+    {
+      "id": "config:docker-compose.dev.yml",
+      "type": "config"
+    },
+    {
+      "id": "config:docker-compose.yml",
+      "type": "config"
+    },
+    {
+      "id": "service:huggingface-space/Dockerfile",
+      "type": "service"
+    },
+    {
+      "id": "pipeline:.github/workflows/ci.yml",
+      "type": "pipeline"
+    },
+    {
+      "id": "pipeline:.github/workflows/cognitive_os_token_verification.yml",
+      "type": "pipeline"
+    },
+    {
+      "id": "pipeline:.github/workflows/publish-npm.yml",
+      "type": "pipeline"
+    },
+    {
+      "id": "pipeline:.github/workflows/publish-pypi.yml",
+      "type": "pipeline"
+    },
+    {
+      "id": "pipeline:.github/workflows/release.yml",
+      "type": "pipeline"
+    },
+    {
+      "id": "config:.env.example",
+      "type": "config"
+    },
+    {
+      "id": "document:AGENTS.md",
+      "type": "document"
+    },
+    {
+      "id": "document:BENCHMARK.md",
+      "type": "document"
+    },
+    {
+      "id": "document:CLAUDE.md",
+      "type": "document"
+    },
+    {
+      "id": "config:CODEOWNERS",
+      "type": "config"
+    },
+    {
+      "id": "document:CONTRIBUTING.md",
+      "type": "document"
+    },
+    {
+      "id": "document:DEPLOY.md",
+      "type": "document"
+    },
+    {
+      "id": "document:DEVELOPMENT.md",
+      "type": "document"
+    },
+    {
+      "id": "document:Hipcortex_Env_Setup_Guide.md",
+      "type": "document"
+    },
+    {
+      "id": "document:LICENSE",
+      "type": "document"
+    },
+    {
+      "id": "document:PRODUCTION_READY_REPORT.md",
+      "type": "document"
+    },
+    {
+      "id": "document:QUICK_START_GUIDE.md",
+      "type": "document"
+    },
+    {
+      "id": "document:README.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/acceptance.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/agent.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/api_contract.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/architecture.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/business_context.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/capabilities.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/channels.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/contributing.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/data_model.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/integration.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/memory_design.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/roadmap.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/usage.md",
+      "type": "document"
+    },
+    {
+      "id": "resource:deploy/helm/hipcortex/templates/deployment.yaml",
+      "type": "resource"
+    },
+    {
+      "id": "resource:deploy/helm/hipcortex/templates/pvc.yaml",
+      "type": "resource"
+    },
+    {
+      "id": "resource:deploy/helm/hipcortex/templates/secret.yaml",
+      "type": "resource"
+    },
+    {
+      "id": "resource:deploy/helm/hipcortex/templates/service.yaml",
+      "type": "resource"
+    },
+    {
+      "id": "document:docs/SESSION_HANDOVER.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/launch/DISTRIBUTION.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/launch/copilot-extension-plan.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/launch/reddit-localllama.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/launch/show-hn.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-05-20-500-stars-sprint.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-05-20-golden-path-ux-sprint.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-06-04-intelligence-layer-wiring.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-07-17-semantic-tag-auto-capture.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-07-17-server-lifecycle-option-a.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-07-18-cross-channel-ux-enhancement-plan.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-07-20-release-pr-vsix.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-07-20-worldmodel-self-routes-surface.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-07-20-fill-stubs.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/superpowers/plans/2026-07-20-mcts-deep-causal.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/superpowers/specs/2026-08-13-hipcortex-gap-remediation-design.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/superpowers/specs/2026-06-04-intelligence-layer-wiring-design.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/superpowers/specs/2026-06-04-query-response-fields-design.md",
+      "type": "document"
+    },
+    {
+      "id": "document:docs/superpowers/specs/2026-06-04-sim11-p1-gaps-design.md",
+      "type": "document"
+    },
+    {
+      "id": "config:fixtures/sample_memory_trace.json",
+      "type": "config"
+    },
+    {
+      "id": "config:fixtures/sample_perception_input.json",
+      "type": "config"
+    },
+    {
+      "id": "config:fixtures/sample_procedural_policy.json",
+      "type": "config"
+    },
+    {
+      "id": "config:fixtures/sample_reflexion_snapshot.json",
+      "type": "config"
+    },
+    {
+      "id": "config:fixtures/sample_symbolic_node.json",
+      "type": "config"
+    },
+    {
+      "id": "config:fixtures/sample_temporal_event.json",
+      "type": "config"
+    },
+    {
+      "id": "document:openspec/changes/agent-substrate-autonomy/proposal.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/agent-substrate-autonomy/design.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/agent-substrate-autonomy/tasks.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/.openspec.yaml",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/proposal.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/design.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-06-26-improve-agent-experience-docs-v1/tasks.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/.openspec.yaml",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/proposal.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/design.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-fix-extension-dispatch/tasks.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/.openspec.yaml",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/proposal.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/design.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/tasks.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/.openspec.yaml",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/proposal.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/design.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/tasks.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/.openspec.yaml",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/proposal.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/design.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-record-type-alias-mapping/tasks.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/.openspec.yaml",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/proposal.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/design.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-sdd-post-session-hardening/tasks.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/.openspec.yaml",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/proposal.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/design.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/tasks.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/.openspec.yaml",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/design.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/proposal.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-11-rewrite-docs-v049/tasks.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/.openspec.yaml",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/design.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/proposal.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-16-fix-memory-query-truncation/tasks.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/.openspec.yaml",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/design.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/proposal.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-16-server-lifecycle-improvements/tasks.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/intelligence-foundation/.openspec.yaml",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/intelligence-foundation/design.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/intelligence-foundation/proposal.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/intelligence-foundation/tasks.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/sdk-tmf-surface-update/.openspec.yaml",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/sdk-tmf-surface-update/design.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/sdk-tmf-surface-update/proposal.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/sdk-tmf-surface-update/tasks.md",
+      "type": "document"
+    },
+    {
+      "id": "schema:schemas/perception_adapter.json",
+      "type": "schema"
+    },
+    {
+      "id": "schema:schemas/procedural_memory.json",
+      "type": "schema"
+    },
+    {
+      "id": "schema:schemas/reflexion_memory.json",
+      "type": "schema"
+    },
+    {
+      "id": "schema:schemas/symbolic_graph.json",
+      "type": "schema"
+    },
+    {
+      "id": "schema:schemas/temporal_memory.json",
+      "type": "schema"
+    },
+    {
+      "id": "schema:schemas/world_model.json",
+      "type": "schema"
+    },
+    {
+      "id": "document:sdk/typescript/README.md",
+      "type": "document"
+    },
+    {
+      "id": "config:sdk/typescript/package.json",
+      "type": "config"
+    },
+    {
+      "id": "config:sdk/typescript/tsconfig.json",
+      "type": "config"
+    },
+    {
+      "id": "document:tests/test_report/PerformanceTestReport.md",
+      "type": "document"
+    },
+    {
+      "id": "document:tests/test_report/RegressionTestReport.md",
+      "type": "document"
+    },
+    {
+      "id": "document:tests/test_report/RetrievalPipelineTestPlan.md",
+      "type": "document"
+    },
+    {
+      "id": "document:tests/test_report/SITTestReport.md",
+      "type": "document"
+    },
+    {
+      "id": "document:tests/test_report/UATTestReport.md",
+      "type": "document"
+    },
+    {
+      "id": "document:tests/test_report/SymbolicProceduralTestPlan.md",
+      "type": "document"
+    },
+    {
+      "id": "document:tests/test_report/UnitTestReport.md",
+      "type": "document"
+    },
+    {
+      "id": "document:vscode-extension/README.md",
+      "type": "document"
+    },
+    {
+      "id": "config:vscode-extension/package.json",
+      "type": "config"
+    },
+    {
+      "id": "config:vscode-extension/tsconfig.json",
+      "type": "config"
+    },
+    {
+      "id": "document:.claude/PRPs/plans/hipcortex-saas-features.plan.md",
+      "type": "document"
+    },
+    {
+      "id": "document:.claude/PRPs/plans/sim10-memory-gaps.plan.md",
+      "type": "document"
+    },
+    {
+      "id": "config:.claude/settings.local.json",
+      "type": "config"
+    },
+    {
+      "id": "config:Cargo.toml",
+      "type": "config"
+    },
+    {
+      "id": "file:Cargo.lock",
+      "type": "file"
+    },
+    {
+      "id": "file:build.rs",
+      "type": "file"
+    },
+    {
+      "id": "schema:proto/memory.proto",
+      "type": "schema"
+    },
+    {
+      "id": "config:deploy/helm/hipcortex/Chart.yaml",
+      "type": "config"
+    },
+    {
+      "id": "config:deploy/helm/hipcortex/values.yaml",
+      "type": "config"
+    },
+    {
+      "id": "config:sdk/python/pyproject.toml",
+      "type": "config"
+    },
+    {
+      "id": "config:sdk/python/setup.py",
+      "type": "config"
+    },
+    {
+      "id": "document:sdk/python/README.md",
+      "type": "document"
+    },
+    {
+      "id": "file::build.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::deploy/helm/hipcortex/Chart.yaml",
+      "type": "file"
+    },
+    {
+      "id": "file::deploy/helm/hipcortex/templates/_helpers.tpl",
+      "type": "file"
+    },
+    {
+      "id": "file::deploy/helm/hipcortex/values.yaml",
+      "type": "file"
+    },
+    {
+      "id": "schema::proto/memory.proto",
+      "type": "schema"
+    },
+    {
+      "id": "file::sdk/python/pyproject.toml",
+      "type": "file"
+    },
+    {
+      "id": "file::sdk/python/README.md",
+      "type": "file"
+    },
+    {
+      "id": "file::sdk/python/setup.py",
+      "type": "file"
+    },
+    {
+      "id": "file::src/bin/cli.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::src/bin/webserver.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::src/grpc_server.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::src/lib.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::src/mcp_server.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::src/memory_record.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::src/memory_store.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::src/safety_guardrail.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::src/web_server.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:examples/rag_export.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:examples/self_model_quickstart.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:examples/world_model_example.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:examples/quickstart.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:examples/mcp_server.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:src/dashboard.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:src/decay.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:src/embedding_provider.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:src/gui.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:src/memory_processor.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:src/plugin_host.rs",
+      "type": "file"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-implement-cognitive-os/specs/worldmodel-rollout/spec.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/specs/mcp-add-memory/spec.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/specs/mcp-live-beliefs/spec.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/changes/archive/2026-07-09-python-server-endpoint-parity/specs/mcp-purge-expired/spec.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/specs/deterministic-slice-ordering/spec.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/specs/documentation-rewrite-v049/spec.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/specs/executive-cortex/spec.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/specs/goal-memory/spec.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/specs/query-optimization/spec.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/specs/semantic-compression/spec.md",
+      "type": "document"
+    },
+    {
+      "id": "document:openspec/specs/tool-result-memory/spec.md",
+      "type": "document"
+    },
+    {
+      "id": "file:scripts/stamp_versions.py",
+      "type": "file"
+    },
+    {
+      "id": "document:sdk/continue/README.md",
+      "type": "document"
+    },
+    {
+      "id": "file:sdk/continue/index.ts",
+      "type": "file"
+    },
+    {
+      "id": "file:sdk/typescript/src/index.ts",
+      "type": "file"
+    },
+    {
+      "id": "file:sdk/typescript/src/client.ts",
+      "type": "file"
+    },
+    {
+      "id": "file:sdk/typescript/src/types.ts",
+      "type": "file"
+    },
+    {
+      "id": "document:sdk/python/hipcortex/install/SKILL.md",
+      "type": "document"
+    },
+    {
+      "id": "file:sdk/python/hipcortex/install/__init__.py",
+      "type": "file"
+    },
+    {
+      "id": "file:sdk/python/hipcortex/install/mcp_server.py",
+      "type": "file"
+    },
+    {
+      "id": "file:sdk/python/hipcortex/__init__.py",
+      "type": "file"
+    },
+    {
+      "id": "file:sdk/python/hipcortex/client.py",
+      "type": "file"
+    },
+    {
+      "id": "file:sdk/python/hipcortex/config.py",
+      "type": "file"
+    },
+    {
+      "id": "file:sdk/python/hipcortex/daemon.py",
+      "type": "file"
+    },
+    {
+      "id": "file::sdk/python/tests/test_client_config.py",
+      "type": "file"
+    },
+    {
+      "id": "file::sdk/python/tests/test_config.py",
+      "type": "file"
+    },
+    {
+      "id": "file::sdk/python/tests/test_daemon.py",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/e2e_user_harness/assertions.py",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/e2e_user_harness/client_factory.py",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/e2e_user_harness/server_manager.py",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/e2e_user_harness/data_generators.py",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/e2e_user_harness/conftest.py",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/e2e_user_harness/suites/test_phase0_bootstrap.py",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/e2e_user_harness/suites/test_phase3_framework_integrations.py",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/e2e_user_harness/suites/test_phase4_vscode_extension.py",
+      "type": "file"
+    },
+    {
+      "id": "file:src/llm_clients/mod.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:src/optimized_memory_store.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:memory_cli",
+      "type": "file"
+    },
+    {
+      "id": "file:memory_diff",
+      "type": "file"
+    },
+    {
+      "id": "file:memory_processor",
+      "type": "file"
+    },
+    {
+      "id": "file:memory_record",
+      "type": "file"
+    },
+    {
+      "id": "file:memory_store",
+      "type": "file"
+    },
+    {
+      "id": "file:aureus_bridge",
+      "type": "file"
+    },
+    {
+      "id": "file:coherence_mod",
+      "type": "file"
+    },
+    {
+      "id": "file:integration_layer",
+      "type": "file"
+    },
+    {
+      "id": "file:perception_adapter",
+      "type": "file"
+    },
+    {
+      "id": "file:procedural_cache",
+      "type": "file"
+    },
+    {
+      "id": "file:self_model_mod",
+      "type": "file"
+    },
+    {
+      "id": "file:symbolic_store",
+      "type": "file"
+    },
+    {
+      "id": "file:temporal_indexer",
+      "type": "file"
+    },
+    {
+      "id": "file:world_model",
+      "type": "file"
+    },
+    {
+      "id": "file:src/modules/loop_engine.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:src/modules/mcp_bridge.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:src/modules/openmanus_bridge.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:src/modules/world_model_enhanced/mod.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:src/modules/world_model_enhanced/transition.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:src/modules/world_model_enhanced/uncertainty.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:src/rocksdb_backend.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:src/safety_guardrail.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:src/semantic_compression.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:src/snapshot_manager.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:src/source_trust.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:wme::causal_rs",
+      "type": "file"
+    },
+    {
+      "id": "file:wme::constraint_rs",
+      "type": "file"
+    },
+    {
+      "id": "file:wme::entity_rs",
+      "type": "file"
+    },
+    {
+      "id": "file:wme::mod_rs",
+      "type": "file"
+    },
+    {
+      "id": "file:wme::transition_rs",
+      "type": "file"
+    },
+    {
+      "id": "file:wme::uncertainty_rs",
+      "type": "file"
+    },
+    {
+      "id": "file:self_model::capability_rs",
+      "type": "file"
+    },
+    {
+      "id": "file:self_model::decision_rs",
+      "type": "file"
+    },
+    {
+      "id": "file:self_model::health_rs",
+      "type": "file"
+    },
+    {
+      "id": "file:self_model::performance_rs",
+      "type": "file"
+    },
+    {
+      "id": "file:self_model::resource_rs",
+      "type": "file"
+    },
+    {
+      "id": "file:coherence::checker_rs",
+      "type": "file"
+    },
+    {
+      "id": "file:coherence::invariants_rs",
+      "type": "file"
+    },
+    {
+      "id": "file:coherence::resolver_rs",
+      "type": "file"
+    },
+    {
+      "id": "file:semantic_compression",
+      "type": "file"
+    },
+    {
+      "id": "file:snapshot_manager",
+      "type": "file"
+    },
+    {
+      "id": "file:source_trust",
+      "type": "file"
+    },
+    {
+      "id": "file:temporal_fsm_backend",
+      "type": "file"
+    },
+    {
+      "id": "file:web_server",
+      "type": "file"
+    },
+    {
+      "id": "file:backends_petgraph_backend",
+      "type": "file"
+    },
+    {
+      "id": "file:backends_mod",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/integration/conversation_memory_sit.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/integration/conversation_memory_uat.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/integration/edge_workflow_sit.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/integration/edge_workflow_uat.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/integration/intelligence_layer_sit.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/integration/intelligence_layer_uat.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/integration/memory_persistence_sit.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/integration/memory_persistence_uat.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/integration/mod.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/integration/retrieval_pipeline_sit.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/integration/retrieval_pipeline_uat.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/integration/safety_guardrail_sit.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/integration/safety_guardrail_uat.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/integration/world_model_sit.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/integration/world_model_uat.rs",
+      "type": "file"
+    },
+    {
+      "id": "file::tests/integration_suite.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/property/regression_tests.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/property/self_model_props.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/property/test_graph.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/property/world_model_props.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/property/connectivity.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/property/fsm_reachability.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/property/coherence_props.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/property/mod.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/property_suite.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/unit/mcp_server_tests.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/unit/memory_expiry_consistency_tests.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/unit/memory_graph_tests.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/unit/memory_store_tests.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/unit/perception_adapter_tests.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/unit/procedural_cache_tests.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/unit/temporal_indexer_feature_tests.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/unit/temporal_indexer_tests.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/unit/vision_encoder_tests.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/unit/world_model_tests.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/unit_suite.rs",
+      "type": "file"
+    },
+    {
+      "id": "file:tests/unit/mod.rs",
+      "type": "file"
+    },
+    {
+      "id": "config:vscode-extension/hipcortex-memory-0.4.9.vsix",
+      "type": "config"
+    },
+    {
+      "id": "config:vscode-extension/hipcortex-memory-0.5.0.vsix",
+      "type": "config"
+    },
+    {
+      "id": "config:vscode-extension/hipcortex-memory-0.5.1.vsix",
+      "type": "config"
+    },
+    {
+      "id": "config:vscode-extension/hipcortex-memory-0.5.2.vsix",
+      "type": "config"
+    },
+    {
+      "id": "config:vscode-extension/hipcortex-memory-0.5.3.vsix",
+      "type": "config"
+    },
+    {
+      "id": "config:vscode-extension/hipcortex-memory-0.5.4.vsix",
+      "type": "config"
+    },
+    {
+      "id": "config:vscode-extension/hipcortex-memory-0.5.5.vsix",
+      "type": "config"
+    },
+    {
+      "id": "config:vscode-extension/hipcortex-memory-0.5.6.vsix",
+      "type": "config"
+    },
+    {
+      "id": "config:vscode-extension/hipcortex-memory-0.5.7.vsix",
+      "type": "config"
+    },
+    {
+      "id": "config:vscode-extension/hipcortex-memory-0.5.8.vsix",
+      "type": "config"
+    },
+    {
+      "id": "file:vscode-extension/src/extension.ts",
+      "type": "file"
+    }
+  ]
+}

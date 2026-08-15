@@ -1,0 +1,52 @@
+{
+  "batchIndex": 13,
+  "nodes": [
+    {
+      "id": "document:openspec/changes/agent-substrate-autonomy/proposal.md",
+      "type": "document",
+      "name": "Agent-Substrate-Autonomy Proposal",
+      "filePath": "openspec/changes/agent-substrate-autonomy/proposal.md",
+      "summary": "Identifies the gap between the current agent-tool invocation model (conservative SKILL, reactive policy) and the memory-centric vision where HipCortex substrate acts as the primary cognitive mind. Proposes a proactive SKILL harness, engine defaults for AgentMessage paths, a unified get_live_beliefs surface, and validated 80-99% LLM token reduction benchmarks.",
+      "tags": ["openspec", "proposal", "agent", "autonomy", "substrate", "skill", "harness", "mcp", "token-reduction"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:openspec/changes/agent-substrate-autonomy/design.md",
+      "type": "document",
+      "name": "Agent-Substrate-Autonomy Design",
+      "filePath": "openspec/changes/agent-substrate-autonomy/design.md",
+      "summary": "Resolves all five open threads (token math, beliefs merge, compliance, layering, multi-agent) with code-grounded evidence. Defines eight key design decisions including policy-first approach, opt-in engine defaults for AgentMessage, unified beliefs surface merging symbolic+hypotheses+world+intel, and validation via extended benchmarks targeting 80%+ reduction.",
+      "tags": ["openspec", "design", "agent", "autonomy", "substrate", "perception-session", "beliefs", "mcp-server", "integration-layer", "karpathy"],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:openspec/changes/agent-substrate-autonomy/tasks.md",
+      "type": "document",
+      "name": "Agent-Substrate-Autonomy Tasks",
+      "filePath": "openspec/changes/agent-substrate-autonomy/tasks.md",
+      "summary": "Four-phase task breakdown: Phase 1 updates the Python SKILL template and CLI installer for proactive/substrate-first mode; Phase 2 wires PerceptionSession defaults and get_live_beliefs in Rust; Phase 3 formalizes multi-agent actor scoping and docs; Phase 4 extends benchmarks and validates 80%+ token reduction. All tasks include explicit verification criteria.",
+      "tags": ["openspec", "tasks", "agent", "autonomy", "skill", "perception-session", "live-beliefs", "benchmarks", "multi-agent"],
+      "complexity": "complex"
+    }
+  ],
+  "edges": [
+    {
+      "source": "document:openspec/changes/agent-substrate-autonomy/proposal.md",
+      "target": "document:openspec/changes/agent-substrate-autonomy/design.md",
+      "type": "related",
+      "label": "proposal → design"
+    },
+    {
+      "source": "document:openspec/changes/agent-substrate-autonomy/design.md",
+      "target": "document:openspec/changes/agent-substrate-autonomy/tasks.md",
+      "type": "related",
+      "label": "design → tasks"
+    },
+    {
+      "source": "document:openspec/changes/agent-substrate-autonomy/proposal.md",
+      "target": "document:openspec/changes/agent-substrate-autonomy/tasks.md",
+      "type": "related",
+      "label": "proposal → tasks"
+    }
+  ]
+}

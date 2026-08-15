@@ -6,16 +6,30 @@ use std::fs;
 fn test_archived_records_excluded_from_default_search() {
     let mut store = MemoryStore::new_in_memory();
 
-    let active = MemoryRecord::new(MemoryType::Temporal, "a".into(), "act".into(), "t_active".into(), serde_json::json!({}));
-    let mut archived = MemoryRecord::new(MemoryType::Temporal, "a".into(), "act".into(), "t_old".into(), serde_json::json!({}));
+    let active = MemoryRecord::new(
+        MemoryType::Temporal,
+        "a".into(),
+        "act".into(),
+        "t_active".into(),
+        serde_json::json!({}),
+    );
+    let mut archived = MemoryRecord::new(
+        MemoryType::Temporal,
+        "a".into(),
+        "act".into(),
+        "t_old".into(),
+        serde_json::json!({}),
+    );
     archived.status = "archived".to_string();
 
     store.add(active).unwrap();
     store.add(archived).unwrap();
 
     let results = store.search_semantic(None, "t", 10, false);
-    assert!(!results.iter().any(|(r, _)| r.status == "archived"),
-        "archived records must not appear in default search");
+    assert!(
+        !results.iter().any(|(r, _)| r.status == "archived"),
+        "archived records must not appear in default search"
+    );
 }
 
 #[test]
@@ -25,7 +39,11 @@ fn test_goal_payload_roundtrips_via_metadata() {
     let goal = GoalPayload {
         target_state: "server healthy".to_string(),
         acceptance_criteria: vec!["health endpoint returns 200".to_string()],
-        success_factors: vec![SuccessFactor { name: "uptime".to_string(), weight: 1.0, satisfied: false }],
+        success_factors: vec![SuccessFactor {
+            name: "uptime".to_string(),
+            weight: 1.0,
+            satisfied: false,
+        }],
         max_react_iterations: 5,
         status: GoalStatus::Pending,
         current_iteration: 0,
@@ -234,7 +252,16 @@ fn test_provenance_fields_do_not_change_hash_of_legacy_record() {
     let h2 = record.compute_hash();
     assert_eq!(h1, h2, "hash must be deterministic");
     let json = serde_json::to_string(&record).unwrap();
-    assert!(!json.contains("evidence"), "empty evidence must be omitted from JSON");
-    assert!(!json.contains("derived_from"), "None derived_from must be omitted from JSON");
-    assert!(!json.contains("react_iteration"), "None react_iteration must be omitted from JSON");
+    assert!(
+        !json.contains("evidence"),
+        "empty evidence must be omitted from JSON"
+    );
+    assert!(
+        !json.contains("derived_from"),
+        "None derived_from must be omitted from JSON"
+    );
+    assert!(
+        !json.contains("react_iteration"),
+        "None react_iteration must be omitted from JSON"
+    );
 }

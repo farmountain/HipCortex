@@ -1,0 +1,218 @@
+{
+  "batchIndex": 32,
+  "nodes": [
+    {
+      "id": "file:examples/rag_export.rs",
+      "type": "file",
+      "name": "rag_export",
+      "filePath": "examples/rag_export.rs",
+      "summary": "Demonstrates the RAG (retrieval-augmented generation) export pipeline. Populates a SymbolicStore with a sample node, retrieves it via LocalRagAdapter, and exports the result to a PDF file using PdfExporter. Exercises the knowledge_export and rag_adapter public APIs end-to-end.",
+      "tags": ["rust", "example", "rag", "export", "pdf", "symbolic-store"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:examples/self_model_quickstart.rs",
+      "type": "file",
+      "name": "self_model_quickstart",
+      "filePath": "examples/self_model_quickstart.rs",
+      "summary": "Quickstart walkthrough for the self-model metacognitive layer. Sequentially exercises CapabilityRegistry (registration), ResourceMonitor (linear-regression prediction), PerformanceTracker (EWMA/Bayesian metrics), HealthAggregator (weighted geometric mean), and DecisionEngine (expected-utility evaluation) using the hipcortex::self_model::* API.",
+      "tags": ["rust", "example", "self-model", "metacognition", "health", "decision-engine"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:examples/world_model_example.rs",
+      "type": "file",
+      "name": "world_model_example",
+      "filePath": "examples/world_model_example.rs",
+      "summary": "Minimal demonstration of the WorldModel API. Creates a WorldModel, adds a JSON state node ('robot'), and exports the internal graph, printing the node count. Serves as a smoke-test for the basic world-model construction and export path.",
+      "tags": ["rust", "example", "world-model", "state-graph"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:examples/quickstart.rs",
+      "type": "file",
+      "name": "quickstart",
+      "filePath": "examples/quickstart.rs",
+      "summary": "Demonstrates the semantic_compression module by building a float embedding vector and compressing it to a lower dimension via compress_embedding. Acts as the simplest possible entry point for new users exploring the crate.",
+      "tags": ["rust", "example", "embedding", "compression", "semantic"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:examples/mcp_server.rs",
+      "type": "file",
+      "name": "mcp_server",
+      "filePath": "examples/mcp_server.rs",
+      "summary": "Launches the combined MCP server (REST on :8080, gRPC on :50051) when built with both web-server and grpc-server features. Wraps McpServer around a MemoryStore and calls serve; prints a clear error when the required features are absent.",
+      "tags": ["rust", "example", "mcp", "web-server", "grpc-server", "async", "tokio"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/dashboard.rs",
+      "type": "file",
+      "name": "dashboard",
+      "filePath": "src/dashboard.rs",
+      "summary": "Provides an Axum router (feature-gated on web-server) that exposes a /nodes endpoint returning all memory-record targets as JSON. Uses a shared Arc<Mutex<MemoryStore<B>>> where B implements MemoryBackend, making it backend-agnostic. Includes a tokio integration test that confirms the router builds without panicking.",
+      "tags": ["rust", "web-server", "axum", "dashboard", "rest", "memory-store"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/decay.rs",
+      "type": "file",
+      "name": "decay",
+      "filePath": "src/decay.rs",
+      "summary": "Implements temporal relevance decay for memory traces. Defines DecayType enum (Exponential with half-life, Linear with duration, Custom fn pointer) and three pure functions: decay_exponential (half-life formula), decay_linear (proportional remaining), and apply_decay (dispatch). No external dependencies.",
+      "tags": ["rust", "decay", "temporal", "math", "memory-trace"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/embedding_provider.rs",
+      "type": "file",
+      "name": "embedding_provider",
+      "filePath": "src/embedding_provider.rs",
+      "summary": "Defines the EmbeddingProvider trait and two concrete implementations: HashEmbeddingProvider (character n-gram hashing with FNV-1a, L2 normalised, no ML deps) and NoopEmbeddingProvider (zero-vector, for tests). Includes five unit tests covering determinism, dimensionality, L2 normalisation, semantic similarity ordering, and empty-input handling.",
+      "tags": ["rust", "embedding", "nlp", "hashing", "trait", "ngram"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:src/gui.rs",
+      "type": "file",
+      "name": "gui",
+      "filePath": "src/gui.rs",
+      "summary": "Tauri desktop GUI surface (feature-gated on 'gui'). Defines GuiState holding Mutex-wrapped instances of all core subsystems (SymbolicStore, TemporalIndexer, ProceduralCache, AureusBridge, MemoryStore, MonitoringService). Exposes Tauri commands: get_symbolic_graph, run_reflexion, send_perception, cli_command, get_metrics, and a launch() entry point.",
+      "tags": ["rust", "gui", "tauri", "desktop", "symbolic-store", "temporal-indexer", "aureus-bridge"],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:src/memory_processor.rs",
+      "type": "file",
+      "name": "memory_processor",
+      "filePath": "src/memory_processor.rs",
+      "summary": "Small utility struct MemoryProcessor with a single deduplicate method that removes duplicate MemoryRecord entries from a Vec by UUID using a HashSet. Includes a unit test confirming duplicate removal leaves exactly one record.",
+      "tags": ["rust", "memory-record", "deduplication", "utility"],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/plugin_host.rs",
+      "type": "file",
+      "name": "plugin_host",
+      "filePath": "src/plugin_host.rs",
+      "summary": "WASM plugin execution host feature-gated on 'plugin'. When enabled, PluginHost wraps a wasmtime::Engine and run_wasm instantiates a module, resolves a 'run' export, calls it, and returns its i32 result. Without the feature, a stub PluginHost returns an error unconditionally.",
+      "tags": ["rust", "wasm", "plugin", "wasmtime", "extension"],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:examples/rag_export.rs",
+      "target": "file:src/modules/symbolic_store.rs",
+      "type": "calls",
+      "weight": 0.7,
+      "label": "uses SymbolicStore::new / add_node"
+    },
+    {
+      "source": "file:examples/self_model_quickstart.rs",
+      "target": "file:src/modules/self_model/mod.rs",
+      "type": "calls",
+      "weight": 0.7,
+      "label": "uses CapabilityRegistry, ResourceMonitor, PerformanceTracker, HealthAggregator, DecisionEngine"
+    },
+    {
+      "source": "file:examples/world_model_example.rs",
+      "target": "file:src/modules/world_model.rs",
+      "type": "calls",
+      "weight": 0.7,
+      "label": "uses WorldModel::new / add_state / export"
+    },
+    {
+      "source": "file:examples/quickstart.rs",
+      "target": "file:src/semantic_compression.rs",
+      "type": "calls",
+      "weight": 0.7,
+      "label": "uses compress_embedding"
+    },
+    {
+      "source": "file:examples/mcp_server.rs",
+      "target": "file:src/mcp_server.rs",
+      "type": "calls",
+      "weight": 0.7,
+      "label": "uses McpServer::new / serve"
+    },
+    {
+      "source": "file:examples/mcp_server.rs",
+      "target": "file:src/memory_store.rs",
+      "type": "calls",
+      "weight": 0.7,
+      "label": "uses MemoryStore::new"
+    },
+    {
+      "source": "file:src/dashboard.rs",
+      "target": "file:src/memory_store.rs",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "uses MemoryStore::all"
+    },
+    {
+      "source": "file:src/dashboard.rs",
+      "target": "file:src/persistence.rs",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "uses MemoryBackend trait bound"
+    },
+    {
+      "source": "file:src/gui.rs",
+      "target": "file:src/modules/symbolic_store.rs",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "holds SymbolicStore in GuiState"
+    },
+    {
+      "source": "file:src/gui.rs",
+      "target": "file:src/modules/temporal_indexer.rs",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "holds TemporalIndexer in GuiState"
+    },
+    {
+      "source": "file:src/gui.rs",
+      "target": "file:src/modules/procedural_cache.rs",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "holds ProceduralCache in GuiState"
+    },
+    {
+      "source": "file:src/gui.rs",
+      "target": "file:src/modules/aureus_bridge.rs",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "holds AureusBridge; calls reflexion_loop"
+    },
+    {
+      "source": "file:src/gui.rs",
+      "target": "file:src/memory_store.rs",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "holds MemoryStore; calls add"
+    },
+    {
+      "source": "file:src/gui.rs",
+      "target": "file:src/memory_record.rs",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "constructs MemoryRecord / uses MemoryType"
+    },
+    {
+      "source": "file:src/gui.rs",
+      "target": "file:src/modules/perception_adapter.rs",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "calls PerceptionAdapter::adapt with PerceptInput"
+    },
+    {
+      "source": "file:src/memory_processor.rs",
+      "target": "file:src/memory_record.rs",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "operates on Vec<MemoryRecord> by id"
+    }
+  ]
+}
