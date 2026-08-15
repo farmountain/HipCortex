@@ -66,9 +66,7 @@ impl CalibrationTracker {
             .all()
             .iter()
             .filter(|r| r.record_type == MemoryType::Belief)
-            .filter_map(|r| {
-                serde_json::from_value::<BeliefPayload>(r.metadata.clone()).ok()
-            })
+            .filter_map(|r| serde_json::from_value::<BeliefPayload>(r.metadata.clone()).ok())
             .map(|b| b.confidence)
             .collect();
         let entropy = epistemic_entropy(&confidences);

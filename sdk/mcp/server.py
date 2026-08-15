@@ -322,6 +322,7 @@ TOOLS = [
             "properties": {
                 "actor": {"type": "string", "description": "Filter to a specific actor (optional)"},
                 "limit": {"type": "integer", "default": 20, "description": "Max beliefs to return"},
+                "min_conf": {"type": "number", "default": 0.0, "description": "Minimum confidence threshold [0.0, 1.0]"},
             },
         },
     },
@@ -401,6 +402,37 @@ TOOLS = [
                 },
             },
         },
+    },
+    {
+        "name": "simulate_rollout",
+        "description": (
+            "Simulate a k-step (k≤5) world-model rollout from an initial state "
+            "over a sequence of actions using Dirichlet-MAP transitions. "
+            "Returns predicted_state, mode, and uncertainty. "
+            "Use before committing to a multi-step action plan."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "required": ["initial_state", "actions"],
+            "properties": {
+                "initial_state": {"type": "string", "description": "Starting state label"},
+                "actions": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Action sequence (max 5 steps)",
+                },
+                "max_depth": {"type": "integer", "description": "Override max depth (≤5, default 5)"},
+            },
+        },
+    },
+    {
+        "name": "get_system_health",
+        "description": (
+            "Get SelfModel health + CalibrationTracker metrics: overall health score, "
+            "calibration_score, prediction_error_ewma, consolidation_pressure, "
+            "epistemic_entropy, and whether the system is healthy."
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
     },
 ]
 
@@ -586,6 +618,8 @@ def handle_get_live_beliefs(args: dict) -> str:
     params: dict = {"limit": args.get("limit", 20)}
     if "actor" in args:
         params["actor"] = args["actor"]
+    if "min_conf" in args:
+        params["min_conf"] = args["min_conf"]
     qs = urllib.parse.urlencode(params)
     result = _get(f"/memory/live_beliefs?{qs}")
     beliefs = result.get("beliefs", [])
@@ -596,6 +630,45 @@ def handle_get_live_beliefs(args: dict) -> str:
         for b in beliefs
     ]
     return f"Live beliefs ({result.get('total', len(beliefs))}):\n" + "\n".join(lines)
+
+
+def handle_simulate_rollout(args: dict) -> str:
+    actions = args["actions"]
+    effective_depth = min(args.get("max_depth", 5), 5)
+    if len(actions) > effective_depth:
+        return f"✗ Rollout rejected: {len(actions)} actions exceed max_depth={effective_depth} (k≤5 limit)"
+    payload = {
+        "initial_state": args["initial_state"],
+        "actions": actions,
+        "max_depth": effective_depth,
+    }
+    result = _post("/worldmodel/rollout", payload)
+    if "error" in result:
+        return f"✗ Rollout failed: {result['error']}"
+    uncertainty = result.get("uncertainty")
+    unc_str = f"{uncertainty:.3f}" if isinstance(uncertainty, (int, float)) else "?"
+    return (
+        f"Rollout: {result.get('predicted_state', '?')} "
+        f"(mode={result.get('mode', '?')}, uncertainty={unc_str})"
+    )
+
+
+def handle_get_system_health(_args: dict) -> str:
+    result = _get("/self/health")
+    if "error" in result:
+        return f"✗ Health check failed: {result['error']}"
+    healthy = result.get("healthy", False)
+    overall = result.get("overall", 0.0)
+    cal = result.get("calibration_score", None)
+    ewma = result.get("prediction_error_ewma", None)
+    pressure = result.get("consolidation_pressure", None)
+    entropy = result.get("epistemic_entropy", None)
+    lines = [f"System healthy: {healthy} | overall={overall:.3f}"]
+    if cal is not None:
+        lines.append(f"calibration_score={cal:.3f} | prediction_error_ewma={ewma:.3f}")
+    if pressure is not None:
+        lines.append(f"consolidation_pressure={pressure:.3f} | epistemic_entropy={entropy:.3f}")
+    return "\n".join(lines)
 
 
 def handle_purge_expired(_args: dict) -> str:
@@ -810,6 +883,8 @@ def dispatch_tool(name: str, args: dict) -> str:
         "predict":              handle_predict,
         "compute_state_diff":   handle_compute_state_diff,
         "consolidate_memory":   handle_consolidate_memory,
+        "simulate_rollout":     handle_simulate_rollout,
+        "get_system_health":    handle_get_system_health,
     }
     handler = handlers.get(name)
     if handler is None:

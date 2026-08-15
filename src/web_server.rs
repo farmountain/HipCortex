@@ -1,8 +1,6 @@
 #[cfg(feature = "web-server")]
 use crate::archive_store::ArchiveStore;
 #[cfg(feature = "web-server")]
-use crate::self_model::calibration::CalibrationTracker;
-#[cfg(feature = "web-server")]
 use crate::aureus_bridge::AureusBridge;
 #[cfg(feature = "web-server")]
 use crate::coherence::CoherenceChecker;
@@ -16,6 +14,8 @@ use crate::memory_store::MemoryStore;
 use crate::openapi_spec::OPENAPI_SPEC;
 #[cfg(feature = "web-server")]
 use crate::persistence::MemoryBackend;
+#[cfg(feature = "web-server")]
+use crate::self_model::calibration::CalibrationTracker;
 #[cfg(feature = "web-server")]
 use crate::self_model::SelfModel;
 #[cfg(feature = "web-server")]
@@ -3107,10 +3107,17 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
 
     let v1_beliefs_route = {
         let store = memory_store.clone();
-        get(move |axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>| async move {
-            let min_conf: f32 = params.get("min_conf").and_then(|v| v.parse().ok()).unwrap_or(0.0);
-            handle_v1_beliefs(store, min_conf).await
-        })
+        get(
+            move |axum::extract::Query(params): axum::extract::Query<
+                std::collections::HashMap<String, String>,
+            >| async move {
+                let min_conf: f32 = params
+                    .get("min_conf")
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(0.0);
+                handle_v1_beliefs(store, min_conf).await
+            },
+        )
     };
 
     let app = Router::new()

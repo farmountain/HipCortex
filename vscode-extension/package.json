@@ -51,6 +51,16 @@
                 "command": "hipcortex.restartServer",
                 "title": "Restart HipCortex Server",
                 "category": "HipCortex"
+            },
+            {
+                "command": "hipcortex.systemHealth",
+                "title": "Show System Health",
+                "category": "HipCortex"
+            },
+            {
+                "command": "hipcortex.stateDiff",
+                "title": "Compute State Diff",
+                "category": "HipCortex"
             }
         ],
         "chatParticipants": [
@@ -239,6 +249,27 @@
                         "max_depth": { "type": "number" }
                     },
                     "required": ["initial_state"]
+                }
+            },
+            {
+                "name": "hipcortex_system_health",
+                "displayName": "HipCortex System Health (Calibrated)",
+                "description": "Full system health including CalibrationTracker metrics: calibration_score, prediction_error_ewma, consolidation_pressure, epistemic_entropy.",
+                "modelDescription": "Use for substrate health checks. Returns calibration_score, prediction_error_ewma, consolidation_pressure, epistemic_entropy, and overall health boolean.",
+                "inputSchema": { "type": "object", "properties": {} }
+            },
+            {
+                "name": "hipcortex_state_diff",
+                "displayName": "HipCortex State Diff",
+                "description": "Causal StateDiff over a tx-log range [from_tx, to_tx]. Returns memory_delta, world_model_delta, and causal attribution paths.",
+                "modelDescription": "Use to understand what changed between two tx points. Requires tx_log enabled on the server.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "from_tx": { "type": "integer", "description": "Start tx id (inclusive)" },
+                        "to_tx":   { "type": "integer", "description": "End tx id (inclusive)" }
+                    },
+                    "required": ["from_tx", "to_tx"]
                 }
             }
         ],

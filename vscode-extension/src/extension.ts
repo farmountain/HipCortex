@@ -931,6 +931,20 @@ export class HipCortexAPI {
             return true; // Fallback to true if server doesn't support the route or is offline
         }
     }
+
+    async getSystemHealth(): Promise<any> {
+        const headers: any = {};
+        if (this.apiKey) { headers['Authorization'] = `Bearer ${this.apiKey}`; }
+        const response = await axios.get(`${this.baseUrl}/self/health`, { headers, timeout: 5000 });
+        return response.data;
+    }
+
+    async getStateDiff(fromTx: number, toTx: number): Promise<any> {
+        const headers: any = { 'Content-Type': 'application/json' };
+        if (this.apiKey) { headers['Authorization'] = `Bearer ${this.apiKey}`; }
+        const response = await axios.post(`${this.baseUrl}/v1/state/diff`, { from_tx: fromTx, to_tx: toTx }, { headers, timeout: 10000 });
+        return response.data;
+    }
 }
 
 class HipCortexChatParticipant {
@@ -2035,7 +2049,38 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    context.subscriptions.push(participant, addMemoryCommand, queryMemoryCommand, testExtensionCommand, restartServerCommand);
+    const systemHealthCommand = vscode.commands.registerCommand('hipcortex.systemHealth', async () => {
+        try {
+            const api = new HipCortexAPI();
+            const health = await api.getSystemHealth();
+            const healthy = health.healthy ? '✓ Healthy' : '✗ Unhealthy';
+            const overall = typeof health.overall === 'number' ? health.overall.toFixed(3) : '?';
+            const cal = typeof health.calibration_score === 'number' ? health.calibration_score.toFixed(3) : null;
+            let msg = `${healthy} | overall=${overall}`;
+            if (cal) { msg += ` | calibration=${cal}`; }
+            vscode.window.showInformationMessage(`HipCortex: ${msg}`);
+        } catch (error) {
+            vscode.window.showErrorMessage(`Health check failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+
+    const stateDiffCommand = vscode.commands.registerCommand('hipcortex.stateDiff', async () => {
+        try {
+            const fromTxStr = await vscode.window.showInputBox({ prompt: 'From tx (integer)', placeHolder: '0' });
+            if (!fromTxStr) { return; }
+            const toTxStr = await vscode.window.showInputBox({ prompt: 'To tx (integer)', placeHolder: '100' });
+            if (!toTxStr) { return; }
+            const api = new HipCortexAPI();
+            const diff = await api.getStateDiff(parseInt(fromTxStr), parseInt(toTxStr));
+            const added = diff.memory_delta?.added ?? 0;
+            const archived = diff.memory_delta?.archived ?? 0;
+            vscode.window.showInformationMessage(`StateDiff [${fromTxStr}→${toTxStr}]: +${added} added, ${archived} archived`);
+        } catch (error) {
+            vscode.window.showErrorMessage(`StateDiff failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+
+    context.subscriptions.push(participant, addMemoryCommand, queryMemoryCommand, testExtensionCommand, restartServerCommand, systemHealthCommand, stateDiffCommand);
 }
 
 export function deactivate() {

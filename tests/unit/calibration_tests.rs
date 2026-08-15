@@ -55,7 +55,10 @@ fn ewma_converges_to_one_after_many_errors() {
     }
     let s = tracker.snapshot();
     assert!(s.prediction_error_ewma > 0.99, "ewma should approach 1.0");
-    assert!(s.calibration_score < 0.01, "calibration_score should approach 0.0");
+    assert!(
+        s.calibration_score < 0.01,
+        "calibration_score should approach 0.0"
+    );
 }
 
 #[test]

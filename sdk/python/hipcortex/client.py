@@ -613,3 +613,63 @@ class HipCortexClient:
         resp.raise_for_status()
         return resp.json()
 
+    def get_state_diff(self, from_tx: int, to_tx: int) -> Dict[str, Any]:
+        """POST /v1/state/diff — causal StateDiff over a tx-log range."""
+        resp = self._session.post(
+            f"{self.base_url}/v1/state/diff",
+            json={"from_tx": from_tx, "to_tx": to_tx},
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def consolidate_memory(self, min_group_size: int = 3) -> Dict[str, Any]:
+        """POST /v1/memory/consolidate — trigger hierarchical memory consolidation."""
+        resp = self._session.post(
+            f"{self.base_url}/v1/memory/consolidate",
+            json={"min_group_size": min_group_size},
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def get_system_health(self) -> Dict[str, Any]:
+        """GET /self/health — SelfModel health + CalibrationTracker metrics."""
+        resp = self._session.get(f"{self.base_url}/self/health", timeout=self.timeout)
+        resp.raise_for_status()
+        return resp.json()
+
+    def get_live_beliefs(
+        self,
+        actor: Optional[str] = None,
+        limit: int = 20,
+        min_conf: float = 0.0,
+    ) -> Dict[str, Any]:
+        """GET /memory/live_beliefs — filtered by actor and confidence threshold."""
+        params: Dict[str, Any] = {"limit": limit, "min_conf": min_conf}
+        if actor:
+            params["actor"] = actor
+        resp = self._session.get(
+            f"{self.base_url}/memory/live_beliefs", params=params, timeout=self.timeout
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def simulate_rollout(
+        self,
+        initial_state: Any,
+        actions: List[str],
+        max_depth: int = 5,
+    ) -> Dict[str, Any]:
+        """POST /worldmodel/rollout — k-step (k≤5) Dirichlet-MAP world-model rollout."""
+        if not isinstance(initial_state, str):
+            initial_state = json.dumps(initial_state)
+        max_depth = min(max_depth, 5)
+        resp = self._session.post(
+            f"{self.base_url}/worldmodel/rollout",
+            json={"initial_state": initial_state, "actions": actions, "max_depth": max_depth},
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json()
+

@@ -32,7 +32,11 @@ mod tests {
     #[test]
     fn dirichlet_rollout_confidence_is_finite() {
         let wm = WorldModelEnhanced::new();
-        let _ = wm.observe_transition("state_a".to_string(), "move".to_string(), "state_b".to_string());
+        let _ = wm.observe_transition(
+            "state_a".to_string(),
+            "move".to_string(),
+            "state_b".to_string(),
+        );
         let actions = vec!["move".to_string(), "stop".to_string()];
         if let Ok(pred) = wm.rollout_dirichlet("state_a".to_string(), actions.clone()) {
             assert!(
