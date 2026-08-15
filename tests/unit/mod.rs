@@ -1,4 +1,5 @@
 mod archive_store_tests;
+mod belief_payload_tests;
 #[cfg(feature = "async-store")]
 mod async_memory_store_tests;
 mod audit_log_tests;

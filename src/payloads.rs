@@ -46,6 +46,14 @@ pub struct SkillPayload {
     pub expected_outcomes: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+pub enum EpistemicStatus {
+    Observed,
+    Deduced,
+    #[default]
+    Hypothetical,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BeliefPayload {
     pub proposition: String,
@@ -54,4 +62,20 @@ pub struct BeliefPayload {
     /// IDs of MemoryRecords this belief contradicts.
     #[serde(default)]
     pub contradicts: Vec<Uuid>,
+
+    // v0.7.0 additions — all #[serde(default)] for backward compat
+    #[serde(default = "default_belief_confidence")]
+    pub confidence: f32,
+    #[serde(default)]
+    pub epistemic_status: EpistemicStatus,
+    #[serde(default)]
+    pub causal_source_ids: Vec<Uuid>,
+    #[serde(default)]
+    pub half_life_ms: u64,
+    #[serde(default)]
+    pub tx_origin: Option<u64>,
+}
+
+fn default_belief_confidence() -> f32 {
+    0.5
 }
