@@ -369,6 +369,39 @@ TOOLS = [
             },
         },
     },
+    {
+        "name": "compute_state_diff",
+        "description": (
+            "Compute a causal StateDiff over a tx-log range [from_tx, to_tx]. "
+            "Returns MemoryDelta (added/archived/updated counts), WorldModelDelta, "
+            "and CausalAttributionPaths. Range cap: 10,000 entries."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "required": ["from_tx", "to_tx"],
+            "properties": {
+                "from_tx": {"type": "integer", "description": "Start tx id (inclusive)"},
+                "to_tx":   {"type": "integer", "description": "End tx id (inclusive)"},
+            },
+        },
+    },
+    {
+        "name": "consolidate_memory",
+        "description": (
+            "Trigger greedy tag+actor memory consolidation. Groups Temporal records "
+            "by actor+tags, collapses groups >= min_group_size into summary records, "
+            "and archives originals. Returns ConsolidationReport."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "min_group_size": {
+                    "type": "integer",
+                    "description": "Min records per group to consolidate (default 3)",
+                },
+            },
+        },
+    },
 ]
 
 RESOURCES = [
@@ -721,6 +754,39 @@ def handle_can_execute(args: dict) -> str:
     return f"can_execute({op}) = {ok} (confidence={conf})\n  {rat}".rstrip()
 
 
+def handle_compute_state_diff(args: dict) -> str:
+    from_tx = int(args.get("from_tx", 0))
+    to_tx   = int(args.get("to_tx",   0))
+    result = _post("/v1/state/diff", {"from_tx": from_tx, "to_tx": to_tx})
+    if "error" in result:
+        return f"✗ StateDiff error: {result['error']}"
+    md = result.get("memory_delta", {})
+    wm = result.get("world_model_delta", {})
+    lines = [
+        f"StateDiff tx[{from_tx}..{to_tx}]  count={result.get('tx_count', 0)}",
+        f"  memory: +{len(md.get('added', []))} archived={len(md.get('archived', []))} "
+        f"updated={len(md.get('updated', []))} net={md.get('net_delta', 0)}",
+        f"  world_model: obs+{wm.get('observations_added', 0)} "
+        f"dist_upd={wm.get('distributions_updated', 0)}",
+        f"  causal_attributions: {len(result.get('causal_attributions', []))}",
+    ]
+    return "\n".join(lines)
+
+
+def handle_consolidate_memory(args: dict) -> str:
+    body: dict = {}
+    if "min_group_size" in args:
+        body["min_group_size"] = int(args["min_group_size"])
+    result = _post("/v1/memory/consolidate", body)
+    if "error" in result:
+        return f"✗ Consolidate error: {result['error']}"
+    return (
+        f"Consolidated {result.get('groups_consolidated', 0)} groups — "
+        f"archived {result.get('records_archived', 0)} records, "
+        f"created {result.get('summary_records_created', 0)} summaries"
+    )
+
+
 def dispatch_tool(name: str, args: dict) -> str:
     global _live_beliefs_seen
     handlers = {
@@ -741,7 +807,9 @@ def dispatch_tool(name: str, args: dict) -> str:
         "get_live_beliefs": handle_get_live_beliefs,
         "purge_expired":    handle_purge_expired,
         "reflect":          handle_reflect,
-        "predict":          handle_predict,
+        "predict":              handle_predict,
+        "compute_state_diff":   handle_compute_state_diff,
+        "consolidate_memory":   handle_consolidate_memory,
     }
     handler = handlers.get(name)
     if handler is None:
