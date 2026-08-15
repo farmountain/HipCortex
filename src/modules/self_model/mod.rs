@@ -61,12 +61,14 @@
 //! - Decision confidence ∈ [0, 1]
 //! - Performance metrics improve (lower variance) with more data
 
+pub mod calibration;
 mod capability;
 mod decision;
 mod health;
 mod performance;
 mod resource;
 
+pub use calibration::{CalibrationState, CalibrationTracker};
 pub use capability::{CapabilityDescriptor, CapabilityRegistry, Limitation};
 pub use decision::{Decision, DecisionContext, DecisionEngine};
 pub use health::{HealthAggregator, HealthScore, ModuleHealth};
