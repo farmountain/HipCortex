@@ -2770,6 +2770,71 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         })
     };
 
+    // POST /v1/state/diff — tx-range StateDiff
+    let v1_state_diff_route = {
+        let store = memory_store.clone();
+        let txl   = tx_log_arc.clone();
+        post(move |Json(req): Json<serde_json::Value>| async move {
+            let from_tx = req.get("from_tx").and_then(|v| v.as_u64()).unwrap_or(0);
+            let to_tx   = req.get("to_tx")  .and_then(|v| v.as_u64()).unwrap_or(0);
+            match &txl {
+                None => Json(serde_json::json!({"error": "tx_log not configured"})),
+                Some(log) => {
+                    let ms = store.lock().unwrap();
+                    match crate::state_diff::compute_tx_diff(log, from_tx, to_tx, &*ms) {
+                        Ok(diff) => Json(serde_json::to_value(diff)
+                            .unwrap_or(serde_json::json!({"error": "serialization failed"}))),
+                        Err(e)   => Json(serde_json::json!({"error": e})),
+                    }
+                }
+            }
+        })
+    };
+
+    // POST /v1/memory/consolidate — manual consolidation trigger
+    let v1_consolidate_route = {
+        let store = memory_store.clone();
+        let arc   = archive_store.clone();
+        let sym   = symbolic_store.clone();
+        let txl   = tx_log_arc.clone();
+        post(move |Json(req): Json<serde_json::Value>| async move {
+            let min_group = req.get("min_group_size").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
+            let config = crate::consolidation::ConsolidationConfig {
+                min_group_size: min_group,
+                ..Default::default()
+            };
+            let dummy_log;
+            let log_ref: &crate::tx_log::TxLog = match &txl {
+                Some(l) => l,
+                None => {
+                    let dir = std::env::temp_dir();
+                    dummy_log = crate::tx_log::TxLog::open(dir.join("hc-consolidate-tmp.jsonl"))
+                        .unwrap();
+                    &dummy_log
+                }
+            };
+            let mut ms  = store.lock().unwrap();
+            let mut arc = arc.lock().unwrap();
+            let mut sym = sym.lock().unwrap();
+            match crate::consolidation::consolidate(&mut ms, &mut arc, &mut sym, log_ref, &config) {
+                Ok(r)  => Json(serde_json::to_value(r)
+                    .unwrap_or(serde_json::json!({"error": "serialization failed"}))),
+                Err(e) => Json(serde_json::json!({"error": e})),
+            }
+        })
+    };
+
+    // GET /v1/state/tx — current tx counter
+    let v1_state_tx_route = {
+        let txl = tx_log_arc.clone();
+        get(move || async move {
+            match &txl {
+                None      => Json(serde_json::json!({"current_tx": null, "configured": false})),
+                Some(log) => Json(serde_json::json!({"current_tx": log.current_tx(), "configured": true})),
+            }
+        })
+    };
+
     let app = Router::new()
         .route("/", get(|| async { axum::response::Redirect::permanent("/pricing") }))
         .route("/health", get(|| async {
@@ -2823,6 +2888,9 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/goal/:id/react", goal_react_route)
         .route("/goal/:id/trace", goal_trace_route)
         .route("/memory/diff", memory_diff_route)
+        .route("/v1/state/diff", v1_state_diff_route)
+        .route("/v1/memory/consolidate", v1_consolidate_route)
+        .route("/v1/state/tx", v1_state_tx_route)
         .layer(middleware::from_fn(api_key_middleware));
 
     axum::Server::bind(&addr)
