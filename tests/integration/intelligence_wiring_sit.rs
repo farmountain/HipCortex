@@ -5,6 +5,7 @@ use hipcortex::coherence::CoherenceChecker;
 use hipcortex::memory_record::{MemoryRecord, MemoryType};
 use hipcortex::memory_store::MemoryStore;
 use hipcortex::persistence::InMemoryBackend;
+use hipcortex::self_model::calibration::CalibrationTracker;
 use hipcortex::self_model::SelfModel;
 use hipcortex::symbolic_store::{InMemoryGraph, SymbolicStore};
 use hipcortex::web_server::AppState;
@@ -25,6 +26,7 @@ pub fn make_app_state() -> AppState<InMemoryBackend> {
             std::env::temp_dir().join("hc-test-archive.jsonl"),
         ))),
         tx_log: None,
+        calibration: Arc::new(CalibrationTracker::new()),
     }
 }
 

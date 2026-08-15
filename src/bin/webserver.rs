@@ -2,6 +2,7 @@ use hipcortex::archive_store::ArchiveStore;
 use hipcortex::aureus_bridge::AureusBridge;
 use hipcortex::coherence::CoherenceChecker;
 use hipcortex::memory_store::MemoryStore;
+use hipcortex::self_model::calibration::CalibrationTracker;
 use hipcortex::self_model::{CapabilityDescriptor, SelfModel};
 use hipcortex::symbolic_store::{InMemoryGraph, SymbolicStore};
 use hipcortex::tx_log::TxLog;
@@ -102,6 +103,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )),
         archive_store: Arc::new(Mutex::new(ArchiveStore::new(&archive_path))),
         tx_log,
+        calibration: Arc::new(CalibrationTracker::new()),
     };
 
     // ── Periodic WorldModel flush every 5 minutes ────────────────────────────

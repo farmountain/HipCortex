@@ -8,6 +8,7 @@ use hipcortex::memory_store::MemoryStore;
 use hipcortex::persistence::InMemoryBackend;
 use hipcortex::self_model::{CapabilityDescriptor, SelfModel};
 use hipcortex::symbolic_store::{InMemoryGraph, SymbolicStore};
+use hipcortex::self_model::calibration::CalibrationTracker;
 use hipcortex::web_server::AppState;
 use hipcortex::world_model_enhanced::WorldModelEnhanced;
 use hipcortex::CausalTopoGraph;
@@ -34,6 +35,7 @@ fn make_state() -> AppState<InMemoryBackend> {
             std::env::temp_dir().join("hc-test-wm-archive.jsonl"),
         ))),
         tx_log: None,
+        calibration: Arc::new(CalibrationTracker::new()),
     }
 }
 

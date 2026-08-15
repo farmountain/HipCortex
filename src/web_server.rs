@@ -1,6 +1,8 @@
 #[cfg(feature = "web-server")]
 use crate::archive_store::ArchiveStore;
 #[cfg(feature = "web-server")]
+use crate::self_model::calibration::CalibrationTracker;
+#[cfg(feature = "web-server")]
 use crate::aureus_bridge::AureusBridge;
 #[cfg(feature = "web-server")]
 use crate::coherence::CoherenceChecker;
@@ -155,6 +157,7 @@ pub struct AppState<B: MemoryBackend + Send + Sync + 'static> {
     pub topo_graph: Arc<Mutex<crate::topological_memory::CausalTopoGraph>>,
     pub archive_store: Arc<Mutex<ArchiveStore>>,
     pub tx_log: Option<Arc<TxLog>>,
+    pub calibration: Arc<CalibrationTracker>,
 }
 
 /// Manual Clone: all fields are Arc<…> so clone is a ref-count bump regardless of B.
@@ -171,6 +174,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> Clone for AppState<B> {
             topo_graph: self.topo_graph.clone(),
             archive_store: self.archive_store.clone(),
             tx_log: self.tx_log.clone(),
+            calibration: self.calibration.clone(),
         }
     }
 }
@@ -510,6 +514,7 @@ pub async fn run_with_memory<B: MemoryBackend + Send + Sync + 'static>(
             std::env::temp_dir().join("hipcortex-archive.jsonl"),
         ))),
         tx_log: None,
+        calibration: Arc::new(CalibrationTracker::new()),
     };
     run_with_state(addr, state).await;
 }
@@ -532,6 +537,7 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     let topo_arc = state.topo_graph.clone();
     let archive_store = state.archive_store.clone();
     let tx_log_arc = state.tx_log.clone();
+    let calibration = state.calibration.clone();
 
     // ── Symbolic store routes ─────────────────────────────────────────────
     let graph_route = {
@@ -562,8 +568,9 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         let arc = archive_store.clone();
         let sym = symbolic_store.clone();
         let txl = tx_log_arc.clone();
+        let cal = calibration.clone();
         post(move |Json(req): Json<AddMemoryRequest>| async move {
-            handle_add_memory(store, wm, arc, sym, txl, req).await
+            handle_add_memory(store, wm, arc, sym, txl, cal, req).await
         })
     };
 
@@ -878,9 +885,11 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     };
     let self_health_route = {
         let sm = self_model_arc.clone();
+        let cal = calibration.clone();
         get(move || {
             let s = sm.clone();
-            async move { handle_self_health(s).await }
+            let c = cal.clone();
+            async move { handle_self_health(s, c).await }
         })
     };
     let app = Router::new()
@@ -2724,6 +2733,7 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         std::env::temp_dir().join("hipcortex-archive.jsonl"),
     )));
     let tx_log_arc: Option<Arc<TxLog>> = None;
+    let calibration: Arc<CalibrationTracker> = Arc::new(CalibrationTracker::new());
 
     // Symbolic store routes
     let graph_route = {
@@ -2754,8 +2764,9 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         let arc = archive_store.clone();
         let sym = symbolic_store.clone();
         let txl = tx_log_arc.clone();
+        let cal = calibration.clone();
         post(move |Json(req): Json<AddMemoryRequest>| async move {
-            handle_add_memory(store, wm, arc, sym, txl, req).await
+            handle_add_memory(store, wm, arc, sym, txl, cal, req).await
         })
     };
 
@@ -3094,6 +3105,14 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         })
     };
 
+    let v1_beliefs_route = {
+        let store = memory_store.clone();
+        get(move |axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>| async move {
+            let min_conf: f32 = params.get("min_conf").and_then(|v| v.parse().ok()).unwrap_or(0.0);
+            handle_v1_beliefs(store, min_conf).await
+        })
+    };
+
     let app = Router::new()
         .route(
             "/",
@@ -3171,6 +3190,7 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/v1/state/diff", v1_state_diff_route)
         .route("/v1/memory/consolidate", v1_consolidate_route)
         .route("/v1/state/tx", v1_state_tx_route)
+        .route("/v1/beliefs", v1_beliefs_route)
         .layer(middleware::from_fn(api_key_middleware));
 
     axum::Server::bind(&addr)
@@ -3713,6 +3733,7 @@ async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
     archive_store: Arc<Mutex<ArchiveStore>>,
     symbolic_store: Arc<Mutex<SymbolicStore<InMemoryGraph>>>,
     tx_log: Option<Arc<TxLog>>,
+    calibration: Arc<CalibrationTracker>,
     req: AddMemoryRequest,
 ) -> Result<Json<AddMemoryResponse>, (StatusCode, Json<AddMemoryResponse>)> {
     // Safety: classify free-text target/action before mutation
@@ -3890,6 +3911,10 @@ async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
                             "target": record.target,
                         }),
                     );
+                    {
+                        let pressure = compute_pressure(&ms, &ConsolidationConfig::default());
+                        calibration.update_from_store(&ms, pressure, 0);
+                    }
                     Ok(Json(AddMemoryResponse {
                         success: true,
                         record_id: Some(record.id.to_string()),
@@ -4586,6 +4611,40 @@ async fn handle_memory_live_beliefs<B: MemoryBackend + Send + Sync + 'static>(
         "limit": limit,
         "source": "unified /memory/live_beliefs (existing stores, no new persistence)",
     }))
+}
+
+/// GET /v1/beliefs?min_conf= — Belief records from MemoryStore filtered by confidence threshold.
+#[cfg(feature = "web-server")]
+async fn handle_v1_beliefs<B: MemoryBackend + Send + Sync + 'static>(
+    store: Arc<Mutex<MemoryStore<B>>>,
+    min_conf: f32,
+) -> Json<serde_json::Value> {
+    match store.lock() {
+        Ok(ms) => {
+            let beliefs: Vec<serde_json::Value> = ms
+                .all()
+                .iter()
+                .filter(|r| r.record_type == MemoryType::Belief && r.confidence >= min_conf)
+                .map(|r| {
+                    serde_json::json!({
+                        "id": r.id,
+                        "actor": r.actor,
+                        "action": r.action,
+                        "target": r.target,
+                        "confidence": r.confidence,
+                        "metadata": r.metadata,
+                    })
+                })
+                .collect();
+            let count = beliefs.len();
+            Json(serde_json::json!({
+                "beliefs": beliefs,
+                "count": count,
+                "min_conf": min_conf,
+            }))
+        }
+        Err(e) => Json(serde_json::json!({"error": e.to_string(), "beliefs": []})),
+    }
 }
 
 // ── G5/G6: WorldModel state introspection REST ────────────────────────────────
@@ -5427,13 +5486,22 @@ async fn handle_self_register_capability(
 
 // ── G8: SelfModel REST handlers ──────────────────────────────────────────────
 
-/// GET /self/health — SelfModel overall health score
+/// GET /self/health — SelfModel overall health score + calibration metrics
 #[cfg(feature = "web-server")]
-async fn handle_self_health(self_model: Arc<SelfModel>) -> Json<serde_json::Value> {
+async fn handle_self_health(
+    self_model: Arc<SelfModel>,
+    calibration: Arc<CalibrationTracker>,
+) -> Json<serde_json::Value> {
+    let cal = calibration.snapshot();
     match self_model.get_health() {
         Ok(score) => Json(serde_json::json!({
-            "healthy": score.overall >= 0.7,
+            "healthy": score.overall >= 0.7 && cal.healthy,
             "overall": score.overall,
+            "calibration_score": cal.calibration_score,
+            "prediction_error_ewma": cal.prediction_error_ewma,
+            "consolidation_pressure": cal.consolidation_pressure,
+            "epistemic_entropy": cal.epistemic_entropy,
+            "calibration_healthy": cal.healthy,
         })),
         Err(e) => Json(serde_json::json!({"healthy": false, "error": e})),
     }
