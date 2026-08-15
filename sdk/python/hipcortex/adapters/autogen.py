@@ -173,3 +173,57 @@ class HipCortexAutoGenMemory(Memory):  # type: ignore[misc]
 
     def forget_all(self) -> Dict[str, Any]:
         return self._client.forget(self._agent_id)
+
+
+class HipCortexAutoGenObserver:
+    """Passive AutoGen observer. Wire via agent hooks or v0.3 send/receive hooks."""
+
+    def __init__(self, client, actor: str = "autogen-agent"):
+        self._client = client
+        self._actor = actor
+
+    def _capture(self, action: str, target: str, record_type: str = "Temporal") -> None:
+        try:
+            self._client.add_memory(
+                actor=self._actor,
+                action=action,
+                target=target[:120],
+                record_type=record_type,
+                source="autogen-passive",
+            )
+        except Exception:
+            pass
+
+    def on_message_received(self, sender: str, content: str, role: str = "user") -> None:
+        self._capture("message_received", f"[{sender}/{role}] {str(content)[:100]}")
+
+    def on_message_sent(self, recipient: str, content: str) -> None:
+        self._capture("message_sent", f"[→{recipient}] {str(content)[:100]}")
+
+    def on_function_call(self, name: str, arguments: dict) -> None:
+        self._capture("function_call", f"{name}({str(arguments)[:80]})")
+
+    def on_function_result(self, name: str, result: str) -> None:
+        self._capture("function_result", f"{name} → {str(result)[:80]}")
+
+    def make_v03_send_hook(self):
+        """Hook for AutoGen v0.3 send hook."""
+        def _hook(message: dict) -> None:
+            try:
+                content = message.get("content", "") or ""
+                role = message.get("role", "unknown")
+                self._capture("message_sent", f"[{role}] {str(content)[:100]}")
+            except Exception:
+                pass
+        return _hook
+
+    def make_v03_receive_hook(self):
+        """Hook for AutoGen v0.3 receive hook."""
+        def _hook(message: dict, sender=None) -> None:
+            try:
+                content = message.get("content", "") or ""
+                sender_name = getattr(sender, "name", str(sender)) if sender else "unknown"
+                self._capture("message_received", f"[{sender_name}] {str(content)[:100]}")
+            except Exception:
+                pass
+        return _hook
