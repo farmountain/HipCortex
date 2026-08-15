@@ -102,6 +102,10 @@ harness = false
 name = "integration_bench"
 harness = false
 
+[[bench]]
+name = "temporal_state_diff_bench"
+harness = false
+
 [[test]]
 name = "v040_contract_sit"
 path = "tests/integration/v040_contract_sit.rs"
