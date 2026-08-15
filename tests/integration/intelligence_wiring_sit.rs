@@ -1,3 +1,4 @@
+use hipcortex::archive_store::ArchiveStore;
 use hipcortex::aureus_bridge::AureusBridge;
 use hipcortex::coherence::CoherenceChecker;
 /// SIT tests for intelligence layer wiring (requires web-server feature — gated in mod.rs)
@@ -20,6 +21,10 @@ pub fn make_app_state() -> AppState<InMemoryBackend> {
         self_model: Arc::new(SelfModel::new()),
         coherence: Arc::new(CoherenceChecker::new()),
         topo_graph: Arc::new(Mutex::new(CausalTopoGraph::new())),
+        archive_store: Arc::new(Mutex::new(ArchiveStore::new(
+            std::env::temp_dir().join("hc-test-archive.jsonl"),
+        ))),
+        tx_log: None,
     }
 }
 
@@ -387,6 +392,7 @@ fn test_causal_intervention_empty_graph() {
         intervention_var: "X".into(),
         intervention_value: 1.0,
         conditioned_on: std::collections::HashMap::new(),
+        intervention_label: None,
     });
     // May succeed or fail on empty graph — must not panic
     let _ = result;

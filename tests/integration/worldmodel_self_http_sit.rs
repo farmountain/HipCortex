@@ -1,6 +1,7 @@
 //! HTTP SIT: worldmodel + self routes on run_with_state (web-server).
 //! cargo test --no-default-features --features "web-server,petgraph_backend" --test integration_suite worldmodel_self
 
+use hipcortex::archive_store::ArchiveStore;
 use hipcortex::aureus_bridge::AureusBridge;
 use hipcortex::coherence::CoherenceChecker;
 use hipcortex::memory_store::MemoryStore;
@@ -29,6 +30,10 @@ fn make_state() -> AppState<InMemoryBackend> {
         self_model,
         coherence: Arc::new(CoherenceChecker::new()),
         topo_graph: Arc::new(Mutex::new(CausalTopoGraph::new())),
+        archive_store: Arc::new(Mutex::new(ArchiveStore::new(
+            std::env::temp_dir().join("hc-test-wm-archive.jsonl"),
+        ))),
+        tx_log: None,
     }
 }
 

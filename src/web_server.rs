@@ -4750,6 +4750,20 @@ async fn handle_wm_predict_post(
     handle_wm_predict_inner(world_model, params).await
 }
 
+/// Validate that the rollout depth does not exceed k≤5.
+/// Returns Err with "max_depth" in message when violated.
+#[cfg(feature = "web-server")]
+pub fn check_rollout_depth(actions: &[String], max_depth: Option<usize>) -> Result<(), String> {
+    let depth = max_depth.unwrap_or(3);
+    let k = actions.len();
+    if k > 5 || depth > 5 {
+        return Err(format!(
+            "max_depth exceeded: rollout capped at k≤5 (got actions={k}, max_depth={depth})"
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(feature = "web-server")]
 #[derive(Deserialize)]
 struct WmRolloutRequest {
@@ -4786,7 +4800,11 @@ async fn handle_wm_rollout(
         })
         .to_lowercase();
     let iterations = req.iterations.unwrap_or(50).min(200);
-    let max_depth = req.max_depth.unwrap_or(3).min(10);
+    let max_depth = req.max_depth.unwrap_or(3).min(5);
+
+    if let Err(e) = check_rollout_depth(&req.actions, req.max_depth) {
+        return Json(serde_json::json!({"error": e}));
+    }
 
     match world_model.read() {
         Ok(wm) => {
@@ -4827,6 +4845,7 @@ async fn handle_wm_rollout(
                 if let Ok(pred) =
                     wm.rollout_dirichlet(req.initial_state.clone(), req.actions.clone())
                 {
+                    let uncertainty = (1.0 - pred.confidence).clamp(0.0, 1.0);
                     return Json(serde_json::json!({
                         "mode": "dirichlet",
                         "initial_state": req.initial_state,
@@ -4834,6 +4853,7 @@ async fn handle_wm_rollout(
                         "predicted_state": pred.predicted_state,
                         "distribution": pred.distribution,
                         "confidence": pred.confidence,
+                        "uncertainty": uncertainty,
                         "steps": pred.steps,
                     }));
                 }

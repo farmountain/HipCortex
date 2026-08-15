@@ -408,6 +408,7 @@ fn intelligence_causal_intervention_query() {
         intervention_var: "B".to_string(),
         intervention_value: 1.0,
         conditioned_on: std::collections::HashMap::new(),
+        intervention_label: None,
     };
     let intervention = graph.compute_intervention(&query);
     assert!(intervention.is_ok(), "Intervention query should succeed");
