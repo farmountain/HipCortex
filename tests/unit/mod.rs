@@ -50,5 +50,5 @@ mod memory_store_delete_tests;
 mod memory_graph_tests;
 mod memory_expiry_consistency_tests;
 mod memory_ppr_tests;
-
+mod tx_log_tests;
 
