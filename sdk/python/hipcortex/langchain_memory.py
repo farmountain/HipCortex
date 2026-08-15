@@ -280,3 +280,74 @@ class AsyncHipCortexMemory:
             loop.run_until_complete(self.aclear())
         except RuntimeError:
             asyncio.run(self.aclear())
+
+
+# ---------------------------------------------------------------------------
+# Passive callback handler — zero code changes required in agent
+# ---------------------------------------------------------------------------
+
+try:
+    from langchain_core.callbacks.base import BaseCallbackHandler as _LCBaseCallbackHandler
+    _LANGCHAIN_CALLBACKS_AVAILABLE = True
+except ImportError:
+    try:
+        from langchain.callbacks.base import BaseCallbackHandler as _LCBaseCallbackHandler
+        _LANGCHAIN_CALLBACKS_AVAILABLE = True
+    except ImportError:
+        _LCBaseCallbackHandler = object
+        _LANGCHAIN_CALLBACKS_AVAILABLE = False
+
+
+class HipCortexCallbackHandler(_LCBaseCallbackHandler):
+    """Passive LangChain observer. Captures LLM/tool events without any explicit add_memory calls.
+
+    Wire via: chain = MyChain(callbacks=[HipCortexCallbackHandler(client=client)])
+    """
+
+    def __init__(self, client, actor: str = "langchain-agent", **kwargs):
+        if _LANGCHAIN_CALLBACKS_AVAILABLE:
+            super().__init__(**kwargs)
+        self._client = client
+        self._actor = actor
+
+    def _capture(self, action: str, target: str, record_type: str = "Temporal") -> None:
+        try:
+            self._client.add_memory(
+                actor=self._actor,
+                action=action,
+                target=target,
+                record_type=record_type,
+                source="langchain-passive",
+            )
+        except Exception:
+            pass
+
+    def on_llm_start(self, serialized, prompts, **kwargs) -> None:
+        snippet = str(prompts[0])[:120] if prompts else ""
+        self._capture("llm_start", snippet)
+
+    def on_llm_end(self, response, **kwargs) -> None:
+        try:
+            text = response.generations[0][0].text[:120]
+        except Exception:
+            text = ""
+        self._capture("llm_end", text)
+
+    def on_tool_start(self, serialized, input_str, **kwargs) -> None:
+        tool_name = (serialized or {}).get("name", "unknown-tool")
+        self._capture("tool_start", f"{tool_name}({str(input_str)[:80]})")
+
+    def on_tool_end(self, output, **kwargs) -> None:
+        self._capture("tool_end", str(output)[:120])
+
+    def on_agent_action(self, action, **kwargs) -> None:
+        try:
+            self._capture("agent_action", f"{action.tool}({str(action.tool_input)[:80]})")
+        except Exception:
+            pass
+
+    def on_agent_finish(self, finish, **kwargs) -> None:
+        try:
+            self._capture("agent_finish", str(finish.return_values)[:120])
+        except Exception:
+            pass
