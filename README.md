@@ -49,11 +49,11 @@ hipcortex install --url https://hipcortex.fly.dev   # optional managed endpoint
 npm install hipcortex
 ```
 
-**VS Code / Antigravity VSIX** (multi-OS server binaries bundled; extension **0.5.8**):  
-Package from repo (`vscode-extension`) or latest GitHub Release VSIX. Display/description use **v0.5.8** (not stale v0.5.0). Mac/Linux auto-`chmod` bundled bins.
+**VS Code / Antigravity VSIX** (multi-OS server binaries bundled; extension **0.6.0**):  
+Package from repo (`vscode-extension`) or latest GitHub Release VSIX. Mac/Linux auto-`chmod` bundled bins.
 
 ```bash
-code --install-extension hipcortex-memory-0.5.8.vsix
+code --install-extension hipcortex-memory-0.6.0.vsix
 ```
 
 Honest support matrix (what’s native vs docs-only): **[docs/channels.md](docs/channels.md)** · CLI: `hipcortex channels`
@@ -137,4 +137,4 @@ We ship faster when users tell us what broke or what you love.
 | [DEPLOY.md](DEPLOY.md) | Self-host / Fly / Docker |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Build from source |
 
-**License:** [Apache-2.0](LICENSE) · **Version:** product `0.5.2` · extension VSIX `0.5.8`
+**License:** [Apache-2.0](LICENSE) · **Version:** product `0.6.0` · extension VSIX `0.6.0`
