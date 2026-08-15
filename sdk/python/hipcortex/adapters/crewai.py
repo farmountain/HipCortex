@@ -171,3 +171,63 @@ def make_memory_tools(
         HipCortexRecallTool(client=client, agent_id=agent_id),
         HipCortexForgetTool(client=client, agent_id=agent_id),
     ]
+
+
+class HipCortexCrewObserver:
+    """Passive CrewAI observer. Wire via: Crew(step_callback=obs.step_callback, task_callback=obs.task_callback)."""
+
+    def __init__(self, client, actor: str = "crew-agent"):
+        self._client = client
+        self._actor = actor
+        self._injected: set = set()
+
+    def inject_context(self, crew) -> None:
+        """Inject relevant memories into crew context before kickoff. Idempotent."""
+        crew_id = id(crew)
+        if crew_id in self._injected:
+            return
+        self._injected.add(crew_id)
+        try:
+            memories = self._client.query_memory(actor=self._actor, limit=5)
+            if memories and hasattr(crew, "context"):
+                snippets = [f"[{m.get('action', '')}] {m.get('target', '')}" for m in memories]
+                prefix = "Prior context:\n" + "\n".join(snippets)
+                if isinstance(crew.context, str):
+                    crew.context = prefix + "\n\n" + crew.context
+        except Exception:
+            pass
+
+    @property
+    def step_callback(self):
+        """Callable for Crew(step_callback=...). Signature: fn(AgentAction) -> None."""
+        def _on_step(action) -> None:
+            try:
+                tool = getattr(action, "tool", "unknown")
+                tool_input = str(getattr(action, "tool_input", ""))[:80]
+                self._client.add_memory(
+                    actor=self._actor,
+                    action="crew_step",
+                    target=f"{tool}({tool_input})",
+                    record_type="Temporal",
+                    source="crewai-passive",
+                )
+            except Exception:
+                pass
+        return _on_step
+
+    @property
+    def task_callback(self):
+        """Callable for Task(callback=...). Signature: fn(TaskOutput) -> None."""
+        def _on_task(output) -> None:
+            try:
+                raw = getattr(output, "raw_output", None) or str(output)
+                self._client.add_memory(
+                    actor=self._actor,
+                    action="task_complete",
+                    target=str(raw)[:120],
+                    record_type="Reflexion",
+                    source="crewai-passive",
+                )
+            except Exception:
+                pass
+        return _on_task
