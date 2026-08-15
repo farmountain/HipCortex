@@ -36,6 +36,12 @@ use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "web-server")]
 use crate::openapi_spec::OPENAPI_SPEC;
+#[cfg(feature = "web-server")]
+use crate::archive_store::ArchiveStore;
+#[cfg(feature = "web-server")]
+use crate::tx_log::TxLog;
+#[cfg(feature = "web-server")]
+use crate::consolidation::{consolidate, compute_pressure, ConsolidationConfig};
 
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
@@ -133,6 +139,8 @@ pub struct AppState<B: MemoryBackend + Send + Sync + 'static> {
     pub coherence:      Arc<CoherenceChecker>,
     /// Memory-to-memory relational graph. Nodes use "mem-{uuid}" as symbolic_id.
     pub topo_graph:     Arc<Mutex<crate::topological_memory::CausalTopoGraph>>,
+    pub archive_store:  Arc<Mutex<ArchiveStore>>,
+    pub tx_log:         Option<Arc<TxLog>>,
 }
 
 /// Manual Clone: all fields are Arc<…> so clone is a ref-count bump regardless of B.
@@ -147,6 +155,8 @@ impl<B: MemoryBackend + Send + Sync + 'static> Clone for AppState<B> {
             self_model:     self.self_model.clone(),
             coherence:      self.coherence.clone(),
             topo_graph:     self.topo_graph.clone(),
+            archive_store:  self.archive_store.clone(),
+            tx_log:         self.tx_log.clone(),
         }
     }
 }
@@ -482,6 +492,10 @@ pub async fn run_with_memory<B: MemoryBackend + Send + Sync + 'static>(
         self_model: Arc::new(SelfModel::new()),
         coherence: Arc::new(CoherenceChecker::new()),
         topo_graph: Arc::new(Mutex::new(crate::topological_memory::CausalTopoGraph::new())),
+        archive_store: Arc::new(Mutex::new(ArchiveStore::new(
+            std::env::temp_dir().join("hipcortex-archive.jsonl"),
+        ))),
+        tx_log: None,
     };
     run_with_state(addr, state).await;
 }
@@ -502,6 +516,8 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     let self_model_arc  = state.self_model.clone();
     let coherence_arc   = state.coherence.clone();
     let topo_arc        = state.topo_graph.clone();
+    let archive_store   = state.archive_store.clone();
+    let tx_log_arc      = state.tx_log.clone();
 
     // ── Symbolic store routes ─────────────────────────────────────────────
     let graph_route = {
@@ -529,8 +545,11 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     let add_memory_route = {
         let store = memory_store.clone();
         let wm = world_model.clone();
+        let arc = archive_store.clone();
+        let sym = symbolic_store.clone();
+        let txl = tx_log_arc.clone();
         post(move |Json(req): Json<AddMemoryRequest>| async move {
-            handle_add_memory(store, wm, req).await
+            handle_add_memory(store, wm, arc, sym, txl, req).await
         })
     };
 
@@ -2488,6 +2507,10 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
     // Backward-compat: no AppState available here, use a no-op world model
     let world_model: Arc<RwLock<WorldModelEnhanced>> =
         Arc::new(RwLock::new(WorldModelEnhanced::new()));
+    let archive_store: Arc<Mutex<ArchiveStore>> = Arc::new(Mutex::new(ArchiveStore::new(
+        std::env::temp_dir().join("hipcortex-archive.jsonl"),
+    )));
+    let tx_log_arc: Option<Arc<TxLog>> = None;
 
     // Symbolic store routes
     let graph_route = {
@@ -2515,8 +2538,11 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
     let add_memory_route = {
         let store = memory_store.clone();
         let wm = world_model.clone();
+        let arc = archive_store.clone();
+        let sym = symbolic_store.clone();
+        let txl = tx_log_arc.clone();
         post(move |Json(req): Json<AddMemoryRequest>| async move {
-            handle_add_memory(store, wm, req).await
+            handle_add_memory(store, wm, arc, sym, txl, req).await
         })
     };
 
@@ -3082,6 +3108,9 @@ fn parse_record_type_alias(s: Option<&str>) -> crate::memory_record::MemoryType 
 async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
     store: Arc<Mutex<MemoryStore<B>>>,
     world_model: Arc<RwLock<WorldModelEnhanced>>,
+    archive_store: Arc<Mutex<ArchiveStore>>,
+    symbolic_store: Arc<Mutex<SymbolicStore<InMemoryGraph>>>,
+    tx_log: Option<Arc<TxLog>>,
     req: AddMemoryRequest,
 ) -> Result<Json<AddMemoryResponse>, (StatusCode, Json<AddMemoryResponse>)> {
     // Safety: classify free-text target/action before mutation
@@ -3196,6 +3225,26 @@ async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
 
             match ms.add(record.clone()) {
                 Ok(_) => {
+                    // TxLog append + auto-consolidation trigger (non-blocking, best-effort)
+                    if let Some(ref log) = tx_log {
+                        log.append(crate::tx_log::TxKind::MemoryAdd, vec![record.id], &record.actor);
+                        let config = ConsolidationConfig::default();
+                        let should_consolidate = compute_pressure(&ms, &config) > config.pressure_threshold;
+                        if should_consolidate {
+                            let store2 = store.clone();
+                            let arc2   = archive_store.clone();
+                            let sym2   = symbolic_store.clone();
+                            let log2   = log.clone();
+                            tokio::task::spawn_blocking(move || {
+                                let cfg = ConsolidationConfig::default();
+                                if let (Ok(mut ms), Ok(mut arc), Ok(mut sym)) =
+                                    (store2.lock(), arc2.lock(), sym2.lock())
+                                {
+                                    let _ = consolidate(&mut ms, &mut arc, &mut sym, &log2, &cfg);
+                                }
+                            });
+                        }
+                    }
                     // Auto-feed WorldModelEnhanced — non-blocking (try_write), best-effort
                     // A failed lock acquisition simply skips the feed without blocking the request
                     if let Ok(mut wm) = world_model.try_write() {

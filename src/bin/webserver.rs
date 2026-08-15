@@ -1,8 +1,10 @@
 use hipcortex::aureus_bridge::AureusBridge;
+use hipcortex::archive_store::ArchiveStore;
 use hipcortex::coherence::CoherenceChecker;
 use hipcortex::memory_store::MemoryStore;
 use hipcortex::self_model::{SelfModel, CapabilityDescriptor};
 use hipcortex::symbolic_store::{InMemoryGraph, SymbolicStore};
+use hipcortex::tx_log::TxLog;
 use hipcortex::web_server::{self, AppState};
 use hipcortex::world_model_enhanced::WorldModelEnhanced;
 use std::net::SocketAddr;
@@ -64,6 +66,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // ── Assemble AppState ────────────────────────────────────────────────────
+    let archive_path = format!("{}/memory-archive.jsonl", data_dir);
+    let tx_path      = format!("{}/memory-tx.jsonl", data_dir);
+    let tx_log = TxLog::open(&tx_path)
+        .map(|l| Arc::new(l))
+        .map_err(|e| eprintln!("[TxLog] open error: {e}"))
+        .ok();
     let state = AppState {
         memory_store: memory_store.clone(),
         symbolic_store: Arc::new(Mutex::new(SymbolicStore::<InMemoryGraph>::new())),
@@ -72,6 +80,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         self_model,
         coherence: Arc::new(CoherenceChecker::new()),
         topo_graph: Arc::new(Mutex::new(hipcortex::topological_memory::CausalTopoGraph::new())),
+        archive_store: Arc::new(Mutex::new(ArchiveStore::new(&archive_path))),
+        tx_log,
     };
 
     // ── Periodic WorldModel flush every 5 minutes ────────────────────────────
