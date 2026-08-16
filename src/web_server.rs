@@ -1059,6 +1059,83 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
                 async move { handle_health_summary(s, w, c).await }
             })
         })
+        // ── v0.7.0: /v1/* routes ─────────────────────────────────────────────
+        .route("/v1/state/diff", {
+            let store = memory_store.clone();
+            let txl = tx_log_arc.clone();
+            post(move |Json(req): Json<serde_json::Value>| async move {
+                let from_tx = req.get("from_tx").and_then(|v| v.as_u64()).unwrap_or(0);
+                let to_tx = req.get("to_tx").and_then(|v| v.as_u64()).unwrap_or(0);
+                match &txl {
+                    None => Json(serde_json::json!({"from_tx": from_tx, "to_tx": to_tx, "error": "tx_log not configured"})),
+                    Some(log) => {
+                        let ms = store.lock().unwrap();
+                        match crate::state_diff::compute_tx_diff(log, from_tx, to_tx, &*ms) {
+                            Ok(diff) => Json(
+                                serde_json::to_value(diff)
+                                    .unwrap_or(serde_json::json!({"from_tx": from_tx, "to_tx": to_tx, "error": "serialization failed"})),
+                            ),
+                            Err(e) => Json(serde_json::json!({"from_tx": from_tx, "to_tx": to_tx, "error": e})),
+                        }
+                    }
+                }
+            })
+        })
+        .route("/v1/memory/consolidate", {
+            let store = memory_store.clone();
+            let arc = archive_store.clone();
+            let sym = symbolic_store.clone();
+            let txl = tx_log_arc.clone();
+            post(move |Json(req): Json<serde_json::Value>| async move {
+                let min_group = req
+                    .get("min_group_size")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(3) as usize;
+                let config = crate::consolidation::ConsolidationConfig {
+                    min_group_size: min_group,
+                    ..Default::default()
+                };
+                let dummy_log;
+                let log_ref: &crate::tx_log::TxLog = match &txl {
+                    Some(l) => l,
+                    None => {
+                        let dir = std::env::temp_dir();
+                        dummy_log = crate::tx_log::TxLog::open(dir.join("hc-consolidate-tmp.jsonl")).unwrap();
+                        &dummy_log
+                    }
+                };
+                let mut ms = store.lock().unwrap();
+                let mut arc = arc.lock().unwrap();
+                let mut sym = sym.lock().unwrap();
+                match crate::consolidation::consolidate(&mut ms, &mut arc, &mut sym, log_ref, &config) {
+                    Ok(r) => Json(serde_json::to_value(r).unwrap_or(serde_json::json!({"error": "serialization failed"}))),
+                    Err(e) => Json(serde_json::json!({"error": e})),
+                }
+            })
+        })
+        .route("/v1/state/tx", {
+            let txl = tx_log_arc.clone();
+            get(move || async move {
+                match &txl {
+                    None => Json(serde_json::json!({"current_tx": null, "configured": false})),
+                    Some(log) => Json(serde_json::json!({"current_tx": log.current_tx(), "configured": true})),
+                }
+            })
+        })
+        .route("/v1/beliefs", {
+            let store = memory_store.clone();
+            get(
+                move |axum::extract::Query(params): axum::extract::Query<
+                    std::collections::HashMap<String, String>,
+                >| async move {
+                    let min_conf: f32 = params
+                        .get("min_conf")
+                        .and_then(|v| v.parse().ok())
+                        .unwrap_or(0.0);
+                    handle_v1_beliefs(store, min_conf).await
+                },
+            )
+        })
         .layer(middleware::from_fn(api_key_middleware));
 
     // G11: Background TTL eviction — purges expired records every 5 minutes.
