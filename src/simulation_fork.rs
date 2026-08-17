@@ -1,6 +1,4 @@
-//! Phase-2: Real Copy-on-Write SimulationFork.
-//! Holds an isolated MemoryStore<InMemoryBackend> snapshot of the parent at fork time.
-//! Mutations to the fork never touch the parent.
+//! Phase 2+3: Copy-on-Write SimulationFork with bounded Kalman rollout.
 
 use crate::cognitive_state::{
     BeliefDistribution, BeliefSummary, CognitiveDelta, CognitiveError, CognitiveSnapshot,
@@ -11,7 +9,31 @@ use crate::memory_store::MemoryStore;
 use crate::payloads::{BeliefPayload, GoalPayload, SkillPayload};
 use crate::persistence::{InMemoryBackend, MemoryBackend};
 use crate::tx_log::{TxKind, TxLog};
+use std::collections::HashMap;
 use uuid::Uuid;
+
+// ── Phase-3 rollout types ─────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RolloutStep {
+    pub step_index: u32,
+    pub action: String,
+    /// Per-entity uncertainty (entity_id → max variance across dims)
+    pub uncertainty: HashMap<String, f32>,
+    /// True if uncertainty halted rollout after this step
+    pub halted: bool,
+    pub fork_tx: u64,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RolloutResult {
+    pub steps: Vec<RolloutStep>,
+    pub final_fork_tx: u64,
+    pub halted_early: bool,
+    pub halt_reason: Option<String>,
+}
+
+// ── SimulationFork ────────────────────────────────────────────────────────────
 
 pub struct SimulationFork<B: MemoryBackend + Send + Sync + 'static> {
     pub id: Uuid,
@@ -20,11 +42,17 @@ pub struct SimulationFork<B: MemoryBackend + Send + Sync + 'static> {
     store: MemoryStore<InMemoryBackend>,
     tx_log: TxLog,
     steps: Vec<String>,
+    /// Per-entity per-dimension variances — seeded from parent's WM at fork time.
+    uncertainty: HashMap<String, Vec<f32>>,
     _marker: std::marker::PhantomData<B>,
 }
 
+const NOISE_FLOOR: f32 = 0.01;
+const ROLLOUT_K_CAP: usize = 5;
+
 impl<B: MemoryBackend + Send + Sync + 'static> SimulationFork<B> {
     /// Copy parent's live records into an isolated in-memory store.
+    /// Seeds per-entity uncertainty from parent's WorldModelEnhanced.
     pub fn from_handle(
         handle: &crate::cognitive_state::CognitiveHandle<B>,
         base_tx: u64,
@@ -41,6 +69,23 @@ impl<B: MemoryBackend + Send + Sync + 'static> SimulationFork<B> {
         }
         let tmp = std::env::temp_dir().join(format!("hc-fork-{}.jsonl", Uuid::new_v4()));
         let tx_log = TxLog::open(tmp).map_err(CognitiveError::StoreError)?;
+
+        // Seed uncertainty from parent WM entities; fallback to synthetic "world" entity
+        let uncertainty = if let Ok(wm) = handle.world.read() {
+            let diags = wm.entity_covariance_diagonals();
+            if diags.is_empty() {
+                let mut m = HashMap::new();
+                m.insert("world".to_string(), vec![NOISE_FLOOR; 3]);
+                m
+            } else {
+                diags
+            }
+        } else {
+            let mut m = HashMap::new();
+            m.insert("world".to_string(), vec![NOISE_FLOOR; 3]);
+            m
+        };
+
         Ok(Self {
             id: Uuid::new_v4(),
             base_tx,
@@ -48,6 +93,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> SimulationFork<B> {
             store: fork_store,
             tx_log,
             steps: Vec::new(),
+            uncertainty,
             _marker: std::marker::PhantomData,
         })
     }
@@ -61,7 +107,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> SimulationFork<B> {
         Ok(self.tx_log.append(TxKind::WorldModelObserve, vec![], "fork"))
     }
 
-    /// Apply a CognitiveDelta to the fork's isolated store (AddMemory only in Phase 2).
+    /// Apply a CognitiveDelta to the fork's isolated store (AddMemory only in Phase 2+3).
     pub fn apply_delta(
         &mut self,
         delta: CognitiveDelta,
@@ -83,8 +129,73 @@ impl<B: MemoryBackend + Send + Sync + 'static> SimulationFork<B> {
         Ok(self.tx_log.append(TxKind::MemoryAdd, vec![], actor))
     }
 
+    /// Execute up to `actions.len()` steps (capped at ROLLOUT_K_CAP=5).
+    /// Propagates diagonal Kalman uncertainty per step: P_{k+1}[i] = P_k[i] + noise_floor.
+    /// Halts early if max variance across all entities exceeds sigma2_max.
+    pub fn rollout(
+        &mut self,
+        actions: Vec<String>,
+        sigma2_max: f32,
+    ) -> Result<RolloutResult, CognitiveError> {
+        if actions.is_empty() {
+            return Err(CognitiveError::DeltaInvalid("actions must not be empty".into()));
+        }
+        let sigma2_max = sigma2_max.clamp(0.01, 1.0);
+        let actions: Vec<String> = actions.into_iter().take(ROLLOUT_K_CAP).collect();
+
+        let mut steps = Vec::new();
+        let mut halted_early = false;
+        let mut halt_reason: Option<String> = None;
+
+        for (idx, action) in actions.iter().enumerate() {
+            let fork_tx = self.step(action)?;
+
+            // Propagate diagonal Kalman: P_{k+1}[i] = P_k[i] + noise_floor
+            for variances in self.uncertainty.values_mut() {
+                for v in variances.iter_mut() {
+                    *v += NOISE_FLOOR;
+                }
+            }
+
+            // Build per-entity uncertainty map (max variance per entity)
+            let uncertainty_snapshot: HashMap<String, f32> = self
+                .uncertainty
+                .iter()
+                .map(|(id, vars)| {
+                    let max_var = vars.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+                    (id.clone(), max_var)
+                })
+                .collect();
+
+            // Check halt condition
+            let max_global = uncertainty_snapshot
+                .values()
+                .cloned()
+                .fold(f32::NEG_INFINITY, f32::max);
+            let halted = max_global > sigma2_max;
+
+            steps.push(RolloutStep {
+                step_index: idx as u32,
+                action: action.clone(),
+                uncertainty: uncertainty_snapshot,
+                halted,
+                fork_tx,
+            });
+
+            if halted {
+                halted_early = true;
+                halt_reason = Some(format!(
+                    "uncertainty exceeded sigma2_max={sigma2_max} after step {idx}"
+                ));
+                break;
+            }
+        }
+
+        let final_fork_tx = self.tx_log.current_tx();
+        Ok(RolloutResult { steps, final_fork_tx, halted_early, halt_reason })
+    }
+
     /// Build CognitiveSnapshot from fork's local records.
-    /// World/self views zeroed — Phase 2 forks don't inherit parent WM state.
     pub fn snapshot(&self, actor: &str) -> Result<CognitiveSnapshot, CognitiveError> {
         let all = self.store.all();
 

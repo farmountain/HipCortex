@@ -316,3 +316,76 @@ def test_g2_live_fork_transact_add_memory():
     )
     assert resp.status_code == 200, f"expected 200, got {resp.status_code}: {resp.text}"
     assert resp.json().get("ok") is True
+
+
+# ─── G3: HybridDynamics rollout ───────────────────────────────────────────────
+
+@pytest.mark.skipif(not LIVE, reason="requires live server (set HIPCORTEX_LIVE_TESTS=1)")
+def test_g3_1_rollout_3_actions_returns_3_steps():
+    """G3-1: Rollout with 3 actions → 200, steps has 3 entries, uncertainty map present."""
+    import requests
+    fork_id = requests.post(f"{BASE}/v1/fork", timeout=10).json()["fork_id"]
+    resp = requests.post(
+        f"{BASE}/v1/fork/{fork_id}/rollout",
+        json={"actions": ["move_north", "grab_object", "move_south"], "sigma2_max": 0.25},
+        timeout=10,
+    )
+    assert resp.status_code == 200, f"expected 200, got {resp.status_code}: {resp.text}"
+    data = resp.json()
+    assert "steps" in data, f"missing steps: {data}"
+    assert len(data["steps"]) == 3, f"expected 3 steps, got {len(data['steps'])}"
+    for step in data["steps"]:
+        assert "uncertainty" in step, f"step missing uncertainty: {step}"
+        assert isinstance(step["uncertainty"], dict), f"uncertainty must be dict: {step}"
+        assert "fork_tx" in step, f"step missing fork_tx: {step}"
+    assert "halted_early" in data
+    assert "final_fork_tx" in data
+
+
+@pytest.mark.skipif(not LIVE, reason="requires live server (set HIPCORTEX_LIVE_TESTS=1)")
+def test_g3_2_rollout_7_actions_capped_at_5():
+    """G3-2: Rollout with 7 actions → only 5 steps in response (k-cap enforced)."""
+    import requests
+    fork_id = requests.post(f"{BASE}/v1/fork", timeout=10).json()["fork_id"]
+    resp = requests.post(
+        f"{BASE}/v1/fork/{fork_id}/rollout",
+        json={"actions": [f"action_{i}" for i in range(7)], "sigma2_max": 1.0},
+        timeout=10,
+    )
+    assert resp.status_code == 200, f"expected 200, got {resp.status_code}: {resp.text}"
+    data = resp.json()
+    assert len(data["steps"]) == 5, f"k-cap must limit to 5 steps, got {len(data['steps'])}"
+
+
+@pytest.mark.skipif(not LIVE, reason="requires live server (set HIPCORTEX_LIVE_TESTS=1)")
+def test_g3_3_rollout_low_sigma2_halts_early():
+    """G3-3: Rollout with sigma2_max=0.001 → halted_early=true (noise_floor=0.01 > limit)."""
+    import requests
+    fork_id = requests.post(f"{BASE}/v1/fork", timeout=10).json()["fork_id"]
+    resp = requests.post(
+        f"{BASE}/v1/fork/{fork_id}/rollout",
+        json={"actions": ["a", "b", "c"], "sigma2_max": 0.001},
+        timeout=10,
+    )
+    assert resp.status_code == 200, f"expected 200, got {resp.status_code}: {resp.text}"
+    data = resp.json()
+    assert data.get("halted_early") is True, f"expected halted_early=true: {data}"
+    assert data.get("halt_reason") is not None, f"expected halt_reason: {data}"
+    assert len(data["steps"]) <= 3
+
+
+@pytest.mark.skipif(not LIVE, reason="requires live server (set HIPCORTEX_LIVE_TESTS=1)")
+def test_g3_4_rollout_parent_snapshot_unchanged():
+    """G3-4: Parent CognitiveHandle snapshot tx_cursor unchanged after fork rollout."""
+    import requests
+    parent_before = requests.get(f"{BASE}/v1/cognitive/snapshot", timeout=10).json()
+    fork_id = requests.post(f"{BASE}/v1/fork", timeout=10).json()["fork_id"]
+    requests.post(
+        f"{BASE}/v1/fork/{fork_id}/rollout",
+        json={"actions": ["move", "turn"], "sigma2_max": 1.0},
+        timeout=10,
+    )
+    parent_after = requests.get(f"{BASE}/v1/cognitive/snapshot", timeout=10).json()
+    assert parent_before.get("tx_cursor") == parent_after.get("tx_cursor"), (
+        f"parent tx_cursor changed: {parent_before.get('tx_cursor')} → {parent_after.get('tx_cursor')}"
+    )

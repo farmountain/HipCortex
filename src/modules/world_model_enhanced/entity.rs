@@ -227,6 +227,25 @@ impl EntityTracker {
     pub fn is_stale(&self) -> bool {
         self.last_update.elapsed() > self.permanence_timeout
     }
+
+    /// Return diagonal of current covariance matrix (per-dimension variance).
+    pub fn covariance_diagonal(&self) -> Vec<f32> {
+        self.state
+            .covariance
+            .iter()
+            .enumerate()
+            .map(|(i, row)| row[i] as f32)
+            .collect()
+    }
+
+    /// Return diagonal of process noise matrix (noise_floor per dimension).
+    pub fn process_noise_diagonal(&self) -> Vec<f32> {
+        self.process_noise
+            .iter()
+            .enumerate()
+            .map(|(i, row)| row[i] as f32)
+            .collect()
+    }
 }
 
 // ============================================================================

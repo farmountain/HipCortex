@@ -1338,6 +1338,44 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
                 }
             })
         })
+        .route("/v1/fork/:fork_id/rollout", {
+            let forks = forks.clone();
+            post(move |Path(fork_id_str): Path<String>, Json(req): Json<serde_json::Value>| async move {
+                let forks = forks.clone();
+                let fork_id = match uuid::Uuid::parse_str(&fork_id_str) {
+                    Ok(id) => id,
+                    Err(_) => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "invalid fork_id"}))),
+                };
+                let actions: Vec<String> = match req.get("actions").and_then(|v| v.as_array()) {
+                    Some(arr) => arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect(),
+                    None => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "actions array required"}))),
+                };
+                if actions.is_empty() {
+                    return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "actions must not be empty"})));
+                }
+                let sigma2_max = req.get("sigma2_max").and_then(|v| v.as_f64()).map(|v| v as f32).unwrap_or(0.25);
+                // TTL eviction
+                {
+                    let mut map = forks.lock().unwrap();
+                    map.retain(|_, v| !v.lock().unwrap().is_expired());
+                }
+                let map = forks.lock().unwrap();
+                match map.get(&fork_id) {
+                    None => (axum::http::StatusCode::NOT_FOUND, axum::Json(serde_json::json!({"ok": false, "error": "fork not found"}))),
+                    Some(fork_arc) => {
+                        let mut fork = fork_arc.lock().unwrap();
+                        if fork.is_expired() {
+                            return (axum::http::StatusCode::GONE, axum::Json(serde_json::json!({"ok": false, "error": "fork expired"})));
+                        }
+                        match fork.rollout(actions, sigma2_max) {
+                            Err(crate::cognitive_state::CognitiveError::DeltaInvalid(msg)) => (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": msg}))),
+                            Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
+                            Ok(result) => (axum::http::StatusCode::OK, axum::Json(serde_json::to_value(result).unwrap_or_default())),
+                        }
+                    }
+                }
+            })
+        })
         .layer(middleware::from_fn(api_key_middleware));
 
     // G11: Background TTL eviction — purges expired records every 5 minutes.

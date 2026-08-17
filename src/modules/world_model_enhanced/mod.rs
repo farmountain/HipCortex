@@ -291,6 +291,18 @@ impl WorldModelEnhanced {
         Ok(tracker.get_anomalies())
     }
 
+    /// Return per-entity covariance diagonals (entity_id → per-dim variances).
+    /// Used by SimulationFork to seed rollout uncertainty from parent state.
+    pub fn entity_covariance_diagonals(&self) -> std::collections::HashMap<String, Vec<f32>> {
+        let Ok(entities) = self.entities.read() else {
+            return std::collections::HashMap::new();
+        };
+        entities
+            .iter()
+            .map(|(id, t)| (id.clone(), t.covariance_diagonal()))
+            .collect()
+    }
+
     /// List all tracked entities
     pub fn list_entities(&self) -> Result<Vec<String>, String> {
         let entities = self
