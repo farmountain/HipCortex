@@ -230,47 +230,47 @@ def test_live_tx_cursor_monotonically_increases():
 
 @pytest.mark.skipif(not LIVE, reason="requires live server (set HIPCORTEX_LIVE_TESTS=1)")
 def test_g2_1_post_fork_creates_fork():
-    """G2-1: POST /v1/fork returns id + base_tx."""
-    import requests
+    """G2-1: POST /v1/fork → 200, fork_id is valid UUID, base_tx present, expires_in_secs=60."""
+    import requests, uuid
     resp = requests.post(f"{BASE}/v1/fork", timeout=10)
-    assert resp.status_code == 201, f"expected 201, got {resp.status_code}: {resp.text}"
+    assert resp.status_code == 200, f"expected 200, got {resp.status_code}: {resp.text}"
     data = resp.json()
     assert "fork_id" in data, f"missing fork_id: {data}"
     assert "base_tx" in data, f"missing base_tx: {data}"
+    assert "expires_in_secs" in data, f"missing expires_in_secs: {data}"
+    assert data["expires_in_secs"] == 60, f"expected expires_in_secs=60: {data}"
+    uuid.UUID(data["fork_id"])  # raises if not a valid UUID
     assert isinstance(data["base_tx"], int), f"base_tx not int: {data}"
 
 
 @pytest.mark.skipif(not LIVE, reason="requires live server (set HIPCORTEX_LIVE_TESTS=1)")
-def test_g2_2_fork_step_advances_tx():
-    """G2-2: POST /v1/fork/:id/step advances fork_tx."""
+def test_g2_2_fork_step_advances_tx_parent_unchanged():
+    """G2-2: POST /v1/fork/:id/step → 200, fork_tx increments; parent tx_cursor unchanged."""
     import requests
+    # capture parent tx before fork
+    parent_snap_before = requests.get(f"{BASE}/v1/cognitive/snapshot", timeout=10).json()
+    parent_tx_before = parent_snap_before.get("tx_cursor", -1)
+
     fork_id = requests.post(f"{BASE}/v1/fork", timeout=10).json()["fork_id"]
     resp = requests.post(f"{BASE}/v1/fork/{fork_id}/step", json={"action": "move-left"}, timeout=10)
     assert resp.status_code == 200, f"expected 200, got {resp.status_code}: {resp.text}"
     data = resp.json()
+    assert data.get("ok") is True, f"expected ok=true: {data}"
     assert "fork_tx" in data, f"missing fork_tx: {data}"
     assert data["fork_tx"] > 0, f"fork_tx must increase: {data}"
+    assert "steps_taken" in data, f"missing steps_taken: {data}"
 
-
-@pytest.mark.skipif(not LIVE, reason="requires live server (set HIPCORTEX_LIVE_TESTS=1)")
-def test_g2_3_fork_transact_add_memory():
-    """G2-3: POST /v1/fork/:id/transact with AddMemory delta → 200."""
-    import requests
-    fork_id = requests.post(f"{BASE}/v1/fork", timeout=10).json()["fork_id"]
-    delta = _add_memory_delta()
-    resp = requests.post(
-        f"{BASE}/v1/fork/{fork_id}/transact",
-        json={"delta": delta, "actor": "e2e-fork"},
-        timeout=10,
+    # parent tx_cursor must not have changed
+    parent_snap_after = requests.get(f"{BASE}/v1/cognitive/snapshot", timeout=10).json()
+    parent_tx_after = parent_snap_after.get("tx_cursor", -2)
+    assert parent_tx_after == parent_tx_before, (
+        f"parent tx_cursor changed after fork step: {parent_tx_before} → {parent_tx_after}"
     )
-    assert resp.status_code == 200, f"expected 200, got {resp.status_code}: {resp.text}"
-    data = resp.json()
-    assert data.get("ok") is True, f"expected ok: {data}"
 
 
 @pytest.mark.skipif(not LIVE, reason="requires live server (set HIPCORTEX_LIVE_TESTS=1)")
-def test_g2_4_fork_snapshot_returns_cognitive_snapshot():
-    """G2-4: GET /v1/fork/:id/snapshot returns CognitiveSnapshot schema."""
+def test_g2_3_fork_snapshot_returns_cognitive_snapshot():
+    """G2-3: GET /v1/fork/:id/snapshot → 200 with all CognitiveSnapshot fields."""
     import requests
     fork_id = requests.post(f"{BASE}/v1/fork", timeout=10).json()["fork_id"]
     resp = requests.get(f"{BASE}/v1/fork/{fork_id}/snapshot", timeout=10)
@@ -281,11 +281,38 @@ def test_g2_4_fork_snapshot_returns_cognitive_snapshot():
 
 
 @pytest.mark.skipif(not LIVE, reason="requires live server (set HIPCORTEX_LIVE_TESTS=1)")
-def test_g2_5_delete_fork_returns_204():
-    """G2-5: DELETE /v1/fork/:id removes fork, subsequent snapshot → 404."""
+def test_g2_4_delete_fork_then_step_returns_404():
+    """G2-4: DELETE /v1/fork/:id → 200 {ok:true}; subsequent step → 404."""
     import requests
     fork_id = requests.post(f"{BASE}/v1/fork", timeout=10).json()["fork_id"]
     del_resp = requests.delete(f"{BASE}/v1/fork/{fork_id}", timeout=10)
-    assert del_resp.status_code == 204, f"expected 204, got {del_resp.status_code}: {del_resp.text}"
-    snap_resp = requests.get(f"{BASE}/v1/fork/{fork_id}/snapshot", timeout=10)
-    assert snap_resp.status_code == 404, f"expected 404 after delete, got {snap_resp.status_code}"
+    assert del_resp.status_code == 200, f"expected 200, got {del_resp.status_code}: {del_resp.text}"
+    assert del_resp.json().get("ok") is True, f"expected ok=true: {del_resp.json()}"
+    step_resp = requests.post(f"{BASE}/v1/fork/{fork_id}/step", json={"action": "x"}, timeout=10)
+    assert step_resp.status_code == 404, f"expected 404 after delete, got {step_resp.status_code}"
+
+
+@pytest.mark.skipif(not LIVE, reason="requires live server (set HIPCORTEX_LIVE_TESTS=1)")
+def test_g2_5_empty_step_action_returns_400():
+    """G2-5 (proxy): empty action string on step → 400 Bad Request."""
+    import requests
+    fork_id = requests.post(f"{BASE}/v1/fork", timeout=10).json()["fork_id"]
+    resp = requests.post(f"{BASE}/v1/fork/{fork_id}/step", json={"action": ""}, timeout=10)
+    assert resp.status_code == 400, f"expected 400 for empty action, got {resp.status_code}: {resp.text}"
+    assert resp.json().get("ok") is False
+
+
+# expiry→410 requires waiting 60s; covered by unit test (is_expired()) and manual QA
+@pytest.mark.skipif(not LIVE, reason="requires live server (set HIPCORTEX_LIVE_TESTS=1)")
+def test_g2_live_fork_transact_add_memory():
+    """Supplemental: POST /v1/fork/:id/transact with AddMemory delta → 200."""
+    import requests
+    fork_id = requests.post(f"{BASE}/v1/fork", timeout=10).json()["fork_id"]
+    delta = _add_memory_delta()
+    resp = requests.post(
+        f"{BASE}/v1/fork/{fork_id}/transact",
+        json={"delta": delta, "actor": "e2e-fork"},
+        timeout=10,
+    )
+    assert resp.status_code == 200, f"expected 200, got {resp.status_code}: {resp.text}"
+    assert resp.json().get("ok") is True

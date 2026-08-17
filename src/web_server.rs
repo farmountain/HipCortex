@@ -1256,6 +1256,7 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
                             return (axum::http::StatusCode::GONE, axum::Json(serde_json::json!({"ok": false, "error": "fork expired"})));
                         }
                         match fork.step(&action) {
+                            Err(crate::cognitive_state::CognitiveError::DeltaInvalid(msg)) => (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": msg}))),
                             Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
                             Ok(fork_tx) => (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"ok": true, "fork_tx": fork_tx, "steps_taken": fork.steps_taken()}))),
                         }
