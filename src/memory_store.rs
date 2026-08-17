@@ -283,6 +283,31 @@ impl<B: MemoryBackend> MemoryStore<B> {
         &self.records
     }
 
+    pub fn record_count(&self) -> usize {
+        self.records.iter().filter(|r| r.status == "active").count()
+    }
+
+    pub fn all_by_type(&self, rt: crate::memory_record::MemoryType) -> Vec<&MemoryRecord> {
+        self.records
+            .iter()
+            .filter(|r| r.record_type == rt && r.status == "active")
+            .collect()
+    }
+
+    pub fn evidence_edge_count(&self) -> usize {
+        self.records.iter().map(|r| r.evidence.len()).sum()
+    }
+
+    pub fn merkle_root_hex(&self) -> String {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        for r in &self.records {
+            let h = r.integrity.as_deref().unwrap_or("");
+            hasher.update(h.as_bytes());
+        }
+        format!("{:x}", hasher.finalize())
+    }
+
     pub fn find_by_actor(&self, actor: &str) -> Vec<&MemoryRecord> {
         if let Some(ids) = self.index_actor.get(actor) {
             ids.iter().filter_map(|&i| self.records.get(i)).collect()
@@ -895,6 +920,67 @@ mod tests {
         assert_eq!(store.all().len(), 1);
         drop(store);
         std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn test_record_count_empty() {
+        let store = MemoryStore::new_in_memory();
+        assert_eq!(store.record_count(), 0);
+    }
+
+    #[test]
+    fn test_record_count_after_add() {
+        let mut store = MemoryStore::new_in_memory();
+        let r = MemoryRecord::new(
+            crate::memory_record::MemoryType::Temporal,
+            "a".into(), "did".into(), "t".into(), serde_json::Value::Null,
+        );
+        store.add(r).unwrap();
+        assert_eq!(store.record_count(), 1);
+    }
+
+    #[test]
+    fn test_all_by_type_filters() {
+        let mut store = MemoryStore::new_in_memory();
+        let t = MemoryRecord::new(
+            crate::memory_record::MemoryType::Temporal,
+            "a".into(), "did".into(), "t".into(), serde_json::Value::Null,
+        );
+        let b = MemoryRecord::new(
+            crate::memory_record::MemoryType::Belief,
+            "a".into(), "assert".into(), "prop".into(), serde_json::Value::Null,
+        );
+        store.add(t).unwrap();
+        store.add(b).unwrap();
+        assert_eq!(store.all_by_type(crate::memory_record::MemoryType::Temporal).len(), 1);
+        assert_eq!(store.all_by_type(crate::memory_record::MemoryType::Belief).len(), 1);
+        assert_eq!(store.all_by_type(crate::memory_record::MemoryType::Goal).len(), 0);
+    }
+
+    #[test]
+    fn test_evidence_edge_count() {
+        let mut store = MemoryStore::new_in_memory();
+        let id1 = uuid::Uuid::new_v4();
+        let id2 = uuid::Uuid::new_v4();
+        let mut r = MemoryRecord::new(
+            crate::memory_record::MemoryType::Temporal,
+            "a".into(), "did".into(), "t".into(), serde_json::Value::Null,
+        );
+        r.evidence = vec![id1, id2];
+        store.add(r).unwrap();
+        assert_eq!(store.evidence_edge_count(), 2);
+    }
+
+    #[test]
+    fn test_merkle_root_hex_non_empty() {
+        let mut store = MemoryStore::new_in_memory();
+        let r = MemoryRecord::new(
+            crate::memory_record::MemoryType::Temporal,
+            "a".into(), "did".into(), "t".into(), serde_json::Value::Null,
+        );
+        store.add(r).unwrap();
+        let root = store.merkle_root_hex();
+        assert_eq!(root.len(), 64, "SHA-256 hex = 64 chars");
     }
 }
 

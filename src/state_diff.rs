@@ -125,3 +125,31 @@ pub fn compute_tx_diff<B: MemoryBackend>(
         causal_attributions: attributions,
     })
 }
+
+impl TxStateDiff {
+    pub fn empty(cursor: u64) -> Self {
+        Self {
+            from_tx: cursor,
+            to_tx: cursor,
+            timestamp_range: (0, 0),
+            tx_count: 0,
+            memory_delta: MemoryDelta::default(),
+            world_model_delta: WorldModelDelta::default(),
+            causal_attributions: Vec::new(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tx_state_diff_empty_cursor() {
+        let diff = TxStateDiff::empty(42);
+        assert_eq!(diff.from_tx, 42);
+        assert_eq!(diff.to_tx, 42);
+        assert_eq!(diff.tx_count, 0);
+        assert!(diff.causal_attributions.is_empty());
+    }
+}
