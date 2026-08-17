@@ -912,6 +912,14 @@ impl WorldModelEnhanced {
 
         Ok(wm)
     }
+
+    pub fn causal_node_count(&self) -> usize {
+        self.causal_graph.read().map(|g| g.node_count()).unwrap_or(0)
+    }
+
+    pub fn causal_edge_count(&self) -> usize {
+        self.causal_graph.read().map(|g| g.edge_count()).unwrap_or(0)
+    }
 }
 
 impl Default for WorldModelEnhanced {
@@ -1197,5 +1205,20 @@ mod tests {
         let state = tracker.get_state();
         assert_eq!(state.properties, vec![1.5, 2.5, 3.5]);
         assert_eq!(state.covariance[0][0], 0.5);
+    }
+
+    #[test]
+    fn test_wm_causal_counts_empty() {
+        let wm = WorldModelEnhanced::new();
+        assert_eq!(wm.causal_node_count(), 0);
+        assert_eq!(wm.causal_edge_count(), 0);
+    }
+
+    #[test]
+    fn test_wm_causal_counts_after_edge() {
+        let wm = WorldModelEnhanced::new();
+        wm.add_causal_edge("A".into(), "B".into()).unwrap();
+        assert_eq!(wm.causal_node_count(), 2);
+        assert_eq!(wm.causal_edge_count(), 1);
     }
 }
