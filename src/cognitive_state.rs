@@ -158,6 +158,7 @@ pub struct CognitiveSnapshot {
 
 // ─── CognitiveHandle ─────────────────────────────────────────────────────────
 
+#[allow(dead_code)]
 pub struct CognitiveHandle<B: MemoryBackend + Send + Sync + 'static> {
     pub memory: Arc<Mutex<MemoryStore<B>>>,
     pub(crate) world: Arc<std::sync::RwLock<WorldModelEnhanced>>,
