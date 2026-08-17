@@ -527,8 +527,8 @@ impl CoherenceChecker {
             }
             CognitiveDelta::AdvanceGoal { .. } | CognitiveDelta::RegisterSkill(_) => {}
             CognitiveDelta::Consolidate { .. }
-            | CognitiveDelta::ForgetActor(_)
-            | CognitiveDelta::ArchiveRecord(_) => {
+            | CognitiveDelta::ForgetActor { .. }
+            | CognitiveDelta::ArchiveRecord { .. } => {
                 warnings.push(format!("{} not implemented in Phase 0", delta.label()));
             }
         }

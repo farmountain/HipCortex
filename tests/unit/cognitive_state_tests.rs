@@ -319,3 +319,92 @@ fn test_fork_step_not_implemented() {
     let err = fork.step("some action").unwrap_err();
     assert!(matches!(err, CognitiveError::NotImplemented(_)));
 }
+
+// ─── Task 1 (Phase 1): CognitiveDelta serde round-trips (G1-5) ──────────────
+
+#[test]
+fn test_delta_serde_add_memory() {
+    let r = MemoryRecord::new(
+        MemoryType::Temporal,
+        "actor-1".into(),
+        "did".into(),
+        "target".into(),
+        serde_json::json!({}),
+    );
+    let delta = CognitiveDelta::AddMemory(r);
+    let json = serde_json::to_string(&delta).expect("serialize");
+    let parsed: serde_json::Value = serde_json::from_str(&json).expect("parse");
+    assert_eq!(parsed["type"], "AddMemory");
+    let back: CognitiveDelta = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(back.label(), "AddMemory");
+}
+
+#[test]
+fn test_delta_serde_update_belief() {
+    let payload = BeliefPayload {
+        proposition: "sky is blue".into(),
+        justification: String::new(),
+        contradicts: vec![],
+        confidence: 0.9,
+        epistemic_status: EpistemicStatus::Observed,
+        causal_source_ids: vec![],
+        half_life_ms: 0,
+        tx_origin: None,
+    };
+    let id = Uuid::new_v4();
+    let delta = CognitiveDelta::UpdateBelief { id, payload };
+    let json = serde_json::to_string(&delta).expect("serialize");
+    let parsed: serde_json::Value = serde_json::from_str(&json).expect("parse");
+    assert_eq!(parsed["type"], "UpdateBelief");
+    assert_eq!(parsed["id"].as_str().unwrap(), id.to_string());
+    let back: CognitiveDelta = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(back.label(), "UpdateBelief");
+}
+
+#[test]
+fn test_delta_serde_advance_goal() {
+    let id = Uuid::new_v4();
+    let delta = CognitiveDelta::AdvanceGoal { id, status: GoalStatus::InProgress };
+    let json = serde_json::to_string(&delta).expect("serialize");
+    let parsed: serde_json::Value = serde_json::from_str(&json).expect("parse");
+    assert_eq!(parsed["type"], "AdvanceGoal");
+    let back: CognitiveDelta = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(back.label(), "AdvanceGoal");
+}
+
+#[test]
+fn test_delta_serde_register_skill() {
+    let skill = SkillPayload {
+        procedure: "grab_object".into(),
+        preconditions: vec!["object_visible".into()],
+        expected_outcomes: vec!["object_held".into()],
+    };
+    let delta = CognitiveDelta::RegisterSkill(skill);
+    let json = serde_json::to_string(&delta).expect("serialize");
+    let parsed: serde_json::Value = serde_json::from_str(&json).expect("parse");
+    assert_eq!(parsed["type"], "RegisterSkill");
+    let back: CognitiveDelta = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(back.label(), "RegisterSkill");
+}
+
+#[test]
+fn test_delta_serde_forget_actor_struct_variant() {
+    let delta = CognitiveDelta::ForgetActor { actor: "agent-42".into() };
+    let json = serde_json::to_string(&delta).expect("serialize");
+    let parsed: serde_json::Value = serde_json::from_str(&json).expect("parse");
+    assert_eq!(parsed["type"], "ForgetActor");
+    assert_eq!(parsed["actor"], "agent-42");
+    let back: CognitiveDelta = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(back.label(), "ForgetActor");
+}
+
+#[test]
+fn test_delta_serde_archive_record_struct_variant() {
+    let id = Uuid::new_v4();
+    let delta = CognitiveDelta::ArchiveRecord { id };
+    let json = serde_json::to_string(&delta).expect("serialize");
+    let parsed: serde_json::Value = serde_json::from_str(&json).expect("parse");
+    assert_eq!(parsed["type"], "ArchiveRecord");
+    let back: CognitiveDelta = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(back.label(), "ArchiveRecord");
+}

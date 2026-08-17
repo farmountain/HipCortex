@@ -51,7 +51,8 @@ impl std::error::Error for CognitiveError {}
 /// All mutations go through this enum.
 /// Phase-4 variants (Consolidate, ForgetActor, ArchiveRecord) compile but
 /// return CognitiveError::NotImplemented at runtime until Phase 4.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type", rename_all = "PascalCase")]
 pub enum CognitiveDelta {
     // Phase 0 — implemented
     AddMemory(MemoryRecord),
@@ -62,8 +63,10 @@ pub enum CognitiveDelta {
     RegisterSkill(SkillPayload),
     // Phase 4 stubs — return CognitiveError::NotImplemented
     Consolidate { source_ids: Vec<Uuid>, summary: MemoryRecord },
-    ForgetActor(String),
-    ArchiveRecord(Uuid),
+    /// Reshaped from ForgetActor(String) to satisfy serde internal tagging.
+    ForgetActor { actor: String },
+    /// Reshaped from ArchiveRecord(Uuid) to satisfy serde internal tagging.
+    ArchiveRecord { id: Uuid },
 }
 
 impl CognitiveDelta {
@@ -74,8 +77,8 @@ impl CognitiveDelta {
             Self::AdvanceGoal { .. } => "AdvanceGoal",
             Self::RegisterSkill(_) => "RegisterSkill",
             Self::Consolidate { .. } => "Consolidate",
-            Self::ForgetActor(_) => "ForgetActor",
-            Self::ArchiveRecord(_) => "ArchiveRecord",
+            Self::ForgetActor { .. } => "ForgetActor",
+            Self::ArchiveRecord { .. } => "ArchiveRecord",
         }
     }
 }
@@ -215,8 +218,8 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         // Step 3: Phase-4 stubs reject before touching any store
         match &delta {
             CognitiveDelta::Consolidate { .. }
-            | CognitiveDelta::ForgetActor(_)
-            | CognitiveDelta::ArchiveRecord(_) => {
+            | CognitiveDelta::ForgetActor { .. }
+            | CognitiveDelta::ArchiveRecord { .. } => {
                 return Err(CognitiveError::NotImplemented(delta.label().into()));
             }
             _ => {}
