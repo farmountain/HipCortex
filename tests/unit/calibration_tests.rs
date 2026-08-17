@@ -23,6 +23,7 @@ fn belief_record(confidence: f32) -> MemoryRecord {
             causal_source_ids: vec![],
             half_life_ms: 0,
             tx_origin: None,
+            ..Default::default()
         })
         .unwrap(),
     )

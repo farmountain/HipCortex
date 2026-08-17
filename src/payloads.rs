@@ -5,6 +5,15 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// JTMS truth-maintenance label for a belief node.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub enum JtmsLabel {
+    In,
+    Out,
+    #[default]
+    Unknown,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SuccessFactor {
     pub name: String,
@@ -54,7 +63,7 @@ pub enum EpistemicStatus {
     Hypothetical,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BeliefPayload {
     pub proposition: String,
     #[serde(default)]
@@ -74,6 +83,20 @@ pub struct BeliefPayload {
     pub half_life_ms: u64,
     #[serde(default)]
     pub tx_origin: Option<u64>,
+
+    // JTMS fields — all default for backward compat
+    /// Truth-maintenance label.
+    #[serde(default)]
+    pub jtms_label: JtmsLabel,
+    /// Belief/record IDs this belief depends on (must all be In for this to be In).
+    #[serde(default)]
+    pub in_list: Vec<Uuid>,
+    /// Belief IDs that must be Out for this to be In.
+    #[serde(default)]
+    pub out_list: Vec<Uuid>,
+    /// Belief IDs that depend on THIS belief (back-pointers for cascade).
+    #[serde(default)]
+    pub dependents: Vec<Uuid>,
 }
 
 fn default_belief_confidence() -> f32 {

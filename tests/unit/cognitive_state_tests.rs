@@ -29,6 +29,7 @@ fn test_cognitive_delta_label_update_belief() {
         causal_source_ids: vec![],
         half_life_ms: 0,
         tx_origin: None,
+        ..Default::default()
     };
     let delta = CognitiveDelta::UpdateBelief { id: Uuid::new_v4(), payload };
     assert_eq!(delta.label(), "UpdateBelief");
@@ -86,6 +87,7 @@ fn test_check_delta_update_belief_bad_confidence_err() {
         causal_source_ids: vec![],
         half_life_ms: 0,
         tx_origin: None,
+        ..Default::default()
     };
     let result = checker.check_delta(&CognitiveDelta::UpdateBelief { id: Uuid::new_v4(), payload });
     assert!(result.is_err());
@@ -345,6 +347,7 @@ fn test_delta_serde_update_belief() {
         causal_source_ids: vec![],
         half_life_ms: 0,
         tx_origin: None,
+        ..Default::default()
     };
     let id = Uuid::new_v4();
     let delta = CognitiveDelta::UpdateBelief { id, payload };

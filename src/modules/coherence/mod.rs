@@ -526,6 +526,7 @@ impl CoherenceChecker {
                 }
             }
             CognitiveDelta::AdvanceGoal { .. } | CognitiveDelta::RegisterSkill(_) => {}
+            CognitiveDelta::RetractBelief { .. } | CognitiveDelta::AssertJustification { .. } => {}
             CognitiveDelta::Consolidate { .. }
             | CognitiveDelta::ForgetActor { .. }
             | CognitiveDelta::ArchiveRecord { .. } => {

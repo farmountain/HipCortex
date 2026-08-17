@@ -33,6 +33,7 @@ fn belief_full_roundtrip_preserves_all_fields() {
         causal_source_ids: vec![Uuid::new_v4()],
         half_life_ms: 3_600_000,
         tx_origin: Some(42),
+        ..Default::default()
     };
     let json = serde_json::to_string(&payload).unwrap();
     let back: BeliefPayload = serde_json::from_str(&json).unwrap();

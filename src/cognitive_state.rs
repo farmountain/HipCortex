@@ -17,7 +17,8 @@ use crate::coherence::CoherenceChecker;
 use crate::self_model::calibration::CalibrationTracker;
 use crate::self_model::SelfModel;
 use crate::world_model_enhanced::WorldModelEnhanced;
-use crate::payloads::{BeliefPayload, EpistemicStatus, GoalPayload, GoalStatus, SkillPayload};
+use crate::payloads::{BeliefPayload, EpistemicStatus, GoalPayload, GoalStatus, JtmsLabel, SkillPayload};
+use crate::jtms;
 use crate::persistence::MemoryBackend;
 use crate::simulation_fork::SimulationFork;
 use crate::tx_log::{TxKind, TxLog};
@@ -68,6 +69,11 @@ pub enum CognitiveDelta {
     ForgetActor { actor: String },
     /// Reshaped from ArchiveRecord(Uuid) to satisfy serde internal tagging.
     ArchiveRecord { id: Uuid },
+    // Phase 1 (JTMS) — non-monotonic belief revision
+    /// Mark a belief Out and cascade retraction to dependents.
+    RetractBelief { id: Uuid, reason: String },
+    /// Set in_list / out_list on a belief; recomputes its JTMS label.
+    AssertJustification { belief_id: Uuid, in_nodes: Vec<Uuid>, out_nodes: Vec<Uuid> },
 }
 
 impl CognitiveDelta {
@@ -80,6 +86,8 @@ impl CognitiveDelta {
             Self::Consolidate { .. } => "Consolidate",
             Self::ForgetActor { .. } => "ForgetActor",
             Self::ArchiveRecord { .. } => "ArchiveRecord",
+            Self::RetractBelief { .. } => "RetractBelief",
+            Self::AssertJustification { .. } => "AssertJustification",
         }
     }
 }
@@ -246,6 +254,14 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
                 let tx_cursor = self.archive_record(*id, actor)?;
                 return Ok(TransactResult { tx_cursor, records_deleted: None });
             }
+            CognitiveDelta::RetractBelief { id, .. } => {
+                let tx_cursor = self.retract_belief(*id, actor)?;
+                return Ok(TransactResult { tx_cursor, records_deleted: None });
+            }
+            CognitiveDelta::AssertJustification { belief_id, in_nodes, out_nodes } => {
+                let tx_cursor = self.assert_justification(*belief_id, in_nodes.clone(), out_nodes.clone(), actor)?;
+                return Ok(TransactResult { tx_cursor, records_deleted: None });
+            }
             _ => {}
         }
 
@@ -363,6 +379,45 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
 
         let tx_cursor = if let Some(tx) = &self.tx_log {
             tx.append(TxKind::ArchiveRecord, vec![id], actor)
+        } else {
+            0
+        };
+        self.calibration.record_prediction_error(0.0);
+        Ok(tx_cursor)
+    }
+
+    fn retract_belief(&self, id: Uuid, actor: &str) -> Result<u64, CognitiveError> {
+        let mut ms = self.memory.lock().map_err(|_| CognitiveError::LockError)?;
+        let cascaded = jtms::propagate_retraction(&mut ms, id, self.tx_log.as_deref(), actor);
+        drop(ms);
+        let tx_cursor = if let Some(tx) = &self.tx_log {
+            // Primary retraction already logged inside propagate_retraction;
+            // append a summary entry for the root retraction.
+            if cascaded.is_empty() {
+                tx.append(TxKind::BeliefRetract, vec![id], actor)
+            } else {
+                tx.append(TxKind::BeliefRetract, cascaded, actor)
+            }
+        } else {
+            0
+        };
+        self.calibration.record_prediction_error(0.0);
+        Ok(tx_cursor)
+    }
+
+    fn assert_justification(
+        &self,
+        belief_id: Uuid,
+        in_nodes: Vec<Uuid>,
+        out_nodes: Vec<Uuid>,
+        actor: &str,
+    ) -> Result<u64, CognitiveError> {
+        let mut ms = self.memory.lock().map_err(|_| CognitiveError::LockError)?;
+        jtms::assert_justification(&mut ms, belief_id, in_nodes, out_nodes)
+            .map_err(|e| CognitiveError::StoreError(e))?;
+        drop(ms);
+        let tx_cursor = if let Some(tx) = &self.tx_log {
+            tx.append(TxKind::BeliefAssert, vec![belief_id], actor)
         } else {
             0
         };
