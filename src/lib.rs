@@ -9,6 +9,8 @@ pub mod audit_log;
 #[path = "modules/aureus_bridge.rs"]
 pub mod aureus_bridge;
 pub mod cognitive_gc;
+pub mod cognitive_state;
+pub mod simulation_fork;
 pub mod consolidation;
 pub mod conversation_memory;
 #[cfg(feature = "web-server")]

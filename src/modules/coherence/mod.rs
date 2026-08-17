@@ -501,6 +501,40 @@ impl CoherenceChecker {
         }
     }
 
+    /// Structural validation of a CognitiveDelta before it is applied.
+    /// Returns Ok(warnings) on success, Err(reason) on structural violation.
+    /// Phase-4 stub variants return Ok with a warning so transact() can reject
+    /// them with NotImplemented without producing coherence noise.
+    pub fn check_delta(
+        &self,
+        delta: &crate::cognitive_state::CognitiveDelta,
+    ) -> Result<Vec<String>, String> {
+        use crate::cognitive_state::CognitiveDelta;
+        let mut warnings = Vec::new();
+        match delta {
+            CognitiveDelta::AddMemory(r) => {
+                if r.actor.is_empty() {
+                    return Err("AddMemory: actor must not be empty".into());
+                }
+            }
+            CognitiveDelta::UpdateBelief { id, payload } => {
+                if payload.confidence < 0.0 || payload.confidence > 1.0 {
+                    return Err(format!(
+                        "UpdateBelief {id}: confidence {:.3} out of [0,1]",
+                        payload.confidence
+                    ));
+                }
+            }
+            CognitiveDelta::AdvanceGoal { .. } | CognitiveDelta::RegisterSkill(_) => {}
+            CognitiveDelta::Consolidate { .. }
+            | CognitiveDelta::ForgetActor(_)
+            | CognitiveDelta::ArchiveRecord(_) => {
+                warnings.push(format!("{} not implemented in Phase 0", delta.label()));
+            }
+        }
+        Ok(warnings)
+    }
+
     /// Check consistency and auto-resolve if possible. If resolution fails,
     /// return the write rejection. Used for writes that need coherence gating
     /// but allow auto-resolution before blocking.
