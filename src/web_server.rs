@@ -1171,15 +1171,20 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
             let cog = cognitive.clone();
             post(move |Json(req): Json<serde_json::Value>| async move {
                 let cog = cog.clone();
-                let actor = req.get("actor").and_then(|v| v.as_str()).unwrap_or("api").to_string();
+                let actor = req.get("actor").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                if actor.is_empty() {
+                    return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "actor required"})));
+                }
                 let delta_val = match req.get("delta") {
                     Some(v) => v.clone(),
                     None => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "missing delta"}))),
                 };
                 match serde_json::from_value::<crate::cognitive_state::CognitiveDelta>(delta_val) {
-                    Err(e) => (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
+                    Err(e) => (axum::http::StatusCode::UNPROCESSABLE_ENTITY, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
                     Ok(delta) => match cog.transact(delta, &actor) {
                         Ok(tx_cursor) => (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"ok": true, "tx_cursor": tx_cursor}))),
+                        Err(crate::cognitive_state::CognitiveError::CoherenceRejection(r)) => (axum::http::StatusCode::CONFLICT, axum::Json(serde_json::json!({"ok": false, "error": r, "code": "CoherenceRejection"}))),
+                        Err(crate::cognitive_state::CognitiveError::NotImplemented(op)) => (axum::http::StatusCode::NOT_IMPLEMENTED, axum::Json(serde_json::json!({"ok": false, "error": format!("{op} not implemented in Phase 0"), "code": "NotImplemented"}))),
                         Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
                     },
                 }

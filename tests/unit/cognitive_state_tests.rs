@@ -447,5 +447,8 @@ fn test_health_returns_defaults_on_fresh_handle() {
     let handle = make_handle();
     let h = handle.health();
     assert!(h.calibration_score >= 0.0 && h.calibration_score <= 1.0);
+    assert!(h.overall_health >= 0.0 && h.overall_health <= 1.0, "overall_health in [0,1]");
     assert!(h.healthy, "fresh handle must be healthy");
+    // G1-3: all 7 required fields accessible
+    let _ = (h.prediction_error_ewma, h.consolidation_pressure, h.epistemic_entropy, h.current_tx);
 }

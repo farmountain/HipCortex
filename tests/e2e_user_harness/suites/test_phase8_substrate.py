@@ -203,8 +203,20 @@ def test_g1_3_v1_self_health_returns_healthy_bool():
 
 
 @pytest.mark.skipif(not LIVE, reason="requires live server (set HIPCORTEX_LIVE_TESTS=1)")
-def test_g1_4_transact_tx_cursor_monotonically_increases():
-    """G1-4: Two sequential transacts increase tx_cursor monotonically."""
+def test_g1_4_empty_actor_returns_400():
+    """G1-4: POST /v1/cognitive/transact with empty actor → 400."""
+    import requests
+    payload = {"delta": _add_memory_delta(), "actor": ""}
+    resp = requests.post(f"{BASE}/v1/cognitive/transact", json=payload, timeout=10)
+    assert resp.status_code == 400, f"expected 400 for empty actor, got {resp.status_code}: {resp.text}"
+    data = resp.json()
+    assert data.get("ok") is False
+    assert "actor" in data.get("error", "").lower(), f"error should mention actor: {data}"
+
+
+@pytest.mark.skipif(not LIVE, reason="requires live server (set HIPCORTEX_LIVE_TESTS=1)")
+def test_live_tx_cursor_monotonically_increases():
+    """Sequential transacts must strictly increase tx_cursor."""
     import requests
     r1 = requests.post(f"{BASE}/v1/cognitive/transact", json={"delta": _add_memory_delta(), "actor": "e2e-test"}, timeout=10)
     r2 = requests.post(f"{BASE}/v1/cognitive/transact", json={"delta": _add_memory_delta(), "actor": "e2e-test"}, timeout=10)

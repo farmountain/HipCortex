@@ -494,8 +494,29 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             .map_err(CognitiveError::StoreError)
     }
 
-    /// Return current calibration state as a serialisable health snapshot.
-    pub fn health(&self) -> crate::self_model::calibration::CalibrationState {
-        self.calibration.snapshot()
+    /// Return aggregate health snapshot per spec (7 required fields + overall_health).
+    pub fn health(&self) -> SelfHealthResponse {
+        let s = self.calibration.snapshot();
+        SelfHealthResponse {
+            calibration_score: s.calibration_score,
+            prediction_error_ewma: s.prediction_error_ewma,
+            consolidation_pressure: s.consolidation_pressure,
+            epistemic_entropy: s.epistemic_entropy,
+            healthy: s.healthy,
+            overall_health: s.calibration_score,
+            current_tx: s.current_tx,
+        }
     }
+}
+
+/// Response struct for `GET /v1/self/health`. All 7 fields required by spec.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SelfHealthResponse {
+    pub calibration_score: f32,
+    pub prediction_error_ewma: f32,
+    pub consolidation_pressure: f32,
+    pub epistemic_entropy: f32,
+    pub healthy: bool,
+    pub overall_health: f32,
+    pub current_tx: u64,
 }
