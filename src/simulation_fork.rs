@@ -23,7 +23,15 @@ pub struct RolloutStep {
     /// True if uncertainty halted rollout after this step
     pub halted: bool,
     pub fork_tx: u64,
+    /// Goal distance [0, 1]: fraction of goal weight not yet satisfied. 1.0 = no goal or no progress.
+    #[serde(default = "one_f32")]
+    pub goal_distance: f32,
+    /// True if goal distance increased for 2+ consecutive steps at this point.
+    #[serde(default)]
+    pub drift_detected: bool,
 }
+
+fn one_f32() -> f32 { 1.0 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RolloutResult {
@@ -31,6 +39,20 @@ pub struct RolloutResult {
     pub final_fork_tx: u64,
     pub halted_early: bool,
     pub halt_reason: Option<String>,
+    /// True if goal-distance drift was detected during rollout.
+    #[serde(default)]
+    pub drift_alarm: bool,
+    /// Step index at which drift was first detected.
+    #[serde(default)]
+    pub drift_at_step: Option<u32>,
+}
+
+/// Returns true if the rollout result has a drift alarm AND the final goal distance exceeds `threshold`.
+pub fn drift_gate(result: &RolloutResult, threshold: f32) -> bool {
+    if !result.drift_alarm {
+        return false;
+    }
+    result.steps.last().map(|s| s.goal_distance > threshold).unwrap_or(false)
 }
 
 // ── SimulationFork ────────────────────────────────────────────────────────────
@@ -49,6 +71,11 @@ pub struct SimulationFork<B: MemoryBackend + Send + Sync + 'static> {
 
 const NOISE_FLOOR: f32 = 0.01;
 const ROLLOUT_K_CAP: usize = 5;
+/// Fraction of current variance added as process noise each step: P_{k+1} = P_k + max(α*P_k, Q_floor).
+/// This is the diagonal discrete Lyapunov recursion for a mildly unstable system.
+const KALMAN_Q_ALPHA: f32 = 0.1;
+/// Number of consecutive goal-distance increases that trigger a drift alarm.
+const DRIFT_CONSECUTIVE_THRESHOLD: usize = 2;
 
 impl<B: MemoryBackend + Send + Sync + 'static> SimulationFork<B> {
     /// Copy parent's live records into an isolated in-memory store.
@@ -130,7 +157,14 @@ impl<B: MemoryBackend + Send + Sync + 'static> SimulationFork<B> {
     }
 
     /// Execute up to `actions.len()` steps (capped at ROLLOUT_K_CAP=5).
-    /// Propagates diagonal Kalman uncertainty per step: P_{k+1}[i] = P_k[i] + noise_floor.
+    ///
+    /// Kalman covariance: P_{k+1}[entity][dim] = P_k[entity][dim] + max(α*P_k[dim], NOISE_FLOOR)
+    /// — entity-specific proportional process noise (diagonal discrete Lyapunov).
+    ///
+    /// Goal drift: auto-finds any active Goal in fork store, computes goal_distance per step
+    /// (fraction of total goal weight that is unsatisfied). DRIFT_CONSECUTIVE_THRESHOLD
+    /// consecutive increases trigger drift_alarm.
+    ///
     /// Halts early if max variance across all entities exceeds sigma2_max.
     pub fn rollout(
         &mut self,
@@ -143,17 +177,37 @@ impl<B: MemoryBackend + Send + Sync + 'static> SimulationFork<B> {
         let sigma2_max = sigma2_max.clamp(0.01, 1.0);
         let actions: Vec<String> = actions.into_iter().take(ROLLOUT_K_CAP).collect();
 
+        // Pre-scan fork store for the first active Goal to track drift against.
+        let goal_factors: Vec<(f32, bool)> = {
+            let all = self.store.all();
+            all.iter()
+                .find(|r| r.record_type == MemoryType::Goal && r.status == "active")
+                .and_then(|r| serde_json::from_value::<GoalPayload>(r.metadata.clone()).ok())
+                .map(|p| {
+                    p.success_factors
+                        .iter()
+                        .map(|f| (f.weight, f.satisfied))
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        let total_goal_weight: f32 = goal_factors.iter().map(|(w, _)| w).sum();
+
         let mut steps = Vec::new();
         let mut halted_early = false;
         let mut halt_reason: Option<String> = None;
+        let mut prev_goal_distance: Option<f32> = None;
+        let mut drift_streak: usize = 0;
+        let mut drift_alarm = false;
+        let mut drift_at_step: Option<u32> = None;
 
         for (idx, action) in actions.iter().enumerate() {
             let fork_tx = self.step(action)?;
 
-            // Propagate diagonal Kalman: P_{k+1}[i] = P_k[i] + noise_floor
+            // Propagate diagonal Kalman: P_{k+1}[i] = P_k[i] + max(α*P_k[i], NOISE_FLOOR)
             for variances in self.uncertainty.values_mut() {
                 for v in variances.iter_mut() {
-                    *v += NOISE_FLOOR;
+                    *v += (*v * KALMAN_Q_ALPHA).max(NOISE_FLOOR);
                 }
             }
 
@@ -166,6 +220,35 @@ impl<B: MemoryBackend + Send + Sync + 'static> SimulationFork<B> {
                     (id.clone(), max_var)
                 })
                 .collect();
+
+            // Goal-distance: fraction of total weight that is unsatisfied
+            let goal_distance = if total_goal_weight > 0.0 {
+                let unsatisfied: f32 = goal_factors
+                    .iter()
+                    .filter(|(_, sat)| !sat)
+                    .map(|(w, _)| w)
+                    .sum();
+                (unsatisfied / total_goal_weight).clamp(0.0, 1.0)
+            } else {
+                1.0 // no goal in store = maximum distance
+            };
+
+            // Drift detection: track consecutive increases
+            let step_drift = if let Some(prev) = prev_goal_distance {
+                if goal_distance > prev {
+                    drift_streak += 1;
+                } else {
+                    drift_streak = 0;
+                }
+                if drift_streak >= DRIFT_CONSECUTIVE_THRESHOLD && !drift_alarm {
+                    drift_alarm = true;
+                    drift_at_step = Some(idx as u32);
+                }
+                drift_alarm
+            } else {
+                false
+            };
+            prev_goal_distance = Some(goal_distance);
 
             // Check halt condition
             let max_global = uncertainty_snapshot
@@ -180,6 +263,8 @@ impl<B: MemoryBackend + Send + Sync + 'static> SimulationFork<B> {
                 uncertainty: uncertainty_snapshot,
                 halted,
                 fork_tx,
+                goal_distance,
+                drift_detected: step_drift,
             });
 
             if halted {
@@ -192,7 +277,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> SimulationFork<B> {
         }
 
         let final_fork_tx = self.tx_log.current_tx();
-        Ok(RolloutResult { steps, final_fork_tx, halted_early, halt_reason })
+        Ok(RolloutResult { steps, final_fork_tx, halted_early, halt_reason, drift_alarm, drift_at_step })
     }
 
     /// Build CognitiveSnapshot from fork's local records.

@@ -184,3 +184,89 @@ fn test_rollout_final_fork_tx_monotonic() {
     let result = fork.rollout(vec!["a".into(), "b".into()], 1.0).unwrap();
     assert!(result.final_fork_tx > tx_before, "fork_tx must increase after rollout");
 }
+
+// ─── Phase 3 new: Kalman Q + drift ───────────────────────────────────────────
+
+#[test]
+fn test_rollout_goal_distance_one_when_no_goal() {
+    use hipcortex::simulation_fork::drift_gate;
+    let handle = make_handle();
+    let mut fork = handle.fork().unwrap();
+    let result = fork.rollout(vec!["a".into(), "b".into()], 1.0).unwrap();
+    for step in &result.steps {
+        assert!(
+            (step.goal_distance - 1.0).abs() < 1e-5,
+            "no goal → goal_distance must be 1.0, got {}",
+            step.goal_distance
+        );
+    }
+    assert!(!result.drift_alarm, "constant goal_distance=1.0 must not trigger drift");
+    assert!(result.drift_at_step.is_none());
+    assert!(!drift_gate(&result, 0.5));
+}
+
+#[test]
+fn test_rollout_variance_grows_each_step() {
+    // With default uncertainty [0.01; 3], each step: v = v + max(v*0.1, 0.01)
+    // Floor dominates until v > 0.1; for v=0.01 → 0.01+0.01=0.02, 0.02→0.03, etc.
+    // Variance must strictly increase step over step.
+    let handle = make_handle();
+    let mut fork = handle.fork().unwrap();
+    let result = fork.rollout(
+        vec!["a".into(), "b".into(), "c".into()],
+        1.0,
+    ).unwrap();
+    let variances: Vec<f32> = result.steps.iter()
+        .map(|s| *s.uncertainty.values().next().unwrap())
+        .collect();
+    for i in 1..variances.len() {
+        assert!(
+            variances[i] > variances[i - 1],
+            "variance must grow: step{} {} <= step{} {}",
+            i, variances[i], i-1, variances[i-1]
+        );
+    }
+}
+
+#[test]
+fn test_rollout_goal_distance_and_drift_fields_present() {
+    use hipcortex::payloads::{GoalPayload, GoalStatus, SuccessFactor};
+    // Add a partially-satisfied goal to parent store
+    let handle = make_handle();
+    {
+        let factor = SuccessFactor {
+            name: "test-factor".into(),
+            weight: 1.0,
+            satisfied: false,
+        };
+        let payload = GoalPayload {
+            target_state: "reach-x".into(),
+            acceptance_criteria: vec![],
+            success_factors: vec![factor],
+            status: GoalStatus::InProgress,
+            current_iteration: 0,
+            max_react_iterations: 10,
+        };
+        let meta = serde_json::to_value(&payload).unwrap();
+        let rec = MemoryRecord::new(
+            MemoryType::Goal,
+            "agent".into(),
+            "pursue".into(),
+            "reach-x".into(),
+            meta,
+        );
+        handle.memory.lock().unwrap().add(rec).unwrap();
+    }
+    let mut fork = handle.fork().unwrap();
+    let result = fork.rollout(vec!["step1".into(), "step2".into()], 1.0).unwrap();
+    // goal has 1 unsatisfied factor of weight 1.0 → distance = 1.0/1.0 = 1.0
+    for step in &result.steps {
+        assert!(
+            (step.goal_distance - 1.0).abs() < 1e-5,
+            "unsatisfied goal → distance=1.0, got {}",
+            step.goal_distance
+        );
+    }
+    // Distance constant at 1.0 → no streak → no alarm
+    assert!(!result.drift_alarm);
+}
