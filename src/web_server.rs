@@ -158,6 +158,7 @@ pub struct AppState<B: MemoryBackend + Send + Sync + 'static> {
     pub archive_store: Arc<Mutex<ArchiveStore>>,
     pub tx_log: Option<Arc<TxLog>>,
     pub calibration: Arc<CalibrationTracker>,
+    pub cognitive: Arc<crate::cognitive_state::CognitiveHandle<B>>,
 }
 
 /// Manual Clone: all fields are Arc<…> so clone is a ref-count bump regardless of B.
@@ -175,6 +176,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> Clone for AppState<B> {
             archive_store: self.archive_store.clone(),
             tx_log: self.tx_log.clone(),
             calibration: self.calibration.clone(),
+            cognitive: self.cognitive.clone(),
         }
     }
 }
@@ -502,19 +504,33 @@ pub async fn run_with_memory<B: MemoryBackend + Send + Sync + 'static>(
     addr: SocketAddr,
     memory_store: Arc<Mutex<MemoryStore<B>>>,
 ) {
+    let coherence = Arc::new(CoherenceChecker::new());
+    let calibration = Arc::new(CalibrationTracker::new());
+    let world_model = Arc::new(RwLock::new(WorldModelEnhanced::new()));
+    let self_model = Arc::new(SelfModel::new());
+    let cognitive = Arc::new(crate::cognitive_state::CognitiveHandle::new(
+        Arc::clone(&memory_store),
+        Arc::clone(&world_model),
+        Arc::clone(&self_model),
+        None,
+        Arc::clone(&coherence),
+        Arc::clone(&calibration),
+        Arc::new(crate::cognitive_gc::CognitiveGC::new()),
+    ));
     let state = AppState {
         memory_store,
         symbolic_store: Arc::new(Mutex::new(SymbolicStore::new())),
-        world_model: Arc::new(RwLock::new(WorldModelEnhanced::new())),
+        world_model,
         aureus: Arc::new(Mutex::new(AureusBridge::new())),
-        self_model: Arc::new(SelfModel::new()),
-        coherence: Arc::new(CoherenceChecker::new()),
+        self_model,
+        coherence,
         topo_graph: Arc::new(Mutex::new(crate::topological_memory::CausalTopoGraph::new())),
         archive_store: Arc::new(Mutex::new(ArchiveStore::new(
             std::env::temp_dir().join("hipcortex-archive.jsonl"),
         ))),
         tx_log: None,
-        calibration: Arc::new(CalibrationTracker::new()),
+        calibration,
+        cognitive,
     };
     run_with_state(addr, state).await;
 }
@@ -538,6 +554,7 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     let archive_store = state.archive_store.clone();
     let tx_log_arc = state.tx_log.clone();
     let calibration = state.calibration.clone();
+    let cognitive = state.cognitive.clone();
 
     // ── Symbolic store routes ─────────────────────────────────────────────
     let graph_route = {
@@ -1004,6 +1021,19 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         })
         .route("/worldmodel/causal/intervention",   wm_intervention_route)
         .route("/worldmodel/causal/counterfactual", wm_counterfactual_route)
+        .route("/v1/cognitive/snapshot", {
+            let cog = cognitive.clone();
+            axum::routing::get(move |axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>| {
+                let cog = cog.clone();
+                async move {
+                    let actor = params.get("actor").cloned().unwrap_or_default();
+                    match cog.snapshot(&actor) {
+                        Ok(snap) => (axum::http::StatusCode::OK, axum::Json(serde_json::to_value(snap).unwrap_or_default())),
+                        Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({"error": e.to_string()}))),
+                    }
+                }
+            })
+        })
         .route("/memory/reflect",       memory_reflect_route)
         .route("/memory/hypotheses",    memory_hypotheses_route)
         .route("/memory/hypotheses/reset", {

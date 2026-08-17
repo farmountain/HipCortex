@@ -91,19 +91,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(|l| Arc::new(l))
         .map_err(|e| eprintln!("[TxLog] open error: {e}"))
         .ok();
+    let coherence = Arc::new(CoherenceChecker::new());
+    let calibration = Arc::new(CalibrationTracker::new());
+    let cognitive = Arc::new(hipcortex::cognitive_state::CognitiveHandle::new(
+        Arc::clone(&memory_store),
+        Arc::clone(&world_model),
+        Arc::clone(&self_model),
+        tx_log.clone(),
+        Arc::clone(&coherence),
+        Arc::clone(&calibration),
+        Arc::new(hipcortex::cognitive_gc::CognitiveGC::new()),
+    ));
     let state = AppState {
         memory_store: memory_store.clone(),
         symbolic_store: Arc::new(Mutex::new(SymbolicStore::<InMemoryGraph>::new())),
         world_model: world_model.clone(),
         aureus: Arc::new(Mutex::new(AureusBridge::new())),
         self_model,
-        coherence: Arc::new(CoherenceChecker::new()),
+        coherence,
         topo_graph: Arc::new(Mutex::new(
             hipcortex::topological_memory::CausalTopoGraph::new(),
         )),
         archive_store: Arc::new(Mutex::new(ArchiveStore::new(&archive_path))),
         tx_log,
-        calibration: Arc::new(CalibrationTracker::new()),
+        calibration,
+        cognitive,
     };
 
     // ── Periodic WorldModel flush every 5 minutes ────────────────────────────
