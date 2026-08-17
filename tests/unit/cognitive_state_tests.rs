@@ -168,21 +168,7 @@ fn test_transact_advance_goal_not_found_err() {
     assert!(matches!(err, CognitiveError::StoreError(_)));
 }
 
-#[test]
-fn test_transact_consolidate_not_implemented() {
-    use hipcortex::cognitive_state::CognitiveError;
-    let handle = make_handle();
-    let summary = MemoryRecord::new(
-        MemoryType::Reflexion,
-        "a".into(),
-        "consolidate".into(),
-        "s".into(),
-        serde_json::json!({}),
-    );
-    let delta = CognitiveDelta::Consolidate { source_ids: vec![], summary };
-    let err = handle.transact(delta, "a").unwrap_err();
-    assert!(matches!(err, CognitiveError::NotImplemented(_)));
-}
+// test_transact_consolidate_not_implemented removed — Consolidate is real in Phase 4
 
 #[test]
 fn test_transact_register_skill() {
@@ -460,4 +446,130 @@ fn test_health_returns_defaults_on_fresh_handle() {
     assert!(h.healthy, "fresh handle must be healthy");
     // G1-3: all 7 required fields accessible
     let _ = (h.prediction_error_ewma, h.consolidation_pressure, h.epistemic_entropy, h.current_tx);
+}
+
+// ─── Phase 4: ExperienceStore tests ─────────────────────────────────────────
+
+fn make_temporal(actor: &str) -> MemoryRecord {
+    MemoryRecord::new(
+        MemoryType::Temporal,
+        actor.to_string(),
+        "did".to_string(),
+        "thing".to_string(),
+        serde_json::json!({}),
+    )
+}
+
+#[test]
+fn test_consolidate_archives_sources_and_inserts_summary() {
+    use hipcortex::cognitive_state::CognitiveHandle;
+    use hipcortex::cognitive_gc::CognitiveGC;
+    use hipcortex::coherence::CoherenceChecker;
+    use hipcortex::self_model::{SelfModel, calibration::CalibrationTracker};
+    use hipcortex::world_model_enhanced::WorldModelEnhanced;
+    use hipcortex::persistence::InMemoryBackend;
+    use hipcortex::memory_store::MemoryStore;
+    use std::sync::{Arc, Mutex, RwLock};
+
+    let handle = CognitiveHandle::<InMemoryBackend>::new(
+        Arc::new(Mutex::new(MemoryStore::new_in_memory())),
+        Arc::new(RwLock::new(WorldModelEnhanced::new())),
+        Arc::new(SelfModel::new()),
+        None,
+        Arc::new(CoherenceChecker::new()),
+        Arc::new(CalibrationTracker::new()),
+        Arc::new(CognitiveGC::new()),
+    );
+
+    let r1 = make_temporal("agent");
+    let r2 = make_temporal("agent");
+    let id1 = r1.id;
+    let id2 = r2.id;
+    handle.transact(CognitiveDelta::AddMemory(r1), "agent").unwrap();
+    handle.transact(CognitiveDelta::AddMemory(r2), "agent").unwrap();
+
+    let summary = make_temporal("system");
+    let summary_id = summary.id;
+
+    handle.transact(
+        CognitiveDelta::Consolidate { source_ids: vec![id1, id2], summary },
+        "system",
+    ).unwrap();
+
+    let ms = handle.memory.lock().unwrap();
+    // Sources removed from hot store
+    assert!(ms.find_by_id(id1).is_none(), "source1 must be removed");
+    assert!(ms.find_by_id(id2).is_none(), "source2 must be removed");
+    // Summary inserted
+    assert!(ms.find_by_id(summary_id).is_some(), "summary must be present");
+}
+
+#[test]
+fn test_consolidate_empty_source_ids_returns_error() {
+    let handle = make_handle();
+    let summary = make_temporal("system");
+    let err = handle.transact(
+        CognitiveDelta::Consolidate { source_ids: vec![], summary },
+        "system",
+    ).unwrap_err();
+    assert!(matches!(err, CognitiveError::DeltaInvalid(_)));
+}
+
+#[test]
+fn test_forget_actor_deletes_all_records_and_returns_count() {
+    use hipcortex::cognitive_state::{CognitiveHandle, TransactResult};
+    use hipcortex::cognitive_gc::CognitiveGC;
+    use hipcortex::coherence::CoherenceChecker;
+    use hipcortex::self_model::{SelfModel, calibration::CalibrationTracker};
+    use hipcortex::world_model_enhanced::WorldModelEnhanced;
+    use hipcortex::persistence::InMemoryBackend;
+    use hipcortex::memory_store::MemoryStore;
+    use std::sync::{Arc, Mutex, RwLock};
+
+    let handle = CognitiveHandle::<InMemoryBackend>::new(
+        Arc::new(Mutex::new(MemoryStore::new_in_memory())),
+        Arc::new(RwLock::new(WorldModelEnhanced::new())),
+        Arc::new(SelfModel::new()),
+        None,
+        Arc::new(CoherenceChecker::new()),
+        Arc::new(CalibrationTracker::new()),
+        Arc::new(CognitiveGC::new()),
+    );
+
+    handle.transact(CognitiveDelta::AddMemory(make_temporal("victim")), "victim").unwrap();
+    handle.transact(CognitiveDelta::AddMemory(make_temporal("victim")), "victim").unwrap();
+    handle.transact(CognitiveDelta::AddMemory(make_temporal("bystander")), "bystander").unwrap();
+
+    let TransactResult { records_deleted, .. } = handle.transact_ex(
+        CognitiveDelta::ForgetActor { actor: "victim".into() },
+        "system",
+    ).unwrap();
+
+    assert_eq!(records_deleted, Some(2), "2 victim records deleted");
+    let ms = handle.memory.lock().unwrap();
+    assert_eq!(ms.find_by_actor("victim").len(), 0, "no victim records remain");
+    assert_eq!(ms.find_by_actor("bystander").len(), 1, "bystander untouched");
+}
+
+#[test]
+fn test_archive_record_removes_from_hot_store() {
+    let handle = make_handle();
+    let r = make_temporal("bot");
+    let id = r.id;
+    handle.transact(CognitiveDelta::AddMemory(r), "bot").unwrap();
+    handle.transact(CognitiveDelta::ArchiveRecord { id }, "system").unwrap();
+    let ms = handle.memory.lock().unwrap();
+    assert!(ms.find_by_id(id).is_none(), "record must be removed from hot store");
+}
+
+#[test]
+fn test_consolidate_over_100_source_ids_returns_error() {
+    let handle = make_handle();
+    let summary = make_temporal("system");
+    let ids: Vec<uuid::Uuid> = (0..101).map(|_| uuid::Uuid::new_v4()).collect();
+    let err = handle.transact(
+        CognitiveDelta::Consolidate { source_ids: ids, summary },
+        "system",
+    ).unwrap_err();
+    assert!(matches!(err, CognitiveError::DeltaInvalid(_)), "expected DeltaInvalid for >100 source_ids");
 }

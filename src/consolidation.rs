@@ -1,139 +1,115 @@
-use std::collections::HashMap;
+//! Online hierarchical memory compactor.
+//!
+//! Chain-of-thought: Provides two APIs:
+//! 1. Legacy/bulk: `consolidate()` + `compute_pressure()` + `ConsolidationConfig` —
+//!    used by REST endpoints and the web_server background loop.
+//! 2. Phase-4 graph layer: `detect_communities()` + `contract_community()` —
+//!    used by CognitiveDelta::Consolidate via CognitiveHandle::consolidate_memory().
 
-use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
-use crate::{
-    archive_store::ArchiveStore,
-    memory_record::{MemoryRecord, MemoryType},
-    memory_store::MemoryStore,
-    persistence::MemoryBackend,
-    symbolic_store::{GraphDatabase, SymbolicStore},
-    tx_log::{TxKind, TxLog},
-};
+use crate::archive_store::ArchiveStore;
+use crate::memory_record::{MemoryRecord, MemoryType};
+use crate::memory_store::MemoryStore;
+use crate::persistence::MemoryBackend;
+use crate::symbolic_store::{GraphDatabase, SymbolicStore};
+use crate::tx_log::{TxKind, TxLog};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+// ── Legacy bulk API ───────────────────────────────────────────────────────────
+
+/// Configuration knobs for the bulk consolidation pass.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ConsolidationConfig {
-    /// Groups with fewer records than this are not consolidated.
+    /// Minimum number of records in a group before consolidation fires.
     pub min_group_size: usize,
-    /// Trigger auto-consolidation when hot_count / capacity >= this.
-    pub pressure_threshold: f32,
-    /// Approximate maximum Hot store capacity (for pressure computation).
+    /// Record count at which pressure = 1.0.
     pub capacity_limit: usize,
+    /// Fraction [0, 1] above which a background consolidation pass is triggered.
+    pub pressure_threshold: f32,
 }
 
 impl Default for ConsolidationConfig {
     fn default() -> Self {
         Self {
             min_group_size: 3,
-            pressure_threshold: 0.80,
-            capacity_limit: 10_000,
+            capacity_limit: 1000,
+            pressure_threshold: 0.7,
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Report returned by `consolidate()`.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ConsolidationReport {
     pub groups_consolidated: usize,
     pub records_archived: usize,
     pub summary_records_created: usize,
-    /// IDs of all archived original records.
     pub archived_ids: Vec<Uuid>,
 }
 
-/// P_tx = hot_count / capacity_limit. Returns [0.0, ∞).
+/// Compute memory pressure as `record_count / capacity_limit`, clamped to [0, 1].
 pub fn compute_pressure<B: MemoryBackend>(
     store: &MemoryStore<B>,
     config: &ConsolidationConfig,
 ) -> f32 {
-    store.all().len() as f32 / config.capacity_limit as f32
+    if config.capacity_limit == 0 {
+        return 1.0;
+    }
+    (store.record_count() as f32 / config.capacity_limit as f32).min(1.0)
 }
 
-/// Greedy tag+actor consolidation.
+/// Bulk consolidation pass.
 ///
-/// Groups Temporal records by `actor:sorted_tags`, collapses groups ≥ min_group_size
-/// into a SummaryRecord, archives originals via ArchiveStore, and reanchors SymbolicStore
-/// edges from original nodes to the summary node.
-pub fn consolidate<B: MemoryBackend, G: GraphDatabase>(
+/// Groups active Temporal records by `(actor, sorted-tags)`. Groups with
+/// `>= min_group_size` records are consolidated: originals are moved to the
+/// `ArchiveStore`, one summary record is inserted into the hot store, and a
+/// symbolic graph node is added for the summary.
+pub fn consolidate<B: MemoryBackend, S: GraphDatabase>(
     store: &mut MemoryStore<B>,
     archive: &mut ArchiveStore,
-    graph: &mut SymbolicStore<G>,
-    tx_log: &TxLog,
+    graph: &mut SymbolicStore<S>,
+    log: &TxLog,
     config: &ConsolidationConfig,
 ) -> Result<ConsolidationReport, String> {
-    // 1. Collect Temporal records.
-    let temporals: Vec<MemoryRecord> = store
-        .all()
-        .iter()
-        .filter(|r| r.record_type == MemoryType::Temporal)
-        .cloned()
-        .collect();
+    // Group active Temporal records by (actor, sorted tags)
+    let groups = group_temporal_records(store, config.min_group_size);
 
-    // 2. Group by actor:sorted_tags.
-    let mut groups: HashMap<String, Vec<MemoryRecord>> = HashMap::new();
-    for rec in temporals {
-        let mut sorted_tags = rec.tags.clone();
-        sorted_tags.sort();
-        let key = format!("{}:{}", rec.actor, sorted_tags.join(","));
-        groups.entry(key).or_default().push(rec);
-    }
-
-    let mut archived_ids: Vec<Uuid> = Vec::new();
     let mut groups_consolidated = 0usize;
+    let mut records_archived = 0usize;
     let mut summary_records_created = 0usize;
+    let mut archived_ids: Vec<Uuid> = Vec::new();
 
-    // 3. Consolidate eligible groups.
-    for (_key, members) in groups
-        .into_iter()
-        .filter(|(_, v)| v.len() >= config.min_group_size)
-    {
-        // 4a. Build SummaryRecord.
-        let representative = &members[0];
-        let summary_meta = serde_json::json!({
-            "consolidated_from": members.iter().map(|r| r.id.to_string()).collect::<Vec<_>>(),
-            "count": members.len(),
-        });
-        let summary = MemoryRecord::new(
-            MemoryType::Temporal,
-            representative.actor.clone(),
-            "consolidate".to_string(),
-            format!("summary:{}", representative.actor),
-            summary_meta,
-        );
-        let summary_id = summary.id;
-
-        // 4b. Add summary node to graph.
-        let mut sym_props = HashMap::new();
-        sym_props.insert("type".to_string(), "summary".to_string());
-        sym_props.insert("actor".to_string(), representative.actor.clone());
-        let sym_summary_id = graph.add_node(&summary_id.to_string(), sym_props);
-
-        // 4c. Add summary to hot store.
-        store.add(summary).map_err(|e| e.to_string())?;
-
-        // 4d. Archive originals, reanchor edges.
-        let member_ids: Vec<Uuid> = members.iter().map(|r| r.id).collect();
-        for original in members {
-            let orig_id = original.id;
-
-            // Find symbolic nodes with label matching original record id.
-            let orig_sym_nodes = graph.find_by_label(&orig_id.to_string());
-            for sym_node in orig_sym_nodes {
-                // Reanchor outgoing edges to summary node.
-                let edges = graph.edges_from(sym_node.id, None);
-                for edge in edges {
-                    graph.add_edge(sym_summary_id, edge.to, &edge.relation);
-                }
-                graph.remove_node(sym_node.id);
+    for (key, ids) in groups {
+        // Archive originals
+        for id in &ids {
+            if let Some(rec) = store.find_by_id(*id).cloned() {
+                archive
+                    .append(rec)
+                    .map_err(|e| format!("archive error: {e}"))?;
+                archived_ids.push(*id);
+                records_archived += 1;
             }
-
-            archive.append(original).map_err(|e| e.to_string())?;
-            store.delete_by_id(orig_id);
-            archived_ids.push(orig_id);
+            store.delete_by_id(*id);
         }
 
-        // tx_log entry per group.
-        tx_log.append(TxKind::Consolidate, member_ids, "system");
+        // Insert summary record
+        let summary = MemoryRecord::new(
+            MemoryType::Temporal,
+            key.0.clone(),
+            "consolidated".into(),
+            format!("summary:{}", key.1),
+            serde_json::json!({ "source_count": ids.len(), "tags": key.1 }),
+        );
+        let summary_id = summary.id;
+        store.add(summary).map_err(|e| format!("store error: {e}"))?;
+        log.append(TxKind::Consolidate, vec![summary_id], &key.0);
+
+        // Add graph node for summary
+        let mut props = HashMap::new();
+        props.insert("actor".into(), key.0.clone());
+        props.insert("type".into(), "consolidated_summary".into());
+        graph.add_node(&format!("summary:{}", key.0), props);
 
         groups_consolidated += 1;
         summary_records_created += 1;
@@ -141,8 +117,123 @@ pub fn consolidate<B: MemoryBackend, G: GraphDatabase>(
 
     Ok(ConsolidationReport {
         groups_consolidated,
-        records_archived: archived_ids.len(),
+        records_archived,
         summary_records_created,
         archived_ids,
     })
+}
+
+/// Group active Temporal records by `(actor, sorted-tags-joined)`.
+/// Returns only groups with >= `min_size` members.
+fn group_temporal_records<B: MemoryBackend>(
+    store: &MemoryStore<B>,
+    min_size: usize,
+) -> HashMap<(String, String), Vec<Uuid>> {
+    let mut groups: HashMap<(String, String), Vec<Uuid>> = HashMap::new();
+    for rec in store.all() {
+        if rec.record_type != MemoryType::Temporal || rec.status != "active" {
+            continue;
+        }
+        let mut sorted_tags = rec.tags.clone();
+        sorted_tags.sort();
+        let tag_key = sorted_tags.join(",");
+        groups
+            .entry((rec.actor.clone(), tag_key))
+            .or_default()
+            .push(rec.id);
+    }
+    groups.retain(|_, ids| ids.len() >= min_size);
+    groups
+}
+
+// ── Phase-4 graph layer API ───────────────────────────────────────────────────
+
+/// Greedy single-pass Louvain community detection on a SymbolicStore subgraph.
+///
+/// Only edges whose both endpoints are in `node_ids` are considered. Isolated
+/// nodes each form a singleton community. Returns `Vec<Vec<Uuid>>`.
+pub fn detect_communities<B: GraphDatabase>(
+    store: &SymbolicStore<B>,
+    node_ids: &[Uuid],
+) -> Vec<Vec<Uuid>> {
+    if node_ids.is_empty() {
+        return vec![];
+    }
+
+    let id_set: HashSet<Uuid> = node_ids.iter().copied().collect();
+
+    // Build undirected adjacency map restricted to the subgraph
+    let mut adj: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
+    for &id in node_ids {
+        for edge in store.edges_from(id, None) {
+            if id_set.contains(&edge.to) {
+                adj.entry(id).or_default().push(edge.to);
+                adj.entry(edge.to).or_default().push(id);
+            }
+        }
+    }
+
+    // Greedy single-pass: join first already-assigned neighbor's community
+    let mut community_of: HashMap<Uuid, usize> = HashMap::new();
+    let mut next_id: usize = 0;
+
+    for &node in node_ids {
+        if community_of.contains_key(&node) {
+            continue;
+        }
+        let assigned = adj
+            .get(&node)
+            .and_then(|nb| nb.iter().find_map(|n| community_of.get(n).copied()));
+        let cid = assigned.unwrap_or_else(|| {
+            let id = next_id;
+            next_id += 1;
+            id
+        });
+        community_of.insert(node, cid);
+    }
+
+    let mut groups: HashMap<usize, Vec<Uuid>> = HashMap::new();
+    for (node, cid) in community_of {
+        groups.entry(cid).or_default().push(node);
+    }
+    groups.into_values().collect()
+}
+
+/// Contract one community: redirect outgoing cross-community edges to `summary_id`,
+/// then remove each original community node.
+///
+/// `summary_id` must already exist in `store`. Intra-community edges are dropped.
+pub fn contract_community<B: GraphDatabase>(
+    store: &mut SymbolicStore<B>,
+    community: &[Uuid],
+    summary_id: Uuid,
+) -> Result<(), String> {
+    if community.is_empty() {
+        return Ok(());
+    }
+    let community_set: HashSet<Uuid> = community.iter().copied().collect();
+
+    // Collect cross-community outgoing edges before removing nodes
+    let mut edges_to_add: Vec<(Uuid, Uuid, String)> = Vec::new();
+    for &node in community {
+        for edge in store.edges_from(node, None) {
+            if !community_set.contains(&edge.to) {
+                edges_to_add.push((summary_id, edge.to, edge.relation.clone()));
+            }
+        }
+    }
+
+    // Remove community nodes (drops all their stored edges)
+    for &node in community {
+        if node != summary_id {
+            store.remove_node(node);
+        }
+    }
+
+    // Re-add cross-community edges from summary
+    for (from, to, rel) in edges_to_add {
+        store.add_edge(from, to, &rel);
+    }
+
+    Ok(())
 }

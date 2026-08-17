@@ -9,7 +9,8 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
-use crate::cognitive_gc::CognitiveGC;
+use crate::archive_store::ArchiveStore;
+use crate::cognitive_gc::{CognitiveGC, GcAction};
 use crate::memory_record::{MemoryRecord, MemoryType};
 use crate::memory_store::MemoryStore;
 use crate::coherence::CoherenceChecker;
@@ -170,6 +171,8 @@ pub struct CognitiveHandle<B: MemoryBackend + Send + Sync + 'static> {
     pub(crate) coherence: Arc<CoherenceChecker>,
     pub(crate) calibration: Arc<CalibrationTracker>,
     pub(crate) gc: Arc<CognitiveGC>,
+    /// Optional Cold Store for archived records (Phase 4). None = archive silently skipped.
+    pub(crate) archive_store: Option<Arc<Mutex<ArchiveStore>>>,
 }
 
 /// Mean binary entropy over a slice of confidence values in [0,1].
@@ -198,13 +201,27 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         calibration: Arc<CalibrationTracker>,
         gc: Arc<CognitiveGC>,
     ) -> Self {
-        Self { memory, world, self_model, tx_log, coherence, calibration, gc }
+        Self { memory, world, self_model, tx_log, coherence, calibration, gc, archive_store: None }
     }
 
-    /// Apply a CognitiveDelta transactionally.
-    ///
-    /// Pipeline: safety gate → structural check → Phase-4 guard → apply → tx log → calibration ping.
+    pub fn with_archive_store(mut self, store: ArchiveStore) -> Self {
+        self.archive_store = Some(Arc::new(Mutex::new(store)));
+        self
+    }
+
+    /// Apply a CognitiveDelta; returns tx_cursor. Thin wrapper over `transact_ex`.
     pub fn transact(&self, delta: CognitiveDelta, actor: &str) -> Result<u64, CognitiveError> {
+        Ok(self.transact_ex(delta, actor)?.tx_cursor)
+    }
+
+    /// Full transact returning `TransactResult` (includes `records_deleted` for ForgetActor).
+    ///
+    /// Pipeline: safety gate → structural check → apply → tx log → calibration ping.
+    pub fn transact_ex(
+        &self,
+        delta: CognitiveDelta,
+        actor: &str,
+    ) -> Result<TransactResult, CognitiveError> {
         // Step 1: Safety gate
         self.coherence
             .gate_write(delta.label())
@@ -215,20 +232,27 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             .check_delta(&delta)
             .map_err(CognitiveError::DeltaInvalid)?;
 
-        // Step 3: Phase-4 stubs reject before touching any store
+        // Step 3: Phase-4 real implementations
         match &delta {
-            CognitiveDelta::Consolidate { .. }
-            | CognitiveDelta::ForgetActor { .. }
-            | CognitiveDelta::ArchiveRecord { .. } => {
-                return Err(CognitiveError::NotImplemented(delta.label().into()));
+            CognitiveDelta::Consolidate { source_ids, summary } => {
+                let tx_cursor = self.consolidate_memory(source_ids, summary.clone(), actor)?;
+                return Ok(TransactResult { tx_cursor, records_deleted: None });
+            }
+            CognitiveDelta::ForgetActor { actor: target_actor } => {
+                let (tx_cursor, deleted) = self.forget_actor(target_actor, actor)?;
+                return Ok(TransactResult { tx_cursor, records_deleted: Some(deleted) });
+            }
+            CognitiveDelta::ArchiveRecord { id } => {
+                let tx_cursor = self.archive_record(*id, actor)?;
+                return Ok(TransactResult { tx_cursor, records_deleted: None });
             }
             _ => {}
         }
 
-        // Step 4: Apply
+        // Step 4: Apply standard deltas
         let affected_ids = self.apply_delta(&delta)?;
 
-        // Step 5: TxLog — return assigned tx_id (0 when no log)
+        // Step 5: TxLog
         let tx_cursor = if let Some(tx) = &self.tx_log {
             let kind = match &delta {
                 CognitiveDelta::AddMemory(_) => TxKind::MemoryAdd,
@@ -242,9 +266,107 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             0
         };
 
-        // Step 6: Calibration ping — mutation succeeded as expected
+        // Step 6: Calibration ping
         self.calibration.record_prediction_error(0.0);
 
+        Ok(TransactResult { tx_cursor, records_deleted: None })
+    }
+
+    // ── Phase-4 private helpers ────────────────────────────────────────────────
+
+    /// Archive source records and insert summary. Rejects source_ids > 100 (G4-5).
+    fn consolidate_memory(
+        &self,
+        source_ids: &[Uuid],
+        summary: MemoryRecord,
+        actor: &str,
+    ) -> Result<u64, CognitiveError> {
+        if source_ids.is_empty() {
+            return Err(CognitiveError::DeltaInvalid("source_ids must not be empty".into()));
+        }
+        if source_ids.len() > 100 {
+            return Err(CognitiveError::DeltaInvalid(
+                format!("source_ids exceeds cap of 100 (got {})", source_ids.len()),
+            ));
+        }
+        let capped: Vec<Uuid> = source_ids.to_vec();
+
+        let summary_id = summary.id;
+        {
+            let mut ms = self.memory.lock().map_err(|_| CognitiveError::LockError)?;
+
+            // Archive or delete each source record
+            for &id in &capped {
+                if let Some(rec) = ms.find_by_id(id).cloned() {
+                    // Move to cold store if available
+                    if let Some(arc) = &self.archive_store {
+                        let _ = arc.lock().map(|mut as_| as_.append(rec));
+                    }
+                    ms.delete_by_id(id);
+                }
+            }
+
+            // Insert summary
+            ms.add(summary).map_err(|e| CognitiveError::StoreError(e.to_string()))?;
+        }
+
+        let tx_cursor = if let Some(tx) = &self.tx_log {
+            tx.append(TxKind::Consolidate, vec![summary_id], actor)
+        } else {
+            0
+        };
+        self.calibration.record_prediction_error(0.0);
+        Ok(tx_cursor)
+    }
+
+    /// GDPR hard-delete: remove all records for `target_actor` from Hot store.
+    /// Returns (tx_cursor, records_deleted).
+    fn forget_actor(
+        &self,
+        target_actor: &str,
+        tx_actor: &str,
+    ) -> Result<(u64, u32), CognitiveError> {
+        let deleted = {
+            let mut ms = self.memory.lock().map_err(|_| CognitiveError::LockError)?;
+            ms.delete_by_actor(target_actor)
+                .map_err(|e| CognitiveError::StoreError(e.to_string()))?
+                .len() as u32
+        };
+
+        let tx_cursor = if let Some(tx) = &self.tx_log {
+            tx.append(TxKind::ForgetActor, vec![], tx_actor)
+        } else {
+            0
+        };
+        self.calibration.record_prediction_error(0.0);
+        Ok((tx_cursor, deleted))
+    }
+
+    /// CognitiveGC-guided single-record archive or delete.
+    fn archive_record(&self, id: Uuid, actor: &str) -> Result<u64, CognitiveError> {
+        let action = self.gc.gc_action(id);
+        let mut ms = self.memory.lock().map_err(|_| CognitiveError::LockError)?;
+        match action {
+            GcAction::Archive => {
+                if let Some(rec) = ms.find_by_id(id).cloned() {
+                    if let Some(arc) = &self.archive_store {
+                        let _ = arc.lock().map(|mut as_| as_.append(rec));
+                    }
+                    ms.delete_by_id(id);
+                }
+            }
+            GcAction::Delete | GcAction::Keep => {
+                ms.delete_by_id(id);
+            }
+        }
+        drop(ms);
+
+        let tx_cursor = if let Some(tx) = &self.tx_log {
+            tx.append(TxKind::ArchiveRecord, vec![id], actor)
+        } else {
+            0
+        };
+        self.calibration.record_prediction_error(0.0);
         Ok(tx_cursor)
     }
 
@@ -508,6 +630,14 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             current_tx: s.current_tx,
         }
     }
+}
+
+/// Result returned by `transact_ex()` — superset of the `u64` tx_cursor.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct TransactResult {
+    pub tx_cursor: u64,
+    /// Number of records hard-deleted (populated only for ForgetActor).
+    pub records_deleted: Option<u32>,
 }
 
 /// Response struct for `GET /v1/self/health`. All 7 fields required by spec.

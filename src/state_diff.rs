@@ -105,6 +105,12 @@ pub fn compute_tx_diff<B: MemoryBackend>(
             TxKind::WorldModelUpdate => {
                 wm.distributions_updated += entry.record_ids.len() as u32;
             }
+            TxKind::ForgetActor => {
+                delta.archived.extend_from_slice(&entry.record_ids);
+            }
+            TxKind::ArchiveRecord => {
+                delta.archived.extend_from_slice(&entry.record_ids);
+            }
         }
     }
 

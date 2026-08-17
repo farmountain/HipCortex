@@ -35,6 +35,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 VERSION_FILE = REPO_ROOT / "VERSION"
 MCP_SERVER = REPO_ROOT / "sdk" / "mcp" / "server.py"
+TS_PACKAGE = REPO_ROOT / "sdk" / "typescript" / "package.json"
 # PyPI package ships a copy for `hipcortex install` when repo path is absent
 MCP_BUNDLED = REPO_ROOT / "sdk" / "python" / "hipcortex" / "install" / "mcp_server.py"
 
@@ -91,6 +92,29 @@ def sync_mcp_bundle(*, check_only: bool = False) -> int:
     return 0
 
 
+TS_VERSION_RE = re.compile(r'"version"\s*:\s*"([^"]+)"')
+
+
+def stamp_ts(version: str, *, check_only: bool = False) -> int:
+    """Set version in sdk/typescript/package.json."""
+    import json
+    if not TS_PACKAGE.is_file():
+        print(f"ERROR: TypeScript package.json missing: {TS_PACKAGE}", file=sys.stderr)
+        return 1
+    data = json.loads(TS_PACKAGE.read_text(encoding="utf-8"))
+    old = data.get("version", "")
+    if old == version:
+        print(f"TS package.json version already {version}")
+        return 0
+    if check_only:
+        print(f"MISMATCH: TS package.json version={old!r} != VERSION={version!r}")
+        return 1
+    data["version"] = version
+    TS_PACKAGE.write_text(json.dumps(data, indent=4) + "\n", encoding="utf-8")
+    print(f"Stamped TS package.json version: {old} -> {version}")
+    return 0
+
+
 def stamp_mcp(version: str, *, check_only: bool = False) -> int:
     """Set serverInfo.version in sdk/mcp/server.py. Return 0 ok, 1 mismatch/fail."""
     if not MCP_SERVER.is_file():
@@ -138,6 +162,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Update sdk/mcp/server.py serverInfo.version.",
     )
     parser.add_argument(
+        "--ts",
+        action="store_true",
+        help="Update sdk/typescript/package.json version.",
+    )
+    parser.add_argument(
         "--check",
         action="store_true",
         help="Do not write; exit 1 if stamped targets disagree with VERSION.",
@@ -163,6 +192,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.mcp:
         rc = stamp_mcp(version, check_only=args.check) or rc
+
+    if args.ts:
+        rc = stamp_ts(version, check_only=args.check) or rc
 
     return rc
 

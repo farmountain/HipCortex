@@ -387,23 +387,6 @@ TOOLS = [
         },
     },
     {
-        "name": "consolidate_memory",
-        "description": (
-            "Trigger greedy tag+actor memory consolidation. Groups Temporal records "
-            "by actor+tags, collapses groups >= min_group_size into summary records, "
-            "and archives originals. Returns ConsolidationReport."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "min_group_size": {
-                    "type": "integer",
-                    "description": "Min records per group to consolidate (default 3)",
-                },
-            },
-        },
-    },
-    {
         "name": "simulate_rollout",
         "description": (
             "Simulate a k-step (k≤5) world-model rollout from an initial state "
@@ -433,6 +416,125 @@ TOOLS = [
             "epistemic_entropy, and whether the system is healthy."
         ),
         "inputSchema": {"type": "object", "properties": {}},
+    },
+    # Phase 5: Agent Surfaces
+    {
+        "name": "cognitive_transact",
+        "description": "Apply a CognitiveDelta to the cognitive substrate. Supports AddMemory, Consolidate, ForgetActor, ArchiveRecord.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "delta": {"type": "object", "description": "CognitiveDelta (must include 'type' field)"},
+                "actor": {"type": "string", "description": "Actor performing the transaction"},
+            },
+            "required": ["delta", "actor"],
+        },
+    },
+    {
+        "name": "cognitive_diff",
+        "description": "Get causal StateDiff between two tx-log cursors.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "from_tx": {"type": "integer"},
+                "to_tx": {"type": "integer"},
+            },
+            "required": ["from_tx", "to_tx"],
+        },
+    },
+    {
+        "name": "self_health",
+        "description": "GET /v1/self/health — SelfModel health metrics with healthy boolean.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "cognitive_snapshot",
+        "description": "GET /v1/cognitive/snapshot — full cognitive state snapshot for an actor.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"actor": {"type": "string", "default": ""}},
+        },
+    },
+    {
+        "name": "fork_create",
+        "description": "POST /v1/fork — create a SimulationFork (CoW snapshot of cognitive state).",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "fork_step",
+        "description": "POST /v1/fork/{fork_id}/step — advance a fork by one action.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "fork_id": {"type": "string"},
+                "action": {"type": "string"},
+            },
+            "required": ["fork_id", "action"],
+        },
+    },
+    {
+        "name": "fork_snapshot",
+        "description": "GET /v1/fork/{fork_id}/snapshot — read fork cognitive snapshot.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "fork_id": {"type": "string"},
+                "actor": {"type": "string", "default": ""},
+            },
+            "required": ["fork_id"],
+        },
+    },
+    {
+        "name": "fork_delete",
+        "description": "DELETE /v1/fork/{fork_id} — discard a SimulationFork.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"fork_id": {"type": "string"}},
+            "required": ["fork_id"],
+        },
+    },
+    {
+        "name": "fork_rollout",
+        "description": "POST /v1/fork/{fork_id}/rollout — k-step (k≤5) hybrid Kalman rollout.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "fork_id": {"type": "string"},
+                "actions": {"type": "array", "items": {"type": "string"}},
+                "sigma2_max": {"type": "number", "default": 0.25},
+            },
+            "required": ["fork_id", "actions"],
+        },
+    },
+    {
+        "name": "consolidate_memory",
+        "description": "Consolidate source memory records into a summary via Consolidate delta.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "source_ids": {"type": "array", "items": {"type": "string"}},
+                "summary": {"type": "object"},
+            },
+            "required": ["source_ids", "summary"],
+        },
+    },
+    {
+        "name": "forget_actor",
+        "description": "GDPR hard-delete all records for an actor via ForgetActor delta.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"actor_id": {"type": "string"}},
+            "required": ["actor_id"],
+        },
+    },
+    {
+        "name": "archive_record",
+        "description": "Archive or delete a single record via ArchiveRecord delta.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"id": {"type": "string"}},
+            "required": ["id"],
+        },
     },
 ]
 
@@ -671,6 +773,56 @@ def handle_get_system_health(_args: dict) -> str:
     return "\n".join(lines)
 
 
+def handle_cognitive_transact(args: dict) -> str:
+    result = _post("/v1/cognitive/transact", {"delta": args["delta"], "actor": args.get("actor", "mcp")})
+    return json.dumps(result)
+
+def handle_cognitive_diff(args: dict) -> str:
+    params = f"from_tx={args['from_tx']}&to_tx={args['to_tx']}"
+    resp = requests.get(f"{HIPCORTEX_URL}/v1/cognitive/diff?{params}", headers=_headers(), timeout=TIMEOUT)
+    resp.raise_for_status()
+    return json.dumps(resp.json())
+
+def handle_self_health(_args: dict) -> str:
+    return json.dumps(_get("/v1/self/health"))
+
+def handle_cognitive_snapshot(args: dict) -> str:
+    actor = args.get("actor", "")
+    resp = requests.get(f"{HIPCORTEX_URL}/v1/cognitive/snapshot", params={"actor": actor}, headers=_headers(), timeout=TIMEOUT)
+    resp.raise_for_status()
+    return json.dumps(resp.json())
+
+def handle_fork_create(_args: dict) -> str:
+    return json.dumps(_post("/v1/fork", {}))
+
+def handle_fork_step(args: dict) -> str:
+    return json.dumps(_post(f"/v1/fork/{args['fork_id']}/step", {"action": args["action"]}))
+
+def handle_fork_snapshot(args: dict) -> str:
+    actor = args.get("actor", "")
+    resp = requests.get(f"{HIPCORTEX_URL}/v1/fork/{args['fork_id']}/snapshot", params={"actor": actor}, headers=_headers(), timeout=TIMEOUT)
+    resp.raise_for_status()
+    return json.dumps(resp.json())
+
+def handle_fork_delete(args: dict) -> str:
+    return json.dumps(_delete(f"/v1/fork/{args['fork_id']}"))
+
+def handle_fork_rollout(args: dict) -> str:
+    return json.dumps(_post(f"/v1/fork/{args['fork_id']}/rollout", {"actions": args["actions"], "sigma2_max": args.get("sigma2_max", 0.25)}))
+
+def handle_p5_consolidate(args: dict) -> str:
+    delta = {"type": "Consolidate", "source_ids": args["source_ids"], "summary": args["summary"]}
+    return json.dumps(_post("/v1/cognitive/transact", {"delta": delta, "actor": "mcp"}))
+
+def handle_forget_actor(args: dict) -> str:
+    delta = {"type": "ForgetActor", "actor": args["actor_id"]}
+    return json.dumps(_post("/v1/cognitive/transact", {"delta": delta, "actor": "mcp"}))
+
+def handle_archive_record(args: dict) -> str:
+    delta = {"type": "ArchiveRecord", "id": args["id"]}
+    return json.dumps(_post("/v1/cognitive/transact", {"delta": delta, "actor": "mcp"}))
+
+
 def handle_purge_expired(_args: dict) -> str:
     result = _post("/memory/consolidate", {"dry_run": False})
     deleted = result.get("deleted", 0)
@@ -882,9 +1034,20 @@ def dispatch_tool(name: str, args: dict) -> str:
         "reflect":          handle_reflect,
         "predict":              handle_predict,
         "compute_state_diff":   handle_compute_state_diff,
-        "consolidate_memory":   handle_consolidate_memory,
         "simulate_rollout":     handle_simulate_rollout,
         "get_system_health":    handle_get_system_health,
+        "cognitive_transact":   handle_cognitive_transact,
+        "cognitive_diff":       handle_cognitive_diff,
+        "self_health":          handle_self_health,
+        "cognitive_snapshot":   handle_cognitive_snapshot,
+        "fork_create":          handle_fork_create,
+        "fork_step":            handle_fork_step,
+        "fork_snapshot":        handle_fork_snapshot,
+        "fork_delete":          handle_fork_delete,
+        "fork_rollout":         handle_fork_rollout,
+        "consolidate_memory":   handle_p5_consolidate,
+        "forget_actor":         handle_forget_actor,
+        "archive_record":       handle_archive_record,
     }
     handler = handlers.get(name)
     if handler is None:
@@ -972,7 +1135,7 @@ def main() -> None:
             respond(id_, {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}, "resources": {}},
-                "serverInfo": {"name": "hipcortex", "version": "0.7.0"},
+                "serverInfo": {"name": "hipcortex", "version": "0.8.0"},
             })
         elif method == "initialized":
             pass  # notification — no response

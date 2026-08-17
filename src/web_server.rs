@@ -1185,10 +1185,16 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
                 };
                 match serde_json::from_value::<crate::cognitive_state::CognitiveDelta>(delta_val) {
                     Err(e) => (axum::http::StatusCode::UNPROCESSABLE_ENTITY, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
-                    Ok(delta) => match cog.transact(delta, &actor) {
-                        Ok(tx_cursor) => (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"ok": true, "tx_cursor": tx_cursor}))),
+                    Ok(delta) => match cog.transact_ex(delta, &actor) {
+                        Ok(r) => {
+                            let mut body = serde_json::json!({"ok": true, "tx_cursor": r.tx_cursor});
+                            if let Some(n) = r.records_deleted {
+                                body["records_deleted"] = serde_json::json!(n);
+                            }
+                            (axum::http::StatusCode::OK, axum::Json(body))
+                        }
                         Err(crate::cognitive_state::CognitiveError::CoherenceRejection(r)) => (axum::http::StatusCode::CONFLICT, axum::Json(serde_json::json!({"ok": false, "error": r, "code": "CoherenceRejection"}))),
-                        Err(crate::cognitive_state::CognitiveError::NotImplemented(op)) => (axum::http::StatusCode::NOT_IMPLEMENTED, axum::Json(serde_json::json!({"ok": false, "error": format!("{op} not implemented in Phase 0"), "code": "NotImplemented"}))),
+                        Err(crate::cognitive_state::CognitiveError::NotImplemented(op)) => (axum::http::StatusCode::NOT_IMPLEMENTED, axum::Json(serde_json::json!({"ok": false, "error": format!("{op} not implemented"), "code": "NotImplemented"}))),
                         Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
                     },
                 }

@@ -9,5 +9,7 @@ export type {
   StatsResponse, RolloutRequest, RolloutResponse,
   LiveBeliefsResponse, ReflectRequest, ReflectResponse,
   PredictRequest, PredictResponse,
+  CognitiveDelta, TransactResponse, TxStateDiff, SelfHealthResponse,
+  CognitiveSnapshot, ForkCreateResponse, ForkStepResponse, RolloutResult,
 } from "./types";
 

@@ -23,6 +23,8 @@ pub enum TxKind {
     GoalCreate,
     GoalStatusChange,
     Consolidate,
+    ForgetActor,
+    ArchiveRecord,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -10,6 +10,8 @@ import requests
 
 
 class HipCortexClient:
+    VERSION = "0.8.0"
+
     """Synchronous HTTP client for the HipCortex memory server.
 
     Args:
@@ -672,4 +674,77 @@ class HipCortexClient:
         )
         resp.raise_for_status()
         return resp.json()
+
+    # ------------------------------------------------------------------
+    # Phase 5: Agent Surfaces (v0.8.0)
+    # ------------------------------------------------------------------
+
+    def _get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        resp = self._session.get(f"{self.base_url}{path}", params=params, timeout=self.timeout)
+        resp.raise_for_status()
+        return resp.json()
+
+    def _post(self, path: str, body: Any = None) -> Dict[str, Any]:
+        resp = self._session.post(f"{self.base_url}{path}", json=body, timeout=self.timeout)
+        resp.raise_for_status()
+        return resp.json()
+
+    def _delete(self, path: str) -> Dict[str, Any]:
+        resp = self._session.delete(f"{self.base_url}{path}", timeout=self.timeout)
+        resp.raise_for_status()
+        return resp.json()
+
+    def transact(self, delta: Dict[str, Any], actor: str) -> Dict[str, Any]:
+        """POST /v1/cognitive/transact — apply a CognitiveDelta."""
+        return self._post("/v1/cognitive/transact", {"delta": delta, "actor": actor})
+
+    def cognitive_diff(self, from_tx: int, to_tx: int) -> Dict[str, Any]:
+        """GET /v1/cognitive/diff — causal StateDiff over a tx range."""
+        return self._get("/v1/cognitive/diff", params={"from_tx": from_tx, "to_tx": to_tx})
+
+    def self_health(self) -> Dict[str, Any]:
+        """GET /v1/self/health — SelfModel health metrics."""
+        return self._get("/v1/self/health")
+
+    def cognitive_snapshot(self, actor: str = "") -> Dict[str, Any]:
+        """GET /v1/cognitive/snapshot."""
+        return self._get("/v1/cognitive/snapshot", params={"actor": actor})
+
+    def fork_create(self) -> Dict[str, Any]:
+        """POST /v1/fork — create a new SimulationFork (CoW snapshot)."""
+        return self._post("/v1/fork", {})
+
+    def fork_step(self, fork_id: str, action: str) -> Dict[str, Any]:
+        """POST /v1/fork/{id}/step — advance fork by one action."""
+        return self._post(f"/v1/fork/{fork_id}/step", {"action": action})
+
+    def fork_snapshot(self, fork_id: str, actor: str = "") -> Dict[str, Any]:
+        """GET /v1/fork/{id}/snapshot — read fork cognitive snapshot."""
+        return self._get(f"/v1/fork/{fork_id}/snapshot", params={"actor": actor})
+
+    def fork_delete(self, fork_id: str) -> Dict[str, Any]:
+        """DELETE /v1/fork/{id} — discard a SimulationFork."""
+        return self._delete(f"/v1/fork/{fork_id}")
+
+    def fork_rollout(
+        self, fork_id: str, actions: List[str], sigma2_max: float = 0.25
+    ) -> Dict[str, Any]:
+        """POST /v1/fork/{id}/rollout — k-step hybrid rollout (k≤5)."""
+        return self._post(
+            f"/v1/fork/{fork_id}/rollout",
+            {"actions": actions, "sigma2_max": sigma2_max},
+        )
+
+    def consolidate(self, source_ids: List[str], summary: Dict[str, Any]) -> Dict[str, Any]:
+        """Consolidate source records into a summary via cognitive transact."""
+        delta = {"type": "Consolidate", "source_ids": source_ids, "summary": summary}
+        return self.transact(delta, actor="sdk")
+
+    def forget_actor(self, actor_id: str) -> Dict[str, Any]:
+        """GDPR hard-delete all records for actor_id via cognitive transact."""
+        return self.transact({"type": "ForgetActor", "actor": actor_id}, actor="sdk")
+
+    def archive_record(self, record_id: str) -> Dict[str, Any]:
+        """Archive or delete a record via cognitive transact."""
+        return self.transact({"type": "ArchiveRecord", "id": record_id}, actor="sdk")
 

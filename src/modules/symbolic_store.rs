@@ -272,8 +272,21 @@ impl GraphDatabase for InMemoryGraph {
             return false;
         }
         if let Some(idx) = self.id_map.remove(&node_id) {
+            // petgraph swap_remove displaces the last node into `idx`.
+            // Record its UUID before removal so we can update id_map.
+            let last_idx = petgraph::prelude::NodeIndex::new(
+                self.graph.node_count().saturating_sub(1),
+            );
+            let displaced_id = if idx != last_idx {
+                self.graph.node_weight(last_idx).map(|n| n.id)
+            } else {
+                None
+            };
             self.graph.remove_node(idx);
-            // petgraph removes incident edges automatically
+            // Remap the displaced node (now lives at `idx`).
+            if let Some(did) = displaced_id {
+                self.id_map.insert(did, idx);
+            }
             true
         } else {
             false

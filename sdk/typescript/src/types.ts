@@ -226,3 +226,63 @@ export interface PredictResponse {
   [key: string]: unknown;
 }
 
+// Phase 5: Agent Surfaces (v0.8.0)
+
+export type CognitiveDeltaType = "AddMemory" | "Consolidate" | "ForgetActor" | "ArchiveRecord" | "SimulationStep" | "BeliefAssert" | "BeliefRetract";
+
+export interface CognitiveDelta {
+  type: CognitiveDeltaType;
+  [key: string]: unknown;
+}
+
+export interface TransactResponse {
+  ok: boolean;
+  tx_cursor: number;
+  records_deleted?: number;
+}
+
+export interface TxStateDiff {
+  from_tx: number;
+  to_tx: number;
+  memory_delta: { added: string[]; updated: string[]; archived: string[] };
+  world_model_delta: { observations_added: number; distributions_updated: number };
+  causal_attributions: Array<{ record_id: string; tx_id: number; trigger_action: string; confidence_shift: number }>;
+  [key: string]: unknown;
+}
+
+export interface SelfHealthResponse {
+  healthy: boolean;
+  overall?: number;
+  calibration_score?: number;
+  prediction_error_ewma?: number;
+  consolidation_pressure?: number;
+  epistemic_entropy?: number;
+  [key: string]: unknown;
+}
+
+export interface CognitiveSnapshot {
+  tx_cursor: number;
+  temporal_count: number;
+  symbolic_count: number;
+  procedural_count: number;
+  goal_count: number;
+  [key: string]: unknown;
+}
+
+export interface ForkCreateResponse {
+  fork_id: string;
+  created_at?: string;
+}
+
+export interface ForkStepResponse {
+  ok: boolean;
+  tx_cursor: number;
+  fork_id: string;
+}
+
+export interface RolloutResult {
+  steps: Array<{ action: string; state: string; sigma2?: number }>;
+  halted_early?: boolean;
+  [key: string]: unknown;
+}
+

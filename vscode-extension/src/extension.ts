@@ -945,6 +945,28 @@ export class HipCortexAPI {
         const response = await axios.post(`${this.baseUrl}/v1/state/diff`, { from_tx: fromTx, to_tx: toTx }, { headers, timeout: 10000 });
         return response.data;
     }
+
+    // Phase 5: Agent Surfaces (v0.8.0)
+    async cognitiveTransact(delta: Record<string, unknown>, actor: string): Promise<any> {
+        const headers: any = { 'Content-Type': 'application/json' };
+        if (this.apiKey) { headers['Authorization'] = `Bearer ${this.apiKey}`; }
+        const response = await axios.post(`${this.baseUrl}/v1/cognitive/transact`, { delta, actor }, { headers, timeout: 10000 });
+        return response.data;
+    }
+
+    async selfHealth(): Promise<any> {
+        const headers: any = {};
+        if (this.apiKey) { headers['Authorization'] = `Bearer ${this.apiKey}`; }
+        const response = await axios.get(`${this.baseUrl}/v1/self/health`, { headers, timeout: 10000 });
+        return response.data;
+    }
+
+    async cognitiveDiff(fromTx: number, toTx: number): Promise<any> {
+        const headers: any = {};
+        if (this.apiKey) { headers['Authorization'] = `Bearer ${this.apiKey}`; }
+        const response = await axios.get(`${this.baseUrl}/v1/cognitive/diff`, { params: { from_tx: fromTx, to_tx: toTx }, headers, timeout: 10000 });
+        return response.data;
+    }
 }
 
 class HipCortexChatParticipant {
@@ -2080,7 +2102,32 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    context.subscriptions.push(participant, addMemoryCommand, queryMemoryCommand, testExtensionCommand, restartServerCommand, systemHealthCommand, stateDiffCommand);
+    // Phase 5: Agent Surfaces (v0.8.0)
+    const cognitiveHealthCommand = vscode.commands.registerCommand('hipcortex.cognitiveHealth', async () => {
+        try {
+            const api = new HipCortexAPI();
+            const health = await api.selfHealth();
+            const healthy = health.healthy ? '✓' : '✗';
+            const overall = (health.overall ?? 0).toFixed(3);
+            vscode.window.showInformationMessage(`Cognitive health ${healthy}: overall=${overall}, calibration=${(health.calibration_score ?? 0).toFixed(3)}`);
+        } catch (error) {
+            vscode.window.showErrorMessage(`cognitiveHealth failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+
+    const cognitiveSnapshotCommand = vscode.commands.registerCommand('hipcortex.cognitiveSnapshot', async () => {
+        try {
+            const api = new HipCortexAPI();
+            const snapshot = await api.cognitiveTransact({ type: 'AddMemory' } as any, 'vscode');
+            const panel = vscode.window.createWebviewPanel('hipcortexSnapshot', 'Cognitive Snapshot', vscode.ViewColumn.Beside, {});
+            const snap = await (await import('axios')).default.get(`${(api as any).baseUrl}/v1/cognitive/snapshot`);
+            panel.webview.html = `<pre>${JSON.stringify(snap.data, null, 2)}</pre>`;
+        } catch (error) {
+            vscode.window.showErrorMessage(`cognitiveSnapshot failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+
+    context.subscriptions.push(participant, addMemoryCommand, queryMemoryCommand, testExtensionCommand, restartServerCommand, systemHealthCommand, stateDiffCommand, cognitiveHealthCommand, cognitiveSnapshotCommand);
 }
 
 export function deactivate() {

@@ -10,6 +10,8 @@ import type {
   DeleteMemoryResponse, RolloutRequest, RolloutResponse,
   LiveBeliefsResponse, ReflectRequest, ReflectResponse,
   PredictRequest, PredictResponse,
+  CognitiveDelta, TransactResponse, TxStateDiff, SelfHealthResponse,
+  CognitiveSnapshot, ForkCreateResponse, ForkStepResponse, RolloutResult,
 } from "./types";
 
 export class HipCortexClient {
@@ -180,6 +182,60 @@ export class HipCortexClient {
   /** Predict next state trajectory via multi-step Monte Carlo Tree Search (/worldmodel/rollout). */
   async rollout(req: RolloutRequest): Promise<RolloutResponse> {
     return this.request<RolloutResponse>("POST", "/worldmodel/rollout", req);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 5: Agent Surfaces (v0.8.0)
+  // ---------------------------------------------------------------------------
+
+  static readonly VERSION = "0.8.0";
+
+  async transact(delta: CognitiveDelta, actor: string): Promise<TransactResponse> {
+    return this.request<TransactResponse>("POST", "/v1/cognitive/transact", { delta, actor });
+  }
+
+  async cognitiveDiff(fromTx: number, toTx: number): Promise<TxStateDiff> {
+    return this.request<TxStateDiff>("GET", "/v1/cognitive/diff", undefined, { from_tx: fromTx, to_tx: toTx });
+  }
+
+  async selfHealth(): Promise<SelfHealthResponse> {
+    return this.request<SelfHealthResponse>("GET", "/v1/self/health");
+  }
+
+  async cognitiveSnapshot(actor = ""): Promise<CognitiveSnapshot> {
+    return this.request<CognitiveSnapshot>("GET", "/v1/cognitive/snapshot", undefined, { actor });
+  }
+
+  async forkCreate(): Promise<ForkCreateResponse> {
+    return this.request<ForkCreateResponse>("POST", "/v1/fork", {});
+  }
+
+  async forkStep(forkId: string, action: string): Promise<ForkStepResponse> {
+    return this.request<ForkStepResponse>("POST", `/v1/fork/${forkId}/step`, { action });
+  }
+
+  async forkSnapshot(forkId: string, actor = ""): Promise<CognitiveSnapshot> {
+    return this.request<CognitiveSnapshot>("GET", `/v1/fork/${forkId}/snapshot`, undefined, { actor });
+  }
+
+  async forkDelete(forkId: string): Promise<{ ok: boolean }> {
+    return this.request<{ ok: boolean }>("DELETE", `/v1/fork/${forkId}`);
+  }
+
+  async forkRollout(forkId: string, actions: string[], sigma2Max = 0.25): Promise<RolloutResult> {
+    return this.request<RolloutResult>("POST", `/v1/fork/${forkId}/rollout`, { actions, sigma2_max: sigma2Max });
+  }
+
+  async consolidate(sourceIds: string[], summary: Record<string, unknown>): Promise<TransactResponse> {
+    return this.transact({ type: "Consolidate", source_ids: sourceIds, summary }, "ts-sdk");
+  }
+
+  async forgetActor(actorId: string): Promise<TransactResponse> {
+    return this.transact({ type: "ForgetActor", actor: actorId }, "ts-sdk");
+  }
+
+  async archiveRecord(id: string): Promise<TransactResponse> {
+    return this.transact({ type: "ArchiveRecord", id }, "ts-sdk");
   }
 }
 

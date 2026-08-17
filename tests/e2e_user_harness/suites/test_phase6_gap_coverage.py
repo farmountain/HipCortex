@@ -77,7 +77,7 @@ def test_mcp_version_is_0_6_0():
     try:
         resp = _send(proc, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
         ver = resp["result"]["serverInfo"]["version"]
-        assert ver in ("0.6.0", "0.7.0"), f"expected 0.6.0 or 0.7.0, got {ver}"
+        assert ver in ("0.6.0", "0.7.0", "0.8.0"), f"expected 0.6.x/0.7.x/0.8.x, got {ver}"
     finally:
         proc.terminate()
 

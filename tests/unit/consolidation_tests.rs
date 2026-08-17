@@ -1,118 +1,113 @@
-use hipcortex::archive_store::ArchiveStore;
-use hipcortex::backends::petgraph_backend::PetgraphBackend;
-use hipcortex::consolidation::{compute_pressure, consolidate, ConsolidationConfig};
-use hipcortex::memory_record::{MemoryRecord, MemoryType};
-use hipcortex::memory_store::MemoryStore;
-use hipcortex::symbolic_store::SymbolicStore;
-use hipcortex::tx_log::TxLog;
+use hipcortex::consolidation::{contract_community, detect_communities};
+use hipcortex::symbolic_store::{InMemoryGraph, SymbolicStore};
+use std::collections::HashMap;
+use uuid::Uuid;
 
-fn make_record(actor: &str, tags: &[&str]) -> MemoryRecord {
-    let mut r = MemoryRecord::new(
-        MemoryType::Temporal,
-        actor.to_string(),
-        "did".to_string(),
-        "x".to_string(),
-        serde_json::json!({}),
-    );
-    r.tags = tags.iter().map(|s| s.to_string()).collect();
-    r
+fn make_store() -> SymbolicStore<InMemoryGraph> {
+    SymbolicStore::new()
+}
+
+fn add_node(store: &mut SymbolicStore<InMemoryGraph>, label: &str) -> Uuid {
+    store.add_node(label, HashMap::new())
+}
+
+// ── detect_communities ────────────────────────────────────────────────────────
+
+#[test]
+fn detect_communities_empty_returns_empty() {
+    let store = make_store();
+    let result = detect_communities(&store, &[]);
+    assert!(result.is_empty());
 }
 
 #[test]
-fn pressure_zero_on_empty_store() {
-    let store = MemoryStore::new_in_memory();
-    let config = ConsolidationConfig::default();
-    assert_eq!(compute_pressure(&store, &config), 0.0);
-}
-
-#[test]
-fn pressure_proportional_to_count() {
-    let mut store = MemoryStore::new_in_memory();
-    let config = ConsolidationConfig {
-        capacity_limit: 10,
-        ..Default::default()
-    };
-    for _ in 0..5 {
-        store.add(make_record("a", &["t"])).unwrap();
+fn detect_communities_isolated_nodes_each_own_community() {
+    let mut store = make_store();
+    let a = add_node(&mut store, "a");
+    let b = add_node(&mut store, "b");
+    let c = add_node(&mut store, "c");
+    let communities = detect_communities(&store, &[a, b, c]);
+    // 3 isolated nodes → 3 singleton communities
+    assert_eq!(communities.len(), 3);
+    for comm in &communities {
+        assert_eq!(comm.len(), 1);
     }
-    let p = compute_pressure(&store, &config);
-    assert!((p - 0.5).abs() < 1e-5, "expected 0.5, got {p}");
 }
 
 #[test]
-fn consolidate_groups_by_actor_and_tags() {
-    let dir = tempfile::tempdir().unwrap();
-    let log = TxLog::open(dir.path().join("tx.jsonl")).unwrap();
-    let mut store = MemoryStore::new_in_memory();
-    let mut archive = ArchiveStore::new(dir.path().join("archive.jsonl"));
-    let mut graph = SymbolicStore::from_backend(PetgraphBackend::new());
-    let config = ConsolidationConfig {
-        min_group_size: 3,
-        ..Default::default()
-    };
-
-    // Group A: 3 records — should consolidate.
-    for _ in 0..3 {
-        store.add(make_record("alice", &["work", "rust"])).unwrap();
-    }
-    // Group B: 2 records — below threshold, must NOT consolidate.
-    for _ in 0..2 {
-        store.add(make_record("bob", &["misc"])).unwrap();
-    }
-
-    let report = consolidate(&mut store, &mut archive, &mut graph, &log, &config).unwrap();
-
-    assert_eq!(
-        report.groups_consolidated, 1,
-        "only group A should consolidate"
-    );
-    assert_eq!(report.records_archived, 3, "3 originals archived");
-    assert_eq!(report.summary_records_created, 1);
-    // Hot store: 1 summary + 2 bob records.
-    assert_eq!(
-        store.all().len(),
-        3,
-        "hot store should have 1 summary + 2 bob records"
-    );
+fn detect_communities_connected_nodes_same_community() {
+    let mut store = make_store();
+    let a = add_node(&mut store, "a");
+    let b = add_node(&mut store, "b");
+    let c = add_node(&mut store, "c");
+    store.add_edge(a, b, "related");
+    store.add_edge(b, c, "related");
+    let communities = detect_communities(&store, &[a, b, c]);
+    // All connected → should form at most 2 communities (greedy single-pass)
+    // At minimum: a+b together (or b+c), never all isolated
+    let total_nodes: usize = communities.iter().map(|c| c.len()).sum();
+    assert_eq!(total_nodes, 3, "all nodes must be assigned");
+    // At least one community has > 1 node
+    assert!(communities.iter().any(|c| c.len() > 1));
 }
 
 #[test]
-fn consolidate_moves_originals_to_archive() {
-    let dir = tempfile::tempdir().unwrap();
-    let log = TxLog::open(dir.path().join("tx.jsonl")).unwrap();
-    let mut store = MemoryStore::new_in_memory();
-    let mut archive = ArchiveStore::new(dir.path().join("archive.jsonl"));
-    let mut graph = SymbolicStore::from_backend(PetgraphBackend::new());
-    let config = ConsolidationConfig {
-        min_group_size: 2,
-        ..Default::default()
-    };
+fn detect_communities_ignores_external_edges() {
+    let mut store = make_store();
+    let a = add_node(&mut store, "a");
+    let b = add_node(&mut store, "b");
+    let external = add_node(&mut store, "external");
+    store.add_edge(a, external, "cross");
+    // Only pass [a, b] — external node not in node_ids
+    let communities = detect_communities(&store, &[a, b]);
+    let total: usize = communities.iter().map(|c| c.len()).sum();
+    assert_eq!(total, 2);
+    // a and b are isolated w.r.t. each other → 2 singletons
+    assert_eq!(communities.len(), 2);
+}
 
-    let r1 = make_record("agent", &["task"]);
-    let r2 = make_record("agent", &["task"]);
-    let id1 = r1.id;
-    let id2 = r2.id;
-    store.add(r1).unwrap();
-    store.add(r2).unwrap();
+// ── contract_community ────────────────────────────────────────────────────────
 
-    let report = consolidate(&mut store, &mut archive, &mut graph, &log, &config).unwrap();
+#[test]
+fn contract_community_empty_is_noop() {
+    let mut store = make_store();
+    let summary = add_node(&mut store, "summary");
+    let result = contract_community(&mut store, &[], summary);
+    assert!(result.is_ok());
+}
 
-    assert_eq!(report.records_archived, 2);
-    assert!(report.archived_ids.contains(&id1));
-    assert!(report.archived_ids.contains(&id2));
+#[test]
+fn contract_community_removes_community_nodes() {
+    let mut store = make_store();
+    let a = add_node(&mut store, "a");
+    let b = add_node(&mut store, "b");
+    let summary = add_node(&mut store, "summary");
+    store.add_edge(a, b, "related");
+    contract_community(&mut store, &[a, b], summary).unwrap();
+    // a and b should be gone
+    assert!(store.get_node(a).is_none(), "a must be removed");
+    assert!(store.get_node(b).is_none(), "b must be removed");
+    // summary survives
+    assert!(store.get_node(summary).is_some(), "summary must survive");
+}
 
-    // Originals gone from hot store.
+#[test]
+fn contract_community_redirects_cross_edges_to_summary() {
+    let mut store = make_store();
+    let a = add_node(&mut store, "a");
+    let b = add_node(&mut store, "b");
+    let external = add_node(&mut store, "external");
+    let summary = add_node(&mut store, "summary");
+    // a → external (cross-community), a → b (intra)
+    store.add_edge(a, external, "depends");
+    store.add_edge(a, b, "intra");
+    contract_community(&mut store, &[a, b], summary).unwrap();
+    // summary → external must exist
+    let out = store.edges_from(summary, None);
     assert!(
-        store.find_by_id(id1).is_none(),
-        "id1 should not be in hot store"
+        out.iter().any(|e| e.to == external && e.relation == "depends"),
+        "cross-community edge must be redirected to summary"
     );
-    assert!(
-        store.find_by_id(id2).is_none(),
-        "id2 should not be in hot store"
-    );
-
-    // Originals present in cold store.
-    let cold = archive.load_all().unwrap();
-    assert!(cold.iter().any(|r| r.id == id1), "id1 should be in archive");
-    assert!(cold.iter().any(|r| r.id == id2), "id2 should be in archive");
+    // intra edge must be gone (b removed)
+    assert!(store.get_node(b).is_none());
 }

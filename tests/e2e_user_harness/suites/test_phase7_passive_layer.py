@@ -177,3 +177,89 @@ def test_vsix_extension_ts_has_passive_capture_guard():
         content = f.read()
     assert "passiveCapture" in content, "extension.ts missing passiveCapture guard"
     assert "onDidWriteTerminalData" in content, "extension.ts missing terminal listener"
+
+
+# ---------------------------------------------------------------------------
+# Phase 5: Surface parity conformance (no live server needed)
+# ---------------------------------------------------------------------------
+
+def test_python_sdk_has_phase5_methods():
+    """Python SDK client.py has all 12 Phase-5 methods."""
+    import os
+    client_path = os.path.join(os.path.dirname(__file__), "../../../sdk/python/hipcortex/client.py")
+    src = open(client_path, encoding="utf-8").read()
+    required = [
+        "def transact(",
+        "def cognitive_diff(",
+        "def self_health(",
+        "def cognitive_snapshot(",
+        "def fork_create(",
+        "def fork_step(",
+        "def fork_snapshot(",
+        "def fork_delete(",
+        "def fork_rollout(",
+        "def consolidate(",
+        "def forget_actor(",
+        "def archive_record(",
+    ]
+    missing = [m for m in required if m not in src]
+    assert not missing, f"Python SDK missing methods: {missing}"
+
+
+def test_mcp_server_has_phase5_tools():
+    """MCP server.py advertises all 11 Phase-5 tool names."""
+    import os
+    server_path = os.path.join(os.path.dirname(__file__), "../../../sdk/mcp/server.py")
+    src = open(server_path, encoding="utf-8").read()
+    required = [
+        '"cognitive_transact"',
+        '"cognitive_diff"',
+        '"self_health"',
+        '"cognitive_snapshot"',
+        '"fork_create"',
+        '"fork_step"',
+        '"fork_snapshot"',
+        '"fork_delete"',
+        '"fork_rollout"',
+        '"forget_actor"',
+        '"archive_record"',
+    ]
+    missing = [m for m in required if m not in src]
+    assert not missing, f"MCP server missing tools: {missing}"
+
+
+def test_ts_sdk_has_phase5_methods():
+    """TypeScript SDK client.ts has all Phase-5 method signatures."""
+    import os
+    ts_path = os.path.join(os.path.dirname(__file__), "../../../sdk/typescript/src/client.ts")
+    src = open(ts_path, encoding="utf-8").read()
+    required = [
+        "async transact(",
+        "async cognitiveDiff(",
+        "async selfHealth()",
+        "async cognitiveSnapshot(",
+        "async forkCreate()",
+        "async forkStep(",
+        "async forkSnapshot(",
+        "async forkDelete(",
+        "async forkRollout(",
+        "async consolidate(",
+        "async forgetActor(",
+        "async archiveRecord(",
+    ]
+    missing = [m for m in required if m not in src]
+    assert not missing, f"TS SDK missing methods: {missing}"
+
+
+def test_vscode_extension_has_phase5_api_methods():
+    """VS Code extension.ts has 3 new Phase-5 API methods."""
+    import os
+    ts_path = os.path.join(os.path.dirname(__file__), "../../../vscode-extension/src/extension.ts")
+    src = open(ts_path, encoding="utf-8").read()
+    required = [
+        "async cognitiveTransact(",
+        "async selfHealth()",
+        "async cognitiveDiff(",
+    ]
+    missing = [m for m in required if m not in src]
+    assert not missing, f"VS Code extension missing methods: {missing}"
