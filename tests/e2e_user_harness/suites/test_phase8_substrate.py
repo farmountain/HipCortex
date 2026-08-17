@@ -146,3 +146,69 @@ def test_live_v1_beliefs_returns_list():
     assert resp.status_code == 200
     data = resp.json()
     assert "beliefs" in data and "count" in data
+
+
+# ── v0.8.0 Phase 1 Acceptance Gates (G1-1..G1-4) ────────────────────────────
+
+import uuid as _uuid
+import time as _time
+
+def _add_memory_delta():
+    return {
+        "type": "AddMemory",
+        "record": {
+            "id": str(_uuid.uuid4()),
+            "actor": "e2e-test",
+            "action": "test",
+            "target": "phase1",
+            "memory_type": "Temporal",
+            "timestamp": int(_time.time() * 1000),
+            "metadata": {},
+        }
+    }
+
+
+@pytest.mark.skipif(not LIVE, reason="requires live server (set HIPCORTEX_LIVE_TESTS=1)")
+def test_g1_1_transact_returns_ok_and_tx_cursor():
+    """G1-1: POST /v1/cognitive/transact → ok=true, tx_cursor int ≥ 0."""
+    import requests
+    payload = {"delta": _add_memory_delta(), "actor": "e2e-test"}
+    resp = requests.post(f"{BASE}/v1/cognitive/transact", json=payload, timeout=10)
+    assert resp.status_code == 200, f"expected 200, got {resp.status_code}: {resp.text}"
+    data = resp.json()
+    assert data.get("ok") is True, f"ok not true: {data}"
+    assert isinstance(data.get("tx_cursor"), int) and data["tx_cursor"] >= 0, f"bad tx_cursor: {data}"
+
+
+@pytest.mark.skipif(not LIVE, reason="requires live server (set HIPCORTEX_LIVE_TESTS=1)")
+def test_g1_2_cognitive_diff_returns_range_fields():
+    """G1-2: GET /v1/cognitive/diff?from_tx=0&to_tx=999 → 200, from_tx/to_tx in response."""
+    import requests
+    resp = requests.get(f"{BASE}/v1/cognitive/diff", params={"from_tx": 0, "to_tx": 999}, timeout=10)
+    assert resp.status_code == 200, f"expected 200, got {resp.status_code}: {resp.text}"
+    data = resp.json()
+    assert "from_tx" in data, f"missing from_tx: {data}"
+    assert "to_tx" in data, f"missing to_tx: {data}"
+
+
+@pytest.mark.skipif(not LIVE, reason="requires live server (set HIPCORTEX_LIVE_TESTS=1)")
+def test_g1_3_v1_self_health_returns_healthy_bool():
+    """G1-3: GET /v1/self/health → 200, has healthy bool."""
+    import requests
+    resp = requests.get(f"{BASE}/v1/self/health", timeout=10)
+    assert resp.status_code == 200, f"expected 200, got {resp.status_code}: {resp.text}"
+    data = resp.json()
+    assert "healthy" in data, f"missing healthy field: {data}"
+    assert isinstance(data["healthy"], bool), f"healthy not bool: {data}"
+
+
+@pytest.mark.skipif(not LIVE, reason="requires live server (set HIPCORTEX_LIVE_TESTS=1)")
+def test_g1_4_transact_tx_cursor_monotonically_increases():
+    """G1-4: Two sequential transacts increase tx_cursor monotonically."""
+    import requests
+    r1 = requests.post(f"{BASE}/v1/cognitive/transact", json={"delta": _add_memory_delta(), "actor": "e2e-test"}, timeout=10)
+    r2 = requests.post(f"{BASE}/v1/cognitive/transact", json={"delta": _add_memory_delta(), "actor": "e2e-test"}, timeout=10)
+    assert r1.status_code == 200 and r2.status_code == 200
+    c1 = r1.json().get("tx_cursor", -1)
+    c2 = r2.json().get("tx_cursor", -1)
+    assert c2 > c1, f"tx_cursor not monotonic: {c1} → {c2}"

@@ -1166,6 +1166,45 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
                 },
             )
         })
+        // ── v0.8.0: CognitiveSurface routes ─────────────────────────────────
+        .route("/v1/cognitive/transact", {
+            let cog = cognitive.clone();
+            post(move |Json(req): Json<serde_json::Value>| async move {
+                let cog = cog.clone();
+                let actor = req.get("actor").and_then(|v| v.as_str()).unwrap_or("api").to_string();
+                let delta_val = match req.get("delta") {
+                    Some(v) => v.clone(),
+                    None => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "missing delta"}))),
+                };
+                match serde_json::from_value::<crate::cognitive_state::CognitiveDelta>(delta_val) {
+                    Err(e) => (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
+                    Ok(delta) => match cog.transact(delta, &actor) {
+                        Ok(tx_cursor) => (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"ok": true, "tx_cursor": tx_cursor}))),
+                        Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
+                    },
+                }
+            })
+        })
+        .route("/v1/cognitive/diff", {
+            let cog = cognitive.clone();
+            get(move |axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>| async move {
+                let cog = cog.clone();
+                let from_tx: u64 = params.get("from_tx").and_then(|v| v.parse().ok()).unwrap_or(0);
+                let to_tx: u64 = params.get("to_tx").and_then(|v| v.parse().ok()).unwrap_or(0);
+                match cog.diff(from_tx, to_tx) {
+                    Ok(diff) => (axum::http::StatusCode::OK, axum::Json(serde_json::to_value(diff).unwrap_or_default())),
+                    Err(e) => (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"error": e.to_string()}))),
+                }
+            })
+        })
+        .route("/v1/self/health", {
+            let cog = cognitive.clone();
+            get(move || async move {
+                let cog = cog.clone();
+                let h = cog.health();
+                (axum::http::StatusCode::OK, axum::Json(serde_json::to_value(h).unwrap_or_default()))
+            })
+        })
         .layer(middleware::from_fn(api_key_middleware));
 
     // G11: Background TTL eviction — purges expired records every 5 minutes.

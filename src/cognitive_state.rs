@@ -204,7 +204,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
     /// Apply a CognitiveDelta transactionally.
     ///
     /// Pipeline: safety gate → structural check → Phase-4 guard → apply → tx log → calibration ping.
-    pub fn transact(&self, delta: CognitiveDelta, actor: &str) -> Result<(), CognitiveError> {
+    pub fn transact(&self, delta: CognitiveDelta, actor: &str) -> Result<u64, CognitiveError> {
         // Step 1: Safety gate
         self.coherence
             .gate_write(delta.label())
@@ -228,8 +228,8 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         // Step 4: Apply
         let affected_ids = self.apply_delta(&delta)?;
 
-        // Step 5: TxLog (no-op when None)
-        if let Some(tx) = &self.tx_log {
+        // Step 5: TxLog — return assigned tx_id (0 when no log)
+        let tx_cursor = if let Some(tx) = &self.tx_log {
             let kind = match &delta {
                 CognitiveDelta::AddMemory(_) => TxKind::MemoryAdd,
                 CognitiveDelta::UpdateBelief { .. } => TxKind::BeliefAssert,
@@ -237,13 +237,15 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
                 CognitiveDelta::RegisterSkill(_) => TxKind::MemoryAdd,
                 _ => unreachable!(),
             };
-            tx.append(kind, affected_ids, actor);
-        }
+            tx.append(kind, affected_ids, actor)
+        } else {
+            0
+        };
 
         // Step 6: Calibration ping — mutation succeeded as expected
         self.calibration.record_prediction_error(0.0);
 
-        Ok(())
+        Ok(tx_cursor)
     }
 
     fn apply_delta(&self, delta: &CognitiveDelta) -> Result<Vec<Uuid>, CognitiveError> {
@@ -469,5 +471,31 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
 
     pub fn fork(&self) -> Result<SimulationFork<B>, CognitiveError> {
         Ok(SimulationFork::new_stub())
+    }
+
+    /// Compute semantic diff between two tx cursors.
+    /// Returns empty diff when no TxLog. Clamps to_tx to current cursor.
+    pub fn diff(
+        &self,
+        from_tx: u64,
+        to_tx: u64,
+    ) -> Result<crate::state_diff::TxStateDiff, CognitiveError> {
+        if from_tx > to_tx {
+            return Err(CognitiveError::DeltaInvalid("from_tx > to_tx".into()));
+        }
+        let log = match &self.tx_log {
+            Some(l) => l.clone(),
+            None => return Ok(crate::state_diff::TxStateDiff::empty(0)),
+        };
+        let current = log.current_tx();
+        let to_clamped = to_tx.min(current);
+        let store = self.memory.lock().map_err(|_| CognitiveError::LockError)?;
+        crate::state_diff::compute_tx_diff(&log, from_tx, to_clamped, &*store)
+            .map_err(CognitiveError::StoreError)
+    }
+
+    /// Return current calibration state as a serialisable health snapshot.
+    pub fn health(&self) -> crate::self_model::calibration::CalibrationState {
+        self.calibration.snapshot()
     }
 }

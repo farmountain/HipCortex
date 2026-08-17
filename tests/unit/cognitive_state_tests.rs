@@ -408,3 +408,44 @@ fn test_delta_serde_archive_record_struct_variant() {
     let back: CognitiveDelta = serde_json::from_str(&json).expect("deserialize");
     assert_eq!(back.label(), "ArchiveRecord");
 }
+
+// ─── Task 2 (Phase 1): transact returns u64; diff; health ───────────────────
+
+#[test]
+fn test_transact_returns_zero_cursor_when_no_txlog() {
+    let handle = make_handle();
+    let r = MemoryRecord::new(
+        MemoryType::Temporal,
+        "a".into(),
+        "did".into(),
+        "t".into(),
+        serde_json::json!({}),
+    );
+    let cursor = handle.transact(CognitiveDelta::AddMemory(r), "agent-1").expect("transact");
+    assert_eq!(cursor, 0, "no TxLog → cursor must be 0");
+}
+
+#[test]
+fn test_diff_returns_empty_when_no_txlog() {
+    let handle = make_handle();
+    let diff = handle.diff(0, 10).expect("diff");
+    assert_eq!(diff.tx_count, 0);
+    assert!(diff.memory_delta.added.is_empty());
+}
+
+#[test]
+fn test_diff_from_gt_to_returns_error() {
+    use hipcortex::cognitive_state::CognitiveError;
+    let handle = make_handle();
+    let err = handle.diff(10, 5).unwrap_err();
+    assert!(matches!(err, CognitiveError::DeltaInvalid(_)));
+    assert!(err.to_string().contains("from_tx"), "got: {err}");
+}
+
+#[test]
+fn test_health_returns_defaults_on_fresh_handle() {
+    let handle = make_handle();
+    let h = handle.health();
+    assert!(h.calibration_score >= 0.0 && h.calibration_score <= 1.0);
+    assert!(h.healthy, "fresh handle must be healthy");
+}
