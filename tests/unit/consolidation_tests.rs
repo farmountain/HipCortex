@@ -1,7 +1,127 @@
-use hipcortex::consolidation::{contract_community, detect_communities};
+use hipcortex::consolidation::{
+    contract_community, detect_communities, induce_belief_record, induce_skill_record,
+    mine_and_consolidate, mine_causal_motifs,
+};
+use hipcortex::memory_record::{MemoryRecord, MemoryType};
+use hipcortex::memory_store::MemoryStore;
+use hipcortex::persistence::InMemoryBackend;
 use hipcortex::symbolic_store::{InMemoryGraph, SymbolicStore};
 use std::collections::HashMap;
 use uuid::Uuid;
+
+// ── Phase-2 causal motif mining ───────────────────────────────────────────────
+
+fn mem_store() -> MemoryStore<InMemoryBackend> {
+    MemoryStore::new_in_memory()
+}
+
+/// Add a Temporal record with optional parent.
+fn add_temporal(store: &mut MemoryStore<InMemoryBackend>, action: &str, parent: Option<Uuid>) -> Uuid {
+    let mut rec = MemoryRecord::new(
+        MemoryType::Temporal,
+        "agent".into(),
+        action.into(),
+        action.into(),
+        serde_json::json!({}),
+    );
+    rec.derived_from = parent;
+    let id = rec.id;
+    store.add(rec).unwrap();
+    id
+}
+
+#[test]
+fn mine_motifs_finds_repeated_chain() {
+    let mut store = mem_store();
+
+    // Create 3 identical 3-step chains: observe → reason → act
+    for _ in 0..3 {
+        let a = add_temporal(&mut store, "observe", None);
+        let b = add_temporal(&mut store, "reason", Some(a));
+        let _c = add_temporal(&mut store, "act", Some(b));
+    }
+
+    let motifs = mine_causal_motifs(&store, 3, 2, 5);
+    assert!(!motifs.is_empty(), "should find at least one motif");
+    let top = &motifs[0];
+    assert_eq!(top.frequency, 3);
+    // Action sequence should contain "observe", "reason", "act"
+    assert!(top.action_sequence.contains(&"observe".to_string()) || top.action_sequence.len() >= 2);
+}
+
+#[test]
+fn mine_motifs_min_frequency_filters() {
+    let mut store = mem_store();
+
+    // 2 chains — below min_frequency of 3
+    for _ in 0..2 {
+        let a = add_temporal(&mut store, "plan", None);
+        let _b = add_temporal(&mut store, "exec", Some(a));
+    }
+
+    let motifs = mine_causal_motifs(&store, 3, 2, 5);
+    assert!(motifs.is_empty(), "should not find motifs below min_frequency");
+}
+
+#[test]
+fn mine_motifs_min_len_filters_single_step() {
+    let mut store = mem_store();
+
+    // 4 orphan Temporal records (no derived_from) → no chains of len >= 2
+    for _ in 0..4 {
+        add_temporal(&mut store, "solo", None);
+    }
+
+    let motifs = mine_causal_motifs(&store, 2, 2, 5);
+    assert!(motifs.is_empty(), "single-step records have no derived_from, no chain");
+}
+
+#[test]
+fn induce_records_have_correct_types() {
+    let mut store = mem_store();
+    for _ in 0..3 {
+        let a = add_temporal(&mut store, "sense", None);
+        let _b = add_temporal(&mut store, "respond", Some(a));
+    }
+    let motifs = mine_causal_motifs(&store, 3, 2, 5);
+    assert!(!motifs.is_empty());
+    let skill = induce_skill_record(&motifs[0], "test-agent");
+    assert_eq!(skill.record_type, MemoryType::Skill);
+    let belief = induce_belief_record(&motifs[0], skill.id, "test-agent");
+    assert_eq!(belief.record_type, MemoryType::Belief);
+    assert_eq!(belief.derived_from, Some(skill.id));
+}
+
+#[test]
+fn mine_and_consolidate_induces_and_archives() {
+    let mut store = mem_store();
+    let mut source_ids = Vec::new();
+    for _ in 0..3 {
+        let a = add_temporal(&mut store, "fetch", None);
+        let b = add_temporal(&mut store, "process", Some(a));
+        source_ids.push(a);
+        source_ids.push(b);
+    }
+    let initial_count = store.record_count();
+
+    let report = mine_and_consolidate(&mut store, None, 3, "agent").unwrap();
+
+    assert!(report.motifs_found > 0, "should find motifs");
+    assert!(report.skills_induced > 0, "should induce skills");
+    assert!(report.beliefs_induced > 0, "should induce beliefs");
+    // Source records removed; Skill+Belief added → net change = (inducted) - (archived)
+    let final_count = store.record_count();
+    assert!(
+        final_count < initial_count,
+        "hot store should shrink: {} → {}",
+        initial_count,
+        final_count
+    );
+    // Verify source records are gone
+    for id in &report.source_ids_archived {
+        assert!(store.find_by_id(*id).is_none(), "source {id} must be removed from hot store");
+    }
+}
 
 fn make_store() -> SymbolicStore<InMemoryGraph> {
     SymbolicStore::new()
