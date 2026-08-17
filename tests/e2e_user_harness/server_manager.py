@@ -35,7 +35,7 @@ class HipCortexServerManager:
             
         if build_from_source:
             # Build the webserver binary
-            cmd = ["cargo", "build", "--bin", "webserver", "--features", "web-server,petgraph_backend"]
+            cmd = ["cargo", "build", "--no-default-features", "--bin", "webserver", "--features", "web-server,petgraph_backend"]
             subprocess.run(cmd, cwd=root_dir, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return binary if binary.exists() else Path(shutil.which("hipcortex") or "hipcortex")
 
