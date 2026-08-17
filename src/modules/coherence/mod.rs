@@ -528,7 +528,9 @@ impl CoherenceChecker {
             CognitiveDelta::AdvanceGoal { .. } | CognitiveDelta::RegisterSkill(_) => {}
             CognitiveDelta::RetractBelief { .. }
             | CognitiveDelta::AssertJustification { .. }
-            | CognitiveDelta::AutoConsolidate { .. } => {}
+            | CognitiveDelta::AutoConsolidate { .. }
+            | CognitiveDelta::WorkspaceOpen { .. }
+            | CognitiveDelta::WorkspaceMerge { .. } => {}
             CognitiveDelta::Consolidate { .. }
             | CognitiveDelta::ForgetActor { .. }
             | CognitiveDelta::ArchiveRecord { .. } => {

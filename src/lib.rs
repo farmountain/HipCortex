@@ -12,6 +12,7 @@ pub mod cognitive_gc;
 pub mod cognitive_state;
 pub mod jtms;
 pub mod simulation_fork;
+pub mod workspace;
 pub mod consolidation;
 pub mod conversation_memory;
 #[cfg(feature = "web-server")]

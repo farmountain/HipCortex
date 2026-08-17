@@ -25,6 +25,7 @@ pub enum TxKind {
     Consolidate,
     ForgetActor,
     ArchiveRecord,
+    WorkspaceOp,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

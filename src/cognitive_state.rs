@@ -20,6 +20,7 @@ use crate::world_model_enhanced::WorldModelEnhanced;
 use crate::payloads::{BeliefPayload, EpistemicStatus, GoalPayload, GoalStatus, JtmsLabel, SkillPayload};
 use crate::jtms;
 use crate::persistence::MemoryBackend;
+use crate::workspace::{WorkspaceId, WorkspaceMode, WorkspaceRegistry};
 use crate::simulation_fork::SimulationFork;
 use crate::tx_log::{TxKind, TxLog};
 
@@ -78,6 +79,11 @@ pub enum CognitiveDelta {
     /// Mine recurring causal chains and induce Skill+Belief records.
     /// Uses `min_frequency` as the threshold (default 3 if 0).
     AutoConsolidate { min_frequency: usize },
+    // Phase 4 — multi-agent workspace scoping
+    /// Open a new workspace (snapshot parent store as baseline).
+    WorkspaceOpen { id: WorkspaceId, mode: WorkspaceMode },
+    /// OR-Set merge of `from` workspace into `into` workspace (both must be Shared).
+    WorkspaceMerge { from: WorkspaceId, into: WorkspaceId },
 }
 
 impl CognitiveDelta {
@@ -93,6 +99,8 @@ impl CognitiveDelta {
             Self::RetractBelief { .. } => "RetractBelief",
             Self::AssertJustification { .. } => "AssertJustification",
             Self::AutoConsolidate { .. } => "AutoConsolidate",
+            Self::WorkspaceOpen { .. } => "WorkspaceOpen",
+            Self::WorkspaceMerge { .. } => "WorkspaceMerge",
         }
     }
 }
@@ -186,6 +194,8 @@ pub struct CognitiveHandle<B: MemoryBackend + Send + Sync + 'static> {
     pub(crate) gc: Arc<CognitiveGC>,
     /// Optional Cold Store for archived records (Phase 4). None = archive silently skipped.
     pub(crate) archive_store: Option<Arc<Mutex<ArchiveStore>>>,
+    /// Phase 4: multi-agent workspace registry.
+    pub workspace_registry: Arc<Mutex<WorkspaceRegistry>>,
 }
 
 /// Mean binary entropy over a slice of confidence values in [0,1].
@@ -214,7 +224,11 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         calibration: Arc<CalibrationTracker>,
         gc: Arc<CognitiveGC>,
     ) -> Self {
-        Self { memory, world, self_model, tx_log, coherence, calibration, gc, archive_store: None }
+        Self {
+            memory, world, self_model, tx_log, coherence, calibration, gc,
+            archive_store: None,
+            workspace_registry: Arc::new(Mutex::new(WorkspaceRegistry::new())),
+        }
     }
 
     pub fn with_archive_store(mut self, store: ArchiveStore) -> Self {
@@ -269,6 +283,14 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             }
             CognitiveDelta::AutoConsolidate { min_frequency } => {
                 let tx_cursor = self.auto_consolidate_memory(*min_frequency, actor)?;
+                return Ok(TransactResult { tx_cursor, records_deleted: None });
+            }
+            CognitiveDelta::WorkspaceOpen { id, mode } => {
+                let tx_cursor = self.open_workspace(id.clone(), mode.clone(), actor)?;
+                return Ok(TransactResult { tx_cursor, records_deleted: None });
+            }
+            CognitiveDelta::WorkspaceMerge { from, into } => {
+                let tx_cursor = self.merge_workspaces(from.clone(), into.clone(), actor)?;
                 return Ok(TransactResult { tx_cursor, records_deleted: None });
             }
             _ => {}
@@ -469,6 +491,42 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         };
         self.calibration.record_prediction_error(0.0);
         Ok(tx_cursor)
+    }
+
+    // ── Phase-4 workspace helpers ─────────────────────────────────────────────
+
+    fn open_workspace(
+        &self,
+        id: WorkspaceId,
+        mode: WorkspaceMode,
+        actor: &str,
+    ) -> Result<u64, CognitiveError> {
+        let store = self.memory.lock().map_err(|_| CognitiveError::LockError)?;
+        let mut reg = self.workspace_registry.lock().map_err(|_| CognitiveError::LockError)?;
+        reg.open(id, mode, &*store);
+        drop(store);
+        drop(reg);
+        Ok(if let Some(tx) = &self.tx_log {
+            tx.append(TxKind::WorkspaceOp, vec![], actor)
+        } else {
+            0
+        })
+    }
+
+    fn merge_workspaces(
+        &self,
+        from: WorkspaceId,
+        into: WorkspaceId,
+        actor: &str,
+    ) -> Result<u64, CognitiveError> {
+        let mut reg = self.workspace_registry.lock().map_err(|_| CognitiveError::LockError)?;
+        reg.merge(&from, &into).map_err(|e| CognitiveError::StoreError(e))?;
+        drop(reg);
+        Ok(if let Some(tx) = &self.tx_log {
+            tx.append(TxKind::WorkspaceOp, vec![], actor)
+        } else {
+            0
+        })
     }
 
     fn apply_delta(&self, delta: &CognitiveDelta) -> Result<Vec<Uuid>, CognitiveError> {

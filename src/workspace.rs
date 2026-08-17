@@ -1,0 +1,256 @@
+//! Phase 4: Multi-agent workspace scoping with OR-Set CRDT merge.
+//!
+//! Chain-of-thought:
+//!   WorkspaceOpen  → snapshot parent store IDs as baseline; track new additions as OR-Set tuples.
+//!   WorkspaceMerge → union OR-Set additions + tombstones of two Shared workspaces (convergent).
+//!   apply_to_store → push live workspace records into any MemoryStore (merge-into-parent).
+//!
+//! Isolation guarantee: mutations inside a Private workspace never reach the parent store
+//! until the caller explicitly calls apply_to_store. Silent contamination is impossible.
+
+use std::collections::{HashMap, HashSet};
+use std::time::Instant;
+use uuid::Uuid;
+
+use crate::memory_record::MemoryRecord;
+use crate::memory_store::MemoryStore;
+use crate::persistence::MemoryBackend;
+
+// ── WorkspaceId ───────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct WorkspaceId(pub Uuid);
+
+impl WorkspaceId {
+    pub fn new() -> Self { Self(Uuid::new_v4()) }
+}
+
+impl Default for WorkspaceId {
+    fn default() -> Self { Self::new() }
+}
+
+impl std::fmt::Display for WorkspaceId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+// ── WorkspaceMode ─────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum WorkspaceMode {
+    /// Single-agent: isolated from all other workspaces. No merge allowed.
+    Private,
+    /// Multi-agent: additions tracked as OR-Set tuples for convergent merge.
+    Shared,
+}
+
+// ── OR-Set internals ──────────────────────────────────────────────────────────
+
+/// One addition entry in the OR-Set: record + the actor that added it + Lamport clock.
+#[derive(Debug, Clone)]
+struct OSetEntry {
+    record: MemoryRecord,
+    actor: String,
+    clock: u64,
+}
+
+// ── Workspace ─────────────────────────────────────────────────────────────────
+
+/// A scoped workspace for one or more agents.
+///
+/// - **Private**: changes are fully isolated until `apply_to_store` is called.
+/// - **Shared**: additions are tagged `(record_id, actor, lamport)`.
+///   Two Shared workspaces merge by unioning their OR-Sets; result is the same
+///   regardless of merge order (convergent, commutative, idempotent).
+pub struct Workspace {
+    pub id: WorkspaceId,
+    pub mode: WorkspaceMode,
+    created_at: Instant,
+    /// IDs present in the parent store at open time — never mutated.
+    baseline_ids: HashSet<Uuid>,
+    /// OR-Set additions (one entry per actor×record_id pair).
+    or_added: Vec<OSetEntry>,
+    /// Tombstones: `(record_id, actor_tag)` — cancels that actor's add.
+    or_tombstones: HashSet<(Uuid, String)>,
+    /// Lamport clock for this replica.
+    lamport: u64,
+}
+
+impl Workspace {
+    /// Snapshot parent store IDs as baseline, create empty workspace.
+    pub fn open<B: MemoryBackend>(
+        id: WorkspaceId,
+        mode: WorkspaceMode,
+        store: &MemoryStore<B>,
+    ) -> Self {
+        let baseline_ids: HashSet<Uuid> = store.all().iter().map(|r| r.id).collect();
+        Self {
+            id,
+            mode,
+            created_at: Instant::now(),
+            baseline_ids,
+            or_added: Vec::new(),
+            or_tombstones: HashSet::new(),
+            lamport: 0,
+        }
+    }
+
+    /// Stage a record addition (tagged by actor). Works for both Private and Shared.
+    pub fn add_record(&mut self, record: MemoryRecord, actor: &str) {
+        self.lamport += 1;
+        self.or_added.push(OSetEntry { record, actor: actor.to_string(), clock: self.lamport });
+    }
+
+    /// Tombstone a record (marks the actor's OR-Set entry as removed).
+    pub fn remove_record(&mut self, record_id: Uuid, actor: &str) {
+        self.or_tombstones.insert((record_id, actor.to_string()));
+    }
+
+    /// Live records = added entries whose (id, actor) pair is NOT tombstoned.
+    pub fn live_records(&self) -> Vec<&MemoryRecord> {
+        self.or_added
+            .iter()
+            .filter(|e| !self.or_tombstones.contains(&(e.record.id, e.actor.clone())))
+            .map(|e| &e.record)
+            .collect()
+    }
+
+    /// Push live workspace records into `store` (merge-into-parent operation).
+    /// Skips records already present by ID. Returns count of newly added records.
+    pub fn apply_to_store<B: MemoryBackend>(
+        &self,
+        store: &mut MemoryStore<B>,
+    ) -> Result<usize, String> {
+        let mut added = 0usize;
+        for rec in self.live_records() {
+            if store.find_by_id(rec.id).is_none() {
+                store.add(rec.clone()).map_err(|e| format!("store add: {e}"))?;
+                added += 1;
+            }
+        }
+        Ok(added)
+    }
+
+    /// Delta count: live records NOT in the baseline snapshot.
+    pub fn delta_count(&self) -> usize {
+        self.live_records().iter().filter(|r| !self.baseline_ids.contains(&r.id)).count()
+    }
+
+    /// 5-minute TTL for auto-eviction.
+    pub fn is_expired(&self) -> bool {
+        self.created_at.elapsed().as_secs() > 300
+    }
+
+    pub fn record_count(&self) -> usize {
+        self.live_records().len()
+    }
+}
+
+// ── WorkspaceRegistry ─────────────────────────────────────────────────────────
+
+/// Registry of all open workspaces. Held inside `CognitiveHandle` behind an `Arc<Mutex<_>>`.
+pub struct WorkspaceRegistry {
+    workspaces: HashMap<WorkspaceId, Workspace>,
+}
+
+impl WorkspaceRegistry {
+    pub fn new() -> Self {
+        Self { workspaces: HashMap::new() }
+    }
+
+    /// Open a new workspace. Snapshots the current store as baseline.
+    pub fn open<B: MemoryBackend>(
+        &mut self,
+        id: WorkspaceId,
+        mode: WorkspaceMode,
+        store: &MemoryStore<B>,
+    ) {
+        self.workspaces.insert(id.clone(), Workspace::open(id, mode, store));
+    }
+
+    pub fn get(&self, id: &WorkspaceId) -> Option<&Workspace> {
+        self.workspaces.get(id)
+    }
+
+    pub fn get_mut(&mut self, id: &WorkspaceId) -> Option<&mut Workspace> {
+        self.workspaces.get_mut(id)
+    }
+
+    pub fn remove(&mut self, id: &WorkspaceId) -> Option<Workspace> {
+        self.workspaces.remove(id)
+    }
+
+    /// OR-Set merge of `from` into `into`. Both must be Shared.
+    /// Returns count of records merged into `into`.
+    pub fn merge(
+        &mut self,
+        from_id: &WorkspaceId,
+        into_id: &WorkspaceId,
+    ) -> Result<usize, String> {
+        if from_id == into_id {
+            return Ok(0);
+        }
+        // Extract OR-Set data from `from` without holding a mutable borrow on `self`
+        let (or_added, tombstones, from_mode) = self
+            .workspaces
+            .get(from_id)
+            .map(|ws| (ws.or_added.clone(), ws.or_tombstones.clone(), ws.mode.clone()))
+            .ok_or_else(|| format!("workspace {from_id} not found"))?;
+
+        let into_ws = self
+            .workspaces
+            .get_mut(into_id)
+            .ok_or_else(|| format!("workspace {into_id} not found"))?;
+
+        if from_mode != WorkspaceMode::Shared || into_ws.mode != WorkspaceMode::Shared {
+            return Err("OR-Set merge requires both workspaces to be Shared".into());
+        }
+
+        // Union tombstones
+        for t in tombstones {
+            into_ws.or_tombstones.insert(t);
+        }
+
+        // Union additions — skip if same (record_id, actor) already present
+        let existing: HashSet<(Uuid, String)> =
+            into_ws.or_added.iter().map(|e| (e.record.id, e.actor.clone())).collect();
+        let mut merged = 0usize;
+        for entry in or_added {
+            let key = (entry.record.id, entry.actor.clone());
+            if !existing.contains(&key) {
+                into_ws.lamport = into_ws.lamport.max(entry.clock) + 1;
+                into_ws.or_added.push(entry);
+                merged += 1;
+            }
+        }
+        Ok(merged)
+    }
+
+    /// Apply workspace's live records into a MemoryStore (merge-into-parent path).
+    pub fn apply_to_parent<B: MemoryBackend>(
+        &self,
+        id: &WorkspaceId,
+        store: &mut MemoryStore<B>,
+    ) -> Result<usize, String> {
+        self.workspaces
+            .get(id)
+            .ok_or_else(|| format!("workspace {id} not found"))?
+            .apply_to_store(store)
+    }
+
+    pub fn workspace_count(&self) -> usize {
+        self.workspaces.len()
+    }
+
+    /// Remove expired workspaces (5-minute TTL).
+    pub fn evict_expired(&mut self) -> usize {
+        let before = self.workspaces.len();
+        self.workspaces.retain(|_, ws| !ws.is_expired());
+        before - self.workspaces.len()
+    }
+}
+
+impl Default for WorkspaceRegistry {
+    fn default() -> Self { Self::new() }
+}

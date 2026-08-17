@@ -111,6 +111,7 @@ pub fn compute_tx_diff<B: MemoryBackend>(
             TxKind::ArchiveRecord => {
                 delta.archived.extend_from_slice(&entry.record_ids);
             }
+            TxKind::WorkspaceOp => {} // workspace ops carry no record_ids in the diff
         }
     }
 
