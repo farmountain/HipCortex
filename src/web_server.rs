@@ -159,6 +159,7 @@ pub struct AppState<B: MemoryBackend + Send + Sync + 'static> {
     pub tx_log: Option<Arc<TxLog>>,
     pub calibration: Arc<CalibrationTracker>,
     pub cognitive: Arc<crate::cognitive_state::CognitiveHandle<B>>,
+    pub forks: Arc<Mutex<std::collections::HashMap<uuid::Uuid, Arc<Mutex<crate::simulation_fork::SimulationFork<B>>>>>>,
 }
 
 /// Manual Clone: all fields are Arc<…> so clone is a ref-count bump regardless of B.
@@ -177,6 +178,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> Clone for AppState<B> {
             tx_log: self.tx_log.clone(),
             calibration: self.calibration.clone(),
             cognitive: self.cognitive.clone(),
+            forks: self.forks.clone(),
         }
     }
 }
@@ -531,6 +533,7 @@ pub async fn run_with_memory<B: MemoryBackend + Send + Sync + 'static>(
         tx_log: None,
         calibration,
         cognitive,
+        forks: Arc::new(Mutex::new(std::collections::HashMap::new())),
     };
     run_with_state(addr, state).await;
 }
@@ -555,6 +558,7 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     let tx_log_arc = state.tx_log.clone();
     let calibration = state.calibration.clone();
     let cognitive = state.cognitive.clone();
+    let forks = state.forks.clone();
 
     // ── Symbolic store routes ─────────────────────────────────────────────
     let graph_route = {
@@ -1208,6 +1212,129 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
                 let cog = cog.clone();
                 let h = cog.health();
                 (axum::http::StatusCode::OK, axum::Json(serde_json::to_value(h).unwrap_or_default()))
+            })
+        })
+        // ── v0.8.0 Phase 2: DigitalTwin fork routes ──────────────────────────
+        .route("/v1/fork", {
+            let cog = cognitive.clone();
+            let forks = forks.clone();
+            post(move || async move {
+                let cog = cog.clone();
+                let forks = forks.clone();
+                match cog.fork() {
+                    Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({"error": e.to_string()}))),
+                    Ok(fork) => {
+                        let fork_id = fork.id;
+                        let base_tx = fork.base_tx;
+                        let mut map = forks.lock().unwrap();
+                        // purge expired before inserting
+                        map.retain(|_, v| !v.lock().unwrap().is_expired());
+                        map.insert(fork_id, Arc::new(Mutex::new(fork)));
+                        (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"fork_id": fork_id, "base_tx": base_tx, "expires_in_secs": 60})))
+                    }
+                }
+            })
+        })
+        .route("/v1/fork/:fork_id/step", {
+            let forks = forks.clone();
+            post(move |Path(fork_id_str): Path<String>, Json(req): Json<serde_json::Value>| async move {
+                let forks = forks.clone();
+                let action = req.get("action").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                if action.is_empty() {
+                    return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "action required"})));
+                }
+                let fork_id = match uuid::Uuid::parse_str(&fork_id_str) {
+                    Ok(id) => id,
+                    Err(_) => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "invalid fork_id"}))),
+                };
+                let map = forks.lock().unwrap();
+                match map.get(&fork_id) {
+                    None => (axum::http::StatusCode::NOT_FOUND, axum::Json(serde_json::json!({"ok": false, "error": "fork not found"}))),
+                    Some(fork_arc) => {
+                        let mut fork = fork_arc.lock().unwrap();
+                        if fork.is_expired() {
+                            return (axum::http::StatusCode::GONE, axum::Json(serde_json::json!({"ok": false, "error": "fork expired"})));
+                        }
+                        match fork.step(&action) {
+                            Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
+                            Ok(fork_tx) => (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"ok": true, "fork_tx": fork_tx, "steps_taken": fork.steps_taken()}))),
+                        }
+                    }
+                }
+            })
+        })
+        .route("/v1/fork/:fork_id/transact", {
+            let forks = forks.clone();
+            post(move |Path(fork_id_str): Path<String>, Json(req): Json<serde_json::Value>| async move {
+                let forks = forks.clone();
+                let fork_id = match uuid::Uuid::parse_str(&fork_id_str) {
+                    Ok(id) => id,
+                    Err(_) => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "invalid fork_id"}))),
+                };
+                let actor = req.get("actor").and_then(|v| v.as_str()).unwrap_or("api").to_string();
+                let delta_val = match req.get("delta") {
+                    Some(v) => v.clone(),
+                    None => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "missing delta"}))),
+                };
+                let delta = match serde_json::from_value::<crate::cognitive_state::CognitiveDelta>(delta_val) {
+                    Err(e) => return (axum::http::StatusCode::UNPROCESSABLE_ENTITY, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
+                    Ok(d) => d,
+                };
+                let map = forks.lock().unwrap();
+                match map.get(&fork_id) {
+                    None => (axum::http::StatusCode::NOT_FOUND, axum::Json(serde_json::json!({"ok": false, "error": "fork not found"}))),
+                    Some(fork_arc) => {
+                        let mut fork = fork_arc.lock().unwrap();
+                        if fork.is_expired() {
+                            return (axum::http::StatusCode::GONE, axum::Json(serde_json::json!({"ok": false, "error": "fork expired"})));
+                        }
+                        match fork.apply_delta(delta, &actor) {
+                            Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
+                            Ok(fork_tx) => (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"ok": true, "fork_tx": fork_tx}))),
+                        }
+                    }
+                }
+            })
+        })
+        .route("/v1/fork/:fork_id/snapshot", {
+            let forks = forks.clone();
+            get(move |Path(fork_id_str): Path<String>, axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>| async move {
+                let forks = forks.clone();
+                let fork_id = match uuid::Uuid::parse_str(&fork_id_str) {
+                    Ok(id) => id,
+                    Err(_) => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"error": "invalid fork_id"}))),
+                };
+                let actor = params.get("actor").cloned().unwrap_or_default();
+                let map = forks.lock().unwrap();
+                match map.get(&fork_id) {
+                    None => (axum::http::StatusCode::NOT_FOUND, axum::Json(serde_json::json!({"error": "fork not found"}))),
+                    Some(fork_arc) => {
+                        let fork = fork_arc.lock().unwrap();
+                        if fork.is_expired() {
+                            return (axum::http::StatusCode::GONE, axum::Json(serde_json::json!({"error": "fork expired"})));
+                        }
+                        match fork.snapshot(&actor) {
+                            Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({"error": e.to_string()}))),
+                            Ok(snap) => (axum::http::StatusCode::OK, axum::Json(serde_json::to_value(snap).unwrap_or_default())),
+                        }
+                    }
+                }
+            })
+        })
+        .route("/v1/fork/:fork_id", {
+            let forks = forks.clone();
+            axum::routing::delete(move |Path(fork_id_str): Path<String>| async move {
+                let forks = forks.clone();
+                let fork_id = match uuid::Uuid::parse_str(&fork_id_str) {
+                    Ok(id) => id,
+                    Err(_) => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "invalid fork_id"}))),
+                };
+                let mut map = forks.lock().unwrap();
+                if map.remove(&fork_id).is_some() {
+                    (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"ok": true})))
+                } else {
+                    (axum::http::StatusCode::NOT_FOUND, axum::Json(serde_json::json!({"ok": false, "error": "fork not found"})))
+                }
             })
         })
         .layer(middleware::from_fn(api_key_middleware));

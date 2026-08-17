@@ -565,6 +565,7 @@ impl AsyncMemoryBackend for AsyncFileBackend {
 }
 
 /// In-memory backend for testing and ephemeral use. Zero file I/O.
+#[derive(Clone)]
 pub struct InMemoryBackend {
     records: Vec<MemoryRecord>,
 }

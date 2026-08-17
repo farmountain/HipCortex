@@ -470,7 +470,8 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
     }
 
     pub fn fork(&self) -> Result<SimulationFork<B>, CognitiveError> {
-        Ok(SimulationFork::new_stub())
+        let base_tx = self.tx_log.as_ref().map(|t| t.current_tx()).unwrap_or(0);
+        SimulationFork::from_handle(self, base_tx)
     }
 
     /// Compute semantic diff between two tx cursors.

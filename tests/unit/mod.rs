@@ -51,6 +51,7 @@ mod state_diff_tests;
 mod symbolic_store_tests;
 mod temporal_fsm_backend_tests;
 mod temporal_indexer_feature_tests;
+mod simulation_fork_tests;
 mod temporal_indexer_tests;
 mod tx_log_tests;
 mod vision_encoder_tests;

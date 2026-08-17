@@ -116,6 +116,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tx_log,
         calibration,
         cognitive,
+        forks: Arc::new(Mutex::new(std::collections::HashMap::new())),
     };
 
     // ── Periodic WorldModel flush every 5 minutes ────────────────────────────

@@ -312,12 +312,21 @@ fn test_fork_constructs_no_panic() {
 }
 
 #[test]
-fn test_fork_step_not_implemented() {
+fn test_fork_step_succeeds() {
+    let handle = make_handle();
+    let mut fork = handle.fork().unwrap();
+    let tx = fork.step("some action").unwrap();
+    assert!(tx > 0);
+    assert_eq!(fork.steps_taken(), 1);
+}
+
+#[test]
+fn test_fork_step_empty_action_returns_error() {
     use hipcortex::cognitive_state::CognitiveError;
     let handle = make_handle();
-    let fork = handle.fork().unwrap();
-    let err = fork.step("some action").unwrap_err();
-    assert!(matches!(err, CognitiveError::NotImplemented(_)));
+    let mut fork = handle.fork().unwrap();
+    let err = fork.step("").unwrap_err();
+    assert!(matches!(err, CognitiveError::DeltaInvalid(_)));
 }
 
 // ─── Task 1 (Phase 1): CognitiveDelta serde round-trips (G1-5) ──────────────
