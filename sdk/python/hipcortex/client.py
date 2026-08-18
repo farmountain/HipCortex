@@ -748,3 +748,25 @@ class HipCortexClient:
         """Archive or delete a record via cognitive transact."""
         return self.transact({"type": "ArchiveRecord", "id": record_id}, actor="sdk")
 
+    def workspace_open(self, workspace_id: str, mode: str = "Private") -> Dict[str, Any]:
+        """Open a scoped workspace for isolated or shared multi-agent cognition."""
+        return self.transact({"type": "WorkspaceOpen", "id": workspace_id, "mode": mode}, actor="sdk")
+
+    def workspace_merge(self, from_id: str, into_id: str) -> Dict[str, Any]:
+        """Merge a Shared workspace into another via OR-Set CRDT convergence."""
+        return self.transact({"type": "WorkspaceMerge", "from": from_id, "into": into_id}, actor="sdk")
+
+    def retract_belief(self, belief_id: str, reason: str = "retracted") -> Dict[str, Any]:
+        """Retract a belief, triggering JTMS dependency propagation."""
+        return self.transact({"type": "RetractBelief", "id": belief_id, "reason": reason}, actor="sdk")
+
+    def trigger_consolidation(self, min_frequency: int = 3) -> Dict[str, Any]:
+        """Trigger memory consolidation to compact episodic traces into skills/beliefs."""
+        return self.transact({"type": "Consolidate", "source_ids": [], "summary": {"min_frequency": min_frequency}}, actor="sdk")
+
+    def compute_state_diff(self, from_tx: int, to_tx: int) -> Dict[str, Any]:
+        """Return causal-attributed ΔS between two tx checkpoints."""
+        resp = self._session.post(f"{self.base_url}/v1/state/diff", json={"from_tx": from_tx, "to_tx": to_tx}, timeout=self.timeout)
+        resp.raise_for_status()
+        return resp.json()
+

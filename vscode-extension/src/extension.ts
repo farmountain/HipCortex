@@ -967,6 +967,38 @@ export class HipCortexAPI {
         const response = await axios.get(`${this.baseUrl}/v1/cognitive/diff`, { params: { from_tx: fromTx, to_tx: toTx }, headers, timeout: 10000 });
         return response.data;
     }
+
+    async simulateRollout(forkId: string, actions: string[], sigma2Max = 0.25): Promise<any> {
+        const headers: any = { 'Content-Type': 'application/json' };
+        if (this.apiKey) { headers['Authorization'] = `Bearer ${this.apiKey}`; }
+        const response = await axios.post(`${this.baseUrl}/v1/fork/${forkId}/rollout`, { actions, sigma2_max: sigma2Max }, { headers, timeout: 15000 });
+        return response.data;
+    }
+
+    async workspaceOpen(workspaceId: string, mode: 'Private' | 'Shared' = 'Private'): Promise<any> {
+        return this.cognitiveTransact({ type: 'WorkspaceOpen', id: workspaceId, mode }, 'vscode');
+    }
+
+    async workspaceMerge(fromId: string, intoId: string): Promise<any> {
+        return this.cognitiveTransact({ type: 'WorkspaceMerge', from: fromId, into: intoId }, 'vscode');
+    }
+
+    async retractBelief(beliefId: string, reason = 'retracted'): Promise<any> {
+        return this.cognitiveTransact({ type: 'RetractBelief', id: beliefId, reason }, 'vscode');
+    }
+
+    async triggerConsolidation(minFrequency = 3): Promise<any> {
+        return this.cognitiveTransact({ type: 'Consolidate', source_ids: [], summary: { min_frequency: minFrequency } }, 'vscode');
+    }
+
+    async getLiveBeliefs(actor?: string, limit = 20): Promise<any> {
+        const headers: any = {};
+        if (this.apiKey) { headers['Authorization'] = `Bearer ${this.apiKey}`; }
+        const params: any = { limit };
+        if (actor) { params.actor = actor; }
+        const response = await axios.get(`${this.baseUrl}/v1/memory/beliefs`, { params, headers, timeout: 10000 });
+        return response.data;
+    }
 }
 
 class HipCortexChatParticipant {

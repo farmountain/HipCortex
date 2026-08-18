@@ -536,6 +536,42 @@ TOOLS = [
             "required": ["id"],
         },
     },
+    {
+        "name": "workspace_open",
+        "description": "Open a new workspace (Private or Shared) for scoped multi-agent cognition.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "workspace_id": {"type": "string", "description": "UUID for the workspace."},
+                "mode": {"type": "string", "enum": ["Private", "Shared"], "default": "Private"},
+            },
+            "required": ["workspace_id"],
+        },
+    },
+    {
+        "name": "workspace_merge",
+        "description": "Merge one Shared workspace into another via OR-Set CRDT convergence.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "from_id": {"type": "string", "description": "Source workspace UUID."},
+                "into_id": {"type": "string", "description": "Target workspace UUID."},
+            },
+            "required": ["from_id", "into_id"],
+        },
+    },
+    {
+        "name": "retract_belief",
+        "description": "Retract a belief record, triggering JTMS dependency propagation.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "belief_id": {"type": "string"},
+                "reason": {"type": "string", "default": "retracted"},
+            },
+            "required": ["belief_id"],
+        },
+    },
 ]
 
 RESOURCES = [
@@ -552,10 +588,28 @@ RESOURCES = [
         "mimeType": "application/json",
     },
     {
+        "uri": "hipcortex://beliefs/live",
+        "name": "Live Beliefs",
+        "description": "Active Belief records with confidence + JTMS labels (alias of beliefs/current).",
+        "mimeType": "application/json",
+    },
+    {
         "uri": "hipcortex://context/conversation",
         "name": "Conversation History",
         "description": "Recent temporal memory traces for this session.",
         "mimeType": "text/plain",
+    },
+    {
+        "uri": "hipcortex://state/diff",
+        "name": "Recent State Diff",
+        "description": "ΔS for last 5 transactions — epistemic value of recent turns.",
+        "mimeType": "application/json",
+    },
+    {
+        "uri": "hipcortex://self/health",
+        "name": "Self-Model Health",
+        "description": "Current calibration score, epistemic entropy, consolidation pressure.",
+        "mimeType": "application/json",
     },
 ]
 
@@ -823,6 +877,21 @@ def handle_archive_record(args: dict) -> str:
     return json.dumps(_post("/v1/cognitive/transact", {"delta": delta, "actor": "mcp"}))
 
 
+def handle_workspace_open(args: dict) -> str:
+    delta = {"type": "WorkspaceOpen", "id": args["workspace_id"], "mode": args.get("mode", "Private")}
+    return json.dumps(_post("/v1/cognitive/transact", {"delta": delta, "actor": "mcp"}))
+
+
+def handle_workspace_merge(args: dict) -> str:
+    delta = {"type": "WorkspaceMerge", "from": args["from_id"], "into": args["into_id"]}
+    return json.dumps(_post("/v1/cognitive/transact", {"delta": delta, "actor": "mcp"}))
+
+
+def handle_retract_belief(args: dict) -> str:
+    delta = {"type": "RetractBelief", "id": args["belief_id"], "reason": args.get("reason", "retracted")}
+    return json.dumps(_post("/v1/cognitive/transact", {"delta": delta, "actor": "mcp"}))
+
+
 def handle_purge_expired(_args: dict) -> str:
     result = _post("/memory/consolidate", {"dry_run": False})
     deleted = result.get("deleted", 0)
@@ -1048,6 +1117,9 @@ def dispatch_tool(name: str, args: dict) -> str:
         "consolidate_memory":   handle_p5_consolidate,
         "forget_actor":         handle_forget_actor,
         "archive_record":       handle_archive_record,
+        "workspace_open":       handle_workspace_open,
+        "workspace_merge":      handle_workspace_merge,
+        "retract_belief":       handle_retract_belief,
     }
     handler = handlers.get(name)
     if handler is None:
@@ -1091,14 +1163,43 @@ def handle_resource_read(uri: str) -> dict:
                 lines.append(f"[{actor}] {action} → {target}")
             text = "\n".join(lines) if lines else "(no memories yet)"
             return {"contents": [{"uri": uri, "mimeType": "text/plain", "text": text}]}
-        elif uri == "hipcortex://beliefs/current":
-            data = _get("/memory/search?q=belief&record_type=Symbolic&limit=10")
+        elif uri in ("hipcortex://beliefs/current", "hipcortex://beliefs/live"):
+            data = _get("/v1/beliefs")
             return {
                 "contents": [
                     {
                         "uri": uri,
                         "mimeType": "application/json",
-                        "text": json.dumps(data if isinstance(data, list) else []),
+                        "text": json.dumps(data if isinstance(data, list) else data),
+                    }
+                ]
+            }
+        elif uri == "hipcortex://state/diff":
+            # Get current tx, compute diff over last 5 transactions
+            try:
+                snap = _get("/v1/cognitive/snapshot")
+                head = snap.get("tx_cursor", 0)
+                from_tx = max(0, head - 5)
+                data = _get(f"/v1/state/diff?from_tx={from_tx}&to_tx={head}")
+            except Exception:
+                data = {}
+            return {
+                "contents": [
+                    {
+                        "uri": uri,
+                        "mimeType": "application/json",
+                        "text": json.dumps(data),
+                    }
+                ]
+            }
+        elif uri == "hipcortex://self/health":
+            data = _get("/v1/self/health")
+            return {
+                "contents": [
+                    {
+                        "uri": uri,
+                        "mimeType": "application/json",
+                        "text": json.dumps(data),
                     }
                 ]
             }
