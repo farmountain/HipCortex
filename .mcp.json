@@ -3,7 +3,7 @@
     "hipcortex": {
       "type": "stdio",
       "command": "python",
-      "args": ["sdk/mcp/server.py"],
+      "args": ["D:/all_projects/hipcortex/sdk/mcp/server.py"],
       "env": {
         "HIPCORTEX_URL": "http://localhost:3030",
         "HIPCORTEX_TIMEOUT": "15"

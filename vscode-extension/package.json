@@ -1,7 +1,7 @@
 {
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
-    "description": "HipCortex v0.6.0 — persistent causal topological memory, passive integration layer (LangChain/CrewAI/AutoGen/MCP resources), world-model rollout, 10 LM tools, dual /health. Headroom/Caveman token optimization (59-88%) for Copilot & Antigravity IDE. Bundled multi-OS server (product crate 0.6.0).",
+    "description": "HipCortex v0.8.0 — Cognitive OS substrate: transactional memory (CognitiveDelta), JTMS belief revision, causal compaction, multi-agent workspaces, world-model rollout, 6 Phase-5 operators uniform across MCP/Python/TypeScript SDK. Passive capture for LangChain/CrewAI/AutoGen. Bundled multi-OS server (crate 0.8.0).",
     "version": "0.8.0",
     "publisher": "farmountain",
   "repository": {
