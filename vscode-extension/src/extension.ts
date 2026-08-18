@@ -968,6 +968,13 @@ export class HipCortexAPI {
         return response.data;
     }
 
+    async computeStateDiff(fromTx: number, toTx: number): Promise<any> {
+        const headers: any = {};
+        if (this.apiKey) { headers['Authorization'] = `Bearer ${this.apiKey}`; }
+        const response = await axios.post(`${this.baseUrl}/v1/state/diff`, { from_tx: fromTx, to_tx: toTx }, { headers, timeout: 10000 });
+        return response.data;
+    }
+
     async simulateRollout(forkId: string, actions: string[], sigma2Max = 0.25): Promise<any> {
         const headers: any = { 'Content-Type': 'application/json' };
         if (this.apiKey) { headers['Authorization'] = `Bearer ${this.apiKey}`; }
