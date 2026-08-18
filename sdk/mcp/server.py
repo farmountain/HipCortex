@@ -508,14 +508,13 @@ TOOLS = [
     },
     {
         "name": "consolidate_memory",
-        "description": "Consolidate source memory records into a summary via Consolidate delta.",
+        "description": "Mine recurring causal subgraphs and induce Skill+Belief records via AutoConsolidate.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "source_ids": {"type": "array", "items": {"type": "string"}},
-                "summary": {"type": "object"},
+                "min_frequency": {"type": "integer", "default": 3, "description": "Minimum causal path frequency to qualify for induction."},
             },
-            "required": ["source_ids", "summary"],
+            "required": [],
         },
     },
     {
@@ -865,7 +864,7 @@ def handle_fork_rollout(args: dict) -> str:
     return json.dumps(_post(f"/v1/fork/{args['fork_id']}/rollout", {"actions": args["actions"], "sigma2_max": args.get("sigma2_max", 0.25)}))
 
 def handle_p5_consolidate(args: dict) -> str:
-    delta = {"type": "Consolidate", "source_ids": args["source_ids"], "summary": args["summary"]}
+    delta = {"type": "AutoConsolidate", "min_frequency": args.get("min_frequency", 3)}
     return json.dumps(_post("/v1/cognitive/transact", {"delta": delta, "actor": "mcp"}))
 
 def handle_forget_actor(args: dict) -> str:

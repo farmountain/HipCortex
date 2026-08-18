@@ -988,7 +988,7 @@ export class HipCortexAPI {
     }
 
     async triggerConsolidation(minFrequency = 3): Promise<any> {
-        return this.cognitiveTransact({ type: 'Consolidate', source_ids: [], summary: { min_frequency: minFrequency } }, 'vscode');
+        return this.cognitiveTransact({ type: 'AutoConsolidate', min_frequency: minFrequency }, 'vscode');
     }
 
     async getLiveBeliefs(actor?: string, limit = 20): Promise<any> {

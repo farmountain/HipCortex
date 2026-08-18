@@ -762,7 +762,7 @@ class HipCortexClient:
 
     def trigger_consolidation(self, min_frequency: int = 3) -> Dict[str, Any]:
         """Trigger memory consolidation to compact episodic traces into skills/beliefs."""
-        return self.transact({"type": "Consolidate", "source_ids": [], "summary": {"min_frequency": min_frequency}}, actor="sdk")
+        return self.transact({"type": "AutoConsolidate", "min_frequency": min_frequency}, actor="sdk")
 
     def compute_state_diff(self, from_tx: int, to_tx: int) -> Dict[str, Any]:
         """Return causal-attributed ΔS between two tx checkpoints."""
