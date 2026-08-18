@@ -313,8 +313,8 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             0
         };
 
-        // Step 6: Calibration ping
-        self.calibration.record_prediction_error(0.0);
+        // Step 6: Calibration — update pressure, entropy, EWMA
+        self.calibrate_after_tx(tx_cursor);
 
         Ok(TransactResult { tx_cursor, records_deleted: None })
     }
@@ -362,7 +362,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         } else {
             0
         };
-        self.calibration.record_prediction_error(0.0);
+        self.calibrate_after_tx(tx_cursor);
         Ok(tx_cursor)
     }
 
@@ -385,7 +385,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         } else {
             0
         };
-        self.calibration.record_prediction_error(0.0);
+        self.calibrate_after_tx(tx_cursor);
         Ok((tx_cursor, deleted))
     }
 
@@ -413,7 +413,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         } else {
             0
         };
-        self.calibration.record_prediction_error(0.0);
+        self.calibrate_after_tx(tx_cursor);
         Ok(tx_cursor)
     }
 
@@ -432,7 +432,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         } else {
             0
         };
-        self.calibration.record_prediction_error(0.0);
+        self.calibrate_after_tx(tx_cursor);
         Ok(tx_cursor)
     }
 
@@ -452,7 +452,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         } else {
             0
         };
-        self.calibration.record_prediction_error(0.0);
+        self.calibrate_after_tx(tx_cursor);
         Ok(tx_cursor)
     }
 
@@ -489,7 +489,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         } else {
             0
         };
-        self.calibration.record_prediction_error(0.0);
+        self.calibrate_after_tx(tx_cursor);
         Ok(tx_cursor)
     }
 
@@ -506,11 +506,13 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         reg.open(id, mode, &*store);
         drop(store);
         drop(reg);
-        Ok(if let Some(tx) = &self.tx_log {
+        let tx_cursor = if let Some(tx) = &self.tx_log {
             tx.append(TxKind::WorkspaceOp, vec![], actor)
         } else {
             0
-        })
+        };
+        self.calibrate_after_tx(tx_cursor);
+        Ok(tx_cursor)
     }
 
     fn merge_workspaces(
@@ -522,11 +524,26 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         let mut reg = self.workspace_registry.lock().map_err(|_| CognitiveError::LockError)?;
         reg.merge(&from, &into).map_err(|e| CognitiveError::StoreError(e))?;
         drop(reg);
-        Ok(if let Some(tx) = &self.tx_log {
+        let tx_cursor = if let Some(tx) = &self.tx_log {
             tx.append(TxKind::WorkspaceOp, vec![], actor)
         } else {
             0
-        })
+        };
+        self.calibrate_after_tx(tx_cursor);
+        Ok(tx_cursor)
+    }
+
+    /// Re-acquire store (briefly) to compute real pressure + entropy after any transact.
+    /// Best-effort: if lock is poisoned, EWMA ping still fires.
+    fn calibrate_after_tx(&self, tx_cursor: u64) {
+        if let Ok(store) = self.memory.lock() {
+            let pressure = crate::consolidation::compute_pressure(
+                &*store,
+                &crate::consolidation::ConsolidationConfig::default(),
+            );
+            self.calibration.update_from_store(&*store, pressure, tx_cursor);
+        }
+        self.calibration.record_prediction_error(0.0);
     }
 
     fn apply_delta(&self, delta: &CognitiveDelta) -> Result<Vec<Uuid>, CognitiveError> {

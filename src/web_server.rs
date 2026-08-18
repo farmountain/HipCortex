@@ -1156,6 +1156,34 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
                 }
             })
         })
+        .route("/v1/state/export", {
+            let cog = cognitive.clone();
+            get(move || async move {
+                match cog.snapshot("") {
+                    Ok(snap) => {
+                        let mut val = serde_json::to_value(&snap)
+                            .unwrap_or_else(|_| serde_json::json!({"error": "serialization failed"}));
+                        if let Some(obj) = val.as_object_mut() {
+                            obj.insert("schema_version".to_string(), serde_json::json!("0.8.0"));
+                            obj.insert(
+                                "exported_at_ms".to_string(),
+                                serde_json::json!(
+                                    std::time::SystemTime::now()
+                                        .duration_since(std::time::UNIX_EPOCH)
+                                        .unwrap_or_default()
+                                        .as_millis() as u64
+                                ),
+                            );
+                        }
+                        (axum::http::StatusCode::OK, axum::Json(val))
+                    }
+                    Err(e) => (
+                        axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                        axum::Json(serde_json::json!({"error": e.to_string()})),
+                    ),
+                }
+            })
+        })
         .route("/v1/beliefs", {
             let store = memory_store.clone();
             get(
@@ -1656,6 +1684,7 @@ async fn api_key_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Respons
         || path == "/worldmodel/transitions"
         || path == "/worldmodel/uncertainty"
         || path == "/graph/search"
+        || path == "/v1/state/export"
     {
         return Ok(next.run(req).await);
     }

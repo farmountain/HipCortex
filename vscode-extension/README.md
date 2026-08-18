@@ -97,8 +97,9 @@ Available as `HipCortexClient` TypeScript methods and wired to VS Code commands:
 | `workspaceOpen` | transact `WorkspaceOpen` delta |
 | `workspaceMerge` | transact `WorkspaceMerge` delta |
 | `retractBelief` | transact `RetractBelief` delta |
-| `triggerConsolidation` | transact `AutoConsolidate` delta |
+| `triggerConsolidation` | transact `AutoConsolidate` delta (MCP: `consolidate_memory`) |
 | `getLiveBeliefs` | `GET /v1/beliefs/live` |
+| `getStateExport` | `GET /v1/state/export` — versioned `schema_version=0.8.0` snapshot (MCP: `get_state_export`) |
 
 ---
 

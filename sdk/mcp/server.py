@@ -571,6 +571,15 @@ TOOLS = [
             "required": ["belief_id"],
         },
     },
+    {
+        "name": "get_state_export",
+        "description": "Export full versioned Cognitive State snapshot (schema_version=0.8.0, tx_cursor, beliefs, goals, world state). Use for agent handover, substrate audit, or cross-session state transfer.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
 ]
 
 RESOURCES = [
@@ -867,6 +876,19 @@ def handle_p5_consolidate(args: dict) -> str:
     delta = {"type": "AutoConsolidate", "min_frequency": args.get("min_frequency", 3)}
     return json.dumps(_post("/v1/cognitive/transact", {"delta": delta, "actor": "mcp"}))
 
+def handle_get_state_export(_args: dict) -> str:
+    data = _get("/v1/state/export")
+    if "error" in data:
+        return f"State export error: {data['error']}"
+    sv = data.get("schema_version", "unknown")
+    tx = data.get("tx_cursor", 0)
+    beliefs = len(data.get("beliefs", {}).get("beliefs", []))
+    goals = len(data.get("goals", []))
+    return (
+        f"State export OK (schema={sv}, tx={tx}, beliefs={beliefs}, goals={goals})\n"
+        + json.dumps(data, indent=2)[:3000]
+    )
+
 def handle_forget_actor(args: dict) -> str:
     delta = {"type": "ForgetActor", "actor": args["actor_id"]}
     return json.dumps(_post("/v1/cognitive/transact", {"delta": delta, "actor": "mcp"}))
@@ -1114,6 +1136,7 @@ def dispatch_tool(name: str, args: dict) -> str:
         "fork_delete":          handle_fork_delete,
         "fork_rollout":         handle_fork_rollout,
         "consolidate_memory":   handle_p5_consolidate,
+        "get_state_export":     handle_get_state_export,
         "forget_actor":         handle_forget_actor,
         "archive_record":       handle_archive_record,
         "workspace_open":       handle_workspace_open,

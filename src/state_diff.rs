@@ -7,6 +7,26 @@ use crate::{
     tx_log::{TxKind, TxLog},
 };
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BeliefDelta {
+    /// Belief IDs asserted (JTMS → In) in this tx range.
+    pub asserted: Vec<Uuid>,
+    /// Belief IDs retracted (JTMS → Out) in this tx range.
+    pub retracted: Vec<Uuid>,
+    /// Number of AssertJustification operations.
+    pub justifications_asserted: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct HealthDelta {
+    /// True if a ForgetActor (GDPR wipe) occurred in this tx range.
+    pub gdpr_wipe_occurred: bool,
+    /// Number of consolidation passes triggered.
+    pub consolidation_passes: u32,
+    /// Number of workspace operations (open + merge).
+    pub workspace_ops: u32,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TxStateDiff {
     pub from_tx: u64,
@@ -14,7 +34,9 @@ pub struct TxStateDiff {
     pub timestamp_range: (u64, u64),
     pub tx_count: u64,
     pub memory_delta: MemoryDelta,
+    pub belief_delta: BeliefDelta,
     pub world_model_delta: WorldModelDelta,
+    pub health_delta: HealthDelta,
     pub causal_attributions: Vec<CausalAttributionPath>,
 }
 
@@ -56,7 +78,9 @@ pub fn compute_tx_diff<B: MemoryBackend>(
     let entries = log.query_range(from_tx, to_tx)?;
 
     let mut delta = MemoryDelta::default();
+    let mut belief_delta = BeliefDelta::default();
     let mut wm = WorldModelDelta::default();
+    let mut health_delta = HealthDelta::default();
     let mut attributions: Vec<CausalAttributionPath> = Vec::new();
     let mut ts_min = u64::MAX;
     let mut ts_max = 0u64;
@@ -70,7 +94,7 @@ pub fn compute_tx_diff<B: MemoryBackend>(
         }
 
         match &entry.kind {
-            TxKind::MemoryAdd | TxKind::BeliefAssert | TxKind::GoalCreate => {
+            TxKind::MemoryAdd | TxKind::GoalCreate => {
                 delta.added.extend_from_slice(&entry.record_ids);
                 for &rid in &entry.record_ids {
                     let conf = store.find_by_id(rid).map(|r| r.confidence).unwrap_or(0.0);
@@ -82,11 +106,38 @@ pub fn compute_tx_diff<B: MemoryBackend>(
                     });
                 }
             }
-            TxKind::MemoryArchive
-            | TxKind::BeliefRetract
-            | TxKind::MemoryDelete
-            | TxKind::Consolidate => {
+            TxKind::BeliefAssert => {
+                delta.added.extend_from_slice(&entry.record_ids);
+                belief_delta.asserted.extend_from_slice(&entry.record_ids);
+                belief_delta.justifications_asserted += 1;
+                for &rid in &entry.record_ids {
+                    let conf = store.find_by_id(rid).map(|r| r.confidence).unwrap_or(0.0);
+                    attributions.push(CausalAttributionPath {
+                        record_id: rid,
+                        tx_id: entry.tx_id,
+                        trigger_action: "BeliefAssert".to_string(),
+                        confidence_shift: conf,
+                    });
+                }
+            }
+            TxKind::BeliefRetract => {
                 delta.archived.extend_from_slice(&entry.record_ids);
+                belief_delta.retracted.extend_from_slice(&entry.record_ids);
+                for &rid in &entry.record_ids {
+                    attributions.push(CausalAttributionPath {
+                        record_id: rid,
+                        tx_id: entry.tx_id,
+                        trigger_action: "BeliefRetract".to_string(),
+                        confidence_shift: 0.0, // retracted — no longer live
+                    });
+                }
+            }
+            TxKind::MemoryArchive | TxKind::MemoryDelete => {
+                delta.archived.extend_from_slice(&entry.record_ids);
+            }
+            TxKind::Consolidate => {
+                delta.archived.extend_from_slice(&entry.record_ids);
+                health_delta.consolidation_passes += 1;
             }
             TxKind::MemoryUpdate | TxKind::GoalStatusChange => {
                 delta.updated.extend_from_slice(&entry.record_ids);
@@ -107,11 +158,14 @@ pub fn compute_tx_diff<B: MemoryBackend>(
             }
             TxKind::ForgetActor => {
                 delta.archived.extend_from_slice(&entry.record_ids);
+                health_delta.gdpr_wipe_occurred = true;
             }
             TxKind::ArchiveRecord => {
                 delta.archived.extend_from_slice(&entry.record_ids);
             }
-            TxKind::WorkspaceOp => {} // workspace ops carry no record_ids in the diff
+            TxKind::WorkspaceOp => {
+                health_delta.workspace_ops += 1;
+            }
         }
     }
 
@@ -128,7 +182,9 @@ pub fn compute_tx_diff<B: MemoryBackend>(
         timestamp_range: ts_range,
         tx_count: entries.len() as u64,
         memory_delta: delta,
+        belief_delta,
         world_model_delta: wm,
+        health_delta,
         causal_attributions: attributions,
     })
 }
@@ -141,7 +197,9 @@ impl TxStateDiff {
             timestamp_range: (0, 0),
             tx_count: 0,
             memory_delta: MemoryDelta::default(),
+            belief_delta: BeliefDelta::default(),
             world_model_delta: WorldModelDelta::default(),
+            health_delta: HealthDelta::default(),
             causal_attributions: Vec::new(),
         }
     }
