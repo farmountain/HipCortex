@@ -37,17 +37,20 @@ def test_mcp_initialize_advertises_resources():
         proc.terminate()
 
 
-def test_mcp_resources_list_returns_three_resources():
+def test_mcp_resources_list_returns_six_resources():
     proc = _start_server()
     try:
         _send(proc, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
         resp = _send(proc, {"jsonrpc": "2.0", "id": 2, "method": "resources/list", "params": {}})
         resources = resp["result"]["resources"]
-        assert len(resources) == 3, f"expected 3 resources, got {len(resources)}"
+        assert len(resources) == 6, f"expected 6 resources, got {len(resources)}"
         uris = {r["uri"] for r in resources}
         assert "hipcortex://context/relevant" in uris
         assert "hipcortex://beliefs/current" in uris
+        assert "hipcortex://beliefs/live" in uris
         assert "hipcortex://context/conversation" in uris
+        assert "hipcortex://state/diff" in uris
+        assert "hipcortex://self/health" in uris
     finally:
         proc.terminate()
 

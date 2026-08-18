@@ -34,9 +34,12 @@ class HipCortexServerManager:
             binary = binary.with_suffix(".exe")
             
         if build_from_source:
-            # Build the webserver binary
             cmd = ["cargo", "build", "--no-default-features", "--bin", "webserver", "--features", "web-server,petgraph_backend"]
-            subprocess.run(cmd, cwd=root_dir, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            try:
+                subprocess.run(cmd, cwd=root_dir, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            except subprocess.CalledProcessError:
+                if not binary.exists():
+                    raise
         return binary if binary.exists() else Path(shutil.which("hipcortex") or "hipcortex")
 
     @tenacity.retry(stop=tenacity.stop_after_attempt(20), wait=tenacity.wait_fixed(0.3))
