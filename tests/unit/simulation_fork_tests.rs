@@ -270,3 +270,32 @@ fn test_rollout_goal_distance_and_drift_fields_present() {
     // Distance constant at 1.0 → no streak → no alarm
     assert!(!result.drift_alarm);
 }
+
+#[test]
+fn test_all_records_returns_fork_store_contents() {
+    let handle = make_handle();
+    {
+        let mut ms = handle.memory.lock().unwrap();
+        ms.add(make_record("r1")).unwrap();
+    }
+    let fork = handle.fork().unwrap();
+    let records = fork.all_records();
+    assert!(!records.is_empty(), "fork should have at least the seeded record");
+}
+
+#[test]
+fn test_rollout_hybrid_returns_trajectory() {
+    use hipcortex::continuous_dynamics::{ContinuousDynamics, KalmanVectorField};
+    let handle = make_handle();
+    let mut fork = handle.fork().unwrap();
+    let vf = KalmanVectorField::new(2);
+    let dyn_ = ContinuousDynamics::new(Box::new(vf), 0.1, 100.0);
+    let result = fork.rollout_hybrid(
+        vec!["a1".to_string(), "a2".to_string()],
+        1.0,
+        Some(dyn_),
+    ).unwrap();
+    assert_eq!(result.base.steps.len(), 2);
+    assert_eq!(result.continuous_trajectory.len(), 2);
+    assert!(result.continuous_sigma_norm >= 0.0);
+}

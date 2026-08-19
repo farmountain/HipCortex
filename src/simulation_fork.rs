@@ -47,6 +47,19 @@ pub struct RolloutResult {
     pub drift_at_step: Option<u32>,
 }
 
+/// Extended rollout result combining discrete steps with continuous trajectory.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct HybridRolloutResult {
+    /// Discrete simulation result.
+    pub base: RolloutResult,
+    /// One state vector per discrete step from the continuous integrator.
+    pub continuous_trajectory: Vec<Vec<f64>>,
+    /// True if continuous dynamics halted due to max_covariance being exceeded.
+    pub continuous_halted: bool,
+    /// Final sigma_norm at end of rollout.
+    pub continuous_sigma_norm: f64,
+}
+
 /// Returns true if the rollout result has a drift alarm AND the final goal distance exceeds `threshold`.
 pub fn drift_gate(result: &RolloutResult, threshold: f32) -> bool {
     if !result.drift_alarm {
@@ -407,5 +420,57 @@ impl<B: MemoryBackend + Send + Sync + 'static> SimulationFork<B> {
 
     pub fn steps_taken(&self) -> usize {
         self.steps.len()
+    }
+
+    /// Expose fork's internal store records for sync-back by DigitalTwin.
+    pub fn all_records(&self) -> Vec<crate::memory_record::MemoryRecord> {
+        self.store.all().to_vec()
+    }
+
+    /// Hybrid rollout: discrete steps interleaved with continuous RK4 integration.
+    pub fn rollout_hybrid(
+        &mut self,
+        actions: Vec<String>,
+        sigma2_max: f32,
+        dynamics: Option<crate::continuous_dynamics::ContinuousDynamics>,
+    ) -> Result<HybridRolloutResult, CognitiveError> {
+        use crate::continuous_dynamics::DynamicsContext;
+        let mut dyn_ = dynamics;
+        let base = self.rollout(actions, sigma2_max)?;
+
+        let dim = dyn_.as_ref().map(|d| d.dim()).unwrap_or(0);
+        let mut cont_state: Vec<f64> = vec![0.0; dim];
+        let mut trajectory: Vec<Vec<f64>> = Vec::new();
+        let mut continuous_halted = false;
+
+        if let Some(ref mut d) = dyn_ {
+            let ctx = DynamicsContext {
+                entity_states: &[],
+                resource_vec: &[],
+                tx_cursor: self.tx_log.current_tx(),
+            };
+            for (i, _step) in base.steps.iter().enumerate() {
+                match d.step(i as f64 * d.dt, &cont_state, &ctx) {
+                    Ok(ns) => {
+                        cont_state = ns.clone();
+                        trajectory.push(ns);
+                    }
+                    Err(_) => {
+                        trajectory.push(cont_state.clone());
+                        continuous_halted = true;
+                    }
+                }
+            }
+            continuous_halted = continuous_halted || d.is_halted();
+        }
+
+        let continuous_sigma_norm = dyn_.as_ref().map(|d| d.sigma_norm()).unwrap_or(0.0);
+
+        Ok(HybridRolloutResult {
+            base,
+            continuous_trajectory: trajectory,
+            continuous_halted,
+            continuous_sigma_norm,
+        })
     }
 }
