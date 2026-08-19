@@ -387,23 +387,6 @@ TOOLS = [
         },
     },
     {
-        "name": "consolidate_memory",
-        "description": (
-            "Trigger greedy tag+actor memory consolidation. Groups Temporal records "
-            "by actor+tags, collapses groups >= min_group_size into summary records, "
-            "and archives originals. Returns ConsolidationReport."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "min_group_size": {
-                    "type": "integer",
-                    "description": "Min records per group to consolidate (default 3)",
-                },
-            },
-        },
-    },
-    {
         "name": "simulate_rollout",
         "description": (
             "Simulate a k-step (k≤5) world-model rollout from an initial state "
@@ -434,6 +417,228 @@ TOOLS = [
         ),
         "inputSchema": {"type": "object", "properties": {}},
     },
+    # Phase 5: Agent Surfaces
+    {
+        "name": "cognitive_transact",
+        "description": "Apply a CognitiveDelta to the cognitive substrate. Supports AddMemory, Consolidate, ForgetActor, ArchiveRecord.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "delta": {"type": "object", "description": "CognitiveDelta (must include 'type' field)"},
+                "actor": {"type": "string", "description": "Actor performing the transaction"},
+            },
+            "required": ["delta", "actor"],
+        },
+    },
+    {
+        "name": "cognitive_diff",
+        "description": "Get causal StateDiff between two tx-log cursors.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "from_tx": {"type": "integer"},
+                "to_tx": {"type": "integer"},
+            },
+            "required": ["from_tx", "to_tx"],
+        },
+    },
+    {
+        "name": "self_health",
+        "description": "GET /v1/self/health — SelfModel health metrics with healthy boolean.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "cognitive_snapshot",
+        "description": "GET /v1/cognitive/snapshot — full cognitive state snapshot for an actor.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"actor": {"type": "string", "default": ""}},
+        },
+    },
+    {
+        "name": "fork_create",
+        "description": "POST /v1/fork — create a SimulationFork (CoW snapshot of cognitive state).",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "fork_step",
+        "description": "POST /v1/fork/{fork_id}/step — advance a fork by one action.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "fork_id": {"type": "string"},
+                "action": {"type": "string"},
+            },
+            "required": ["fork_id", "action"],
+        },
+    },
+    {
+        "name": "fork_snapshot",
+        "description": "GET /v1/fork/{fork_id}/snapshot — read fork cognitive snapshot.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "fork_id": {"type": "string"},
+                "actor": {"type": "string", "default": ""},
+            },
+            "required": ["fork_id"],
+        },
+    },
+    {
+        "name": "fork_delete",
+        "description": "DELETE /v1/fork/{fork_id} — discard a SimulationFork.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"fork_id": {"type": "string"}},
+            "required": ["fork_id"],
+        },
+    },
+    {
+        "name": "fork_rollout",
+        "description": "POST /v1/fork/{fork_id}/rollout — k-step (k≤5) hybrid Kalman rollout.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "fork_id": {"type": "string"},
+                "actions": {"type": "array", "items": {"type": "string"}},
+                "sigma2_max": {"type": "number", "default": 0.25},
+            },
+            "required": ["fork_id", "actions"],
+        },
+    },
+    {
+        "name": "consolidate_memory",
+        "description": "Mine recurring causal subgraphs and induce Skill+Belief records via AutoConsolidate.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "min_frequency": {"type": "integer", "default": 3, "description": "Minimum causal path frequency to qualify for induction."},
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "forget_actor",
+        "description": "GDPR hard-delete all records for an actor via ForgetActor delta.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"actor_id": {"type": "string"}},
+            "required": ["actor_id"],
+        },
+    },
+    {
+        "name": "archive_record",
+        "description": "Archive or delete a single record via ArchiveRecord delta.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"id": {"type": "string"}},
+            "required": ["id"],
+        },
+    },
+    {
+        "name": "workspace_open",
+        "description": "Open a new workspace (Private or Shared) for scoped multi-agent cognition.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "workspace_id": {"type": "string", "description": "UUID for the workspace."},
+                "mode": {"type": "string", "enum": ["Private", "Shared"], "default": "Private"},
+            },
+            "required": ["workspace_id"],
+        },
+    },
+    {
+        "name": "workspace_merge",
+        "description": "Merge one Shared workspace into another via OR-Set CRDT convergence.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "from_id": {"type": "string", "description": "Source workspace UUID."},
+                "into_id": {"type": "string", "description": "Target workspace UUID."},
+            },
+            "required": ["from_id", "into_id"],
+        },
+    },
+    {
+        "name": "retract_belief",
+        "description": "Retract a belief record, triggering JTMS dependency propagation.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "belief_id": {"type": "string"},
+                "reason": {"type": "string", "default": "retracted"},
+            },
+            "required": ["belief_id"],
+        },
+    },
+    {
+        "name": "get_state_export",
+        "description": "Export full versioned Cognitive State snapshot (schema_version=0.8.0, tx_cursor, beliefs, goals, world state). Use for agent handover, substrate audit, or cross-session state transfer.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
+    {
+        "name": "twin_create",
+        "description": "POST /v1/twin — create a DigitalTwin (continuous simulation fork with RK4 dynamics).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "dim": {"type": "integer", "default": 4, "description": "State vector dimension."},
+                "dt": {"type": "number", "default": 0.1, "description": "RK4 integration timestep."},
+                "max_covariance": {"type": "number", "default": 100.0, "description": "Sigma-norm halt threshold."},
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "twin_step",
+        "description": "POST /v1/twin/{twin_id}/step — advance a DigitalTwin by one discrete action.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "twin_id": {"type": "string"},
+                "action": {"type": "string"},
+            },
+            "required": ["twin_id", "action"],
+        },
+    },
+    {
+        "name": "twin_rollout",
+        "description": "POST /v1/twin/{twin_id}/rollout — multi-step hybrid (discrete+continuous) rollout.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "twin_id": {"type": "string"},
+                "actions": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["twin_id", "actions"],
+        },
+    },
+    {
+        "name": "twin_get",
+        "description": "GET /v1/twin/{twin_id} — retrieve trajectory and record count for a DigitalTwin.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "twin_id": {"type": "string"},
+            },
+            "required": ["twin_id"],
+        },
+    },
+    {
+        "name": "experience_tiers",
+        "description": "GET /v1/experience/{actor}/tiers — raw/episode/abstract counts and compression ratio for the experience pyramid.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "actor": {"type": "string"},
+            },
+            "required": ["actor"],
+        },
+    },
 ]
 
 RESOURCES = [
@@ -450,10 +655,34 @@ RESOURCES = [
         "mimeType": "application/json",
     },
     {
+        "uri": "hipcortex://beliefs/live",
+        "name": "Live Beliefs",
+        "description": "Active Belief records with confidence + JTMS labels (alias of beliefs/current).",
+        "mimeType": "application/json",
+    },
+    {
         "uri": "hipcortex://context/conversation",
         "name": "Conversation History",
         "description": "Recent temporal memory traces for this session.",
         "mimeType": "text/plain",
+    },
+    {
+        "uri": "hipcortex://state/diff",
+        "name": "Recent State Diff",
+        "description": "ΔS for last 5 transactions — epistemic value of recent turns.",
+        "mimeType": "application/json",
+    },
+    {
+        "uri": "hipcortex://self/health",
+        "name": "Self-Model Health",
+        "description": "Current calibration score, epistemic entropy, consolidation pressure.",
+        "mimeType": "application/json",
+    },
+    {
+        "uri": "hipcortex://experience/tiers",
+        "name": "Experience Tier Stats",
+        "description": "Raw/episode/abstract counts and compression ratio for the current session actor's experience pyramid.",
+        "mimeType": "application/json",
     },
 ]
 
@@ -671,6 +900,84 @@ def handle_get_system_health(_args: dict) -> str:
     return "\n".join(lines)
 
 
+def handle_cognitive_transact(args: dict) -> str:
+    result = _post("/v1/cognitive/transact", {"delta": args["delta"], "actor": args.get("actor", "mcp")})
+    return json.dumps(result)
+
+def handle_cognitive_diff(args: dict) -> str:
+    params = f"from_tx={args['from_tx']}&to_tx={args['to_tx']}"
+    resp = requests.get(f"{HIPCORTEX_URL}/v1/cognitive/diff?{params}", headers=_headers(), timeout=TIMEOUT)
+    resp.raise_for_status()
+    return json.dumps(resp.json())
+
+def handle_self_health(_args: dict) -> str:
+    return json.dumps(_get("/v1/self/health"))
+
+def handle_cognitive_snapshot(args: dict) -> str:
+    actor = args.get("actor", "")
+    resp = requests.get(f"{HIPCORTEX_URL}/v1/cognitive/snapshot", params={"actor": actor}, headers=_headers(), timeout=TIMEOUT)
+    resp.raise_for_status()
+    return json.dumps(resp.json())
+
+def handle_fork_create(_args: dict) -> str:
+    return json.dumps(_post("/v1/fork", {}))
+
+def handle_fork_step(args: dict) -> str:
+    return json.dumps(_post(f"/v1/fork/{args['fork_id']}/step", {"action": args["action"]}))
+
+def handle_fork_snapshot(args: dict) -> str:
+    actor = args.get("actor", "")
+    resp = requests.get(f"{HIPCORTEX_URL}/v1/fork/{args['fork_id']}/snapshot", params={"actor": actor}, headers=_headers(), timeout=TIMEOUT)
+    resp.raise_for_status()
+    return json.dumps(resp.json())
+
+def handle_fork_delete(args: dict) -> str:
+    return json.dumps(_delete(f"/v1/fork/{args['fork_id']}"))
+
+def handle_fork_rollout(args: dict) -> str:
+    return json.dumps(_post(f"/v1/fork/{args['fork_id']}/rollout", {"actions": args["actions"], "sigma2_max": args.get("sigma2_max", 0.25)}))
+
+def handle_p5_consolidate(args: dict) -> str:
+    delta = {"type": "AutoConsolidate", "min_frequency": args.get("min_frequency", 3)}
+    return json.dumps(_post("/v1/cognitive/transact", {"delta": delta, "actor": "mcp"}))
+
+def handle_get_state_export(_args: dict) -> str:
+    data = _get("/v1/state/export")
+    if "error" in data:
+        return f"State export error: {data['error']}"
+    sv = data.get("schema_version", "unknown")
+    tx = data.get("tx_cursor", 0)
+    beliefs = len(data.get("beliefs", {}).get("beliefs", []))
+    goals = len(data.get("goals", []))
+    return (
+        f"State export OK (schema={sv}, tx={tx}, beliefs={beliefs}, goals={goals})\n"
+        + json.dumps(data, indent=2)[:3000]
+    )
+
+def handle_forget_actor(args: dict) -> str:
+    delta = {"type": "ForgetActor", "actor": args["actor_id"]}
+    return json.dumps(_post("/v1/cognitive/transact", {"delta": delta, "actor": "mcp"}))
+
+def handle_archive_record(args: dict) -> str:
+    delta = {"type": "ArchiveRecord", "id": args["id"]}
+    return json.dumps(_post("/v1/cognitive/transact", {"delta": delta, "actor": "mcp"}))
+
+
+def handle_workspace_open(args: dict) -> str:
+    delta = {"type": "WorkspaceOpen", "id": args["workspace_id"], "mode": args.get("mode", "Private")}
+    return json.dumps(_post("/v1/cognitive/transact", {"delta": delta, "actor": "mcp"}))
+
+
+def handle_workspace_merge(args: dict) -> str:
+    delta = {"type": "WorkspaceMerge", "from": args["from_id"], "into": args["into_id"]}
+    return json.dumps(_post("/v1/cognitive/transact", {"delta": delta, "actor": "mcp"}))
+
+
+def handle_retract_belief(args: dict) -> str:
+    delta = {"type": "RetractBelief", "id": args["belief_id"], "reason": args.get("reason", "retracted")}
+    return json.dumps(_post("/v1/cognitive/transact", {"delta": delta, "actor": "mcp"}))
+
+
 def handle_purge_expired(_args: dict) -> str:
     result = _post("/memory/consolidate", {"dry_run": False})
     deleted = result.get("deleted", 0)
@@ -860,6 +1167,38 @@ def handle_consolidate_memory(args: dict) -> str:
     )
 
 
+def handle_twin_create(args: dict) -> str:
+    body = {k: args[k] for k in ("dim", "dt", "max_covariance") if k in args}
+    return json.dumps(_post("/v1/twin", body))
+
+
+def handle_twin_step(args: dict) -> str:
+    return json.dumps(_post(f"/v1/twin/{args['twin_id']}/step", {"action": args["action"]}))
+
+
+def handle_twin_rollout(args: dict) -> str:
+    return json.dumps(_post(f"/v1/twin/{args['twin_id']}/rollout", {"actions": args["actions"]}))
+
+
+def handle_twin_get(args: dict) -> str:
+    resp = requests.get(f"{HIPCORTEX_URL}/v1/twin/{args['twin_id']}", headers=_headers(), timeout=TIMEOUT)
+    resp.raise_for_status()
+    return json.dumps(resp.json())
+
+
+def handle_experience_tiers(args: dict) -> str:
+    actor = args["actor"]
+    resp = requests.get(f"{HIPCORTEX_URL}/v1/experience/{actor}/tiers", headers=_headers(), timeout=TIMEOUT)
+    resp.raise_for_status()
+    data = resp.json()
+    return (
+        f"Experience tiers for {actor}: raw={data.get('raw', 0)}, "
+        f"episode={data.get('episode', 0)}, abstract={data.get('abstract', 0)}, "
+        f"compression_ratio={data.get('compression_ratio', 0.0):.2f}, "
+        f"raw_pressure={data.get('raw_pressure', 0.0):.2f}"
+    )
+
+
 def dispatch_tool(name: str, args: dict) -> str:
     global _live_beliefs_seen
     handlers = {
@@ -882,9 +1221,29 @@ def dispatch_tool(name: str, args: dict) -> str:
         "reflect":          handle_reflect,
         "predict":              handle_predict,
         "compute_state_diff":   handle_compute_state_diff,
-        "consolidate_memory":   handle_consolidate_memory,
         "simulate_rollout":     handle_simulate_rollout,
         "get_system_health":    handle_get_system_health,
+        "cognitive_transact":   handle_cognitive_transact,
+        "cognitive_diff":       handle_cognitive_diff,
+        "self_health":          handle_self_health,
+        "cognitive_snapshot":   handle_cognitive_snapshot,
+        "fork_create":          handle_fork_create,
+        "fork_step":            handle_fork_step,
+        "fork_snapshot":        handle_fork_snapshot,
+        "fork_delete":          handle_fork_delete,
+        "fork_rollout":         handle_fork_rollout,
+        "consolidate_memory":   handle_p5_consolidate,
+        "get_state_export":     handle_get_state_export,
+        "forget_actor":         handle_forget_actor,
+        "archive_record":       handle_archive_record,
+        "workspace_open":       handle_workspace_open,
+        "workspace_merge":      handle_workspace_merge,
+        "retract_belief":       handle_retract_belief,
+        "twin_create":          handle_twin_create,
+        "twin_step":            handle_twin_step,
+        "twin_rollout":         handle_twin_rollout,
+        "twin_get":             handle_twin_get,
+        "experience_tiers":     handle_experience_tiers,
     }
     handler = handlers.get(name)
     if handler is None:
@@ -928,14 +1287,43 @@ def handle_resource_read(uri: str) -> dict:
                 lines.append(f"[{actor}] {action} → {target}")
             text = "\n".join(lines) if lines else "(no memories yet)"
             return {"contents": [{"uri": uri, "mimeType": "text/plain", "text": text}]}
-        elif uri == "hipcortex://beliefs/current":
-            data = _get("/memory/search?q=belief&record_type=Symbolic&limit=10")
+        elif uri in ("hipcortex://beliefs/current", "hipcortex://beliefs/live"):
+            data = _get("/v1/beliefs")
             return {
                 "contents": [
                     {
                         "uri": uri,
                         "mimeType": "application/json",
-                        "text": json.dumps(data if isinstance(data, list) else []),
+                        "text": json.dumps(data if isinstance(data, list) else data),
+                    }
+                ]
+            }
+        elif uri == "hipcortex://state/diff":
+            # Get current tx, compute diff over last 5 transactions
+            try:
+                snap = _get("/v1/cognitive/snapshot")
+                head = snap.get("tx_cursor", 0)
+                from_tx = max(0, head - 5)
+                data = _get(f"/v1/state/diff?from_tx={from_tx}&to_tx={head}")
+            except Exception:
+                data = {}
+            return {
+                "contents": [
+                    {
+                        "uri": uri,
+                        "mimeType": "application/json",
+                        "text": json.dumps(data),
+                    }
+                ]
+            }
+        elif uri == "hipcortex://self/health":
+            data = _get("/v1/self/health")
+            return {
+                "contents": [
+                    {
+                        "uri": uri,
+                        "mimeType": "application/json",
+                        "text": json.dumps(data),
                     }
                 ]
             }
@@ -947,6 +1335,14 @@ def handle_resource_read(uri: str) -> dict:
                 lines.append(f"{item.get('action', '')} → {item.get('target', '')}")
             text = "\n".join(lines) if lines else "(no history yet)"
             return {"contents": [{"uri": uri, "mimeType": "text/plain", "text": text}]}
+        elif uri == "hipcortex://experience/tiers":
+            actor = os.environ.get("HIPCORTEX_ACTOR", "mcp-session")
+            try:
+                resp = requests.get(f"{HIPCORTEX_URL}/v1/experience/{actor}/tiers", headers=_headers(), timeout=TIMEOUT)
+                data = resp.json() if resp.ok else {}
+            except Exception:
+                data = {}
+            return {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(data)}]}
         else:
             return {"contents": [{"uri": uri, "mimeType": "text/plain", "text": ""}]}
     except Exception:
@@ -972,7 +1368,7 @@ def main() -> None:
             respond(id_, {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}, "resources": {}},
-                "serverInfo": {"name": "hipcortex", "version": "0.7.0"},
+                "serverInfo": {"name": "hipcortex", "version": "0.9.0"},
             })
         elif method == "initialized":
             pass  # notification — no response

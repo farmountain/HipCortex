@@ -1,8 +1,8 @@
 {
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
-    "description": "HipCortex v0.8.0 — Cognitive OS substrate: transactional memory (CognitiveDelta), JTMS belief revision, causal compaction, multi-agent workspaces, world-model rollout, 6 Phase-5 operators uniform across MCP/Python/TypeScript SDK. Passive capture for LangChain/CrewAI/AutoGen. Bundled multi-OS server (crate 0.8.0).",
-    "version": "0.8.0",
+    "description": "HipCortex v0.9.0 — Continuous Substrate: DigitalTwin (RK4 dynamics, HybridRollout), ExperienceStore (Raw/Episode/Abstract pyramid, 90% hot-set reduction), 5 new commands, 42 MCP tools, 7 resources. Cognitive OS with transactional memory, JTMS, causal compaction, world-model rollout. Passive capture for LangChain/CrewAI/AutoGen. Bundled multi-OS server (crate 0.9.0).",
+    "version": "0.9.0",
     "publisher": "farmountain",
   "repository": {
     "type": "git",
