@@ -51,6 +51,7 @@ mod worldmodel_self_http_sit;
 
 mod cognitive_os_test;
 mod consolidation_gates_sit;
+mod hybrid_rollout_sit;
 mod omega_loop_auditable_tests;
 mod react_e2e_sit;
 #[cfg(feature = "web-server")]
