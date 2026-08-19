@@ -23,19 +23,35 @@ fn make_state() -> AppState<InMemoryBackend> {
         required_memory_mb: 50.0,
         limitations: vec![],
     });
+    let memory_store = Arc::new(Mutex::new(MemoryStore::new_in_memory()));
+    let world_model = Arc::new(RwLock::new(WorldModelEnhanced::new()));
+    let coherence = Arc::new(CoherenceChecker::new());
+    let calibration = Arc::new(CalibrationTracker::new());
+    let cognitive = Arc::new(hipcortex::cognitive_state::CognitiveHandle::new(
+        Arc::clone(&memory_store),
+        Arc::clone(&world_model),
+        Arc::clone(&self_model),
+        None,
+        Arc::clone(&coherence),
+        Arc::clone(&calibration),
+        Arc::new(hipcortex::cognitive_gc::CognitiveGC::new()),
+    ));
     AppState {
-        memory_store: Arc::new(Mutex::new(MemoryStore::new_in_memory())),
+        memory_store,
         symbolic_store: Arc::new(Mutex::new(SymbolicStore::<InMemoryGraph>::new())),
-        world_model: Arc::new(RwLock::new(WorldModelEnhanced::new())),
+        world_model,
         aureus: Arc::new(Mutex::new(AureusBridge::new())),
         self_model,
-        coherence: Arc::new(CoherenceChecker::new()),
+        coherence,
         topo_graph: Arc::new(Mutex::new(CausalTopoGraph::new())),
         archive_store: Arc::new(Mutex::new(ArchiveStore::new(
             std::env::temp_dir().join("hc-test-wm-archive.jsonl"),
         ))),
         tx_log: None,
-        calibration: Arc::new(CalibrationTracker::new()),
+        calibration,
+        cognitive,
+        forks: Arc::new(Mutex::new(std::collections::HashMap::new())),
+        twins: Arc::new(Mutex::new(std::collections::HashMap::new())),
     }
 }
 

@@ -160,6 +160,7 @@ pub struct AppState<B: MemoryBackend + Send + Sync + 'static> {
     pub calibration: Arc<CalibrationTracker>,
     pub cognitive: Arc<crate::cognitive_state::CognitiveHandle<B>>,
     pub forks: Arc<Mutex<std::collections::HashMap<uuid::Uuid, Arc<Mutex<crate::simulation_fork::SimulationFork<B>>>>>>,
+    pub twins: Arc<Mutex<std::collections::HashMap<uuid::Uuid, Arc<Mutex<crate::digital_twin::DigitalTwin<B>>>>>>,
 }
 
 /// Manual Clone: all fields are Arc<…> so clone is a ref-count bump regardless of B.
@@ -179,6 +180,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> Clone for AppState<B> {
             calibration: self.calibration.clone(),
             cognitive: self.cognitive.clone(),
             forks: self.forks.clone(),
+            twins: self.twins.clone(),
         }
     }
 }
@@ -534,6 +536,7 @@ pub async fn run_with_memory<B: MemoryBackend + Send + Sync + 'static>(
         calibration,
         cognitive,
         forks: Arc::new(Mutex::new(std::collections::HashMap::new())),
+        twins: Arc::new(Mutex::new(std::collections::HashMap::new())),
     };
     run_with_state(addr, state).await;
 }
@@ -559,6 +562,7 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
     let calibration = state.calibration.clone();
     let cognitive = state.cognitive.clone();
     let forks = state.forks.clone();
+    let twins = state.twins.clone();
 
     // ── Symbolic store routes ─────────────────────────────────────────────
     let graph_route = {
@@ -1408,6 +1412,129 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
                         }
                     }
                 }
+            })
+        })
+        // ── v0.9.0: DigitalTwin routes ───────────────────────────────────────
+        .route("/v1/twin", {
+            let cog = cognitive.clone();
+            let twins = twins.clone();
+            post(move |Json(req): Json<serde_json::Value>| async move {
+                let cog = cog.clone();
+                let twins = twins.clone();
+                let dim = req.get("dim").and_then(|v| v.as_u64()).unwrap_or(4) as usize;
+                let dt = req.get("dt").and_then(|v| v.as_f64()).unwrap_or(0.1);
+                let max_cov = req.get("max_covariance").and_then(|v| v.as_f64()).unwrap_or(100.0);
+                match cog.fork_hybrid(dim, dt, max_cov) {
+                    Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({"error": e.to_string()}))),
+                    Ok((fork, dynamics)) => {
+                        let twin = crate::digital_twin::DigitalTwin::new(fork, dynamics, crate::digital_twin::SyncPolicy::Isolated, 0);
+                        let twin_id = twin.id;
+                        twins.lock().unwrap().insert(twin_id, std::sync::Arc::new(std::sync::Mutex::new(twin)));
+                        (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"twin_id": twin_id, "dim": dim})))
+                    }
+                }
+            })
+        })
+        .route("/v1/twin/:twin_id/step", {
+            let twins = twins.clone();
+            post(move |Path(twin_id_str): Path<String>, Json(req): Json<serde_json::Value>| async move {
+                let twins = twins.clone();
+                let twin_id = match uuid::Uuid::parse_str(&twin_id_str) {
+                    Ok(id) => id,
+                    Err(_) => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"error": "invalid twin_id"}))),
+                };
+                let action = req.get("action").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let map = twins.lock().unwrap();
+                match map.get(&twin_id) {
+                    None => (axum::http::StatusCode::NOT_FOUND, axum::Json(serde_json::json!({"error": "twin not found"}))),
+                    Some(twin_arc) => {
+                        let mut twin = twin_arc.lock().unwrap();
+                        match twin.step(&action) {
+                            Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({"error": e.to_string()}))),
+                            Ok(state) => (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"state": state}))),
+                        }
+                    }
+                }
+            })
+        })
+        .route("/v1/twin/:twin_id/rollout", {
+            let twins = twins.clone();
+            post(move |Path(twin_id_str): Path<String>, Json(req): Json<serde_json::Value>| async move {
+                let twins = twins.clone();
+                let twin_id = match uuid::Uuid::parse_str(&twin_id_str) {
+                    Ok(id) => id,
+                    Err(_) => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"error": "invalid twin_id"}))),
+                };
+                let actions: Vec<String> = match req.get("actions").and_then(|v| v.as_array()) {
+                    Some(arr) => arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect(),
+                    None => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"error": "actions array required"}))),
+                };
+                let map = twins.lock().unwrap();
+                match map.get(&twin_id) {
+                    None => (axum::http::StatusCode::NOT_FOUND, axum::Json(serde_json::json!({"error": "twin not found"}))),
+                    Some(twin_arc) => {
+                        let mut twin = twin_arc.lock().unwrap();
+                        match twin.rollout(actions) {
+                            Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({"error": e.to_string()}))),
+                            Ok(result) => (axum::http::StatusCode::OK, axum::Json(serde_json::to_value(result).unwrap_or_default())),
+                        }
+                    }
+                }
+            })
+        })
+        .route("/v1/twin/:twin_id", {
+            let twins = twins.clone();
+            axum::routing::get(move |Path(twin_id_str): Path<String>| async move {
+                let twins = twins.clone();
+                let twin_id = match uuid::Uuid::parse_str(&twin_id_str) {
+                    Ok(id) => id,
+                    Err(_) => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"error": "invalid twin_id"}))),
+                };
+                let map = twins.lock().unwrap();
+                match map.get(&twin_id) {
+                    None => (axum::http::StatusCode::NOT_FOUND, axum::Json(serde_json::json!({"error": "twin not found"}))),
+                    Some(twin_arc) => {
+                        let twin = twin_arc.lock().unwrap();
+                        let traj = twin.trajectory();
+                        let recs = twin.records().len();
+                        (axum::http::StatusCode::OK, axum::Json(serde_json::json!({
+                            "twin_id": twin_id,
+                            "trajectory_steps": traj.len(),
+                            "trajectory": traj,
+                            "records_count": recs,
+                        })))
+                    }
+                }
+            })
+        })
+        // ── v0.9.0: ExperienceStore routes ───────────────────────────────────
+        .route("/v1/experience/:actor/tiers", {
+            let cog = cognitive.clone();
+            axum::routing::get(move |Path(actor): Path<String>| async move {
+                let cog = cog.clone();
+                let exp = cog.experience_tiers(&actor);
+                (axum::http::StatusCode::OK, axum::Json(serde_json::json!({
+                    "raw": exp.raw_count(),
+                    "episode": exp.episode_count(),
+                    "abstract": exp.abstract_count(),
+                    "compression_ratio": exp.compression_ratio(),
+                    "raw_pressure": exp.raw_pressure(),
+                })))
+            })
+        })
+        .route("/v1/experience/:actor/search", {
+            let cog = cognitive.clone();
+            post(move |Path(actor): Path<String>, Json(req): Json<serde_json::Value>| async move {
+                let cog = cog.clone();
+                let query = req.get("query").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                if query.is_empty() {
+                    return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"error": "query required"})));
+                }
+                let results = cog.experience_search(&actor, &query);
+                (axum::http::StatusCode::OK, axum::Json(serde_json::json!({
+                    "count": results.len(),
+                    "results": results,
+                })))
             })
         })
         .layer(middleware::from_fn(api_key_middleware));

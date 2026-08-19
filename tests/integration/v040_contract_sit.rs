@@ -15,14 +15,36 @@ use hipcortex::CausalTopoGraph;
 use std::sync::{Arc, Mutex, RwLock};
 
 fn make_state() -> AppState<InMemoryBackend> {
+    let memory_store = Arc::new(Mutex::new(MemoryStore::new_in_memory()));
+    let world_model = Arc::new(RwLock::new(WorldModelEnhanced::new()));
+    let self_model = Arc::new(SelfModel::new());
+    let coherence = Arc::new(CoherenceChecker::new());
+    let calibration = Arc::new(hipcortex::self_model::calibration::CalibrationTracker::new());
+    let cognitive = Arc::new(hipcortex::cognitive_state::CognitiveHandle::new(
+        Arc::clone(&memory_store),
+        Arc::clone(&world_model),
+        Arc::clone(&self_model),
+        None,
+        Arc::clone(&coherence),
+        Arc::clone(&calibration),
+        Arc::new(hipcortex::cognitive_gc::CognitiveGC::new()),
+    ));
     AppState {
-        memory_store: Arc::new(Mutex::new(MemoryStore::new_in_memory())),
+        memory_store,
         symbolic_store: Arc::new(Mutex::new(SymbolicStore::new())),
-        world_model: Arc::new(RwLock::new(WorldModelEnhanced::new())),
+        world_model,
         aureus: Arc::new(Mutex::new(AureusBridge::new())),
-        self_model: Arc::new(SelfModel::new()),
-        coherence: Arc::new(CoherenceChecker::new()),
+        self_model,
+        coherence,
         topo_graph: Arc::new(Mutex::new(CausalTopoGraph::new())),
+        archive_store: Arc::new(Mutex::new(hipcortex::archive_store::ArchiveStore::new(
+            std::env::temp_dir().join("hc-test-v040-archive.jsonl"),
+        ))),
+        tx_log: None,
+        calibration,
+        cognitive,
+        forks: Arc::new(Mutex::new(std::collections::HashMap::new())),
+        twins: Arc::new(Mutex::new(std::collections::HashMap::new())),
     }
 }
 
