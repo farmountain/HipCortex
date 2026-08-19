@@ -154,14 +154,74 @@ proptest! {
 }
 
 // ============================================================================
-// TODO(sub-spec-1): Full 90% reduction assertion -- activate after ExperienceStore ships
-//
-// #[test]
-// fn experience_store_90_percent_reduction() {
-//     // Insert 1000 Temporal records across 10 causal chains (100 per chain).
-//     // Call AutoConsolidate delta via CognitiveHandle (Sub-spec 1 API).
-//     // Assert: hot store record_count() <= 100 (>= 90% reduction).
-//     // Assert: all source_ids_archived records reachable via evidence links
-//     //         from remaining Skill/Belief records.
-// }
+// AC-4: Full 90% reduction via CognitiveHandle AutoConsolidate
 // ============================================================================
+
+#[test]
+fn experience_store_90_percent_reduction() {
+    use hipcortex::cognitive_gc::CognitiveGC;
+    use hipcortex::cognitive_state::{CognitiveDelta, CognitiveHandle};
+    use hipcortex::coherence::CoherenceChecker;
+    use hipcortex::self_model::calibration::CalibrationTracker;
+    use hipcortex::self_model::SelfModel;
+    use hipcortex::world_model_enhanced::WorldModelEnhanced;
+    use std::sync::{Arc, Mutex, RwLock};
+
+    let ms = Arc::new(Mutex::new(MemoryStore::new_in_memory()));
+    let wm = Arc::new(RwLock::new(WorldModelEnhanced::new()));
+    let sm = Arc::new(SelfModel::new());
+    let coherence = Arc::new(CoherenceChecker::new());
+    let cal = Arc::new(CalibrationTracker::new());
+    let gc = Arc::new(CognitiveGC::new());
+
+    let handle = CognitiveHandle::new(
+        Arc::clone(&ms), wm, sm, None, coherence, cal, gc,
+    );
+
+    // 10 chains × 100 records = 1000 Temporal records
+    let actor = "ac4-test";
+    let action = "ac4-causal-action";
+    {
+        let mut store = ms.lock().unwrap();
+        for _ in 0..10 {
+            let mut prev_id: Option<Uuid> = None;
+            for step in 0..100usize {
+                let mut r = MemoryRecord::new(
+                    MemoryType::Temporal,
+                    actor.to_string(),
+                    action.to_string(),
+                    format!("target-{step}"),
+                    json!({}),
+                );
+                r.derived_from = prev_id;
+                prev_id = Some(r.id);
+                store.add(r).expect("add");
+            }
+        }
+    }
+
+    let before = ms.lock().unwrap().record_count();
+    assert_eq!(before, 1000, "pre-condition: 1000 records inserted");
+
+    handle
+        .transact_ex(CognitiveDelta::AutoConsolidate { min_frequency: 3 }, actor)
+        .expect("AutoConsolidate must succeed");
+
+    let after = ms.lock().unwrap().record_count();
+    assert!(
+        after <= 100,
+        ">= 90% reduction expected: before={before}, after={after}"
+    );
+
+    // All remaining Skill records must carry evidence links
+    let ms_guard = ms.lock().unwrap();
+    let skills = ms_guard.all_by_type(MemoryType::Skill);
+    assert!(!skills.is_empty(), "at least one Skill must exist post-consolidation");
+    for skill in &skills {
+        assert!(
+            !skill.evidence.is_empty(),
+            "Skill {} missing evidence links — provenance lost",
+            skill.id
+        );
+    }
+}
