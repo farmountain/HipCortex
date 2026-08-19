@@ -1,6 +1,7 @@
 mod archive_store_tests;
 mod continuous_dynamics_tests;
 mod digital_twin_tests;
+mod experience_store_tests;
 mod cognitive_state_tests;
 #[cfg(feature = "async-store")]
 mod async_memory_store_tests;
