@@ -580,6 +580,65 @@ TOOLS = [
             "required": [],
         },
     },
+    {
+        "name": "twin_create",
+        "description": "POST /v1/twin — create a DigitalTwin (continuous simulation fork with RK4 dynamics).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "dim": {"type": "integer", "default": 4, "description": "State vector dimension."},
+                "dt": {"type": "number", "default": 0.1, "description": "RK4 integration timestep."},
+                "max_covariance": {"type": "number", "default": 100.0, "description": "Sigma-norm halt threshold."},
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "twin_step",
+        "description": "POST /v1/twin/{twin_id}/step — advance a DigitalTwin by one discrete action.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "twin_id": {"type": "string"},
+                "action": {"type": "string"},
+            },
+            "required": ["twin_id", "action"],
+        },
+    },
+    {
+        "name": "twin_rollout",
+        "description": "POST /v1/twin/{twin_id}/rollout — multi-step hybrid (discrete+continuous) rollout.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "twin_id": {"type": "string"},
+                "actions": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["twin_id", "actions"],
+        },
+    },
+    {
+        "name": "twin_get",
+        "description": "GET /v1/twin/{twin_id} — retrieve trajectory and record count for a DigitalTwin.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "twin_id": {"type": "string"},
+            },
+            "required": ["twin_id"],
+        },
+    },
+    {
+        "name": "experience_tiers",
+        "description": "GET /v1/experience/{actor}/tiers — raw/episode/abstract counts and compression ratio for the experience pyramid.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "actor": {"type": "string"},
+            },
+            "required": ["actor"],
+        },
+    },
 ]
 
 RESOURCES = [
@@ -617,6 +676,12 @@ RESOURCES = [
         "uri": "hipcortex://self/health",
         "name": "Self-Model Health",
         "description": "Current calibration score, epistemic entropy, consolidation pressure.",
+        "mimeType": "application/json",
+    },
+    {
+        "uri": "hipcortex://experience/tiers",
+        "name": "Experience Tier Stats",
+        "description": "Raw/episode/abstract counts and compression ratio for the current session actor's experience pyramid.",
         "mimeType": "application/json",
     },
 ]
@@ -1102,6 +1167,38 @@ def handle_consolidate_memory(args: dict) -> str:
     )
 
 
+def handle_twin_create(args: dict) -> str:
+    body = {k: args[k] for k in ("dim", "dt", "max_covariance") if k in args}
+    return json.dumps(_post("/v1/twin", body))
+
+
+def handle_twin_step(args: dict) -> str:
+    return json.dumps(_post(f"/v1/twin/{args['twin_id']}/step", {"action": args["action"]}))
+
+
+def handle_twin_rollout(args: dict) -> str:
+    return json.dumps(_post(f"/v1/twin/{args['twin_id']}/rollout", {"actions": args["actions"]}))
+
+
+def handle_twin_get(args: dict) -> str:
+    resp = requests.get(f"{HIPCORTEX_URL}/v1/twin/{args['twin_id']}", headers=_headers(), timeout=TIMEOUT)
+    resp.raise_for_status()
+    return json.dumps(resp.json())
+
+
+def handle_experience_tiers(args: dict) -> str:
+    actor = args["actor"]
+    resp = requests.get(f"{HIPCORTEX_URL}/v1/experience/{actor}/tiers", headers=_headers(), timeout=TIMEOUT)
+    resp.raise_for_status()
+    data = resp.json()
+    return (
+        f"Experience tiers for {actor}: raw={data.get('raw', 0)}, "
+        f"episode={data.get('episode', 0)}, abstract={data.get('abstract', 0)}, "
+        f"compression_ratio={data.get('compression_ratio', 0.0):.2f}, "
+        f"raw_pressure={data.get('raw_pressure', 0.0):.2f}"
+    )
+
+
 def dispatch_tool(name: str, args: dict) -> str:
     global _live_beliefs_seen
     handlers = {
@@ -1142,6 +1239,11 @@ def dispatch_tool(name: str, args: dict) -> str:
         "workspace_open":       handle_workspace_open,
         "workspace_merge":      handle_workspace_merge,
         "retract_belief":       handle_retract_belief,
+        "twin_create":          handle_twin_create,
+        "twin_step":            handle_twin_step,
+        "twin_rollout":         handle_twin_rollout,
+        "twin_get":             handle_twin_get,
+        "experience_tiers":     handle_experience_tiers,
     }
     handler = handlers.get(name)
     if handler is None:
@@ -1233,6 +1335,14 @@ def handle_resource_read(uri: str) -> dict:
                 lines.append(f"{item.get('action', '')} → {item.get('target', '')}")
             text = "\n".join(lines) if lines else "(no history yet)"
             return {"contents": [{"uri": uri, "mimeType": "text/plain", "text": text}]}
+        elif uri == "hipcortex://experience/tiers":
+            actor = os.environ.get("HIPCORTEX_ACTOR", "mcp-session")
+            try:
+                resp = requests.get(f"{HIPCORTEX_URL}/v1/experience/{actor}/tiers", headers=_headers(), timeout=TIMEOUT)
+                data = resp.json() if resp.ok else {}
+            except Exception:
+                data = {}
+            return {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(data)}]}
         else:
             return {"contents": [{"uri": uri, "mimeType": "text/plain", "text": ""}]}
     except Exception:
