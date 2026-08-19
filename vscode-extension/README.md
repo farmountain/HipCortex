@@ -1,13 +1,13 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v0.8.0`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v0.9.0`)
 
-[![Version](https://img.shields.io/badge/version-v0.8.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v0.9.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
-**Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, and topological graph tools.**
+**Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, and topological graph tools.**
 
-Product server / pip / npm are **0.8.0**. 82/82 E2E scenarios pass. See [docs/channels.md](../docs/channels.md).
+Product server / pip / npm are **0.9.0**. 837 tests pass (339 lib + 320 unit + 128 integration + 50 property). See [docs/channels.md](../docs/channels.md).
 
 ---
 
@@ -22,8 +22,43 @@ Install from Marketplace / Open VSX / GitHub release VSIX. Extension **starts a 
 - **Passive capture**: saves code edits and terminal output automatically when `hipcortex.passiveCapture` is `true`
 
 ```bash
-code --install-extension hipcortex-memory-0.8.0.vsix
+code --install-extension hipcortex-memory-0.9.0.vsix
 ```
+
+---
+
+## What's new in v0.9.0 — Continuous Substrate
+
+v0.9.0 adds a **continuous dynamical simulation layer** on top of the v0.8.0 Cognitive OS substrate.
+
+### DigitalTwin (RK4 + HybridRollout)
+- `POST /v1/twin` — create a DigitalTwin fork with configurable state dimension, `dt`, and max covariance
+- `POST /v1/twin/:id/step` — advance one step via RK4 integrator; returns continuous state vector
+- `POST /v1/twin/:id/rollout` — multi-action HybridRollout; returns `continuous_trajectory` + `continuous_sigma_norm`
+- `GET /v1/twin/:id` — inspect trajectory depth and record count
+- VS Code commands: **Create DigitalTwin**, **DigitalTwin: Step**, **DigitalTwin: Rollout**, **DigitalTwin: Show State**
+
+### ExperienceStore (3-tier pyramid)
+- **Raw** tier — unprocessed `Temporal` records
+- **Episode** tier — `Skill`/`Belief` records with evidence links
+- **Abstract** tier — consolidated Temporal records (`action="consolidated"`)
+- `AutoConsolidate` achieves ≥ 90% hot-set reduction while preserving full provenance
+- `GET /v1/experience/:actor/tiers` — tier counts + compression ratio + raw pressure flag
+- `POST /v1/experience/:actor/search` — semantic search across all tiers
+- VS Code command: **Show Experience Tier Stats**
+
+### Python SDK: `HipCortexSubstrate`
+```python
+from hipcortex import HipCortexSubstrate
+sub = HipCortexSubstrate("http://localhost:3030")
+twin_id = sub.create_twin(dim=4, dt=0.1)
+state   = sub.twin_step(twin_id, "move_forward")
+tiers   = sub.experience_tiers("my-agent")
+```
+
+### MCP: 5 new tools + 4 new resources (42 total / 7 resources)
+- `twin_create`, `twin_step`, `twin_rollout`, `twin_get`, `experience_tiers`
+- Resource: `hipcortex://experience/tiers` auto-injected at session start
 
 ---
 
@@ -85,6 +120,28 @@ Extension registers **10** tools with `vscode.lm` (requires host LM tool API):
 
 ---
 
+## VS Code Commands (15)
+
+| Command | Action |
+|---------|--------|
+| `hipcortex.addMemory` | Add memory record |
+| `hipcortex.queryMemory` | Query memory records |
+| `hipcortex.healthCheck` | System health check |
+| `hipcortex.predictState` | Predict next state |
+| `hipcortex.systemHealth` | Calibrated health + ECE |
+| `hipcortex.stateDiff` | Causal state diff (tx range) |
+| `hipcortex.cognitiveHealth` | Cognitive health status |
+| `hipcortex.cognitiveSnapshot` | Cognitive snapshot |
+| `hipcortex.twinCreate` | **NEW** Create DigitalTwin |
+| `hipcortex.twinStep` | **NEW** DigitalTwin: Step |
+| `hipcortex.twinRollout` | **NEW** DigitalTwin: Rollout |
+| `hipcortex.twinGet` | **NEW** DigitalTwin: Show State |
+| `hipcortex.experienceTiers` | **NEW** Show Experience Tier Stats |
+| `hipcortex.restartServer` | Restart server |
+| `hipcortex.testExtension` | Test extension |
+
+---
+
 ## Phase-5 Operator Methods (8)
 
 Available as `HipCortexClient` TypeScript methods and wired to VS Code commands:
@@ -99,18 +156,19 @@ Available as `HipCortexClient` TypeScript methods and wired to VS Code commands:
 | `retractBelief` | transact `RetractBelief` delta |
 | `triggerConsolidation` | transact `AutoConsolidate` delta (MCP: `consolidate_memory`) |
 | `getLiveBeliefs` | `GET /v1/beliefs/live` |
-| `getStateExport` | `GET /v1/state/export` — versioned `schema_version=0.8.0` snapshot (MCP: `get_state_export`) |
+| `getStateExport` | `GET /v1/state/export` — versioned `schema_version=0.9.0` snapshot (MCP: `get_state_export`) |
 
 ---
 
-## MCP Integration (36 tools)
+## MCP Integration (42 tools, 7 resources)
 
 MCP hosts (Claude Code, Cursor, Windsurf, …) use the Python MCP server via `hipcortex install`.  
-36 tools + 3 auto-injected resources:
+42 tools + 7 auto-injected resources:
 
 - `hipcortex://context/relevant` — top-k semantically relevant memories
 - `hipcortex://beliefs/current` — active belief records
 - `hipcortex://context/conversation` — recent temporal traces
+- `hipcortex://experience/tiers` — **NEW** ExperienceStore tier stats for current actor
 
 Register in `.mcp.json`:
 ```json
@@ -159,7 +217,7 @@ npm test
 npx @vscode/vsce package --no-dependencies
 ```
 
-Produces `hipcortex-memory-0.8.0.vsix` (version from `package.json`).
+Produces `hipcortex-memory-0.9.0.vsix` (version from `package.json`).
 
 ---
 
