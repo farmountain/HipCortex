@@ -772,6 +772,55 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         SimulationFork::from_handle(self, base_tx)
     }
 
+    /// Create a (SimulationFork, ContinuousDynamics) pair for assembling a DigitalTwin.
+    /// Returns tuple to avoid circular import with digital_twin module.
+    pub fn fork_hybrid(
+        &self,
+        dim: usize,
+        dt: f64,
+        max_covariance: f64,
+    ) -> Result<(SimulationFork<B>, crate::continuous_dynamics::ContinuousDynamics), CognitiveError> {
+        let fork = self.fork()?;
+        let diag = {
+            if let Ok(wm) = self.world.read() {
+                let mvs = wm.entity_mean_vectors();
+                if mvs.is_empty() {
+                    vec![1.0f64; dim]
+                } else {
+                    let first = &mvs[0].1;
+                    let scale = (first.iter().map(|x| x * x).sum::<f64>()
+                        / first.len() as f64)
+                        .sqrt()
+                        .max(0.01);
+                    vec![scale; dim]
+                }
+            } else {
+                vec![1.0f64; dim]
+            }
+        };
+        use crate::continuous_dynamics::{ContinuousDynamics, KalmanVectorField};
+        let vf = KalmanVectorField::with_diag(diag);
+        let dyn_ = ContinuousDynamics::new(Box::new(vf), dt, max_covariance);
+        Ok((fork, dyn_))
+    }
+
+    /// Materialize ExperienceStore view for an actor.
+    pub fn experience_tiers(&self, actor: &str) -> crate::experience_store::ExperienceStore {
+        let store = self.memory.lock().unwrap();
+        crate::experience_store::ExperienceStore::from_store(&*store, actor)
+    }
+
+    /// Search compressed experience tiers (Episode + Abstract) for records matching query in target.
+    pub fn experience_search(
+        &self,
+        actor: &str,
+        query: &str,
+    ) -> Vec<crate::memory_record::MemoryRecord> {
+        let store = self.memory.lock().unwrap();
+        let es = crate::experience_store::ExperienceStore::from_store(&*store, actor);
+        es.search_compressed(&*store, query)
+    }
+
     /// Compute semantic diff between two tx cursors.
     /// Returns empty diff when no TxLog. Clamps to_tx to current cursor.
     pub fn diff(

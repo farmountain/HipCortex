@@ -303,6 +303,19 @@ impl WorldModelEnhanced {
             .collect()
     }
 
+    /// Return (entity_id_string, mean_properties_vec) for all tracked entities.
+    /// Used by DigitalTwin to seed continuous state from entity positions.
+    pub fn entity_mean_vectors(&self) -> Vec<(String, Vec<f64>)> {
+        if let Ok(guard) = self.entities.read() {
+            guard
+                .iter()
+                .map(|(k, v)| (k.clone(), v.get_state().properties.clone()))
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
+
     /// List all tracked entities
     pub fn list_entities(&self) -> Result<Vec<String>, String> {
         let entities = self
