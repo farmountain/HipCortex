@@ -2166,7 +2166,85 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    context.subscriptions.push(participant, addMemoryCommand, queryMemoryCommand, testExtensionCommand, restartServerCommand, systemHealthCommand, stateDiffCommand, cognitiveHealthCommand, cognitiveSnapshotCommand);
+    // ── v0.9.0: DigitalTwin + ExperienceStore commands ───────────────────────
+    const twinCreateCommand = vscode.commands.registerCommand('hipcortex.twinCreate', async () => {
+        try {
+            const api = new HipCortexAPI();
+            const baseUrl = (api as any).baseUrl as string;
+            const dimStr = await vscode.window.showInputBox({ prompt: 'State vector dimension', value: '4' });
+            if (!dimStr) { return; }
+            const dim = parseInt(dimStr, 10);
+            const resp = await axios.post(`${baseUrl}/v1/twin`, { dim, dt: 0.1, max_covariance: 100.0 });
+            vscode.window.showInformationMessage(`DigitalTwin created: ${resp.data.twin_id} (dim=${resp.data.dim})`);
+        } catch (error) {
+            vscode.window.showErrorMessage(`twinCreate failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+
+    const twinStepCommand = vscode.commands.registerCommand('hipcortex.twinStep', async () => {
+        try {
+            const api = new HipCortexAPI();
+            const baseUrl = (api as any).baseUrl as string;
+            const twinId = await vscode.window.showInputBox({ prompt: 'Twin ID (UUID)' });
+            if (!twinId) { return; }
+            const action = await vscode.window.showInputBox({ prompt: 'Action string' });
+            if (!action) { return; }
+            const resp = await axios.post(`${baseUrl}/v1/twin/${twinId}/step`, { action });
+            vscode.window.showInformationMessage(`Twin step OK — state: [${(resp.data.state as number[]).map(v => v.toFixed(3)).join(', ')}]`);
+        } catch (error) {
+            vscode.window.showErrorMessage(`twinStep failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+
+    const twinRolloutCommand = vscode.commands.registerCommand('hipcortex.twinRollout', async () => {
+        try {
+            const api = new HipCortexAPI();
+            const baseUrl = (api as any).baseUrl as string;
+            const twinId = await vscode.window.showInputBox({ prompt: 'Twin ID (UUID)' });
+            if (!twinId) { return; }
+            const actionsRaw = await vscode.window.showInputBox({ prompt: 'Actions (comma-separated)', value: 'a,b,c' });
+            if (!actionsRaw) { return; }
+            const actions = actionsRaw.split(',').map(s => s.trim()).filter(Boolean);
+            const resp = await axios.post(`${baseUrl}/v1/twin/${twinId}/rollout`, { actions });
+            const traj: number[][] = resp.data.trajectory ?? [];
+            const halted: boolean = resp.data.continuous_halted ?? false;
+            vscode.window.showInformationMessage(`Twin rollout: ${traj.length} steps, halted=${halted}, sigma=${(resp.data.continuous_sigma_norm ?? 0).toFixed(3)}`);
+        } catch (error) {
+            vscode.window.showErrorMessage(`twinRollout failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+
+    const twinGetCommand = vscode.commands.registerCommand('hipcortex.twinGet', async () => {
+        try {
+            const api = new HipCortexAPI();
+            const baseUrl = (api as any).baseUrl as string;
+            const twinId = await vscode.window.showInputBox({ prompt: 'Twin ID (UUID)' });
+            if (!twinId) { return; }
+            const resp = await axios.get(`${baseUrl}/v1/twin/${twinId}`);
+            const panel = vscode.window.createWebviewPanel('hipcortexTwin', `Twin ${twinId.slice(0, 8)}`, vscode.ViewColumn.Beside, {});
+            panel.webview.html = `<pre>${JSON.stringify(resp.data, null, 2)}</pre>`;
+        } catch (error) {
+            vscode.window.showErrorMessage(`twinGet failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+
+    const experienceTiersCommand = vscode.commands.registerCommand('hipcortex.experienceTiers', async () => {
+        try {
+            const api = new HipCortexAPI();
+            const baseUrl = (api as any).baseUrl as string;
+            const actor = await vscode.window.showInputBox({ prompt: 'Actor name', value: 'vscode' });
+            if (!actor) { return; }
+            const resp = await axios.get(`${baseUrl}/v1/experience/${actor}/tiers`);
+            const d = resp.data;
+            vscode.window.showInformationMessage(
+                `Experience [${actor}]: raw=${d.raw}, episode=${d.episode}, abstract=${d.abstract}, compression=${(d.compression_ratio * 100).toFixed(1)}%`
+            );
+        } catch (error) {
+            vscode.window.showErrorMessage(`experienceTiers failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    });
+
+    context.subscriptions.push(participant, addMemoryCommand, queryMemoryCommand, testExtensionCommand, restartServerCommand, systemHealthCommand, stateDiffCommand, cognitiveHealthCommand, cognitiveSnapshotCommand, twinCreateCommand, twinStepCommand, twinRolloutCommand, twinGetCommand, experienceTiersCommand);
 }
 
 export function deactivate() {

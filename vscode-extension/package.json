@@ -71,6 +71,31 @@
                 "command": "hipcortex.cognitiveSnapshot",
                 "title": "Show Cognitive Snapshot",
                 "category": "HipCortex"
+            },
+            {
+                "command": "hipcortex.twinCreate",
+                "title": "Create DigitalTwin",
+                "category": "HipCortex"
+            },
+            {
+                "command": "hipcortex.twinStep",
+                "title": "DigitalTwin: Step",
+                "category": "HipCortex"
+            },
+            {
+                "command": "hipcortex.twinRollout",
+                "title": "DigitalTwin: Rollout",
+                "category": "HipCortex"
+            },
+            {
+                "command": "hipcortex.twinGet",
+                "title": "DigitalTwin: Show State",
+                "category": "HipCortex"
+            },
+            {
+                "command": "hipcortex.experienceTiers",
+                "title": "Show Experience Tier Stats",
+                "category": "HipCortex"
             }
         ],
         "chatParticipants": [
