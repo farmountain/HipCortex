@@ -10,6 +10,7 @@ pub mod audit_log;
 pub mod aureus_bridge;
 pub mod cognitive_gc;
 pub mod cognitive_state;
+pub mod continuous_dynamics;
 pub mod jtms;
 pub mod simulation_fork;
 pub mod workspace;
