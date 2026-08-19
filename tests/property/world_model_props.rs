@@ -190,10 +190,15 @@ proptest! {
             tracker.update(observation).ok();
         }
 
-        // Covariance diagonal elements must be non-negative
+        // All diagonal elements must be non-negative (PSD invariant for full matrix)
         let state = tracker.get_state();
-        prop_assert!(state.covariance[0][0] >= 0.0, "Covariance[0][0] negative");
-        prop_assert!(state.covariance[1][1] >= 0.0, "Covariance[1][1] negative");
+        for (i, row) in state.covariance.iter().enumerate() {
+            prop_assert!(
+                row[i] >= 0.0,
+                "Covariance diagonal [{i}][{i}] = {:.6} is negative (PSD violated)",
+                row[i]
+            );
+        }
     }
 }
 
