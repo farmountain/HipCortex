@@ -25,6 +25,19 @@ Long agent sessions either dump full chat history into the prompt (expensive, no
 
 ---
 
+## What's new in v0.9.0 — Continuous Substrate
+
+| Capability | Details |
+|-----------|---------|
+| **DigitalTwin** | RK4 continuous dynamics + HybridRollout (discrete causal + continuous residual) |
+| **ExperienceStore** | Raw → Episode → Abstract 3-tier pyramid; 90%+ hot-set reduction with provenance |
+| **42 MCP tools / 7 resources** | `fork_twin`, `rollout_hybrid`, `experience_tiers`, `consolidate`, `cognitive_state` + auto-injected context resources |
+| **HipCortexSubstrate** | Python SDK class for zero-config cognitive state: beliefs, goals, world-model, twin in one object |
+| **5 new VS Code commands** | Fork twin, rollout, experience tiers, consolidate, cognitive state snapshot |
+| **Transactional cognitive API** | `POST /v1/cognitive/transact` — all mutations (AddMemory, AdvanceGoal, UpdateBelief, AutoConsolidate, …) through one audited gate |
+
+---
+
 ## Install in 60 seconds
 
 Works on **Windows, macOS, and Linux**.
@@ -49,11 +62,11 @@ hipcortex install --url https://hipcortex.fly.dev   # optional managed endpoint
 npm install hipcortex
 ```
 
-**VS Code / Antigravity VSIX** (multi-OS server binaries bundled; extension **0.8.0**):  
+**VS Code / Antigravity VSIX** (multi-OS server binaries bundled; extension **0.9.0**):  
 Package from repo (`vscode-extension`) or latest GitHub Release VSIX. Mac/Linux auto-`chmod` bundled bins.
 
 ```bash
-code --install-extension hipcortex-memory-0.8.0.vsix
+code --install-extension hipcortex-memory-0.9.0.vsix
 ```
 
 Honest support matrix (what’s native vs docs-only): **[docs/channels.md](docs/channels.md)** · CLI: `hipcortex channels`
@@ -137,4 +150,4 @@ We ship faster when users tell us what broke or what you love.
 | [DEPLOY.md](DEPLOY.md) | Self-host / Fly / Docker |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Build from source |
 
-**License:** [Apache-2.0](LICENSE) · **Version:** product `0.8.0` · extension VSIX `0.8.0`
+**License:** [Apache-2.0](LICENSE) · **Version:** product `0.9.0` · extension VSIX `0.9.0`
