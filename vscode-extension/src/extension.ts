@@ -309,6 +309,16 @@ export function ensureUnixExecutable(
     if (os.platform() === 'win32') {
         return binPath;
     }
+    // Remove macOS quarantine attribute — silently blocks network connections on unsigned
+    // VSIX-installed binaries even after the hyper bind() syscall succeeds.
+    if (os.platform() === 'darwin') {
+        try {
+            cp.execSync(`xattr -d com.apple.quarantine "${binPath}"`, { stdio: 'ignore' });
+            log?.(`Removed quarantine attribute: ${binPath}`);
+        } catch {
+            // attribute may not exist — safe to ignore
+        }
+    }
     try {
         // Already user-executable?
         try {
@@ -418,7 +428,7 @@ interface QueryMemoryResponse {
  * Crate / bundled server binary version (CARGO_PKG_VERSION), NOT vscode package.json.
  * Keep in sync with Cargo.toml [package].version and published hipcortex-* assets.
  */
-export const EXPECTED_SERVER_VERSION = '0.5.2'; // UPDATE if Cargo.toml differs at impl time
+export const EXPECTED_SERVER_VERSION = '0.9.0'; // Keep in sync with package.json version
 
 /** Parse listen port from hipcortex.apiUrl / HipCortexAPI.baseUrl. */
 export function extractPortFromBaseUrl(baseUrl: string): { port: number; portStr: string } {
@@ -2004,37 +2014,25 @@ export function activate(context: vscode.ExtensionContext) {
         context.subscriptions.push(onTerminalData);
     }
 
-    // Register chat participant with high priority and explicit configuration
-    const chatParticipant = new HipCortexChatParticipant(tokenTracker);
-    const participant = vscode.chat.createChatParticipant('hipcortex', chatParticipant.provideResponse.bind(chatParticipant));
-    
-    // Configure participant with explicit properties
-    participant.iconPath = vscode.Uri.file(context.asAbsolutePath('icon.png'));
-    
-    // Add followup provider to ensure we're recognized as the official provider
-    participant.followupProvider = {
-        provideFollowups: async (result, context, token) => {
-            return [
-                {
-                    prompt: 'health',
-                    label: '🔍 Check System Health',
-                    command: 'health'
-                },
-                {
-                    prompt: 'help',
-                    label: '❓ Show Help',
-                    command: 'help'
-                },
-                {
-                    prompt: 'add actor:Developer action:test target:extension',
-                    label: '➕ Add Test Memory',
-                    command: 'add'
-                }
-            ];
-        }
-    };
-
-    console.log('✅ HipCortex chat participant registered successfully');
+    // Register chat participant — guarded: vscode.chat unavailable on Antigravity/older VS Code
+    if (typeof (vscode.chat as any)?.createChatParticipant === 'function') {
+        const chatParticipant = new HipCortexChatParticipant(tokenTracker);
+        const participant = vscode.chat.createChatParticipant('hipcortex', chatParticipant.provideResponse.bind(chatParticipant));
+        participant.iconPath = vscode.Uri.file(context.asAbsolutePath('icon.png'));
+        participant.followupProvider = {
+            provideFollowups: async (result, context, token) => {
+                return [
+                    { prompt: 'health', label: '🔍 Check System Health', command: 'health' },
+                    { prompt: 'help', label: '❓ Show Help', command: 'help' },
+                    { prompt: 'add actor:Developer action:test target:extension', label: '➕ Add Test Memory', command: 'add' }
+                ];
+            }
+        };
+        console.log('✅ HipCortex chat participant registered successfully');
+        context.subscriptions.push(participant);
+    } else {
+        console.log('ℹ️ vscode.chat not available — chat participant skipped');
+    }
     
     // Register commands
     const addMemoryCommand = vscode.commands.registerCommand('hipcortex.addMemory', async () => {
@@ -2244,7 +2242,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    context.subscriptions.push(participant, addMemoryCommand, queryMemoryCommand, testExtensionCommand, restartServerCommand, systemHealthCommand, stateDiffCommand, cognitiveHealthCommand, cognitiveSnapshotCommand, twinCreateCommand, twinStepCommand, twinRolloutCommand, twinGetCommand, experienceTiersCommand);
+    context.subscriptions.push(addMemoryCommand, queryMemoryCommand, testExtensionCommand, restartServerCommand, systemHealthCommand, stateDiffCommand, cognitiveHealthCommand, cognitiveSnapshotCommand, twinCreateCommand, twinStepCommand, twinRolloutCommand, twinGetCommand, experienceTiersCommand);
 }
 
 export function deactivate() {

@@ -1,8 +1,8 @@
 {
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
-    "description": "HipCortex v0.9.0 — Continuous Substrate: DigitalTwin (RK4 dynamics, HybridRollout), ExperienceStore (Raw/Episode/Abstract pyramid, 90% hot-set reduction), 5 new commands, 42 MCP tools, 7 resources. Cognitive OS with transactional memory, JTMS, causal compaction, world-model rollout. Passive capture for LangChain/CrewAI/AutoGen. Bundled multi-OS server (crate 0.9.0).",
-    "version": "0.9.0",
+    "description": "HipCortex v0.9.1 — Stability patch: Mac quarantine-xattr server fix, command registration on Antigravity/older VS Code, server version policy. Continuous Substrate: DigitalTwin (RK4), ExperienceStore (90% hot-set reduction), 42 MCP tools, 7 resources. Cognitive OS: transactional memory, JTMS, world-model rollout. Bundled multi-OS server (crate 0.9.0).",
+    "version": "0.9.1",
     "publisher": "farmountain",
   "repository": {
     "type": "git",

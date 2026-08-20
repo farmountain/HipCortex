@@ -1,13 +1,13 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v0.9.0`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v0.9.1`)
 
-[![Version](https://img.shields.io/badge/version-v0.9.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v0.9.1-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
 **Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, and topological graph tools.**
 
-Product server / pip / npm are **0.9.0**. 837 tests pass (339 lib + 320 unit + 128 integration + 50 property). See [docs/channels.md](../docs/channels.md).
+VSIX **0.9.1** (stability patch) · server/pip/npm **0.9.0**. 837 tests pass (339 lib + 320 unit + 128 integration + 50 property). See [docs/channels.md](../docs/channels.md).
 
 ---
 
@@ -22,8 +22,18 @@ Install from Marketplace / Open VSX / GitHub release VSIX. Extension **starts a 
 - **Passive capture**: saves code edits and terminal output automatically when `hipcortex.passiveCapture` is `true`
 
 ```bash
-code --install-extension hipcortex-memory-0.9.0.vsix
+code --install-extension hipcortex-memory-0.9.1.vsix
 ```
+
+---
+
+## What's new in v0.9.1 — Stability patch
+
+| Fix | Details |
+|-----|---------|
+| **Mac server-start** | Removes `com.apple.quarantine` xattr on bundled binary — was silently blocking network connections after `bind()` succeeded, causing the 30-second timeout on all Mac installs |
+| **Command registration** | `vscode.chat.createChatParticipant` now null-guarded — was crashing `activate()` on Antigravity IDE and VS Code builds without the chat API, leaving all commands (Query Memory, Add Memory, etc.) unregistered |
+| **Server version policy** | `EXPECTED_SERVER_VERSION` corrected from `0.5.2` → `0.9.0` — was rejecting the healthy running server and triggering an unnecessary kill-and-restart loop on every activation |
 
 ---
 
@@ -217,7 +227,7 @@ npm test
 npx @vscode/vsce package --no-dependencies
 ```
 
-Produces `hipcortex-memory-0.9.0.vsix` (version from `package.json`).
+Produces `hipcortex-memory-0.9.1.vsix` (version from `package.json`).
 
 ---
 
