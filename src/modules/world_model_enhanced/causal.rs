@@ -72,6 +72,7 @@ pub struct InterventionQuery {
 
 /// Causal graph supporting do-calculus and counterfactual reasoning
 /// Task 7: extended with topo hybrid (embeddings in nodes, topo substrate for some ops/delegation)
+#[derive(Clone)]
 pub struct CausalGraph {
     /// Nodes in the graph
     nodes: HashMap<String, CausalNode>,
@@ -87,6 +88,9 @@ pub struct CausalGraph {
 
     /// Hybrid topo substrate (for embeddings + topo-powered queries like ppr/paths where possible)
     topo: CausalTopoGraph,
+
+    /// Pinned values from do-operator interventions
+    pinned: HashMap<String, f64>,
 }
 
 impl CausalGraph {
@@ -98,6 +102,7 @@ impl CausalGraph {
             edge_data: HashMap::new(),
             distributions: HashMap::new(),
             topo: CausalTopoGraph::new(),
+            pinned: HashMap::new(),
         }
     }
 
@@ -282,6 +287,38 @@ impl CausalGraph {
 
     /// Compute causal intervention P(Y|do(X=x))
     ///
+    /// Graph surgery: return a new SCM with all incoming edges to `var` removed and `var` pinned.
+    pub fn do_operator(&self, var: &str, value: f64) -> CausalGraph {
+        let mut new_graph = self.clone();
+        for targets in new_graph.edges.values_mut() {
+            targets.remove(var);
+        }
+        new_graph.edge_data.retain(|(_, to), _| to.as_str() != var);
+        new_graph.pinned.insert(var.to_string(), value);
+        new_graph
+    }
+
+    pub fn pinned_value(&self, var: &str) -> Option<f64> {
+        self.pinned.get(var).copied()
+    }
+
+    pub fn node_exists(&self, id: &str) -> bool {
+        self.nodes.contains_key(id)
+    }
+
+    pub fn node_mut(&mut self, id: &str) -> Option<&mut CausalNode> {
+        self.nodes.get_mut(id)
+    }
+
+    pub fn parents_of(&self, id: &str) -> Vec<String> {
+        self.edges
+            .iter()
+            .filter_map(|(from, targets)| {
+                if targets.contains(id) { Some(from.clone()) } else { None }
+            })
+            .collect()
+    }
+
     /// Implements backdoor adjustment:
     /// P(Y|do(X=x)) = Σ_z P(Y|X=x,Z=z) × P(Z)
     ///

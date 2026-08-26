@@ -1,6 +1,36 @@
-use hipcortex::world_model_enhanced::causal::{CausalNode, LinearSE, StructuralEquation};
+use hipcortex::world_model_enhanced::causal::{CausalGraph, CausalNode, LinearSE, StructuralEquation};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+#[test]
+fn test_do_operator_removes_incoming_edges() {
+    let mut g = CausalGraph::new();
+    g.add_node("a".into()).unwrap();
+    g.add_node("b".into()).unwrap();
+    g.add_node("c".into()).unwrap();
+    g.add_edge("a".into(), "b".into()).unwrap();
+    g.add_edge("c".into(), "b".into()).unwrap();
+
+    let mutilated = g.do_operator("b", 5.0);
+
+    assert!(!mutilated.has_path("a", "b").unwrap_or(true));
+    assert!(!mutilated.has_path("c", "b").unwrap_or(true));
+    assert_eq!(mutilated.pinned_value("b"), Some(5.0));
+    assert!(mutilated.node_exists("c"));
+}
+
+#[test]
+fn test_do_operator_does_not_mutate_original() {
+    let mut g = CausalGraph::new();
+    g.add_node("a".into()).unwrap();
+    g.add_node("b".into()).unwrap();
+    g.add_edge("a".into(), "b".into()).unwrap();
+
+    let _mutilated = g.do_operator("b", 1.0);
+
+    assert!(g.has_path("a", "b").unwrap_or(false));
+    assert_eq!(g.pinned_value("b"), None);
+}
 
 #[test]
 fn test_linear_se_evaluate() {
