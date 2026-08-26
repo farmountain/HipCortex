@@ -30,6 +30,21 @@ impl StructuralEquation for LinearSE {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum FailureSignal {
+    MaxIterations,
+    CoherenceViolation,
+    ExplicitFail(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct AttributionReport {
+    pub broken_equation: Option<String>,
+    pub confidence: f64,
+    pub counterfactual_outcome: HashMap<String, f64>,
+    pub single_intervention_sufficient: bool,
+}
+
 /// Node in causal graph
 /// Extended for Task 7: hybrid topo support (embedding alongside id/props).
 /// Eq dropped because [f32;128] only PartialEq.

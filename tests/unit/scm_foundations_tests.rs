@@ -1,6 +1,18 @@
-use hipcortex::world_model_enhanced::causal::{CausalGraph, CausalNode, LinearSE, StructuralEquation};
+use hipcortex::world_model_enhanced::causal::{AttributionReport, CausalGraph, CausalNode, FailureSignal, LinearSE, StructuralEquation};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+#[test]
+fn test_attribution_report_fields() {
+    let report = AttributionReport {
+        broken_equation: Some("node_x".to_string()),
+        confidence: 0.92,
+        counterfactual_outcome: HashMap::from([("result".to_string(), 1.0)]),
+        single_intervention_sufficient: true,
+    };
+    assert!(report.confidence > 0.85);
+    assert!(report.single_intervention_sufficient);
+}
 
 #[test]
 fn test_do_operator_removes_incoming_edges() {
