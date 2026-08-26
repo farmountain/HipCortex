@@ -945,6 +945,15 @@ impl WorldModelEnhanced {
     pub fn causal_edge_count(&self) -> usize {
         self.causal_graph.read().map(|g| g.edge_count()).unwrap_or(0)
     }
+
+    pub fn credit_assign_trajectory(
+        &self,
+        trajectory: &[std::collections::HashMap<String, f64>],
+        signal: crate::world_model_enhanced::causal::FailureSignal,
+    ) -> Result<crate::world_model_enhanced::causal::AttributionReport, String> {
+        let graph = self.causal_graph.read().map_err(|e| format!("lock: {}", e))?;
+        graph.credit_assign(trajectory, &signal)
+    }
 }
 
 impl Default for WorldModelEnhanced {

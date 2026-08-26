@@ -1,7 +1,16 @@
 use hipcortex::world_model_enhanced::causal::{AttributionReport, CausalGraph, CausalNode, FailureSignal, LinearSE, StructuralEquation};
+use hipcortex::world_model_enhanced::WorldModelEnhanced;
 use hipcortex::mat::{AttributionCache, ConflictSignature};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+#[test]
+fn test_wm_credit_assign_trajectory_returns_report() {
+    let wm = WorldModelEnhanced::new();
+    let traj = vec![HashMap::from([("x".to_string(), 1.0)])];
+    let report = wm.credit_assign_trajectory(&traj, FailureSignal::MaxIterations).unwrap();
+    assert!(report.confidence >= 0.0 && report.confidence <= 1.0);
+}
 
 #[test]
 fn test_mat_insert_and_retrieve() {
