@@ -54,6 +54,7 @@ mod consolidation_gates_sit;
 mod hybrid_rollout_sit;
 mod omega_loop_auditable_tests;
 mod react_e2e_sit;
+mod credit_assign_sit;
 #[cfg(feature = "web-server")]
 mod rollout_bounds_sit;
 mod topological_substrate_tests;
