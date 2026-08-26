@@ -5,6 +5,40 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 #[test]
+fn test_no_blind_retry_when_attribution_available() {
+    use hipcortex::loop_engine::ReactEngine;
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+    use hipcortex::memory_store::MemoryStore;
+    use hipcortex::payloads::{GoalPayload, GoalStatus, SuccessFactor};
+    let mut store = MemoryStore::new_in_memory();
+    let gp = GoalPayload {
+        target_state: "reach_B".into(),
+        acceptance_criteria: vec![],
+        success_factors: vec![SuccessFactor { name: "at_B".into(), satisfied: false, weight: 1.0 }],
+        max_react_iterations: 2,
+        current_iteration: 0,
+        status: GoalStatus::Pending,
+    };
+    let rec = MemoryRecord::new(
+        MemoryType::Goal, "test_agent".into(), "pursue".into(), "reach_B".into(),
+        serde_json::to_value(&gp).unwrap(),
+    );
+    let goal_id = rec.id;
+    store.add(rec).unwrap();
+
+    let mut engine = ReactEngine::new();
+    let result = engine.run(&mut store, goal_id, 0).unwrap();
+    assert_eq!(result, GoalStatus::Failed);
+
+    let has_attr = store.all().iter().any(|r| {
+        r.record_type == MemoryType::Reflexion
+            && r.actor == "react_engine"
+            && r.metadata.to_string().contains("attribution")
+    });
+    assert!(has_attr, "Expected attribution reflexion — blind retry still active");
+}
+
+#[test]
 fn test_wm_credit_assign_trajectory_returns_report() {
     let wm = WorldModelEnhanced::new();
     let traj = vec![HashMap::from([("x".to_string(), 1.0)])];

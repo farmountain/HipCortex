@@ -543,12 +543,16 @@ impl LoopEngine {
 ///   5. REFLECT  — write Reflexion record on incomplete progress
 pub struct ReactEngine {
     pub max_iterations_override: Option<u32>,
+    pub wm: crate::world_model_enhanced::WorldModelEnhanced,
+    mat: crate::mat::AttributionCache,
 }
 
 impl ReactEngine {
     pub fn new() -> Self {
         Self {
             max_iterations_override: None,
+            wm: crate::world_model_enhanced::WorldModelEnhanced::new(),
+            mat: crate::mat::AttributionCache::new(),
         }
     }
 
@@ -633,6 +637,45 @@ impl ReactEngine {
             store
                 .add(reflection)
                 .map_err(|e| format!("Failed to write reflection: {}", e))?;
+        }
+
+        // Counterfactual attribution before declaring Failed (P1.4)
+        let traj: Vec<std::collections::HashMap<String, f64>> = store
+            .all()
+            .iter()
+            .filter(|r| r.record_type == MemoryType::Temporal && r.derived_from == Some(goal_id))
+            .map(|r| {
+                std::collections::HashMap::from([
+                    ("iteration".to_string(), r.react_iteration.unwrap_or(0) as f64),
+                    ("unsatisfied".to_string(),
+                        goal_payload.success_factors.iter().filter(|f| !f.satisfied).count() as f64),
+                ])
+            })
+            .collect();
+
+        if let Ok(report) = self.wm.credit_assign_trajectory(
+            &traj,
+            crate::world_model_enhanced::causal::FailureSignal::MaxIterations,
+        ) {
+            let sig = crate::mat::ConflictSignature::from_raw(
+                &format!("goal={},fail=max_iter", goal_payload.target_state)
+            );
+            self.mat.insert(sig, report.clone());
+            let mut attr_rec = MemoryRecord::new(
+                MemoryType::Reflexion,
+                "react_engine".to_string(),
+                "attribution".to_string(),
+                goal_payload.target_state.clone(),
+                serde_json::json!({
+                    "attribution": {
+                        "broken_equation": report.broken_equation,
+                        "confidence": report.confidence,
+                        "single_intervention_sufficient": report.single_intervention_sufficient,
+                    }
+                }),
+            );
+            attr_rec.derived_from = Some(goal_id);
+            let _ = store.add(attr_rec);
         }
 
         goal_payload.status = GoalStatus::Failed;
