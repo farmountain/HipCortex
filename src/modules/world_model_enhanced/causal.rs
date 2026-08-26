@@ -7,14 +7,16 @@
 // - Cycle prevention (DAG property maintenance)
 
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::Arc;
 
 use crate::topological_memory::CausalTopoGraph;
 
-pub trait StructuralEquation: Send + Sync {
+pub trait StructuralEquation: Send + Sync + std::fmt::Debug {
     fn evaluate(&self, parents: &[f64], u: f64) -> f64;
     fn invert_for_u(&self, parents: &[f64], observed: f64) -> f64;
 }
 
+#[derive(Debug, Clone)]
 pub struct LinearSE {
     pub weights: Vec<f64>,
 }
@@ -31,11 +33,13 @@ impl StructuralEquation for LinearSE {
 /// Node in causal graph
 /// Extended for Task 7: hybrid topo support (embedding alongside id/props).
 /// Eq dropped because [f32;128] only PartialEq.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct CausalNode {
     pub id: String,
     pub properties: HashMap<String, String>,
     pub embedding: Option<[f32; 128]>,
+    pub equation: Option<Arc<dyn StructuralEquation>>,
+    pub noise_var: f64,
 }
 
 /// Directed causal edge A → B
@@ -107,6 +111,8 @@ impl CausalGraph {
             id: id.clone(),
             properties: HashMap::new(),
             embedding: None,
+            equation: None,
+            noise_var: 0.0,
         };
         self.nodes.insert(id.clone(), node);
         self.edges.insert(id.clone(), HashSet::new());
@@ -135,6 +141,8 @@ impl CausalGraph {
                 id: id.clone(),
                 properties: HashMap::new(),
                 embedding: Some(embedding),
+                equation: None,
+                noise_var: 0.0,
             },
         );
         self.edges.insert(id.clone(), HashSet::new());
