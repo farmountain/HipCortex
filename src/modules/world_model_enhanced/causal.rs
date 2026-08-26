@@ -334,6 +334,75 @@ impl CausalGraph {
             .collect()
     }
 
+    /// Abduction-Action-Prediction credit assignment.
+    /// Returns which structural equation had the largest noise residual across the trajectory.
+    pub fn credit_assign(
+        &self,
+        trajectory: &[HashMap<String, f64>],
+        _signal: &FailureSignal,
+    ) -> Result<AttributionReport, String> {
+        if trajectory.is_empty() {
+            return Ok(AttributionReport {
+                broken_equation: None,
+                confidence: 0.0,
+                counterfactual_outcome: HashMap::new(),
+                single_intervention_sufficient: false,
+            });
+        }
+
+        let candidates: Vec<String> = self.nodes.values()
+            .filter(|n| n.equation.is_some())
+            .map(|n| n.id.clone())
+            .collect();
+
+        if candidates.is_empty() {
+            return Ok(AttributionReport {
+                broken_equation: None,
+                confidence: 0.0,
+                counterfactual_outcome: HashMap::new(),
+                single_intervention_sufficient: false,
+            });
+        }
+
+        let mut best_node: Option<String> = None;
+        let mut best_score = 0.0f64;
+
+        for candidate in &candidates {
+            let mut total_abs_u = 0.0f64;
+            let mut count = 0usize;
+            for step in trajectory {
+                if let (Some(&obs), Some(node)) =
+                    (step.get(candidate.as_str()), self.nodes.get(candidate.as_str()))
+                {
+                    if let Some(eq) = &node.equation {
+                        let parent_vals: Vec<f64> = self.parents_of(candidate)
+                            .iter()
+                            .filter_map(|p| step.get(p.as_str()).copied())
+                            .collect();
+                        let u = eq.invert_for_u(&parent_vals, obs);
+                        total_abs_u += u.abs();
+                        count += 1;
+                    }
+                }
+            }
+            if count > 0 {
+                let score = total_abs_u / count as f64;
+                if score > best_score {
+                    best_score = score;
+                    best_node = Some(candidate.clone());
+                }
+            }
+        }
+
+        let confidence = (best_score / (best_score + 1.0)).min(1.0);
+        Ok(AttributionReport {
+            broken_equation: best_node,
+            confidence,
+            counterfactual_outcome: HashMap::new(),
+            single_intervention_sufficient: confidence >= 0.85,
+        })
+    }
+
     /// Implements backdoor adjustment:
     /// P(Y|do(X=x)) = Σ_z P(Y|X=x,Z=z) × P(Z)
     ///

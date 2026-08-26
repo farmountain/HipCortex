@@ -3,6 +3,27 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 #[test]
+fn test_credit_assign_returns_report() {
+    let mut g = CausalGraph::new();
+    g.add_node("x".into()).unwrap();
+    g.add_node("y".into()).unwrap();
+    g.add_edge("x".into(), "y".into()).unwrap();
+    if let Some(node) = g.node_mut("y") {
+        node.equation = Some(Arc::new(LinearSE { weights: vec![1.0] }));
+        node.noise_var = 0.1;
+    }
+    let traj = vec![
+        HashMap::from([
+            ("x".to_string(), 1.0),
+            ("y".to_string(), 2.5), // expected 1.0 + u=1.5
+        ]),
+    ];
+    let report = g.credit_assign(&traj, &FailureSignal::MaxIterations).unwrap();
+    assert!(report.broken_equation.is_some());
+    assert!(report.confidence > 0.0);
+}
+
+#[test]
 fn test_attribution_report_fields() {
     let report = AttributionReport {
         broken_equation: Some("node_x".to_string()),
