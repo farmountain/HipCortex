@@ -47,6 +47,7 @@ pub mod memory_processor;
 pub mod memory_query;
 pub mod memory_record;
 pub mod memory_store;
+pub mod mat;
 pub mod monitoring;
 #[path = "modules/openmanus_bridge.rs"]
 pub mod openmanus_bridge;

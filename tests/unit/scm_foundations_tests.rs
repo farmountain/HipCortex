@@ -1,6 +1,22 @@
 use hipcortex::world_model_enhanced::causal::{AttributionReport, CausalGraph, CausalNode, FailureSignal, LinearSE, StructuralEquation};
+use hipcortex::mat::{AttributionCache, ConflictSignature};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+#[test]
+fn test_mat_insert_and_retrieve() {
+    let mut cache = AttributionCache::new();
+    let sig = ConflictSignature::from_raw("goal=move,fail=max_iter");
+    let report = AttributionReport {
+        broken_equation: Some("z".to_string()),
+        confidence: 0.9,
+        counterfactual_outcome: HashMap::new(),
+        single_intervention_sufficient: true,
+    };
+    cache.insert(sig.clone(), report);
+    let retrieved = cache.get(&sig).unwrap();
+    assert_eq!(retrieved.broken_equation.as_deref(), Some("z"));
+}
 
 #[test]
 fn test_credit_assign_returns_report() {
