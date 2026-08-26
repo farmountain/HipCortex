@@ -59,7 +59,7 @@
 //! - **Prediction uncertainty growth**: Covariance trace grows monotonically with prediction steps
 //! - **Transitivity**: If A→B and B→C, then path A→C exists
 
-mod causal;
+pub mod causal;
 pub mod constraint;
 pub mod entity;
 pub mod metalaw;

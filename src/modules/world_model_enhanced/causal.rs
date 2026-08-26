@@ -10,6 +10,24 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::topological_memory::CausalTopoGraph;
 
+pub trait StructuralEquation: Send + Sync {
+    fn evaluate(&self, parents: &[f64], u: f64) -> f64;
+    fn invert_for_u(&self, parents: &[f64], observed: f64) -> f64;
+}
+
+pub struct LinearSE {
+    pub weights: Vec<f64>,
+}
+
+impl StructuralEquation for LinearSE {
+    fn evaluate(&self, parents: &[f64], u: f64) -> f64 {
+        self.weights.iter().zip(parents).map(|(w, p)| w * p).sum::<f64>() + u
+    }
+    fn invert_for_u(&self, parents: &[f64], observed: f64) -> f64 {
+        observed - self.weights.iter().zip(parents).map(|(w, p)| w * p).sum::<f64>()
+    }
+}
+
 /// Node in causal graph
 /// Extended for Task 7: hybrid topo support (embedding alongside id/props).
 /// Eq dropped because [f32;128] only PartialEq.

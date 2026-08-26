@@ -58,6 +58,7 @@ mod temporal_indexer_feature_tests;
 mod simulation_fork_tests;
 mod workspace_tests;
 mod temporal_indexer_tests;
+mod scm_foundations_tests;
 mod tx_log_tests;
 mod vision_encoder_tests;
 mod world_model_export_tests;
