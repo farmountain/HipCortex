@@ -8,3 +8,4 @@ mod test_graph;
 mod world_model_props;
 mod calibration_props;
 mod consolidation_props;
+mod scm_props;
