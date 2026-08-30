@@ -29,6 +29,7 @@ pub struct DigitalTwin<B: MemoryBackend + Send + Sync + 'static> {
     pub created_at_tx: u64,
     trajectory: Vec<Vec<f64>>,
     t: f64,
+    interventions: std::collections::HashMap<String, f64>,
 }
 
 impl<B: MemoryBackend + Send + Sync + 'static> DigitalTwin<B> {
@@ -46,7 +47,18 @@ impl<B: MemoryBackend + Send + Sync + 'static> DigitalTwin<B> {
             created_at_tx,
             trajectory: Vec::new(),
             t: 0.0,
+            interventions: std::collections::HashMap::new(),
         }
+    }
+
+    /// Apply a do(var=value) intervention on this twin's dynamics. Returns &mut self for chaining.
+    pub fn fork_under_intervention(&mut self, var: &str, value: f64) -> &mut Self {
+        self.interventions.insert(var.to_string(), value);
+        self
+    }
+
+    pub fn pinned_interventions(&self) -> &std::collections::HashMap<String, f64> {
+        &self.interventions
     }
 
     /// Advance twin by one action: record discrete step + integrate continuous dynamics.

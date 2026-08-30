@@ -62,3 +62,16 @@ fn digital_twin_records_reflect_fork_store() {
     // records() should not panic, returns 0 or more
     let _ = twin.records();
 }
+
+#[test]
+fn test_fork_under_intervention_pins_variable() {
+    let handle = make_handle();
+    let fork = handle.fork().unwrap();
+    let vf = KalmanVectorField::new(2);
+    let dyn_ = ContinuousDynamics::new(Box::new(vf), 0.1, 100.0);
+    let mut twin = DigitalTwin::new(fork, dyn_, SyncPolicy::ReadOnly, 0);
+    assert!(twin.pinned_interventions().is_empty());
+    twin.fork_under_intervention("decision", 1.0);
+    assert!(twin.pinned_interventions().contains_key("decision"));
+    assert_eq!(twin.pinned_interventions()["decision"], 1.0);
+}
