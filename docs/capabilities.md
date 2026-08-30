@@ -1,6 +1,6 @@
 # HipCortex capability matrix
 
-Honest surface coverage as of **product v0.5.2 / VSIX v0.5.8** (code-grounded, not aspirational).
+Honest surface coverage as of **product v1.0.0 / VSIX v0.9.0** (code-grounded, not aspirational).
 
 Legend:
 
@@ -97,3 +97,12 @@ Exit 0 if every MCP `TOOLS` name appears in this doc and MCP version string is p
 
 LangChain: `HipCortexMemory.from_settings()`. CrewAI: `make_memory_tools()`. See `examples/adapters/`.
 
+
+## v1.0.0 SCM Additions
+
+| Capability | Status |
+|------------|--------|
+| SCM: Intervene, Counterfactual, CreditAssign, RewriteEquation | ✅ v1.0.0 |
+| MGV (Monitor-Generate-Verify, FOK/JOL) | ✅ v1.0.0 |
+| Type-2 SDT (meta-d′, M-ratio, MMBPhenotype) | ✅ v1.0.0 |
+| pure-substrate feature flag | ✅ v1.0.0 (opt-in) |
