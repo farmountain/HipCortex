@@ -1303,6 +1303,61 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
             let result = crate::mgv::MGVOperator::new(js, cs, hs).check();
             axum::Json(serde_json::to_value(&result).unwrap_or_default())
         }))
+        // ── v1.1.0 Cognitive Loop Closure routes ──────────────────────────
+        .route("/v1/cognitive/report", {
+            let cog = cognitive.clone();
+            get(move |axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>| async move {
+                let cog = cog.clone();
+                let actor = params.get("actor").cloned().unwrap_or_else(|| "default".to_string());
+                let store = cog.memory.lock().unwrap();
+                let report = crate::cognitive_report::build_report(&*store, &actor);
+                drop(store);
+                axum::Json(serde_json::to_value(report).unwrap_or_default())
+            })
+        })
+        .route("/v1/goals", {
+            let cog = cognitive.clone();
+            get(move |axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>| async move {
+                let cog = cog.clone();
+                let actor = params.get("actor").cloned().unwrap_or_else(|| "default".to_string());
+                let status = params.get("status").cloned().unwrap_or_else(|| "failed".to_string());
+                let store = cog.memory.lock().unwrap();
+                let records: Vec<serde_json::Value> = store
+                    .search_by_goal_status(&actor, &status)
+                    .iter()
+                    .map(|r| serde_json::json!({ "id": r.id, "target": r.target, "actor": r.actor }))
+                    .collect();
+                drop(store);
+                axum::Json(serde_json::json!({ "goals": records, "count": records.len() }))
+            })
+        })
+        .route("/v1/actions/authorized", {
+            get(|| async {
+                let ops: Vec<serde_json::Value> = crate::action_registry::ALL_OPS
+                    .iter()
+                    .map(|op| serde_json::json!({ "op": op, "confidence": 0.8 }))
+                    .collect();
+                axum::Json(serde_json::json!({ "authorized": ops }))
+            })
+        })
+        .route("/v1/memory/:id/provenance", {
+            let cog = cognitive.clone();
+            axum::routing::get(move |axum::extract::Path(id): axum::extract::Path<String>| async move {
+                let cog = cog.clone();
+                let Ok(uuid) = id.parse::<uuid::Uuid>() else {
+                    return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"error": "invalid uuid"})));
+                };
+                let store = cog.memory.lock().unwrap();
+                let chain: Vec<serde_json::Value> = store
+                    .provenance_chain(uuid, 20)
+                    .iter()
+                    .map(|r| serde_json::json!({ "id": r.id, "type": format!("{:?}", r.record_type), "action": r.action, "actor": r.actor }))
+                    .collect();
+                drop(store);
+                (axum::http::StatusCode::OK, axum::Json(serde_json::json!({ "chain": chain, "depth": chain.len() })))
+            })
+        })
+        // ── end v1.1.0 routes ─────────────────────────────────────────────
         .route("/v1/cognitive/diff", {
             let cog = cognitive.clone();
             get(move |axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>| async move {

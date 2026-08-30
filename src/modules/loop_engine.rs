@@ -545,6 +545,7 @@ pub struct ReactEngine {
     pub max_iterations_override: Option<u32>,
     pub wm: crate::world_model_enhanced::WorldModelEnhanced,
     mat: crate::mat::AttributionCache,
+    emergence: crate::emergence::EmergenceDetector,
 }
 
 impl ReactEngine {
@@ -553,6 +554,7 @@ impl ReactEngine {
             max_iterations_override: None,
             wm: crate::world_model_enhanced::WorldModelEnhanced::new(),
             mat: crate::mat::AttributionCache::new(),
+            emergence: crate::emergence::EmergenceDetector::new(),
         }
     }
 
@@ -598,6 +600,25 @@ impl ReactEngine {
                 "target": goal_payload.target_state,
             });
 
+            // ACT — Decision record before executing (P1.6)
+            use crate::payloads::DecisionPayload;
+            let mut decision_payload = DecisionPayload {
+                option_chosen: "symbolic_step".to_string(),
+                alternatives: vec!["skip".to_string(), "llm_call".to_string()],
+                ..Default::default()
+            };
+            let mut dec_rec = MemoryRecord::new(
+                MemoryType::Decision,
+                "react_engine".to_string(),
+                "act".to_string(),
+                goal_payload.target_state.clone(),
+                serde_json::to_value(&decision_payload).unwrap_or_default(),
+            );
+            dec_rec.derived_from = Some(goal_id);
+            dec_rec.react_iteration = Some(i);
+            let decision_id = dec_rec.id;
+            let _ = store.add(dec_rec);
+
             let mut obs = MemoryRecord::new(
                 MemoryType::Temporal,
                 "react_engine".to_string(),
@@ -607,9 +628,21 @@ impl ReactEngine {
             );
             obs.derived_from = Some(goal_id);
             obs.react_iteration = Some(i);
+            let obs_snapshot = obs.clone();
+            let obs_id = obs.id;
             store
                 .add(obs)
                 .map_err(|e| format!("Failed to write observation: {}", e))?;
+            // Feedback → WorldModel (P1.5)
+            crate::wm_updater::update_from_temporal(&obs_snapshot, &mut self.wm);
+            // Back-fill Decision.outcome (P1.6)
+            decision_payload.outcome = Some(obs_id);
+            let _ = store.update_record(
+                decision_id, None, None, None, None,
+                Some(serde_json::to_value(&decision_payload).unwrap_or_default()),
+            );
+            // Emergence: promote patterns every 10 writes (P2.2)
+            self.emergence.on_temporal_write(store, &goal_record.actor);
 
             let all_satisfied = goal_payload.success_factors.iter().all(|f| f.satisfied);
 
@@ -639,9 +672,12 @@ impl ReactEngine {
             );
             reflection.derived_from = Some(goal_id);
             reflection.react_iteration = Some(i);
+            let reflection_snapshot = reflection.clone();
             store
                 .add(reflection)
                 .map_err(|e| format!("Failed to write reflection: {}", e))?;
+            // Invalidate beliefs contradicted by this critique (P1.4)
+            crate::belief_invalidator::BeliefInvalidator::process(&reflection_snapshot, store);
         }
 
         // Counterfactual attribution before declaring Failed (P1.4)

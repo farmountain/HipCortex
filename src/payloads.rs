@@ -21,8 +21,9 @@ pub struct SuccessFactor {
     pub satisfied: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum GoalStatus {
+    #[default]
     Pending,
     InProgress,
     Succeeded,
@@ -30,7 +31,7 @@ pub enum GoalStatus {
     Abandoned,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct GoalPayload {
     pub target_state: String,
     pub acceptance_criteria: Vec<String>,
@@ -40,10 +41,47 @@ pub struct GoalPayload {
     pub status: GoalStatus,
     #[serde(default)]
     pub current_iteration: u32,
+    /// 0.0–1.0 priority signal; higher = schedule sooner. Default 0.5.
+    #[serde(default = "default_urgency")]
+    pub urgency: f64,
+    /// Estimated resource cost (relative units). Lower = cheaper. Default 1.0.
+    #[serde(default = "default_cost")]
+    pub estimated_cost: f64,
 }
 
 fn default_max_iterations() -> u32 {
     10
+}
+
+fn default_urgency() -> f64 {
+    0.5
+}
+
+fn default_cost() -> f64 {
+    1.0
+}
+
+/// Payload for MemoryType::Decision — records an act-phase choice with rationale.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct DecisionPayload {
+    /// The action chosen (e.g. "symbolic_step", "llm_call").
+    pub option_chosen: String,
+    /// Alternatives considered but rejected.
+    #[serde(default)]
+    pub alternatives: Vec<String>,
+    /// IDs of Temporal/Belief records that informed this decision.
+    #[serde(default)]
+    pub rationale: Vec<Uuid>,
+    /// Confidence in the chosen option (0.0–1.0).
+    #[serde(default = "default_decision_confidence")]
+    pub confidence: f64,
+    /// ID of the Temporal observation that resulted from this decision (back-filled).
+    #[serde(default)]
+    pub outcome: Option<Uuid>,
+}
+
+fn default_decision_confidence() -> f64 {
+    0.7
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

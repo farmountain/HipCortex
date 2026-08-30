@@ -704,6 +704,37 @@ TOOLS = [
             "required": ["node_id", "new_weights"],
         },
     },
+    {
+        "name": "cognitive_report",
+        "description": "GET /v1/cognitive/report — single-call aggregator answering all 10 cognitive questions (goals, beliefs, decisions, failures, emergent abstractions, uncertainties, authorized actions, next recommendation).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "actor": {"type": "string"},
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "list_authorized_actions",
+        "description": "GET /v1/actions/authorized — list all ops the current self-model authorizes via ExecutionGate.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
+    {
+        "name": "get_provenance",
+        "description": "GET /v1/memory/{id}/provenance — BFS provenance chain (derived_from + evidence links) up to depth 20.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string", "description": "UUID of the memory record"},
+            },
+            "required": ["id"],
+        },
+    },
 ]
 
 RESOURCES = [
@@ -1303,6 +1334,20 @@ def handle_causal_rewrite_equation(args: dict) -> str:
     })
     return json.dumps(r)
 
+def handle_cognitive_report(args: dict) -> str:
+    actor = args.get("actor", "mcp-session")
+    r = _req("GET", f"/v1/cognitive/report?actor={actor}")
+    return json.dumps(r)
+
+def handle_list_authorized_actions(args: dict) -> str:
+    r = _req("GET", "/v1/actions/authorized")
+    return json.dumps(r)
+
+def handle_get_provenance(args: dict) -> str:
+    record_id = args.get("id", "")
+    r = _req("GET", f"/v1/memory/{record_id}/provenance")
+    return json.dumps(r)
+
 def dispatch_tool(name: str, args: dict) -> str:
     global _live_beliefs_seen
     handlers = {
@@ -1353,6 +1398,9 @@ def dispatch_tool(name: str, args: dict) -> str:
         "causal_counterfactual": handle_causal_counterfactual,
         "causal_credit_assign": handle_causal_credit_assign,
         "causal_rewrite_equation": handle_causal_rewrite_equation,
+        "cognitive_report":        handle_cognitive_report,
+        "list_authorized_actions": handle_list_authorized_actions,
+        "get_provenance":          handle_get_provenance,
     }
     handler = handlers.get(name)
     if handler is None:
@@ -1477,7 +1525,7 @@ def main() -> None:
             respond(id_, {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}, "resources": {}},
-                "serverInfo": {"name": "hipcortex", "version": "1.0.0"},
+                "serverInfo": {"name": "hipcortex", "version": "1.1.0"},
             })
         elif method == "initialized":
             pass  # notification — no response

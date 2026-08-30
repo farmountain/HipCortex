@@ -13,6 +13,7 @@ pub enum MemoryType {
     Goal,
     Skill,
     Belief,
+    Decision,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

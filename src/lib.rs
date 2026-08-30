@@ -2,10 +2,16 @@
 //! Export all modules for easy external use.
 
 pub mod a2a_protocol;
+pub mod action_registry;
 pub mod archive_store;
 #[cfg(feature = "async-store")]
 pub mod async_memory_store;
 pub mod audit_log;
+pub mod belief_invalidator;
+pub mod cognitive_report;
+pub mod emergence;
+pub mod goal_scheduler;
+pub mod wm_updater;
 #[path = "modules/aureus_bridge.rs"]
 pub mod aureus_bridge;
 pub mod cognitive_gc;

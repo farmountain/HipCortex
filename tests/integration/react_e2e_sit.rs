@@ -17,6 +17,7 @@ mod tests {
             max_react_iterations: max_iter,
             status: GoalStatus::Pending,
             current_iteration: 0,
+            ..Default::default()
         };
         MemoryRecord::new(
             MemoryType::Goal,

@@ -722,6 +722,56 @@ impl<B: MemoryBackend> MemoryStore<B> {
         self.records.iter().find(|r| r.id == id)
     }
 
+    /// Return Goal records whose GoalPayload.status matches `status_str` (case-insensitive).
+    pub fn search_by_goal_status(&self, actor: &str, status_str: &str) -> Vec<&MemoryRecord> {
+        let target = status_str.to_lowercase();
+        self.all_by_type(crate::memory_record::MemoryType::Goal)
+            .into_iter()
+            .filter(|r| r.actor == actor)
+            .filter(|r| {
+                r.metadata
+                    .get("status")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_lowercase() == target)
+                    .unwrap_or(false)
+            })
+            .collect()
+    }
+
+    /// BFS from `start_id` following `derived_from` and `evidence` links.
+    /// Returns ancestor records in traversal order, capped at `depth` hops.
+    pub fn provenance_chain(&self, start_id: uuid::Uuid, depth: usize) -> Vec<MemoryRecord> {
+        let mut visited = std::collections::HashSet::new();
+        let mut queue = std::collections::VecDeque::new();
+        let mut chain = Vec::new();
+
+        queue.push_back(start_id);
+        visited.insert(start_id);
+
+        while let Some(current_id) = queue.pop_front() {
+            if chain.len() >= depth {
+                break;
+            }
+            if let Some(rec) = self.find_by_id(current_id) {
+                if current_id != start_id {
+                    chain.push(rec.clone());
+                }
+                if let Some(parent_id) = rec.derived_from {
+                    if visited.insert(parent_id) {
+                        queue.push_back(parent_id);
+                    }
+                }
+                for &ev_id in &rec.evidence {
+                    if visited.insert(ev_id) {
+                        queue.push_back(ev_id);
+                    }
+                }
+            }
+        }
+
+        chain
+    }
+
     /// Update a record in-place: apply partial changes, increment version,
     /// rewrite the backend file, and append an update entry to the audit log.
     pub fn update_record(
