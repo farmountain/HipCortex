@@ -84,6 +84,15 @@ pub enum CognitiveDelta {
     WorkspaceOpen { id: WorkspaceId, mode: WorkspaceMode },
     /// OR-Set merge of `from` workspace into `into` workspace (both must be Shared).
     WorkspaceMerge { from: WorkspaceId, into: WorkspaceId },
+    // SCM operators (v1.0.0)
+    Intervene { var: String, value: f64 },
+    Counterfactual {
+        actual_state: std::collections::HashMap<String, f64>,
+        intervention_var: String,
+        intervention_value: f64,
+    },
+    CreditAssign(crate::world_model_enhanced::causal::FailureSignal),
+    RewriteStructuralEquation { node_id: String, new_weights: Vec<f64> },
 }
 
 impl CognitiveDelta {
@@ -101,6 +110,10 @@ impl CognitiveDelta {
             Self::AutoConsolidate { .. } => "AutoConsolidate",
             Self::WorkspaceOpen { .. } => "WorkspaceOpen",
             Self::WorkspaceMerge { .. } => "WorkspaceMerge",
+            Self::Intervene { .. } => "Intervene",
+            Self::Counterfactual { .. } => "Counterfactual",
+            Self::CreditAssign(_) => "CreditAssign",
+            Self::RewriteStructuralEquation { .. } => "RewriteStructuralEquation",
         }
     }
 }
@@ -306,6 +319,10 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
                 CognitiveDelta::UpdateBelief { .. } => TxKind::BeliefAssert,
                 CognitiveDelta::AdvanceGoal { .. } => TxKind::GoalStatusChange,
                 CognitiveDelta::RegisterSkill(_) => TxKind::MemoryAdd,
+                CognitiveDelta::Intervene { .. } => TxKind::MemoryAdd,
+                CognitiveDelta::Counterfactual { .. } => TxKind::MemoryAdd,
+                CognitiveDelta::CreditAssign(_) => TxKind::MemoryAdd,
+                CognitiveDelta::RewriteStructuralEquation { .. } => TxKind::MemoryAdd,
                 _ => unreachable!(),
             };
             tx.append(kind, affected_ids, actor)
@@ -606,6 +623,23 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
                     .add(record)
                     .map_err(|e| CognitiveError::StoreError(e.to_string()))?;
                 Ok(vec![id])
+            }
+
+            CognitiveDelta::Intervene { var, value } => {
+                let _ = (var, value);
+                Ok(vec![])
+            }
+            CognitiveDelta::Counterfactual { actual_state, intervention_var, intervention_value } => {
+                let _ = (actual_state, intervention_var, intervention_value);
+                Ok(vec![])
+            }
+            CognitiveDelta::CreditAssign(signal) => {
+                let _ = signal;
+                Ok(vec![])
+            }
+            CognitiveDelta::RewriteStructuralEquation { node_id, new_weights } => {
+                let _ = (node_id, new_weights);
+                Ok(vec![])
             }
 
             _ => unreachable!("Phase-4 stubs rejected in transact() before apply_delta"),

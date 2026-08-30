@@ -30,7 +30,7 @@ impl StructuralEquation for LinearSE {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum FailureSignal {
     MaxIterations,
     CoherenceViolation,

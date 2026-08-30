@@ -536,6 +536,10 @@ impl CoherenceChecker {
             | CognitiveDelta::ArchiveRecord { .. } => {
                 warnings.push(format!("{} not implemented in Phase 0", delta.label()));
             }
+            CognitiveDelta::Intervene { .. }
+            | CognitiveDelta::Counterfactual { .. }
+            | CognitiveDelta::CreditAssign(_)
+            | CognitiveDelta::RewriteStructuralEquation { .. } => {}
         }
         Ok(warnings)
     }

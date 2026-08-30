@@ -576,3 +576,22 @@ fn test_consolidate_over_100_source_ids_returns_error() {
     ).unwrap_err();
     assert!(matches!(err, CognitiveError::DeltaInvalid(_)), "expected DeltaInvalid for >100 source_ids");
 }
+
+#[test]
+fn test_cognitive_delta_scm_variants_exist() {
+    use hipcortex::cognitive_state::CognitiveDelta;
+    use hipcortex::world_model_enhanced::causal::FailureSignal;
+    use std::collections::HashMap;
+
+    let _ = CognitiveDelta::Intervene { var: "x".into(), value: 1.0 };
+    let _ = CognitiveDelta::Counterfactual {
+        actual_state: HashMap::from([("x".to_string(), 0.5)]),
+        intervention_var: "x".into(),
+        intervention_value: 1.0,
+    };
+    let _ = CognitiveDelta::CreditAssign(FailureSignal::MaxIterations);
+    let _ = CognitiveDelta::RewriteStructuralEquation {
+        node_id: "z".into(),
+        new_weights: vec![1.0, 2.0],
+    };
+}
