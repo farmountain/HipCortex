@@ -1,8 +1,8 @@
 {
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
-    "description": "HipCortex v0.9.1 — Stability patch: Mac quarantine-xattr server fix, command registration on Antigravity/older VS Code, server version policy. Continuous Substrate: DigitalTwin (RK4), ExperienceStore (90% hot-set reduction), 42 MCP tools, 7 resources. Cognitive OS: transactional memory, JTMS, world-model rollout. Bundled multi-OS server (crate 0.9.0).",
-    "version": "0.9.1",
+    "description": "HipCortex v1.0.0 — Causal SCM Substrate: StructuralEquation trait, do-calculus, counterfactual reasoning, credit_assign_gated, Type-2 SDT + MMBPhenotype, MGVOperator (FOK/JOL), DigitalTwin::fork_under_intervention. All 6 ACs verified. Bundled multi-OS server (crate 1.0.0).",
+    "version": "1.0.0",
     "publisher": "farmountain",
   "repository": {
     "type": "git",
