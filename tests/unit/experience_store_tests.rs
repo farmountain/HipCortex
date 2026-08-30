@@ -91,3 +91,14 @@ fn search_compressed_finds_matching_targets() {
     assert_eq!(results.len(), 1);
     assert!(results[0].target.contains("login"));
 }
+
+#[test]
+fn test_experience_record_causal_provenance() {
+    use hipcortex::experience_store::ExperienceRecord;
+    let rec = ExperienceRecord {
+        id: uuid::Uuid::new_v4(),
+        causal_provenance: Some(vec![("node_z".to_string(), "LinearSE".to_string())]),
+    };
+    assert!(rec.causal_provenance.is_some());
+    assert_eq!(rec.causal_provenance.unwrap()[0].0, "node_z");
+}

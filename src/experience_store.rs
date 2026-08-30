@@ -18,6 +18,13 @@ pub const RAW_CAP: usize = 1000;
 pub const EPISODE_CAP: usize = 100;
 pub const ABSTRACT_CAP: usize = 10;
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ExperienceRecord {
+    pub id: uuid::Uuid,
+    /// (node_id, equation_tag) pairs for trajectory segment. None = pre-SCM record.
+    pub causal_provenance: Option<Vec<(String, String)>>,
+}
+
 #[derive(Debug, Clone)]
 pub struct ExperienceTier {
     pub raw: Vec<Uuid>,
