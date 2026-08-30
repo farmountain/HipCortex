@@ -639,6 +639,58 @@ TOOLS = [
             "required": ["actor"],
         },
     },
+    {
+        "name": "causal_intervene",
+        "description": "POST /v1/causal/intervene — apply do(var=value) surgical intervention on the causal graph.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "var": {"type": "string"},
+                "value": {"type": "number"},
+                "actor": {"type": "string"},
+            },
+            "required": ["var", "value"],
+        },
+    },
+    {
+        "name": "causal_counterfactual",
+        "description": "POST /v1/causal/counterfactual — compute counterfactual outcome under intervention.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "actual_state": {"type": "object"},
+                "intervention_var": {"type": "string"},
+                "intervention_value": {"type": "number"},
+                "actor": {"type": "string"},
+            },
+            "required": ["actual_state", "intervention_var", "intervention_value"],
+        },
+    },
+    {
+        "name": "causal_credit_assign",
+        "description": "POST /v1/causal/credit-assign — run AAP credit assignment for a failure signal.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "failure_signal": {"type": "string", "enum": ["MaxIterations", "CoherenceViolation"]},
+                "actor": {"type": "string"},
+            },
+            "required": ["failure_signal"],
+        },
+    },
+    {
+        "name": "causal_rewrite_equation",
+        "description": "POST /v1/causal/rewrite-equation — rewrite structural equation weights for a causal node.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "node_id": {"type": "string"},
+                "new_weights": {"type": "array", "items": {"type": "number"}},
+                "actor": {"type": "string"},
+            },
+            "required": ["node_id", "new_weights"],
+        },
+    },
 ]
 
 RESOURCES = [
@@ -1199,6 +1251,37 @@ def handle_experience_tiers(args: dict) -> str:
     )
 
 
+def handle_causal_intervene(args: dict) -> str:
+    var = args.get("var", "")
+    value = float(args.get("value", 0.0))
+    actor = args.get("actor", "mcp-session")
+    r = _req("POST", "/v1/causal/intervene", {"var": var, "value": value, "actor": actor})
+    return json.dumps(r)
+
+def handle_causal_counterfactual(args: dict) -> str:
+    r = _req("POST", "/v1/causal/counterfactual", {
+        "actual_state": args.get("actual_state", {}),
+        "intervention_var": args.get("intervention_var", ""),
+        "intervention_value": float(args.get("intervention_value", 0.0)),
+        "actor": args.get("actor", "mcp-session"),
+    })
+    return json.dumps(r)
+
+def handle_causal_credit_assign(args: dict) -> str:
+    r = _req("POST", "/v1/causal/credit-assign", {
+        "failure_signal": args.get("failure_signal", "MaxIterations"),
+        "actor": args.get("actor", "mcp-session"),
+    })
+    return json.dumps(r)
+
+def handle_causal_rewrite_equation(args: dict) -> str:
+    r = _req("POST", "/v1/causal/rewrite-equation", {
+        "node_id": args.get("node_id", ""),
+        "new_weights": args.get("new_weights", []),
+        "actor": args.get("actor", "mcp-session"),
+    })
+    return json.dumps(r)
+
 def dispatch_tool(name: str, args: dict) -> str:
     global _live_beliefs_seen
     handlers = {
@@ -1244,6 +1327,10 @@ def dispatch_tool(name: str, args: dict) -> str:
         "twin_rollout":         handle_twin_rollout,
         "twin_get":             handle_twin_get,
         "experience_tiers":     handle_experience_tiers,
+        "causal_intervene":     handle_causal_intervene,
+        "causal_counterfactual": handle_causal_counterfactual,
+        "causal_credit_assign": handle_causal_credit_assign,
+        "causal_rewrite_equation": handle_causal_rewrite_equation,
     }
     handler = handlers.get(name)
     if handler is None:

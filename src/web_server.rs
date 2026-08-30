@@ -1232,6 +1232,70 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
                 }
             })
         })
+        // ── v1.0.0: SCM causal routes ────────────────────────────────────────
+        .route("/v1/causal/intervene", {
+            let cog = cognitive.clone();
+            post(move |Json(req): Json<serde_json::Value>| async move {
+                let cog = cog.clone();
+                let actor = req.get("actor").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let var = req.get("var").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let value = req.get("value").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                match cog.transact(crate::cognitive_state::CognitiveDelta::Intervene { var, value }, &actor) {
+                    Ok(tx) => (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"ok": true, "tx": tx}))),
+                    Err(e) => (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
+                }
+            })
+        })
+        .route("/v1/causal/counterfactual", {
+            let cog = cognitive.clone();
+            post(move |Json(req): Json<serde_json::Value>| async move {
+                let cog = cog.clone();
+                let actor = req.get("actor").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let intervention_var = req.get("intervention_var").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let intervention_value = req.get("intervention_value").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                let actual_state: std::collections::HashMap<String, f64> = req.get("actual_state")
+                    .and_then(|v| serde_json::from_value(v.clone()).ok())
+                    .unwrap_or_default();
+                match cog.transact(crate::cognitive_state::CognitiveDelta::Counterfactual { actual_state, intervention_var, intervention_value }, &actor) {
+                    Ok(tx) => (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"ok": true, "tx": tx}))),
+                    Err(e) => (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
+                }
+            })
+        })
+        .route("/v1/causal/credit-assign", {
+            let cog = cognitive.clone();
+            post(move |Json(req): Json<serde_json::Value>| async move {
+                let cog = cog.clone();
+                let actor = req.get("actor").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let signal_str = req.get("failure_signal").and_then(|v| v.as_str()).unwrap_or("MaxIterations");
+                let signal = match signal_str {
+                    "CoherenceViolation" => crate::world_model_enhanced::causal::FailureSignal::CoherenceViolation,
+                    other => crate::world_model_enhanced::causal::FailureSignal::ExplicitFail(other.to_string()),
+                };
+                match cog.transact(crate::cognitive_state::CognitiveDelta::CreditAssign(signal), &actor) {
+                    Ok(tx) => (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"ok": true, "tx": tx}))),
+                    Err(e) => (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
+                }
+            })
+        })
+        .route("/v1/causal/rewrite-equation", {
+            let cog = cognitive.clone();
+            post(move |Json(req): Json<serde_json::Value>| async move {
+                let cog = cog.clone();
+                let actor = req.get("actor").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let node_id = req.get("node_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let new_weights: Vec<f64> = req.get("new_weights")
+                    .and_then(|v| serde_json::from_value(v.clone()).ok())
+                    .unwrap_or_default();
+                match cog.transact(crate::cognitive_state::CognitiveDelta::RewriteStructuralEquation { node_id, new_weights }, &actor) {
+                    Ok(tx) => (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"ok": true, "tx": tx}))),
+                    Err(e) => (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
+                }
+            })
+        })
+        .route("/v1/mat", axum::routing::get(|| async {
+            axum::Json(serde_json::json!({ "attributions": [], "note": "MAT is per-agent session" }))
+        }))
         .route("/v1/cognitive/diff", {
             let cog = cognitive.clone();
             get(move |axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>| async move {
