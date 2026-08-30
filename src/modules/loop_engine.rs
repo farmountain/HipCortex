@@ -563,6 +563,11 @@ impl ReactEngine {
         goal_id: uuid::Uuid,
         _skill_hint: u32,
     ) -> Result<crate::payloads::GoalStatus, String> {
+        #[cfg(feature = "pure-substrate")]
+        eprintln!(
+            "[hipcortex] WARNING: ReactEngine::run() called with pure-substrate feature enabled. \
+             ReactEngine moves to hipcortex-meta-orchestrator in v1.1.0. See CHANGELOG.md."
+        );
         use crate::memory_record::{MemoryRecord, MemoryType};
         use crate::payloads::{GoalPayload, GoalStatus};
 

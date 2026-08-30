@@ -139,6 +139,9 @@ parallel = ["rayon"]
 gpu = ["wgpu"]
 grpc-server = ["tonic", "prost", "tokio", "tonic-build"]
 
+# Disables internal goal-seeking loops — reserved for external orchestrators (v1.1.0 default)
+pure-substrate = []
+
 # Backend storage options
 petgraph_backend = ["petgraph"]        # In-memory graphs (no external deps)
 rocksdb-backend = ["rocksdb"]          # Embedded key-value store
