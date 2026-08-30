@@ -403,6 +403,23 @@ impl CausalGraph {
         })
     }
 
+    pub fn credit_assign_gated(
+        &self,
+        trajectory: &[HashMap<String, f64>],
+        signal: &FailureSignal,
+        cal: &crate::self_model::calibration::CalibrationState,
+    ) -> Result<AttributionReport, String> {
+        use crate::self_model::calibration::{classify_phenotype, MMBPhenotype};
+        let phenotype = classify_phenotype(cal.m_ratio, cal.withdraw_delta);
+        if phenotype != MMBPhenotype::SelectiveSensitivity
+            || (cal.calibration_score as f64) < 0.70
+            || cal.m_ratio < 0.5
+        {
+            return Err("calibration_gate: phenotype not SelectiveSensitivity or metrics below threshold".into());
+        }
+        self.credit_assign(trajectory, signal)
+    }
+
     /// Implements backdoor adjustment:
     /// P(Y|do(X=x)) = Σ_z P(Y|X=x,Z=z) × P(Z)
     ///

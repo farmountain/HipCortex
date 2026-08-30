@@ -120,3 +120,41 @@ fn update_sets_current_tx() {
     tracker.update_from_store(&store, 0.0, 77);
     assert_eq!(tracker.snapshot().current_tx, 77);
 }
+
+#[test]
+fn test_calibration_state_type2_sdt_fields() {
+    use hipcortex::self_model::calibration::CalibrationState;
+    let mut s = CalibrationState::default();
+    s.meta_d_prime = 1.5;
+    s.d_prime = 1.0;
+    s.m_ratio = s.meta_d_prime / s.d_prime;
+    s.c2_star = 0.3;
+    s.withdraw_delta = 0.1;
+    assert!((s.m_ratio - 1.5).abs() < 1e-9);
+    assert!((s.c2_star - 0.3).abs() < 1e-9);
+}
+
+#[test]
+fn test_mmb_phenotype_selective_sensitivity() {
+    use hipcortex::self_model::calibration::{MMBPhenotype, classify_phenotype};
+    let p = classify_phenotype(1.4, 0.2);
+    assert_eq!(p, MMBPhenotype::SelectiveSensitivity);
+}
+
+#[test]
+fn test_mmb_phenotype_blanket_withdrawal() {
+    use hipcortex::self_model::calibration::{MMBPhenotype, classify_phenotype};
+    let p = classify_phenotype(0.5, 0.8);
+    assert_eq!(p, MMBPhenotype::BlanketWithdrawal);
+}
+
+#[test]
+fn test_credit_assign_gated_blocks_bad_calibration() {
+    use hipcortex::world_model_enhanced::causal::{CausalGraph, FailureSignal};
+    use hipcortex::self_model::calibration::CalibrationState;
+    let g = CausalGraph::new();
+    let cal = CalibrationState { calibration_score: 0.5, m_ratio: 0.4, ..Default::default() };
+    let result = g.credit_assign_gated(&[], &FailureSignal::MaxIterations, &cal);
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("calibration_gate"));
+}

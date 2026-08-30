@@ -14,6 +14,12 @@ pub struct CalibrationState {
     pub current_tx: u64,
     pub last_updated_ms: u64,
     pub healthy: bool,
+    // Type-2 SDT fields (v1.0.0)
+    pub meta_d_prime: f64,
+    pub d_prime: f64,
+    pub m_ratio: f64,
+    pub c2_star: f64,
+    pub withdraw_delta: f64,
 }
 
 impl Default for CalibrationState {
@@ -26,7 +32,29 @@ impl Default for CalibrationState {
             current_tx: 0,
             last_updated_ms: 0,
             healthy: true,
+            meta_d_prime: 1.0,
+            d_prime: 1.0,
+            m_ratio: 1.0,
+            c2_star: 0.0,
+            withdraw_delta: 0.0,
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum MMBPhenotype {
+    BlanketConfidence,
+    BlanketWithdrawal,
+    SelectiveSensitivity,
+}
+
+pub fn classify_phenotype(m_ratio: f64, withdraw_delta: f64) -> MMBPhenotype {
+    if withdraw_delta > 0.6 {
+        MMBPhenotype::BlanketWithdrawal
+    } else if m_ratio >= 1.2 && withdraw_delta <= 0.4 {
+        MMBPhenotype::SelectiveSensitivity
+    } else {
+        MMBPhenotype::BlanketConfidence
     }
 }
 
