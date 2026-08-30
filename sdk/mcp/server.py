@@ -640,6 +640,19 @@ TOOLS = [
         },
     },
     {
+        "name": "mgv_check",
+        "description": "POST /v1/mgv/check — Monitor-Generate-Verify: compute FOK/JOL divergence and quarantine signal.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "justification_strength": {"type": "number"},
+                "calibration_score": {"type": "number"},
+                "historical_success_rate": {"type": "number"},
+            },
+            "required": [],
+        },
+    },
+    {
         "name": "causal_intervene",
         "description": "POST /v1/causal/intervene — apply do(var=value) surgical intervention on the causal graph.",
         "inputSchema": {
@@ -1251,6 +1264,14 @@ def handle_experience_tiers(args: dict) -> str:
     )
 
 
+def handle_mgv_check(args: dict) -> str:
+    r = _req("POST", "/v1/mgv/check", {
+        "justification_strength": float(args.get("justification_strength", 0.8)),
+        "calibration_score": float(args.get("calibration_score", 0.8)),
+        "historical_success_rate": float(args.get("historical_success_rate", 0.8)),
+    })
+    return json.dumps(r)
+
 def handle_causal_intervene(args: dict) -> str:
     var = args.get("var", "")
     value = float(args.get("value", 0.0))
@@ -1327,6 +1348,7 @@ def dispatch_tool(name: str, args: dict) -> str:
         "twin_rollout":         handle_twin_rollout,
         "twin_get":             handle_twin_get,
         "experience_tiers":     handle_experience_tiers,
+        "mgv_check":            handle_mgv_check,
         "causal_intervene":     handle_causal_intervene,
         "causal_counterfactual": handle_causal_counterfactual,
         "causal_credit_assign": handle_causal_credit_assign,

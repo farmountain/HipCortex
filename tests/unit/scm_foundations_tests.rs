@@ -150,3 +150,20 @@ fn test_linear_se_invert_for_u() {
     let u = se.invert_for_u(&[1.0, 2.0], 8.5);
     assert!((u - 0.5).abs() < 1e-9);
 }
+
+#[test]
+fn test_mgv_no_quarantine_when_fok_jol_close() {
+    use hipcortex::mgv::MGVOperator;
+    let op = MGVOperator::new(0.9, 0.8, 0.9);
+    let result = op.check();
+    assert!(result.fok > 0.0 && result.fok <= 1.0);
+    assert!(!result.should_quarantine);
+}
+
+#[test]
+fn test_mgv_quarantine_when_large_divergence() {
+    use hipcortex::mgv::MGVOperator;
+    let op = MGVOperator::new(0.1, 0.2, 0.1);
+    let result = op.check();
+    assert!(result.should_quarantine || result.divergence.abs() >= 0.3);
+}

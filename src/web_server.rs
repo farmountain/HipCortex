@@ -1296,6 +1296,13 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         .route("/v1/mat", axum::routing::get(|| async {
             axum::Json(serde_json::json!({ "attributions": [], "note": "MAT is per-agent session" }))
         }))
+        .route("/v1/mgv/check", axum::routing::post(|Json(req): Json<serde_json::Value>| async move {
+            let js = req.get("justification_strength").and_then(|v| v.as_f64()).unwrap_or(0.8);
+            let cs = req.get("calibration_score").and_then(|v| v.as_f64()).unwrap_or(0.8);
+            let hs = req.get("historical_success_rate").and_then(|v| v.as_f64()).unwrap_or(0.8);
+            let result = crate::mgv::MGVOperator::new(js, cs, hs).check();
+            axum::Json(serde_json::to_value(&result).unwrap_or_default())
+        }))
         .route("/v1/cognitive/diff", {
             let cog = cognitive.clone();
             get(move |axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>| async move {
