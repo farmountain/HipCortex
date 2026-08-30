@@ -102,6 +102,11 @@ harness = false
 name = "integration_bench"
 harness = false
 
+[[test]]
+name = "acceptance_suite"
+path = "tests/acceptance_suite.rs"
+harness = false
+
 [[bench]]
 name = "temporal_state_diff_bench"
 harness = false
