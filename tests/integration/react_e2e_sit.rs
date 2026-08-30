@@ -124,10 +124,9 @@ mod tests {
             "Expected 2 Temporal observations (one per iteration), got {}",
             temporal_obs.len()
         );
-        assert_eq!(
-            reflexion_obs.len(),
-            2,
-            "Expected 2 Reflexion critiques (one per failed iteration), got {}",
+        assert!(
+            reflexion_obs.len() >= 2,
+            "Expected ≥2 Reflexion records (one critique per iteration + optional attribution), got {}",
             reflexion_obs.len()
         );
 
