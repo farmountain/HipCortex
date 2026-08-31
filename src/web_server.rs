@@ -541,14 +541,12 @@ pub async fn run_with_memory<B: MemoryBackend + Send + Sync + 'static>(
     run_with_state(addr, state).await;
 }
 
-/// Primary server entry point with full intelligence layer.
-/// Owns all route registration — intelligence routes are wired here.
-/// Placeholder closures for Tasks 5-8 endpoints return {"status":"coming_soon"}.
+/// Builds the full Axum Router with all routes wired. Does not spawn background
+/// tasks or bind a socket — suitable for integration testing via axum_test::TestServer.
 #[cfg(feature = "web-server")]
-pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
-    addr: SocketAddr,
+pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
     state: AppState<B>,
-) {
+) -> axum::Router {
     // ── Unpack state into locals so closures can capture by value ─────────
     let symbolic_store = state.symbolic_store.clone();
     let memory_store = state.memory_store.clone();
@@ -1665,11 +1663,21 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
         })
         .layer(middleware::from_fn(api_key_middleware));
 
+    app
+}
+
+/// Primary server entry — builds router, spawns background tasks, serves.
+#[cfg(feature = "web-server")]
+pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
+    addr: SocketAddr,
+    state: AppState<B>,
+) {
+    let eviction_store = state.memory_store.clone();
+    let coherence_bg = state.coherence.clone();
+    let app = build_app(state);
+
     // G11: Background TTL eviction — purges expired records every 5 minutes.
-    // This is separate from the read-time filter in query handlers, which hides
-    // expired records but does not reclaim storage. This thread actually removes them.
     {
-        let eviction_store = memory_store.clone();
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(300));
             loop {
@@ -1686,7 +1694,6 @@ pub async fn run_with_state<B: MemoryBackend + Send + Sync + 'static>(
 
     // G10: Background CoherenceChecker — runs check_consistency every 60s
     {
-        let coherence_bg = coherence_arc.clone();
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(60));
             loop {
