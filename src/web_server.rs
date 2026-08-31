@@ -1661,6 +1661,38 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
                 })))
             })
         })
+        .route("/goal/:id/react", {
+            let store = memory_store.clone();
+            post(move |Path(id): Path<String>| async move {
+                let goal_id = match uuid::Uuid::parse_str(&id) {
+                    Ok(u) => u,
+                    Err(_) => return axum::Json(serde_json::json!({"error": "invalid uuid"})),
+                };
+                let mut engine = crate::loop_engine::ReactEngine::new();
+                let result = {
+                    let mut s = store.lock().unwrap();
+                    engine.run(&mut s, goal_id, 0)
+                };
+                match result {
+                    Ok(status) => axum::Json(serde_json::json!({"goal_id": goal_id.to_string(), "status": format!("{:?}", status)})),
+                    Err(e) => axum::Json(serde_json::json!({"error": e})),
+                }
+            })
+        })
+        .route("/goal/:id/trace", {
+            let store = memory_store.clone();
+            get(move |Path(id): Path<String>| async move {
+                let goal_id = match uuid::Uuid::parse_str(&id) {
+                    Ok(u) => u,
+                    Err(_) => return axum::Json(serde_json::json!({"error": "invalid uuid"})),
+                };
+                let records: Vec<_> = {
+                    let s = store.lock().unwrap();
+                    s.all().iter().filter(|r| r.derived_from == Some(goal_id)).cloned().collect()
+                };
+                axum::Json(serde_json::json!({"goal_id": goal_id.to_string(), "records": records, "count": records.len()}))
+            })
+        })
         .layer(middleware::from_fn(api_key_middleware));
 
     app
