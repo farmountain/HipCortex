@@ -4,16 +4,31 @@
     "description": "HipCortex v1.1.0 — Cognitive Loop Closure: DecisionPayload, BeliefInvalidator, EmergenceDetector, GoalScheduler, CognitiveStateReport, WorldModel feedback, provenance chain, 10-AC acceptance suite. Bundled multi-OS server (crate 1.1.0).",
     "version": "1.1.0",
     "publisher": "farmountain",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/farmountain/HipCortex.git"
-  },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/farmountain/HipCortex.git"
+    },
     "engines": {
         "vscode": "^1.90.0"
     },
-    "categories": ["Machine Learning", "Data Science", "Other"],
+    "categories": [
+        "Machine Learning",
+        "Data Science",
+        "Other"
+    ],
     "icon": "icon.png",
-    "keywords": ["memory", "causal", "cognitive-os", "copilot", "antigravity", "mcp", "ai", "agent", "topological", "world-model"],
+    "keywords": [
+        "memory",
+        "causal",
+        "cognitive-os",
+        "copilot",
+        "antigravity",
+        "mcp",
+        "ai",
+        "agent",
+        "topological",
+        "world-model"
+    ],
     "main": "./dist/extension.js",
     "files": [
         "dist",
@@ -28,7 +43,7 @@
                 "category": "HipCortex"
             },
             {
-                "command": "hipcortex.queryMemory", 
+                "command": "hipcortex.queryMemory",
                 "title": "Query Memory Records",
                 "category": "HipCortex"
             },
@@ -110,7 +125,7 @@
                         "description": "Add a new memory record"
                     },
                     {
-                        "name": "query", 
+                        "name": "query",
                         "description": "Search memory records"
                     },
                     {
@@ -143,174 +158,6 @@
         "configuration": {
             "title": "HipCortex Memory",
             "properties": {
-                "hipcortex.optimizationMode": {
-                    "type": "string",
-                    "enum": ["headroom", "caveman"],
-                    "default": "headroom",
-                    "description": "Token optimization retrieval depth mode: headroom (Top-5, 59-84% savings) or caveman (Top-3, 70-88% savings)."
-                }
-            }
-        },
-        "languageModelTools": [
-            {
-                "name": "hipcortex_search",
-                "displayName": "HipCortex Memory Search",
-                "description": "Search HipCortex persistent memory for relevant context. Returns the most relevant memory records matching the query.",
-                "modelDescription": "Use this FIRST for any recall. Returns unified live_beliefs (memory + world model + hypotheses + coherence). Call before asking the user.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": "What to search for in memory"
-                        }
-                    },
-                    "required": ["query"]
-                }
-            },
-            {
-                "name": "hipcortex_health",
-                "displayName": "HipCortex System Health",
-                "description": "Check HipCortex system health including self-model, world-model, and coherence status.",
-                "modelDescription": "Use this FIRST for health/status before other actions. Returns substrate health + world model coherence.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {},
-                    "required": []
-                }
-            },
-            {
-                "name": "hipcortex_predict",
-                "displayName": "HipCortex State Prediction",
-                "description": "Predict next state using the world-model's Dirichlet-Multinomial transition model.",
-                "modelDescription": "Use this FIRST for world model predictions. Call substrate predict before deciding actions. Returns WM + uncertainty.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "state": { "type": "string", "description": "Current state" },
-                        "action": { "type": "string", "description": "Action being taken" }
-                    },
-                    "required": ["state", "action"]
-                }
-            },
-            {
-                "name": "hipcortex_graph_search",
-                "displayName": "HipCortex Graph Search",
-                "description": "PPR-ranked related memory search via CausalTopoGraph. Given a seed memory record ID, returns the most contextually relevant related memories using Personalized PageRank.",
-                "modelDescription": "Use this AFTER hipcortex_search to expand context graph-first. Call with a seed_id (record UUID) to find memories linked via the CausalTopoGraph using PPR (alpha=0.85, 20 rounds).",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "seed_id": {
-                            "type": "string",
-                            "description": "UUID of the seed memory record to personalise PPR from"
-                        },
-                        "limit": {
-                            "type": "number",
-                            "description": "Max results to return (default: 10)"
-                        }
-                    },
-                    "required": ["seed_id"]
-                }
-            },
-            {
-                "name": "hipcortex_topo_ppr",
-                "displayName": "HipCortex Topo PPR",
-                "description": "Personalized PageRank over the live CausalTopoGraph substrate (symbolic node ids).",
-                "modelDescription": "Use after link/deconstruct for topology-first exploration of graph nodes.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "seed": { "type": "string", "description": "Optional seed symbolic_id" },
-                        "limit": { "type": "number", "description": "Max results (default 10)" }
-                    }
-                }
-            },
-            {
-                "name": "hipcortex_deconstruct",
-                "displayName": "HipCortex Deconstruct Hypothesis",
-                "description": "Parse free text into causal nodes/edges; optionally apply to live topo graph.",
-                "modelDescription": "Parse hypothesis text into causal edges. Set apply=true to write into topo.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "text": { "type": "string", "description": "Hypothesis text" },
-                        "llm_json": { "type": "string", "description": "Optional LLM JSON edges payload" },
-                        "apply": { "type": "boolean", "description": "Apply to live topo graph" }
-                    },
-                    "required": ["text"]
-                }
-            },
-            {
-                "name": "hipcortex_check_edge",
-                "displayName": "HipCortex Check Topo Edge",
-                "description": "Check if adding a causal edge would contradict the topo graph.",
-                "modelDescription": "Check whether from→to would create a cycle or reverse-causal contradiction.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "from": { "type": "string" },
-                        "to": { "type": "string" }
-                    },
-                    "required": ["from", "to"]
-                }
-            },
-            {
-                "name": "hipcortex_can_execute",
-                "displayName": "HipCortex Can Execute",
-                "description": "SelfModel gate: whether an operation should execute.",
-                "modelDescription": "Query SelfModel should_execute for an operation name.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "operation": { "type": "string", "description": "e.g. add_memory, rollout, predict" }
-                    },
-                    "required": ["operation"]
-                }
-            },
-            {
-                "name": "hipcortex_rollout",
-                "displayName": "HipCortex WorldModel Rollout",
-                "description": "Multi-step Dirichlet or goal-shaped MCTS world-model rollout.",
-                "modelDescription": "Multi-step world-model rollout. Prefer mode=dirichlet after observe; mode=mcts with goal_state for goal-shaped search.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "initial_state": { "type": "string" },
-                        "actions": { "type": "array", "items": { "type": "string" } },
-                        "mode": { "type": "string", "enum": ["dirichlet", "mcts", "ensemble"] },
-                        "goal_state": { "type": "string" },
-                        "iterations": { "type": "number" },
-                        "max_depth": { "type": "number" }
-                    },
-                    "required": ["initial_state"]
-                }
-            },
-            {
-                "name": "hipcortex_system_health",
-                "displayName": "HipCortex System Health (Calibrated)",
-                "description": "Full system health including CalibrationTracker metrics: calibration_score, prediction_error_ewma, consolidation_pressure, epistemic_entropy.",
-                "modelDescription": "Use for substrate health checks. Returns calibration_score, prediction_error_ewma, consolidation_pressure, epistemic_entropy, and overall health boolean.",
-                "inputSchema": { "type": "object", "properties": {} }
-            },
-            {
-                "name": "hipcortex_state_diff",
-                "displayName": "HipCortex State Diff",
-                "description": "Causal StateDiff over a tx-log range [from_tx, to_tx]. Returns memory_delta, world_model_delta, and causal attribution paths.",
-                "modelDescription": "Use to understand what changed between two tx points. Requires tx_log enabled on the server.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "from_tx": { "type": "integer", "description": "Start tx id (inclusive)" },
-                        "to_tx":   { "type": "integer", "description": "End tx id (inclusive)" }
-                    },
-                    "required": ["from_tx", "to_tx"]
-                }
-            }
-        ],
-        "configuration": {
-            "title": "HipCortex Memory",
-            "properties": {
                 "hipcortex.apiUrl": {
                     "type": "string",
                     "default": "http://127.0.0.1:3030",
@@ -337,7 +184,227 @@
                     "description": "When enabled, HipCortex automatically captures file saves and terminal output as memories. Disable to opt out of passive capture."
                 }
             }
-        }
+        },
+        "languageModelTools": [
+            {
+                "name": "hipcortex_search",
+                "displayName": "HipCortex Memory Search",
+                "description": "Search HipCortex persistent memory for relevant context. Returns the most relevant memory records matching the query.",
+                "modelDescription": "Use this FIRST for any recall. Returns unified live_beliefs (memory + world model + hypotheses + coherence). Call before asking the user.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "query"
+                    ]
+                }
+            },
+            {
+                "name": "hipcortex_health",
+                "displayName": "HipCortex System Health",
+                "description": "Check HipCortex system health including self-model, world-model, and coherence status.",
+                "modelDescription": "Use this FIRST for health/status before other actions. Returns substrate health + world model coherence.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            },
+            {
+                "name": "hipcortex_predict",
+                "displayName": "HipCortex State Prediction",
+                "description": "Predict next state using the world-model's Dirichlet-Multinomial transition model.",
+                "modelDescription": "Use this FIRST for world model predictions. Call substrate predict before deciding actions. Returns WM + uncertainty.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "state": {
+                            "type": "string"
+                        },
+                        "action": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "state",
+                        "action"
+                    ]
+                }
+            },
+            {
+                "name": "hipcortex_graph_search",
+                "displayName": "HipCortex Graph Search",
+                "description": "PPR-ranked related memory search via CausalTopoGraph. Given a seed memory record ID, returns the most contextually relevant related memories using Personalized PageRank.",
+                "modelDescription": "Use this AFTER hipcortex_search to expand context graph-first. Call with a seed_id (record UUID) to find memories linked via the CausalTopoGraph using PPR (alpha=0.85, 20 rounds).",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "seed_id": {
+                            "type": "string"
+                        },
+                        "limit": {
+                            "type": "number"
+                        }
+                    },
+                    "required": [
+                        "seed_id"
+                    ]
+                }
+            },
+            {
+                "name": "hipcortex_topo_ppr",
+                "displayName": "HipCortex Topo PPR",
+                "description": "Personalized PageRank over the live CausalTopoGraph substrate (symbolic node ids).",
+                "modelDescription": "Use after link/deconstruct for topology-first exploration of graph nodes.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "seed": {
+                            "type": "string"
+                        },
+                        "limit": {
+                            "type": "number"
+                        }
+                    }
+                }
+            },
+            {
+                "name": "hipcortex_deconstruct",
+                "displayName": "HipCortex Deconstruct Hypothesis",
+                "description": "Parse free text into causal nodes/edges; optionally apply to live topo graph.",
+                "modelDescription": "Parse hypothesis text into causal edges. Set apply=true to write into topo.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "text": {
+                            "type": "string"
+                        },
+                        "llm_json": {
+                            "type": "string"
+                        },
+                        "apply": {
+                            "type": "boolean"
+                        }
+                    },
+                    "required": [
+                        "text"
+                    ]
+                }
+            },
+            {
+                "name": "hipcortex_check_edge",
+                "displayName": "HipCortex Check Topo Edge",
+                "description": "Check if adding a causal edge would contradict the topo graph.",
+                "modelDescription": "Check whether from→to would create a cycle or reverse-causal contradiction.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "from": {
+                            "type": "string"
+                        },
+                        "to": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "from",
+                        "to"
+                    ]
+                }
+            },
+            {
+                "name": "hipcortex_can_execute",
+                "displayName": "HipCortex Can Execute",
+                "description": "SelfModel gate: whether an operation should execute.",
+                "modelDescription": "Query SelfModel should_execute for an operation name.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "operation": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "operation"
+                    ]
+                }
+            },
+            {
+                "name": "hipcortex_rollout",
+                "displayName": "HipCortex WorldModel Rollout",
+                "description": "Multi-step Dirichlet or goal-shaped MCTS world-model rollout.",
+                "modelDescription": "Multi-step world-model rollout. Prefer mode=dirichlet after observe; mode=mcts with goal_state for goal-shaped search.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "initial_state": {
+                            "type": "string"
+                        },
+                        "actions": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "mode": {
+                            "type": "string",
+                            "enum": [
+                                "dirichlet",
+                                "mcts",
+                                "ensemble"
+                            ]
+                        },
+                        "goal_state": {
+                            "type": "string"
+                        },
+                        "iterations": {
+                            "type": "number"
+                        },
+                        "max_depth": {
+                            "type": "number"
+                        }
+                    },
+                    "required": [
+                        "initial_state"
+                    ]
+                }
+            },
+            {
+                "name": "hipcortex_system_health",
+                "displayName": "HipCortex System Health (Calibrated)",
+                "description": "Full system health including CalibrationTracker metrics: calibration_score, prediction_error_ewma, consolidation_pressure, epistemic_entropy.",
+                "modelDescription": "Use for substrate health checks. Returns calibration_score, prediction_error_ewma, consolidation_pressure, epistemic_entropy, and overall health boolean.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {}
+                }
+            },
+            {
+                "name": "hipcortex_state_diff",
+                "displayName": "HipCortex State Diff",
+                "description": "Causal StateDiff over a tx-log range [from_tx, to_tx]. Returns memory_delta, world_model_delta, and causal attribution paths.",
+                "modelDescription": "Use to understand what changed between two tx points. Requires tx_log enabled on the server.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "from_tx": {
+                            "type": "integer"
+                        },
+                        "to_tx": {
+                            "type": "integer"
+                        }
+                    },
+                    "required": [
+                        "from_tx",
+                        "to_tx"
+                    ]
+                }
+            }
+        ]
     },
     "activationEvents": [
         "onStartupFinished",
