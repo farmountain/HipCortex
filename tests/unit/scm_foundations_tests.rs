@@ -81,6 +81,11 @@ fn test_credit_assign_returns_report() {
     let report = g.credit_assign(&traj, &FailureSignal::MaxIterations).unwrap();
     assert!(report.broken_equation.is_some());
     assert!(report.confidence > 0.0);
+    // Prediction step: counterfactual_outcome must be populated (AAP triad complete)
+    assert!(!report.counterfactual_outcome.is_empty(),
+        "Prediction step must populate counterfactual_outcome");
+    assert!(report.counterfactual_outcome.contains_key("y"),
+        "counterfactual_outcome must include the intervened node");
 }
 
 #[test]

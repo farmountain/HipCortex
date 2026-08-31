@@ -395,10 +395,19 @@ impl CausalGraph {
         }
 
         let confidence = (best_score / (best_score + 1.0)).min(1.0);
+
+        // Prediction step: run forward counterfactual on the last trajectory step,
+        // intervening on the broken equation with noise=0 (silent correction).
+        let last_step = trajectory.last().cloned().unwrap_or_default();
+        let counterfactual_outcome = best_node
+            .as_deref()
+            .and_then(|node| self.compute_scm_counterfactual(&last_step, node, 0.0).ok())
+            .unwrap_or_default();
+
         Ok(AttributionReport {
             broken_equation: best_node,
             confidence,
-            counterfactual_outcome: HashMap::new(),
+            counterfactual_outcome,
             single_intervention_sufficient: confidence >= 0.85,
         })
     }
