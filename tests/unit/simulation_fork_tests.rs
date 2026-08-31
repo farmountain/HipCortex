@@ -301,3 +301,55 @@ fn test_rollout_hybrid_returns_trajectory() {
     assert_eq!(result.continuous_trajectory.len(), 2);
     assert!(result.continuous_sigma_norm >= 0.0);
 }
+
+#[test]
+fn test_rollout_hybrid_persists_causal_provenance_record() {
+    // AC-A: rollout_hybrid with causal_nodes writes a provenance record to fork store
+    use hipcortex::continuous_dynamics::{ContinuousDynamics, KalmanVectorField};
+    let handle = make_handle();
+    let mut fork = handle.fork().unwrap();
+    let vf = KalmanVectorField::new(2);
+    let dyn_ = ContinuousDynamics::new(Box::new(vf), 0.1, 100.0);
+    fork.rollout_hybrid(
+        vec!["step1".to_string()],
+        1.0,
+        Some(dyn_),
+        Some(vec!["x".to_string(), "y".to_string()]),
+    ).unwrap();
+    let records = fork.all_records();
+    let has_prov = records.iter().any(|r| {
+        r.action == "rollout_provenance"
+            && r.metadata.get("causal_provenance").map(|v| !v.is_null()).unwrap_or(false)
+    });
+    assert!(has_prov, "fork store must contain a causal_provenance record after rollout_hybrid");
+}
+
+#[test]
+fn test_fork_apply_delta_scm_variants_are_noop() {
+    // AC-B: SCM delta variants return Ok in fork context, not NotImplemented
+    use hipcortex::cognitive_state::CognitiveDelta;
+    use hipcortex::world_model_enhanced::causal::FailureSignal;
+    let handle = make_handle();
+    let mut fork = handle.fork().unwrap();
+
+    let r1 = fork.apply_delta(
+        CognitiveDelta::Intervene { var: "x".to_string(), value: 1.0 },
+        "test-actor",
+    );
+    assert!(r1.is_ok(), "Intervene must not return NotImplemented in fork context");
+
+    let r2 = fork.apply_delta(
+        CognitiveDelta::CreditAssign(FailureSignal::MaxIterations),
+        "test-actor",
+    );
+    assert!(r2.is_ok(), "CreditAssign must not return NotImplemented in fork context");
+
+    let r3 = fork.apply_delta(
+        CognitiveDelta::RewriteStructuralEquation {
+            node_id: "y".to_string(),
+            new_weights: vec![2.0],
+        },
+        "test-actor",
+    );
+    assert!(r3.is_ok(), "RewriteStructuralEquation must not return NotImplemented in fork context");
+}

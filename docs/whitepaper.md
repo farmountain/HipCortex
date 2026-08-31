@@ -3,7 +3,7 @@
 **Authors:** HipCortex Contributors  
 **Affiliation:** Open Source (Apache 2.0)  
 **Repository:** https://github.com/farmountain/HipCortex  
-**Version:** 0.1 (draft for arXiv submission)
+**Version:** 0.2 (v1.2.0 — Causal SCM Continuous Substrate complete)
 
 ---
 
@@ -211,6 +211,44 @@ HipCortex demonstrates that AGI-grade memory properties — temporal coherence, 
 We invite researchers building multi-agent systems, cognitive architectures, and AGI infrastructure to collaborate on the issues that matter most: recursive self-improvement, distributed coherence, and formal verification of memory guarantees.
 
 ---
+
+## 11. Causal SCM Continuous Substrate (v1.2.0)
+
+Version 1.2.0 elevates the causal graph from an annotation layer to the **primary executive layer** governing state evolution and action selection.
+
+### 11.1 Structural Equations
+
+Every node $X_i$ in the causal graph now carries an explicit structural equation $X_i := f_i(\mathrm{PA}_i, U_i)$ via the `StructuralEquation` trait. The reference implementation `LinearSE` provides evaluable, invertible equations with independent exogenous noise $U_i$. Graph surgery (`do_operator`) produces a mutilated SCM with the intervened node's parents removed and value fixed. Persistent mutations go through `apply_intervention`, which modifies shared state in-place.
+
+### 11.2 Counterfactual Credit Assignment
+
+The Abduction-Action-Prediction (AAP) triad is fully wired:
+
+1. **Abduction** — recover $U_i$ consistent with the factual trajectory via `invert_for_u`  
+2. **Action** — intervene on the candidate node with `do_operator`  
+3. **Prediction** — run `compute_scm_counterfactual` under the same $U_i$
+
+`credit_assign` returns an `AttributionReport` identifying the single structural equation whose residual is most surprising relative to its noise variance. The system achieves OOD invariance: when a subset of equations is perturbed, only those nodes are blamed; stable equations are preserved.
+
+### 11.3 Continuous Substrate Integration
+
+State evolution on the latent manifold $\mathcal{M}$ is now the **primary dynamics**. Discrete causal events are impulses that modify the continuous vector field:
+
+- `DigitalTwin.step()` integrates via RK4, then **clamps** pinned intervention variables — causal interventions override ODE dynamics, not the reverse.
+- `rollout_hybrid` carries `causal_nodes` provenance in `HybridRolloutResult` and writes a `causal_provenance` record to the fork's isolated store, satisfying the ExperienceStore contract.
+
+### 11.4 Transactional Gate
+
+All SCM operators are exposed through the unified `CognitiveDelta` transact gate:
+
+| Operator | Delta variant | Audit record |
+|----------|--------------|-------------|
+| Do-calculus intervention | `Intervene { var, value }` | `Reflexion(causal_intervene)` |
+| Pearl counterfactual | `Counterfactual { actual_state, var, value }` | `Reflexion(counterfactual)` |
+| AAP attribution | `CreditAssign(signal)` | `Reflexion(credit_assign)` |
+| Equation rewrite | `RewriteStructuralEquation { node_id, weights }` | `Reflexion(rewrite_equation)` |
+
+Every mutation writes a Reflexion audit record with actor attribution. Fork-context SCM operations are intentional no-ops (forks are isolated snapshots; causal graph state lives in the main `CognitiveHandle`).
 
 ## References
 

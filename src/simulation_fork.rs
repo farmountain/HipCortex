@@ -4,7 +4,7 @@ use crate::cognitive_state::{
     BeliefDistribution, BeliefSummary, CognitiveDelta, CognitiveError, CognitiveSnapshot,
     GoalSnapshot, ProvenanceSummary, SelfStateView, SkillSnapshot, TemporalView, WorldStateView,
 };
-use crate::memory_record::MemoryType;
+use crate::memory_record::{MemoryRecord, MemoryType};
 use crate::memory_store::MemoryStore;
 use crate::payloads::{BeliefPayload, GoalPayload, SkillPayload};
 use crate::persistence::{InMemoryBackend, MemoryBackend};
@@ -149,7 +149,10 @@ impl<B: MemoryBackend + Send + Sync + 'static> SimulationFork<B> {
         Ok(self.tx_log.append(TxKind::WorldModelObserve, vec![], "fork"))
     }
 
-    /// Apply a CognitiveDelta to the fork's isolated store (AddMemory only in Phase 2+3).
+    /// Apply a CognitiveDelta to the fork's isolated store.
+    /// SCM operators (Intervene/Counterfactual/CreditAssign/RewriteStructuralEquation) are
+    /// no-ops in fork context — fork is an isolated snapshot; causal graph mutations belong
+    /// to the main CognitiveHandle.
     pub fn apply_delta(
         &mut self,
         delta: CognitiveDelta,
@@ -160,6 +163,12 @@ impl<B: MemoryBackend + Send + Sync + 'static> SimulationFork<B> {
                 self.store
                     .add(r.clone())
                     .map_err(|e| CognitiveError::StoreError(e.to_string()))?;
+            }
+            CognitiveDelta::Intervene { .. }
+            | CognitiveDelta::Counterfactual { .. }
+            | CognitiveDelta::CreditAssign(_)
+            | CognitiveDelta::RewriteStructuralEquation { .. } => {
+                // No-op: fork is isolated; causal graph state lives outside the fork.
             }
             _ => {
                 return Err(CognitiveError::NotImplemented(format!(
@@ -468,6 +477,20 @@ impl<B: MemoryBackend + Send + Sync + 'static> SimulationFork<B> {
         }
 
         let continuous_sigma_norm = dyn_.as_ref().map(|d| d.sigma_norm()).unwrap_or(0.0);
+
+        if let Some(ref nodes) = causal_nodes {
+            let prov: Vec<(String, String)> = nodes.iter()
+                .map(|n| (n.clone(), "LinearSE".to_string()))
+                .collect();
+            let rec = MemoryRecord::new(
+                MemoryType::Temporal,
+                "simulation_fork".to_string(),
+                "rollout_provenance".to_string(),
+                format!("{}_steps", base.steps.len()),
+                serde_json::json!({"causal_provenance": prov, "step_count": base.steps.len()}),
+            );
+            let _ = self.store.add(rec);
+        }
 
         Ok(HybridRolloutResult {
             base,
