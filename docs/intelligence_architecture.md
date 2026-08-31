@@ -63,6 +63,49 @@ CausalEdge Addition → do_calculus → counterfactual()
 - **DAG enforcement**: Cycle prevention at edge-addition time (pre-flight check), not post-hoc cleanup
 - **Uncertainty decomposition**: Epistemic (model uncertainty, reducible) vs Aleatoric (inherent noise, irreducible)
 
+## Causal SCM Continuous Substrate (v1.2.0)
+
+**Purpose**: Make the causal graph the **primary dynamics driver**, not a side annotation. Discrete causal events are impulses that modify the continuous vector field. Introduced in v1.2.0 to complete AC-3 → AC-6.
+
+### Architecture
+
+```
+CognitiveDelta::Intervene/Counterfactual/CreditAssign/RewriteEquation
+         │
+         ▼
+CognitiveHandle.transact() → apply_delta(delta, actor)
+         │                          │
+         ├─ world.read()            ├─ WorldModelEnhanced.apply_intervention()
+         │   .apply_intervention()  ├─ WorldModelEnhanced.counterfactual()
+         │                          ├─ WorldModelEnhanced.credit_assign_trajectory()
+         │                          └─ WorldModelEnhanced.rewrite_structural_equation()
+         │
+         └─ memory.lock() → MemoryRecord(Reflexion, actor, audit_action, ...)
+```
+
+### Lock Order (must not be violated)
+
+```
+world (RwLock<WME>) → causal_graph (RwLock<CausalGraph>) → memory (Mutex) — NEVER held simultaneously
+```
+
+### Key Design Decisions
+- **`apply_intervention` mutates in-place** (not cloned like `do_operator`) — persistent shared-state changes that survive across transact calls
+- **`DigitalTwin.step()` clamps after RK4** — `var_to_dim` map translates entity names to state-vector indices; clamping happens post-integration so ODE dynamics don't override pinned values
+- **`rollout_hybrid` carries `causal_nodes`** — `HybridRolloutResult.causal_nodes` enables downstream provenance tracking without giving `SimulationFork` a direct WME reference (isolation preserved)
+- **All 4 SCM operators write Reflexion audit records** — every causal graph mutation is traceable in the MemoryStore with actor attribution
+- **OOD invariance via residual scoring** — `credit_assign` normalizes residuals by `noise_var`; the node with the highest normalized surprise is `broken_equation`; property-tested across 256 random scenarios
+
+### Causal Graph Public API (v1.2.0 additions)
+
+| Method | Purpose |
+|--------|---------|
+| `CausalGraph::apply_intervention(var, val)` | Mutating do-calculus: remove incoming edges + pin value |
+| `CausalGraph::node_ids()` | Return all node IDs (used by WME wrapper + REST) |
+| `WorldModelEnhanced::apply_intervention(var, val)` | Thread-safe wrapper via `causal_graph.write()` |
+| `WorldModelEnhanced::rewrite_structural_equation(node, weights)` | Replace `LinearSE` weights in shared graph |
+| `WorldModelEnhanced::causal_node_ids()` | Return node IDs for provenance injection |
+
 ## Coherence Checker
 
 **Purpose**: Ensure consistency across memory subsystems with detection, resolution, and enforcement.

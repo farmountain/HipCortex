@@ -98,6 +98,19 @@ Exit 0 if every MCP `TOOLS` name appears in this doc and MCP version string is p
 LangChain: `HipCortexMemory.from_settings()`. CrewAI: `make_memory_tools()`. See `examples/adapters/`.
 
 
+## v1.2.0 Causal SCM Continuous Substrate (AC-3 → AC-6 complete)
+
+| Capability | Status |
+|------------|--------|
+| `CognitiveDelta::Intervene` — mutates shared causal graph + writes Reflexion audit | ✅ v1.2.0 |
+| `CognitiveDelta::Counterfactual` — runs Pearl do-calculus, persists outcome | ✅ v1.2.0 |
+| `CognitiveDelta::CreditAssign` — AAP triad over last 50 Temporal records, writes attribution | ✅ v1.2.0 |
+| `CognitiveDelta::RewriteStructuralEquation` — rewrites LinearSE weights in shared graph | ✅ v1.2.0 |
+| `DigitalTwin.step()` clamps RK4 output to pinned intervention vars | ✅ v1.2.0 |
+| `rollout_hybrid` carries `causal_nodes` provenance in `HybridRolloutResult` | ✅ v1.2.0 |
+| OOD invariance: `credit_assign` isolates perturbed structural equation | ✅ v1.2.0 |
+| Property tests: DAG acyclicity under surgery, noise independence, CF consistency | ✅ v1.2.0 |
+
 ## v1.0.0 SCM Additions
 
 | Capability | Status |
