@@ -18,6 +18,7 @@ fn test_no_blind_retry_when_attribution_available() {
         max_react_iterations: 2,
         current_iteration: 0,
         status: GoalStatus::Pending,
+        ..Default::default()
     };
     let rec = MemoryRecord::new(
         MemoryType::Goal, "test_agent".into(), "pursue".into(), "reach_B".into(),

@@ -199,6 +199,7 @@ fn test_transact_advance_goal_illegal_transition_err() {
         max_react_iterations: 5,
         status: GoalStatus::Pending,
         current_iteration: 0,
+        ..Default::default()
     };
     let meta = serde_json::to_value(&goal_payload).unwrap();
     let r = MemoryRecord::new(MemoryType::Goal, "a".into(), "create".into(), "goal".into(), meta);

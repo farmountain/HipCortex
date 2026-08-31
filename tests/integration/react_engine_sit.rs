@@ -20,6 +20,7 @@ mod tests {
             max_react_iterations: 1,
             status: GoalStatus::Pending,
             current_iteration: 0,
+            ..Default::default()
         };
         let goal = MemoryRecord::new(
             MemoryType::Goal,

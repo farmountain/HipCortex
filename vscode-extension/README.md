@@ -1,13 +1,13 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v0.9.1`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v1.1.0`)
 
-[![Version](https://img.shields.io/badge/version-v0.9.1-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v1.1.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
 **Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, and topological graph tools.**
 
-VSIX **0.9.1** (stability patch) · server/pip/npm **0.9.0**. 837 tests pass (339 lib + 320 unit + 128 integration + 50 property). See [docs/channels.md](../docs/channels.md).
+VSIX **1.1.0** (Cognitive Loop Closure) · server/pip/npm **1.1.0**. 835 tests pass (339 lib + 348 unit + 138 integration + 10 property). See [docs/channels.md](../docs/channels.md).
 
 ---
 
@@ -22,8 +22,31 @@ Install from Marketplace / Open VSX / GitHub release VSIX. Extension **starts a 
 - **Passive capture**: saves code edits and terminal output automatically when `hipcortex.passiveCapture` is `true`
 
 ```bash
-code --install-extension hipcortex-memory-0.9.1.vsix
+code --install-extension hipcortex-memory-1.1.0.vsix
 ```
+
+---
+
+## What's new in v1.1.0 — Cognitive Loop Closure
+
+v1.1.0 closes all 9 gaps in the cognitive architecture loop and adds 3 MCP tools.
+
+| Capability | What it does |
+|-----------|-------------|
+| **GoalScheduler** | Ranks Pending/InProgress Goals by `urgency / estimated_cost`; returns highest-priority next goal |
+| **EmergenceDetector** | Scans last 50 Temporal records every 10 writes; auto-synthesizes Beliefs from dense token patterns |
+| **BeliefInvalidator** | Contradiction detection; decays confidence by `score × 0.3`; writes `belief_invalidated` marker at conf < 0.2 |
+| **DecisionPayload** | New `MemoryType::Decision` per ReactEngine act-phase — captures `option_chosen`, `alternatives`, `rationale`, `confidence`, `outcome` |
+| **CognitiveStateReport** | Single call answers all 10 cognitive questions: goals, beliefs, assumptions, decisions, failures, authorized actions, next recommendation |
+| **WorldModelUpdater** | Closes feedback loop: ReactEngine feeds each observation into Dirichlet-Multinomial world model |
+| **ActionRegistry** | `ALL_OPS` + `list_authorized(self_model)` — agent always knows what it's allowed to do |
+| **`search_by_goal_status`** | Filter Goal records by `pending/inprogress/failed/succeeded` |
+| **Provenance chain** | BFS traversal of `derived_from` + `evidence` links, depth 20 |
+| **parse_record_type_alias fix** | Goal/Skill/Belief/Decision now correctly routed via REST — no more silent Temporal fallback |
+
+New REST endpoints: `GET /v1/cognitive/report`, `GET /v1/goals`, `GET /v1/actions/authorized`, `GET /v1/memory/:id/provenance`
+
+New MCP tools: `cognitive_report`, `list_authorized_actions`, `get_provenance`
 
 ---
 
@@ -170,10 +193,10 @@ Available as `HipCortexClient` TypeScript methods and wired to VS Code commands:
 
 ---
 
-## MCP Integration (42 tools, 7 resources)
+## MCP Integration (45 tools, 7 resources)
 
 MCP hosts (Claude Code, Cursor, Windsurf, …) use the Python MCP server via `hipcortex install`.  
-42 tools + 7 auto-injected resources:
+45 tools + 7 auto-injected resources:
 
 - `hipcortex://context/relevant` — top-k semantically relevant memories
 - `hipcortex://beliefs/current` — active belief records
@@ -227,7 +250,7 @@ npm test
 npx @vscode/vsce package --no-dependencies
 ```
 
-Produces `hipcortex-memory-0.9.1.vsix` (version from `package.json`).
+Produces `hipcortex-memory-1.1.0.vsix` (version from `package.json`).
 
 ---
 

@@ -65,6 +65,7 @@ fn main() {
             success_factors: vec![SuccessFactor { name: "x".into(), satisfied: false, weight: 1.0 }],
             max_react_iterations: 3, current_iteration: 0,
             status: GoalStatus::Pending,
+            ..Default::default()
         };
         let rec = MemoryRecord::new(MemoryType::Goal, "a".into(), "p".into(), "t".into(),
             serde_json::to_value(&gp).unwrap());

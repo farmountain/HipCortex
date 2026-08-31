@@ -246,6 +246,7 @@ fn test_rollout_goal_distance_and_drift_fields_present() {
             status: GoalStatus::InProgress,
             current_iteration: 0,
             max_react_iterations: 10,
+            ..Default::default()
         };
         let meta = serde_json::to_value(&payload).unwrap();
         let rec = MemoryRecord::new(

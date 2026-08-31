@@ -47,6 +47,7 @@ fn test_goal_payload_roundtrips_via_metadata() {
         max_react_iterations: 5,
         status: GoalStatus::Pending,
         current_iteration: 0,
+        ..Default::default()
     };
 
     let record = MemoryRecord::new(

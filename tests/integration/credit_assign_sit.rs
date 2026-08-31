@@ -12,6 +12,7 @@ fn make_store_with_goal(max_iter: u32) -> (MemoryStore<impl hipcortex::persisten
         max_react_iterations: max_iter,
         current_iteration: 0,
         status: GoalStatus::Pending,
+        ..Default::default()
     };
     let rec = MemoryRecord::new(
         MemoryType::Goal, "agent".into(), "pursue".into(), "end".into(),
