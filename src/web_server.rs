@@ -4341,6 +4341,10 @@ fn parse_record_type_alias(s: Option<&str>) -> crate::memory_record::MemoryType 
         Some("Procedural") => MemoryType::Procedural,
         Some("Reflexion") | Some("Reflexive") => MemoryType::Reflexion,
         Some("Perception") | Some("Perceptual") => MemoryType::Perception,
+        Some("Goal")     => MemoryType::Goal,
+        Some("Skill")    => MemoryType::Skill,
+        Some("Belief")   => MemoryType::Belief,
+        Some("Decision") => MemoryType::Decision,
         _ => MemoryType::Temporal, // Default
     }
 }

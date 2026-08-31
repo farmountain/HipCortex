@@ -93,30 +93,24 @@ async fn ac1_rest_cognitive_report_returns_all_keys() {
 // ── AC-2 ─────────────────────────────────────────────────────────────────────
 #[tokio::test]
 async fn ac2_rest_goals_filtered_by_status() {
-    let state = make_test_state();
+    let (base, srv) = start_test_server(make_test_state()).await;
+    let client = reqwest::Client::new();
 
-    // Seed directly into the store — parse_record_type_alias doesn't map "Goal" yet,
-    // so bypass REST for seeding and test only the GET /v1/goals read path.
-    {
-        let mut store = state.cognitive.memory.lock().unwrap();
-        for (target, status) in [("g_pending", "Pending"), ("g_failed", "Failed")] {
-            let mut rec = MemoryRecord::new(
-                MemoryType::Goal,
-                "rest_agent".into(),
-                "pursue".into(),
-                target.into(),
-                serde_json::json!({ "status": status, "target_state": target }),
-            );
-            rec.record_type = MemoryType::Goal;
-            store.add(rec).unwrap();
-        }
+    // Seed via REST — parse_record_type_alias now maps "Goal" correctly.
+    for (target, status) in [("g_pending", "Pending"), ("g_failed", "Failed")] {
+        let resp = client.post(format!("{}/memory/add", base))
+            .json(&serde_json::json!({
+                "actor": "rest_agent", "action": "pursue", "target": target,
+                "record_type": "Goal",
+                "metadata": { "status": status, "target_state": target },
+            }))
+            .send().await.unwrap();
+        assert!(resp.status().is_success(), "add failed for {target}: {}", resp.status());
     }
 
-    let (base, srv) = start_test_server(state).await;
-    let body: serde_json::Value = reqwest::Client::new()
+    let body: serde_json::Value = client
         .get(format!("{}/v1/goals?actor=rest_agent&status=pending", base))
-        .send().await.unwrap()
-        .json().await.unwrap();
+        .send().await.unwrap().json().await.unwrap();
     srv.abort();
 
     assert_eq!(body["count"], 1, "expected 1 Pending goal, got {body}");
@@ -179,6 +173,87 @@ async fn ac4_rest_provenance_chain_returns_ancestor() {
 }
 
 // ── AC-5 ─────────────────────────────────────────────────────────────────────
+// (renumbered: original AC-5 provenance-bad-uuid kept below)
+
+// ── parse_record_type_alias round-trip tests (RTA) ───────────────────────────
+
+async fn add_and_query(base: &str, record_type: &str, actor: &str) -> serde_json::Value {
+    let client = reqwest::Client::new();
+    let resp = client.post(format!("{}/memory/add", base))
+        .json(&serde_json::json!({
+            "actor": actor, "action": "test", "target": "t",
+            "record_type": record_type,
+        }))
+        .send().await.unwrap();
+    assert!(resp.status().is_success(), "add failed: {}", resp.status());
+    client.get(format!("{}/memory/query?actor={}", base, actor))
+        .send().await.unwrap().json().await.unwrap()
+}
+
+#[tokio::test]
+async fn rta1_goal_stored_as_goal() {
+    let (base, srv) = start_test_server(make_test_state()).await;
+    let body = add_and_query(&base, "Goal", "rta_goal").await;
+    srv.abort();
+    assert_eq!(body["records"][0]["record_type"], "Goal", "Goal not stored as Goal: {body}");
+}
+
+#[tokio::test]
+async fn rta2_belief_stored_as_belief() {
+    let (base, srv) = start_test_server(make_test_state()).await;
+    let body = add_and_query(&base, "Belief", "rta_belief").await;
+    srv.abort();
+    assert_eq!(body["records"][0]["record_type"], "Belief", "Belief not stored as Belief: {body}");
+}
+
+#[tokio::test]
+async fn rta3_skill_stored_as_skill() {
+    let (base, srv) = start_test_server(make_test_state()).await;
+    let body = add_and_query(&base, "Skill", "rta_skill").await;
+    srv.abort();
+    assert_eq!(body["records"][0]["record_type"], "Skill", "Skill not stored as Skill: {body}");
+}
+
+#[tokio::test]
+async fn rta4_decision_stored_as_decision() {
+    let (base, srv) = start_test_server(make_test_state()).await;
+    let body = add_and_query(&base, "Decision", "rta_decision").await;
+    srv.abort();
+    assert_eq!(body["records"][0]["record_type"], "Decision", "Decision not stored as Decision: {body}");
+}
+
+#[tokio::test]
+async fn rta5_existing_aliases_still_map() {
+    let (base, srv) = start_test_server(make_test_state()).await;
+    let client = reqwest::Client::new();
+    for (alias, expected) in [("Episodic", "Temporal"), ("Reflexive", "Reflexion"), ("Semantic", "Symbolic")] {
+        let actor = format!("rta_{}", alias.to_lowercase());
+        let resp = client.post(format!("{}/memory/add", base))
+            .json(&serde_json::json!({
+                "actor": actor, "action": "test", "target": "t",
+                "record_type": alias,
+            }))
+            .send().await.unwrap();
+        assert!(resp.status().is_success());
+        let body: serde_json::Value = client
+            .get(format!("{}/memory/query?actor={}", base, actor))
+            .send().await.unwrap().json().await.unwrap();
+        assert_eq!(body["records"][0]["record_type"], expected,
+            "alias {alias} → expected {expected}: {body}");
+    }
+    srv.abort();
+}
+
+#[tokio::test]
+async fn rta6_unknown_type_falls_to_temporal() {
+    let (base, srv) = start_test_server(make_test_state()).await;
+    let body = add_and_query(&base, "Bogus", "rta_bogus").await;
+    srv.abort();
+    assert_eq!(body["records"][0]["record_type"], "Temporal",
+        "unknown type must default to Temporal: {body}");
+}
+
+// ── AC-5 (provenance bad UUID) ────────────────────────────────────────────────
 #[tokio::test]
 async fn ac5_rest_provenance_bad_uuid_returns_400() {
     let (base, srv) = start_test_server(make_test_state()).await;
