@@ -25,7 +25,7 @@ fn digital_twin_creates_with_read_only_policy() {
     let fork = handle.fork().unwrap();
     let vf = KalmanVectorField::new(2);
     let dyn_ = ContinuousDynamics::new(Box::new(vf), 0.1, 100.0);
-    let twin = DigitalTwin::new(fork, dyn_, SyncPolicy::ReadOnly, 0);
+    let twin = DigitalTwin::new(fork, dyn_, SyncPolicy::ReadOnly, 0, std::collections::HashMap::new());
     assert_eq!(twin.sync_policy, SyncPolicy::ReadOnly);
 }
 
@@ -35,7 +35,7 @@ fn digital_twin_step_advances_trajectory() {
     let fork = handle.fork().unwrap();
     let vf = KalmanVectorField::new(2);
     let dyn_ = ContinuousDynamics::new(Box::new(vf), 0.1, 100.0);
-    let mut twin = DigitalTwin::new(fork, dyn_, SyncPolicy::ReadOnly, 0);
+    let mut twin = DigitalTwin::new(fork, dyn_, SyncPolicy::ReadOnly, 0, std::collections::HashMap::new());
     twin.step("test-action").unwrap();
     assert_eq!(twin.trajectory().len(), 1);
 }
@@ -46,7 +46,7 @@ fn hybrid_rollout_on_twin_returns_result() {
     let fork = handle.fork().unwrap();
     let vf = KalmanVectorField::new(2);
     let dyn_ = ContinuousDynamics::new(Box::new(vf), 0.1, 100.0);
-    let mut twin = DigitalTwin::new(fork, dyn_, SyncPolicy::ReadOnly, 0);
+    let mut twin = DigitalTwin::new(fork, dyn_, SyncPolicy::ReadOnly, 0, std::collections::HashMap::new());
     let result = twin.rollout(vec!["a1".to_string(), "a2".to_string()]).unwrap();
     assert_eq!(result.base.steps.len(), 2);
     assert_eq!(result.continuous_trajectory.len(), 2);
@@ -58,7 +58,7 @@ fn digital_twin_records_reflect_fork_store() {
     let fork = handle.fork().unwrap();
     let vf = KalmanVectorField::new(2);
     let dyn_ = ContinuousDynamics::new(Box::new(vf), 0.1, 100.0);
-    let twin = DigitalTwin::new(fork, dyn_, SyncPolicy::Isolated, 0);
+    let twin = DigitalTwin::new(fork, dyn_, SyncPolicy::Isolated, 0, std::collections::HashMap::new());
     // records() should not panic, returns 0 or more
     let _ = twin.records();
 }
@@ -69,7 +69,7 @@ fn test_fork_under_intervention_pins_variable() {
     let fork = handle.fork().unwrap();
     let vf = KalmanVectorField::new(2);
     let dyn_ = ContinuousDynamics::new(Box::new(vf), 0.1, 100.0);
-    let mut twin = DigitalTwin::new(fork, dyn_, SyncPolicy::ReadOnly, 0);
+    let mut twin = DigitalTwin::new(fork, dyn_, SyncPolicy::ReadOnly, 0, std::collections::HashMap::new());
     assert!(twin.pinned_interventions().is_empty());
     twin.fork_under_intervention("decision", 1.0);
     assert!(twin.pinned_interventions().contains_key("decision"));

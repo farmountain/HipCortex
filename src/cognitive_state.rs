@@ -310,7 +310,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         }
 
         // Step 4: Apply standard deltas
-        let affected_ids = self.apply_delta(&delta)?;
+        let affected_ids = self.apply_delta(&delta, actor)?;
 
         // Step 5: TxLog
         let tx_cursor = if let Some(tx) = &self.tx_log {
@@ -563,7 +563,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         self.calibration.record_prediction_error(0.0);
     }
 
-    fn apply_delta(&self, delta: &CognitiveDelta) -> Result<Vec<Uuid>, CognitiveError> {
+    fn apply_delta(&self, delta: &CognitiveDelta, actor: &str) -> Result<Vec<Uuid>, CognitiveError> {
         match delta {
             CognitiveDelta::AddMemory(record) => {
                 let id = record.id;
@@ -626,20 +626,119 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             }
 
             CognitiveDelta::Intervene { var, value } => {
-                let _ = (var, value);
-                Ok(vec![])
+                self.world
+                    .read()
+                    .map_err(|_| CognitiveError::LockError)?
+                    .apply_intervention(var, *value)
+                    .map_err(CognitiveError::StoreError)?;
+                let rec = MemoryRecord::new(
+                    MemoryType::Reflexion,
+                    actor.to_string(),
+                    "causal_intervene".to_string(),
+                    format!("do({}={})", var, value),
+                    serde_json::json!({"var": var, "value": value}),
+                );
+                let id = rec.id;
+                self.memory
+                    .lock()
+                    .map_err(|_| CognitiveError::LockError)?
+                    .add(rec)
+                    .map_err(|e| CognitiveError::StoreError(e.to_string()))?;
+                Ok(vec![id])
             }
+
             CognitiveDelta::Counterfactual { actual_state, intervention_var, intervention_value } => {
-                let _ = (actual_state, intervention_var, intervention_value);
-                Ok(vec![])
+                let outcome = self.world
+                    .read()
+                    .map_err(|_| CognitiveError::LockError)?
+                    .counterfactual(actual_state.clone(), intervention_var.clone(), *intervention_value)
+                    .map_err(CognitiveError::StoreError)?;
+                let rec = MemoryRecord::new(
+                    MemoryType::Reflexion,
+                    actor.to_string(),
+                    "counterfactual".to_string(),
+                    format!("cf({}={})", intervention_var, intervention_value),
+                    serde_json::json!({"counterfactual_outcome": outcome,
+                                       "intervention_var": intervention_var,
+                                       "intervention_value": intervention_value}),
+                );
+                let id = rec.id;
+                self.memory
+                    .lock()
+                    .map_err(|_| CognitiveError::LockError)?
+                    .add(rec)
+                    .map_err(|e| CognitiveError::StoreError(e.to_string()))?;
+                Ok(vec![id])
             }
+
             CognitiveDelta::CreditAssign(signal) => {
-                let _ = signal;
-                Ok(vec![])
+                let traj: Vec<std::collections::HashMap<String, f64>> = {
+                    let mem = self.memory.lock().map_err(|_| CognitiveError::LockError)?;
+                    mem.all()
+                        .iter()
+                        .filter(|r| {
+                            r.record_type == MemoryType::Temporal && r.actor.as_str() == actor
+                        })
+                        .rev()
+                        .take(50)
+                        .map(|r| {
+                            r.metadata
+                                .as_object()
+                                .map(|m| {
+                                    m.iter()
+                                        .filter_map(|(k, v)| v.as_f64().map(|f| (k.clone(), f)))
+                                        .collect()
+                                })
+                                .unwrap_or_default()
+                        })
+                        .collect()
+                };
+                let report = self.world
+                    .read()
+                    .map_err(|_| CognitiveError::LockError)?
+                    .credit_assign_trajectory(&traj, signal.clone())
+                    .map_err(CognitiveError::StoreError)?;
+                let rec = MemoryRecord::new(
+                    MemoryType::Reflexion,
+                    actor.to_string(),
+                    "credit_assign".to_string(),
+                    report.broken_equation.clone().unwrap_or_else(|| "none".to_string()),
+                    serde_json::json!({
+                        "broken_equation": report.broken_equation,
+                        "confidence": report.confidence,
+                        "single_intervention_sufficient": report.single_intervention_sufficient,
+                        "counterfactual_outcome": report.counterfactual_outcome,
+                    }),
+                );
+                let id = rec.id;
+                self.memory
+                    .lock()
+                    .map_err(|_| CognitiveError::LockError)?
+                    .add(rec)
+                    .map_err(|e| CognitiveError::StoreError(e.to_string()))?;
+                Ok(vec![id])
             }
+
             CognitiveDelta::RewriteStructuralEquation { node_id, new_weights } => {
-                let _ = (node_id, new_weights);
-                Ok(vec![])
+                self.world
+                    .read()
+                    .map_err(|_| CognitiveError::LockError)?
+                    .rewrite_structural_equation(node_id, new_weights.clone())
+                    .map_err(CognitiveError::StoreError)?;
+                let rec = MemoryRecord::new(
+                    MemoryType::Reflexion,
+                    actor.to_string(),
+                    "rewrite_equation".to_string(),
+                    node_id.clone(),
+                    serde_json::json!({"node_id": node_id, "new_weights": new_weights}),
+                );
+                let id = rec.id;
+                self.memory
+                    .lock()
+                    .map_err(|_| CognitiveError::LockError)?
+                    .add(rec)
+                    .map_err(|e| CognitiveError::StoreError(e.to_string()))?;
+                Ok(vec![id])
             }
 
             _ => unreachable!("Phase-4 stubs rejected in transact() before apply_delta"),

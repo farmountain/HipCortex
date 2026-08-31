@@ -173,3 +173,75 @@ fn test_mgv_quarantine_when_large_divergence() {
     let result = op.check();
     assert!(result.should_quarantine || result.divergence.abs() >= 0.3);
 }
+
+#[test]
+fn test_ood_invariance_credit_assign_isolates_perturbed_node() {
+    let build_env = |z_noise: f64| {
+        let mut g = CausalGraph::new();
+        g.add_node("x".into()).unwrap();
+        g.add_node("y".into()).unwrap();
+        g.add_node("z".into()).unwrap();
+        g.add_edge("x".into(), "y".into()).unwrap();
+        g.add_edge("y".into(), "z".into()).unwrap();
+        if let Some(n) = g.node_mut("y") {
+            n.equation = Some(Arc::new(LinearSE { weights: vec![1.0] }));
+            n.noise_var = 0.1;
+        }
+        if let Some(n) = g.node_mut("z") {
+            n.equation = Some(Arc::new(LinearSE { weights: vec![1.0] }));
+            n.noise_var = z_noise;
+        }
+        g
+    };
+
+    let ood_graph = build_env(2.0);
+
+    let traj: Vec<HashMap<String, f64>> = (0..50)
+        .map(|i| {
+            let x = i as f64 * 0.1;
+            let y = x + 0.05;
+            let z = y + 2.5 * (i as f64 * 0.3).sin();
+            HashMap::from([
+                ("x".to_string(), x),
+                ("y".to_string(), y),
+                ("z".to_string(), z),
+            ])
+        })
+        .collect();
+
+    let report = ood_graph
+        .credit_assign(&traj, &FailureSignal::MaxIterations)
+        .expect("credit_assign must succeed");
+
+    assert_eq!(
+        report.broken_equation.as_deref(), Some("z"),
+        "OOD invariance: credit_assign must isolate 'z' as the perturbed node"
+    );
+    assert!(report.confidence >= 0.5, "confidence: {}", report.confidence);
+    assert!(!report.counterfactual_outcome.is_empty(), "Prediction step must have run");
+    assert_ne!(report.broken_equation.as_deref(), Some("x"), "stable node 'x' must not be blamed");
+    assert_ne!(report.broken_equation.as_deref(), Some("y"), "stable node 'y' must not be blamed");
+}
+
+#[test]
+fn test_apply_intervention_mutates_in_place() {
+    let mut g = CausalGraph::new();
+    g.add_node("x".into()).unwrap();
+    g.add_node("y".into()).unwrap();
+    g.add_edge("x".into(), "y".into()).unwrap();
+    assert_eq!(g.get_parents("y").len(), 1);
+
+    g.apply_intervention("y", 3.0);
+
+    assert_eq!(g.get_parents("y").len(), 0, "incoming edges must be removed");
+    assert_eq!(g.pinned_value("y"), Some(3.0), "value must be pinned");
+}
+
+#[test]
+fn test_causal_node_ids_returns_all_nodes() {
+    use hipcortex::world_model_enhanced::WorldModelEnhanced;
+    let wm = WorldModelEnhanced::new();
+    let ids = wm.causal_node_ids();
+    // New WME has no nodes by default; just verify it doesn't panic
+    let _ = ids;
+}

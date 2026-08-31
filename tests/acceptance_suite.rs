@@ -99,7 +99,7 @@ fn main() {
         let fork = handle.fork().unwrap();
         let vf = KalmanVectorField::new(2);
         let dyn_ = ContinuousDynamics::new(Box::new(vf), 0.1, 100.0);
-        let mut twin = DigitalTwin::new(fork, dyn_, SyncPolicy::ReadOnly, 0);
+        let mut twin = DigitalTwin::new(fork, dyn_, SyncPolicy::ReadOnly, 0, std::collections::HashMap::new());
         twin.fork_under_intervention("d", 1.0);
         assert!(twin.pinned_interventions().contains_key("d"));
     });

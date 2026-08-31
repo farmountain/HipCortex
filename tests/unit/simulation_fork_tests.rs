@@ -295,6 +295,7 @@ fn test_rollout_hybrid_returns_trajectory() {
         vec!["a1".to_string(), "a2".to_string()],
         1.0,
         Some(dyn_),
+        None,
     ).unwrap();
     assert_eq!(result.base.steps.len(), 2);
     assert_eq!(result.continuous_trajectory.len(), 2);

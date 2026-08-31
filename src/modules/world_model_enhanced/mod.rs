@@ -954,6 +954,36 @@ impl WorldModelEnhanced {
         let graph = self.causal_graph.read().map_err(|e| format!("lock: {}", e))?;
         graph.credit_assign(trajectory, &signal)
     }
+
+    pub fn apply_intervention(&self, var: &str, value: f64) -> Result<(), String> {
+        self.causal_graph
+            .write()
+            .map_err(|e| format!("causal lock: {}", e))?
+            .apply_intervention(var, value);
+        Ok(())
+    }
+
+    pub fn rewrite_structural_equation(
+        &self,
+        node_id: &str,
+        new_weights: Vec<f64>,
+    ) -> Result<(), String> {
+        use crate::world_model_enhanced::causal::LinearSE;
+        let mut g = self.causal_graph
+            .write()
+            .map_err(|e| format!("causal lock: {}", e))?;
+        let node = g.node_mut(node_id)
+            .ok_or_else(|| format!("node '{}' not found in causal graph", node_id))?;
+        node.equation = Some(std::sync::Arc::new(LinearSE { weights: new_weights }));
+        Ok(())
+    }
+
+    pub fn causal_node_ids(&self) -> Vec<String> {
+        self.causal_graph
+            .read()
+            .map(|g| g.node_ids())
+            .unwrap_or_default()
+    }
 }
 
 impl Default for WorldModelEnhanced {

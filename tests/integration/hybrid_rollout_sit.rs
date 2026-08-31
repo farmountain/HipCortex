@@ -36,7 +36,7 @@ fn fork_hybrid_produces_valid_fork_and_dynamics() {
 fn digital_twin_step_returns_state_vector() {
     let cog = make_handle();
     let (fork, dynamics) = cog.fork_hybrid(3, 0.05, 50.0).expect("fork_hybrid");
-    let mut twin = DigitalTwin::new(fork, dynamics, SyncPolicy::Isolated, 0);
+    let mut twin = DigitalTwin::new(fork, dynamics, SyncPolicy::Isolated, 0, std::collections::HashMap::new());
     let state = twin.step("noop").expect("step must not fail");
     assert_eq!(state.len(), 3, "state length must equal dim");
 }
@@ -45,7 +45,7 @@ fn digital_twin_step_returns_state_vector() {
 fn digital_twin_trajectory_grows_with_steps() {
     let cog = make_handle();
     let (fork, dynamics) = cog.fork_hybrid(2, 0.1, 100.0).expect("fork_hybrid");
-    let mut twin = DigitalTwin::new(fork, dynamics, SyncPolicy::Isolated, 0);
+    let mut twin = DigitalTwin::new(fork, dynamics, SyncPolicy::Isolated, 0, std::collections::HashMap::new());
     for _ in 0..3 {
         twin.step("act").expect("step");
     }
@@ -56,7 +56,7 @@ fn digital_twin_trajectory_grows_with_steps() {
 fn digital_twin_rollout_produces_hybrid_result() {
     let cog = make_handle();
     let (fork, dynamics) = cog.fork_hybrid(4, 0.1, 100.0).expect("fork_hybrid");
-    let mut twin = DigitalTwin::new(fork, dynamics, SyncPolicy::Isolated, 0);
+    let mut twin = DigitalTwin::new(fork, dynamics, SyncPolicy::Isolated, 0, std::collections::HashMap::new());
     let result = twin.rollout(vec!["a".into(), "b".into()]).expect("rollout must succeed");
     assert_eq!(result.continuous_trajectory.len(), 2, "trajectory must have one entry per action");
     assert!(result.continuous_sigma_norm >= 0.0, "sigma_norm must be non-negative");

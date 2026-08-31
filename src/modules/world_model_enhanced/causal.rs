@@ -313,6 +313,16 @@ impl CausalGraph {
         new_graph
     }
 
+    /// Mutating in-place graph surgery: removes all incoming edges to `var` and pins its value.
+    /// Unlike `do_operator` (which returns a clone), this mutates shared state persistently.
+    pub fn apply_intervention(&mut self, var: &str, value: f64) {
+        for targets in self.edges.values_mut() {
+            targets.remove(var);
+        }
+        self.edge_data.retain(|(_, to), _| to.as_str() != var);
+        self.pinned.insert(var.to_string(), value);
+    }
+
     pub fn pinned_value(&self, var: &str) -> Option<f64> {
         self.pinned.get(var).copied()
     }
@@ -930,6 +940,10 @@ impl CausalGraph {
     }
 
     /// Get number of nodes
+    pub fn node_ids(&self) -> Vec<String> {
+        self.nodes.keys().cloned().collect()
+    }
+
     pub fn node_count(&self) -> usize {
         self.nodes.len()
     }

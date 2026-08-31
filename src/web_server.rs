@@ -1551,7 +1551,7 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
                 match cog.fork_hybrid(dim, dt, max_cov) {
                     Err(e) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({"error": e.to_string()}))),
                     Ok((fork, dynamics)) => {
-                        let twin = crate::digital_twin::DigitalTwin::new(fork, dynamics, crate::digital_twin::SyncPolicy::Isolated, 0);
+                        let twin = crate::digital_twin::DigitalTwin::new(fork, dynamics, crate::digital_twin::SyncPolicy::Isolated, 0, std::collections::HashMap::new());
                         let twin_id = twin.id;
                         twins.lock().unwrap().insert(twin_id, std::sync::Arc::new(std::sync::Mutex::new(twin)));
                         (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"twin_id": twin_id, "dim": dim})))

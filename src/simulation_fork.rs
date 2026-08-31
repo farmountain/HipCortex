@@ -58,6 +58,8 @@ pub struct HybridRolloutResult {
     pub continuous_halted: bool,
     /// Final sigma_norm at end of rollout.
     pub continuous_sigma_norm: f64,
+    /// Causal node IDs active during rollout, for provenance tracking.
+    pub causal_nodes: Option<Vec<String>>,
 }
 
 /// Returns true if the rollout result has a drift alarm AND the final goal distance exceeds `threshold`.
@@ -433,6 +435,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> SimulationFork<B> {
         actions: Vec<String>,
         sigma2_max: f32,
         dynamics: Option<crate::continuous_dynamics::ContinuousDynamics>,
+        causal_nodes: Option<Vec<String>>,
     ) -> Result<HybridRolloutResult, CognitiveError> {
         use crate::continuous_dynamics::DynamicsContext;
         let mut dyn_ = dynamics;
@@ -471,6 +474,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> SimulationFork<B> {
             continuous_trajectory: trajectory,
             continuous_halted,
             continuous_sigma_norm,
+            causal_nodes,
         })
     }
 }

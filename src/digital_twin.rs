@@ -30,6 +30,7 @@ pub struct DigitalTwin<B: MemoryBackend + Send + Sync + 'static> {
     trajectory: Vec<Vec<f64>>,
     t: f64,
     interventions: std::collections::HashMap<String, f64>,
+    var_to_dim: std::collections::HashMap<String, usize>,
 }
 
 impl<B: MemoryBackend + Send + Sync + 'static> DigitalTwin<B> {
@@ -38,6 +39,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> DigitalTwin<B> {
         dynamics: ContinuousDynamics,
         sync_policy: SyncPolicy,
         created_at_tx: u64,
+        var_to_dim: std::collections::HashMap<String, usize>,
     ) -> Self {
         Self {
             id: Uuid::new_v4(),
@@ -48,6 +50,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> DigitalTwin<B> {
             trajectory: Vec::new(),
             t: 0.0,
             interventions: std::collections::HashMap::new(),
+            var_to_dim,
         }
     }
 
@@ -72,8 +75,15 @@ impl<B: MemoryBackend + Send + Sync + 'static> DigitalTwin<B> {
             resource_vec: &[],
             tx_cursor: 0,
         };
-        let next = self.dynamics.step(self.t, &prev_state, &ctx)
+        let mut next = self.dynamics.step(self.t, &prev_state, &ctx)
             .map_err(|e| CognitiveError::StoreError(e))?;
+        for (var, &val) in &self.interventions {
+            if let Some(&idx) = self.var_to_dim.get(var) {
+                if idx < next.len() {
+                    next[idx] = val;
+                }
+            }
+        }
         self.t += self.dynamics.dt;
         self.trajectory.push(next.clone());
         Ok(next)
@@ -82,7 +92,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> DigitalTwin<B> {
     /// Run a hybrid rollout over `actions`. Uses a clone of dynamics so twin state is not mutated.
     pub fn rollout(&mut self, actions: Vec<String>) -> Result<HybridRolloutResult, CognitiveError> {
         let dyn_clone = self.dynamics.clone();
-        self.fork.rollout_hybrid(actions, 1.0, Some(dyn_clone))
+        self.fork.rollout_hybrid(actions, 1.0, Some(dyn_clone), None)
     }
 
     /// All state vectors accumulated via step().
