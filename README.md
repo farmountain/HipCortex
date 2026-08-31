@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/farmountain/HipCortex)](https://github.com/farmountain/HipCortex/releases/latest)
 
-**AI coding agents forget decisions, re-read the same context, and burn tokens — HipCortex is local persistent memory you install once so Claude, Cursor, VS Code, and your Python/TS agents remember what matters and spend less on every turn.**
+**Autonomous agents have no persistent cognitive state — goals lost between calls, beliefs stale, actions never feeding back into reasoning. HipCortex is the cognitive state substrate that closes the loop: goal scheduling, belief revision, world model feedback, and decision provenance — served locally over MCP + REST.**
 
 ⭐ **If that solves a pain you feel, [star the repo](https://github.com/farmountain/HipCortex)** — it helps others find it.  
 💬 **Tried it?** [Open an issue](https://github.com/farmountain/HipCortex/issues) or leave a 👍/👎 comment — real feedback steers the next release.
@@ -14,14 +14,17 @@
 
 ## Why it exists
 
-Long agent sessions either dump full chat history into the prompt (expensive, noisy) or forget yesterday's decisions (frustrating). HipCortex stores memories as a **local causal graph**, serves them over **HTTP + MCP**, and injects **only the small, relevant slice** your agent needs next.
+Every agent invocation starts cognitively blind. Goals set in one call vanish before the next. Beliefs accumulated from observations are never revised when contradicted. Actions taken by the agent never update its world model. Decisions leave no audit trail. There is no loop — just isolated acts.
 
-| You get | Without HipCortex |
-|--------|-------------------|
-| Decisions persist across sessions | "We already decided that" — lost |
-| Smaller prompts (Headroom / Caveman modes) | Context stuffing & higher API cost |
-| One install for many hosts | Hand-edited MCP configs per tool |
-| Runs on your machine (Win / macOS / Linux) | Cloud-only memory lock-in |
+HipCortex is the substrate that closes it: a **local causal graph** of goals, beliefs, decisions, and observations, with a reasoning loop that feeds every action back into prediction, served over **HTTP + MCP** to any agent host.
+
+| Without HipCortex | With HipCortex |
+|-------------------|---------------|
+| Goals re-stated every call | GoalScheduler tracks + prioritizes across sessions |
+| Stale beliefs silently persist | BeliefInvalidator detects contradictions, decays confidence |
+| Actions never update world model | WorldModelUpdater closes the feedback loop |
+| Decisions leave no trace | DecisionPayload + provenance chain per act-phase |
+| Agent doesn't know what it's allowed to do | ActionRegistry + ExecutionGate answer that in one call |
 
 ---
 
