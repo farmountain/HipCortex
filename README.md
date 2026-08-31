@@ -27,48 +27,17 @@ Long agent sessions either dump full chat history into the prompt (expensive, no
 
 ## What's new in v1.1.0 — Cognitive Loop Closure
 
-v1.1.0 closes all 9 gaps in the cognitive architecture loop:
-
-**Persistent State → Abstraction → World Model → Reasoning → Criticism → Verification → Action → Feedback → State Update**
-
-| Capability | What it does |
-|-----------|-------------|
-| **GoalScheduler** | Ranks concurrent Pending/InProgress Goals by `urgency / estimated_cost` — always returns the highest-priority goal to pursue next |
-| **EmergenceDetector** | Scans last 50 Temporal records every 10 writes; tokens appearing in ≥5 records auto-synthesize into a new Belief with evidence pointers |
-| **BeliefInvalidator** | Token-overlap + negation-keyword contradiction detection; decays belief confidence by `score × 0.3`; writes `belief_invalidated` marker when confidence < 0.2 |
-| **DecisionPayload** | New `MemoryType::Decision` record per ReactEngine act-phase — captures `option_chosen`, `alternatives`, `rationale`, `confidence`, `outcome` (back-filled) |
-| **CognitiveStateReport** | Single `build_report(store, actor)` call answers all 10 cognitive questions: goals, beliefs, assumptions, decisions, failures, abstractions, uncertainties, authorized actions, next recommendation |
-| **WorldModelUpdater** | Closes the feedback loop: ReactEngine calls `update_from_temporal(obs, wm)` after each observation, feeding transitions into the Dirichlet-Multinomial world model |
-| **ActionRegistry** | `ALL_OPS` list + `list_authorized(self_model)` via ExecutionGate — agent always knows what it's allowed to do |
-| **`search_by_goal_status`** | Filter Goal records by status (`pending`, `inprogress`, `failed`, `succeeded`) — failure index built in |
-| **Provenance chain** | BFS traversal of `derived_from` + `evidence` links, depth 20 — full audit trail for any record |
-
-**New REST endpoints:**
-
-| Endpoint | Returns |
-|---------|---------|
-| `GET /v1/cognitive/report?actor=X` | Full cognitive state report |
-| `GET /v1/goals?actor=X&status=pending` | Filtered goal list |
-| `GET /v1/actions/authorized` | Authorized ops via ExecutionGate |
-| `GET /v1/memory/:id/provenance` | Provenance chain for any record |
-
-**New MCP tools:** `cognitive_report`, `list_authorized_actions`, `get_provenance`
-
-**Bug fix:** `POST /memory/add` with `record_type: "Goal"/"Skill"/"Belief"/"Decision"` previously silently stored as `Temporal`. Now correctly routed — GoalScheduler and search_by_goal_status work for REST-seeded records.
-
-**Test coverage:** 339 lib · 348 unit · 138 integration · 11 REST SIT · 10/10 v1.1.0 ACs · 8/8 v1.0.0 ACs
-
----
-
-## What's new in v1.0.0 — Causal SCM Substrate
-
 | Capability | Details |
 |-----------|---------|
-| **Causal SCM** | `StructuralEquation` trait, do-calculus interventions, counterfactual reasoning |
-| **Credit assignment** | Gated causal credit across the topo graph |
-| **MGVOperator** | Feeling-of-Knowing (FOK) + Judgment-of-Learning (JOL) metacognitive signals |
-| **DigitalTwin** | `fork_under_intervention` — simulate causal counterfactuals on a twin |
-| **OOD invariance** | Topological rewiring preserves attribution under distribution shift |
+| **GoalScheduler** | Ranks Pending/InProgress Goals by `urgency / estimated_cost` — always returns highest-priority next goal |
+| **EmergenceDetector** | Scans last 50 Temporal records every 10 writes; tokens in ≥5 records auto-synthesize into a new Belief with evidence pointers |
+| **BeliefInvalidator** | Contradiction detection; decays confidence by `score × 0.3`; writes `belief_invalidated` marker at conf < 0.2 |
+| **DecisionPayload** | New `MemoryType::Decision` per ReactEngine act-phase — captures `option_chosen`, `alternatives`, `rationale`, `confidence`, `outcome` |
+| **CognitiveStateReport** | Single call answers all 10 cognitive questions: goals, beliefs, assumptions, decisions, failures, authorized actions, next recommendation |
+| **WorldModelUpdater** | Closes feedback loop: ReactEngine feeds each observation into the Dirichlet-Multinomial world model |
+| **45 MCP tools / 7 resources** | New: `cognitive_report`, `list_authorized_actions`, `get_provenance` |
+| **4 new REST endpoints** | `GET /v1/cognitive/report`, `GET /v1/goals`, `GET /v1/actions/authorized`, `GET /v1/memory/:id/provenance` |
+| **parse_record_type_alias fix** | Goal/Skill/Belief/Decision now correctly stored via REST — no more silent Temporal fallback |
 
 ---
 
@@ -97,13 +66,13 @@ npm install hipcortex
 ```
 
 **VS Code / Antigravity VSIX** (multi-OS server binaries bundled; extension **1.1.0**):  
-Download `hipcortex-memory-1.1.0.vsix` from [Releases](https://github.com/farmountain/HipCortex/releases/latest).
+Package from repo (`vscode-extension`) or latest GitHub Release VSIX. Mac/Linux auto-`chmod` bundled bins.
 
 ```bash
 code --install-extension hipcortex-memory-1.1.0.vsix
 ```
 
-Honest support matrix: **[docs/channels.md](docs/channels.md)** · CLI: `hipcortex channels`
+Honest support matrix (what's native vs docs-only): **[docs/channels.md](docs/channels.md)** · CLI: `hipcortex channels`
 
 ---
 
@@ -120,24 +89,6 @@ print(client.search("sessions", limit=5))
 # client.forget("alice")  # GDPR-style wipe for an actor
 ```
 
-**Cognitive state (v1.1.0)**
-
-```python
-import requests
-
-# What is the agent's current cognitive state?
-report = requests.get("http://127.0.0.1:3030/v1/cognitive/report?actor=alice").json()
-print(report["active_goals"])          # What are we pursuing?
-print(report["learned_beliefs"])       # What do we know?
-print(report["next_recommendation"])   # What should happen next?
-
-# What actions are authorized right now?
-ops = requests.get("http://127.0.0.1:3030/v1/actions/authorized").json()
-
-# Full audit trail for a memory record
-chain = requests.get(f"http://127.0.0.1:3030/v1/memory/{record_id}/provenance").json()
-```
-
 **TypeScript**
 
 ```typescript
@@ -152,7 +103,6 @@ const { results } = await client.search({ query: "Postgres", limit: 5 });
 
 ```bash
 curl https://hipcortex.fly.dev/health
-curl "https://hipcortex.fly.dev/v1/cognitive/report?actor=demo"
 ```
 
 ---
@@ -175,10 +125,10 @@ Deep host notes: [docs/hosts/README.md](docs/hosts/README.md)
 
 - **Remember** → agent stops re-asking the same project decisions  
 - **Recall** → search / live beliefs return the right fact in one call  
-- **Close the loop** → GoalScheduler picks next goal; EmergenceDetector surfaces patterns; BeliefInvalidator prunes stale assumptions  
+- **Lean context** → fewer tokens than pasting full history  
 - **Yours** → data stays local unless you point at a remote URL  
 
-Benchmark notes: [BENCHMARK.md](BENCHMARK.md)
+Benchmark notes (local latency & token savings): [BENCHMARK.md](BENCHMARK.md)
 
 ---
 
