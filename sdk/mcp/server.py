@@ -758,6 +758,60 @@ TOOLS = [
             "required": ["task"],
         },
     },
+    {
+        "name": "clarify_goal",
+        "description": "POST /agent/clarify-goal — turns a vague task into a structured GoalPayload scaffold with clarifying questions, suggested success_factors, and recommended max_iterations. Call after recommend_tools, before creating a goal.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task": {"type": "string", "description": "Raw task description to clarify."},
+            },
+            "required": ["task"],
+        },
+    },
+    {
+        "name": "plan_validation",
+        "description": "POST /agent/plan-validation — given success_factors, returns a test plan: how to verify each factor (tool, command, expected evidence). Call before the ReAct loop to know how you'll confirm success.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "success_factors": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of success_factors from the GoalPayload.",
+                },
+            },
+            "required": ["success_factors"],
+        },
+    },
+    {
+        "name": "check_progress",
+        "description": "POST /agent/check-progress — per-iteration progress gate. Given current observations and success_factors, returns satisfied/pending factors, on-track signal, and recommended next action. Call at end of each ReAct iteration.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "success_factors": {"type": "array", "items": {"type": "string"}},
+                "observations": {"type": "array", "items": {"type": "string"}, "description": "Temporal record targets from this session."},
+                "iteration": {"type": "integer"},
+                "max_iterations": {"type": "integer"},
+            },
+            "required": ["success_factors", "observations", "iteration", "max_iterations"],
+        },
+    },
+    {
+        "name": "should_exit",
+        "description": "POST /agent/should-exit — loop exit gate. Returns continue|succeed|fail|escalate. MUST call at the end of every ReAct iteration to prevent indefinite loops. Hard cap: fails at max_iterations regardless of progress.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "iteration": {"type": "integer"},
+                "max_iterations": {"type": "integer"},
+                "progress_ratio": {"type": "number", "description": "0.0–1.0, from check_progress.progress_ratio."},
+                "surprise_signal": {"type": "number", "description": "0.0–1.0 entropy/surprise from substrate. Use 0.0 if unknown."},
+            },
+            "required": ["iteration", "max_iterations", "progress_ratio"],
+        },
+    },
 ]
 
 RESOURCES = [
@@ -1380,6 +1434,32 @@ def handle_recommend_tools(args: dict) -> str:
     r = _req("POST", "/agent/recommend-tools", {"task": task})
     return json.dumps(r)
 
+def handle_clarify_goal(args: dict) -> str:
+    r = _req("POST", "/agent/clarify-goal", {"task": args.get("task", "")})
+    return json.dumps(r)
+
+def handle_plan_validation(args: dict) -> str:
+    r = _req("POST", "/agent/plan-validation", {"success_factors": args.get("success_factors", [])})
+    return json.dumps(r)
+
+def handle_check_progress(args: dict) -> str:
+    r = _req("POST", "/agent/check-progress", {
+        "success_factors": args.get("success_factors", []),
+        "observations": args.get("observations", []),
+        "iteration": args.get("iteration", 0),
+        "max_iterations": args.get("max_iterations", 20),
+    })
+    return json.dumps(r)
+
+def handle_should_exit(args: dict) -> str:
+    r = _req("POST", "/agent/should-exit", {
+        "iteration": args.get("iteration", 0),
+        "max_iterations": args.get("max_iterations", 20),
+        "progress_ratio": args.get("progress_ratio", 0.0),
+        "surprise_signal": args.get("surprise_signal", 0.0),
+    })
+    return json.dumps(r)
+
 def dispatch_tool(name: str, args: dict) -> str:
     global _live_beliefs_seen
     handlers = {
@@ -1435,6 +1515,10 @@ def dispatch_tool(name: str, args: dict) -> str:
         "get_provenance":          handle_get_provenance,
         "run_omega_loop":          handle_run_omega_loop,
         "recommend_tools":         handle_recommend_tools,
+        "clarify_goal":            handle_clarify_goal,
+        "plan_validation":         handle_plan_validation,
+        "check_progress":          handle_check_progress,
+        "should_exit":             handle_should_exit,
     }
     handler = handlers.get(name)
     if handler is None:

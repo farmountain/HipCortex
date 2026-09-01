@@ -3,6 +3,7 @@
 
 pub mod a2a_protocol;
 pub mod action_registry;
+pub mod agent_guidance;
 pub mod task_discovery;
 pub mod archive_store;
 #[cfg(feature = "async-store")]

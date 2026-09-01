@@ -988,7 +988,11 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
         .route("/memory/contradict/:id", contradict_route)
         .route("/memory/context", context_route)
         .route("/memory/live_beliefs", live_beliefs_route)
-        .route("/agent/recommend-tools", post(handle_agent_recommend_tools))
+        .route("/agent/recommend-tools",  post(handle_agent_recommend_tools))
+        .route("/agent/clarify-goal",     post(handle_agent_clarify_goal))
+        .route("/agent/plan-validation",  post(handle_agent_plan_validation))
+        .route("/agent/check-progress",   post(handle_agent_check_progress))
+        .route("/agent/should-exit",      post(handle_agent_should_exit))
         .route("/memory/:id",             delete_memory_route)
         .route("/metrics", metrics_route)
         .route("/stats", stats_route)
@@ -6435,4 +6439,43 @@ async fn handle_agent_recommend_tools(Json(req): Json<serde_json::Value>) -> Jso
     let task = req.get("task").and_then(|v| v.as_str()).unwrap_or("");
     let rec = crate::task_discovery::recommend(task);
     Json(serde_json::to_value(rec).unwrap_or(serde_json::json!({"error": "serialization failed"})))
+}
+
+async fn handle_agent_clarify_goal(Json(req): Json<serde_json::Value>) -> Json<serde_json::Value> {
+    let task = req.get("task").and_then(|v| v.as_str()).unwrap_or("");
+    let g = crate::agent_guidance::clarify_goal(task);
+    Json(serde_json::to_value(g).unwrap_or(serde_json::json!({"error": "serialization failed"})))
+}
+
+async fn handle_agent_plan_validation(Json(req): Json<serde_json::Value>) -> Json<serde_json::Value> {
+    let factors: Vec<String> = req.get("success_factors")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
+    let refs: Vec<&str> = factors.iter().map(|s| s.as_str()).collect();
+    let plan = crate::agent_guidance::plan_validation(&refs);
+    Json(serde_json::to_value(plan).unwrap_or(serde_json::json!({"error": "serialization failed"})))
+}
+
+async fn handle_agent_check_progress(Json(req): Json<serde_json::Value>) -> Json<serde_json::Value> {
+    let factors: Vec<String> = req.get("success_factors")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
+    let obs: Vec<String> = req.get("observations")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
+    let iteration = req.get("iteration").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    let max = req.get("max_iterations").and_then(|v| v.as_u64()).unwrap_or(20) as u32;
+    let f_refs: Vec<&str> = factors.iter().map(|s| s.as_str()).collect();
+    let o_refs: Vec<&str> = obs.iter().map(|s| s.as_str()).collect();
+    let check = crate::agent_guidance::check_progress(&f_refs, &o_refs, iteration, max);
+    Json(serde_json::to_value(check).unwrap_or(serde_json::json!({"error": "serialization failed"})))
+}
+
+async fn handle_agent_should_exit(Json(req): Json<serde_json::Value>) -> Json<serde_json::Value> {
+    let iteration = req.get("iteration").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    let max = req.get("max_iterations").and_then(|v| v.as_u64()).unwrap_or(20) as u32;
+    let progress = req.get("progress_ratio").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
+    let surprise = req.get("surprise_signal").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
+    let decision = crate::agent_guidance::should_exit(iteration, max, progress, surprise);
+    Json(serde_json::to_value(decision).unwrap_or(serde_json::json!({"error": "serialization failed"})))
 }

@@ -122,20 +122,56 @@ curl -X POST http://localhost:3030/memory/reflect \
 
 Returns: ranked hypotheses with confidence scores. LLM uses the top result as its reasoning basis.
 
-## Memory-Centric ReAct Loop
+## Lifecycle Self-Prompting
+
+Self-prompting occurs at **every stage** — not just task start. Each phase has a dedicated substrate call:
+
+| Phase | Tool | When |
+|-------|------|------|
+| 1. Tool discovery | `recommend_tools(task)` | Before anything |
+| 2. Goal clarification | `clarify_goal(task)` | Before creating GoalPayload |
+| 3. Validation planning | `plan_validation(success_factors)` | Before loop starts |
+| 4. Per-iteration observe | `get_live_beliefs()` | Start of every iteration |
+| 5. Per-iteration reflect | `POST /memory/reflect` | When state is ambiguous |
+| 6. Per-iteration progress | `check_progress(factors, obs, iter, max)` | End of every iteration |
+| 7. Per-iteration exit | `should_exit(iter, max, progress, surprise)` | End of every iteration |
+
+## Memory-Centric ReAct Loop (with exit gate)
 
 ```
-for each iteration until success_factors satisfied:
-    OBSERVE:  live_beliefs = GET /memory/live_beliefs
-    REFLECT:  POST /memory/reflect (substrate CoT)
-    ACT:      execute tool / write file / call API
-    STORE:    POST /memory/add (Temporal observation)
-              → auto-fires: WMUpdater, BeliefInvalidator, EmergenceDetector
-    GATE:     POST /worldmodel/can-execute (before irreversible actions)
-    OMEGA:    POST /v1/loop/omega (when surprise signal > threshold)
+# ── Setup (once) ──────────────────────────────────────────
+recommend_tools(task)              → install MCP servers + skills
+goal = clarify_goal(task)          → GoalPayload scaffold + ACs
+  if goal.uncertainty_flags:
+      ask user clarifying_questions before proceeding
+plan = plan_validation(goal.success_factors) → test plan per factor
+
+# ── Loop (iterate until should_exit ≠ continue) ───────────
+for iteration in 1..max_iterations:
+    OBSERVE:   live_beliefs = GET /memory/live_beliefs
+    REFLECT:   POST /memory/reflect          # substrate CoT
+    ACT:       execute tool / write file / call API
+    STORE:     POST /memory/add (Temporal)
+               → auto-fires: WMUpdater, BeliefInvalidator, EmergenceDetector
+    GATE:      POST /worldmodel/can-execute  # before irreversible actions
+    PROGRESS:  check = check_progress(success_factors, observations, iteration, max)
+               if check.uncertainty_detected:
+                   POST /memory/reflect
+                   POST /v1/loop/omega       # attribution + sparse mutation
+    EXIT:      decision = should_exit(iteration, max, check.progress_ratio, surprise)
+               if decision.action == "succeed":  store Reflexion summary; break
+               if decision.action == "fail":     store partial; report pending; break
+               if decision.action == "escalate": omega + ask user; break
+               # else: continue
 ```
 
-`src/modules/loop_engine.rs:ReactEngine::run` implements this loop. Wire it via `POST /v1/cognitive/transact` with `CognitiveDelta::AddGoal(goal_payload)`.
+### Exit hard rules — never bypass
+- `should_exit` called every iteration, no exceptions
+- `max_iterations` is an absolute cap — no silent extension
+- Zero progress after 25% budget → `fail` + call `clarify_goal` to reframe
+- High surprise (>0.8) + >50% budget + <50% progress → `escalate`, not `continue`
+
+`src/agent_guidance.rs:should_exit` implements the 5-rule decision tree. `src/modules/loop_engine.rs:ReactEngine::run` implements the Rust-side loop.
 
 ## Goal-Driven Acceptance Criteria
 
