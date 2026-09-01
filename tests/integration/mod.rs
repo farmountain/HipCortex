@@ -31,6 +31,7 @@ mod plugin_host_uat;
 mod rag_export_sit;
 mod rag_export_uat;
 mod react_engine_sit;
+mod loop_omega_sit;
 mod reasoning_trace_sit_tests;
 mod retrieval_pipeline_sit;
 mod retrieval_pipeline_uat;

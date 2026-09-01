@@ -146,8 +146,13 @@ impl GraphDatabase for PostgresGraphBackend {
     fn all_edges(&self) -> Vec<SymbolicEdge> {
         Vec::new()
     }
-    fn run_query(&self, _query: &str) -> anyhow::Result<GraphResult> {
-        Err(anyhow::anyhow!("not implemented"))
+    fn run_query(&self, query: &str) -> anyhow::Result<GraphResult> {
+        Err(anyhow::anyhow!(
+            "postgres_backend: SQL via run_query is not implemented. \
+             Use add_node / add_edge / neighbors / find_by_label instead. \
+             Query received: {}",
+            query.chars().take(100).collect::<String>()
+        ))
     }
 }
 

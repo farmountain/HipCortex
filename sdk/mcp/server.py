@@ -735,6 +735,15 @@ TOOLS = [
             "required": ["id"],
         },
     },
+    {
+        "name": "run_omega_loop",
+        "description": "POST /v1/loop/omega — run one omega cognitive loop iteration (detect coverage gaps, simulate rollout, attribute credit, mutate beliefs). Returns iterations count.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
 ]
 
 RESOURCES = [
@@ -1348,6 +1357,10 @@ def handle_get_provenance(args: dict) -> str:
     r = _req("GET", f"/v1/memory/{record_id}/provenance")
     return json.dumps(r)
 
+def handle_run_omega_loop(args: dict) -> str:
+    r = _req("POST", "/v1/loop/omega", {})
+    return json.dumps(r)
+
 def dispatch_tool(name: str, args: dict) -> str:
     global _live_beliefs_seen
     handlers = {
@@ -1401,6 +1414,7 @@ def dispatch_tool(name: str, args: dict) -> str:
         "cognitive_report":        handle_cognitive_report,
         "list_authorized_actions": handle_list_authorized_actions,
         "get_provenance":          handle_get_provenance,
+        "run_omega_loop":          handle_run_omega_loop,
     }
     handler = handlers.get(name)
     if handler is None:

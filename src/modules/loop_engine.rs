@@ -864,10 +864,8 @@ mod tests {
         // after full cycle (when impl), should have done sim/surprise/attr/mutation path or rollback
         // metrics or state advanced
         assert!(
-            engine.metrics.iterations > 0
-                || engine.metrics.mutations > 0
-                || engine.metrics.rollbacks > 0
-                || true
-        ); // relax until wired
+            engine.metrics.iterations > 0,
+            "run_omega_loop must advance iterations counter"
+        );
     }
 }

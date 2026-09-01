@@ -47,6 +47,7 @@ impl<B: MemoryBackend + Send + 'static> McpServer<B> {
         let sm = std::sync::Arc::new(SelfModel::new());
         let wm = std::sync::Arc::new(WorldModelEnhanced::new());
         let cc = std::sync::Arc::new(CoherenceChecker::new());
+        cc.set_consistency_topo(CausalTopoGraph::new());
         // Task 10 wiring: create topo substrate and wire into PerceptionSession defaults (surgical like intel layer)
         let topo = Arc::new(Mutex::new(CausalTopoGraph::new()));
         // instantiate loop_engine (omega) for mcp defaults + exposure in auto paths

@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HipCortex — Architecture Explained (Feynman Style)</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2128;
+    --border: #30363d;
+    --accent: #58a6ff;
+    --accent2: #7ee787;
+    --accent3: #f0883e;
+    --accent4: #d2a8ff;
+    --accent5: #ff7b72;
+    --accent6: #ffa657;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --code-bg: #0d1117;
+    --feynman: #ffd700;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    line-height: 1.7;
+    font-size: 15px;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    background: linear-gradient(135deg, #0d1117 0%, #1a1f2e 50%, #0d1117 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 64px 32px 48px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(88,166,255,0.08) 0%, transparent 70%);
+  }
+  .hero h1 {
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 800;
+    background: linear-gradient(135deg, #58a6ff 0%, #7ee787 50%, #d2a8ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 12px;
+    position: relative;
+  }
+  .hero .subtitle {
+    color: var(--muted);
+    font-size: 18px;
+    max-width: 640px;
+    margin: 0 auto 24px;
+    position: relative;
+  }
+  .hero .version-badge {
+    display: inline-block;
+    background: rgba(88,166,255,0.15);
+    border: 1px solid rgba(88,166,255,0.3);
+    color: var(--accent);
+    padding: 4px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    position: relative;
+  }
+
+  /* ── Layout ── */
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+  /* ── TOC ── */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin: 40px 0;
+  }
+  .toc h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 16px; }
+  .toc ol { padding-left: 20px; }
+  .toc li { margin: 6px 0; }
+  .toc a { color: var(--accent); text-decoration: none; font-size: 14px; }
+  .toc a:hover { text-decoration: underline; }
+
+  /* ── Section ── */
+  .section {
+    margin: 52px 0;
+    scroll-margin-top: 24px;
+  }
+  .section-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-num {
+    background: linear-gradient(135deg, var(--accent), var(--accent4));
+    color: #000;
+    font-weight: 900;
+    font-size: 13px;
+    min-width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .section h2 {
+    font-size: clamp(20px, 3vw, 26px);
+    font-weight: 700;
+    color: var(--text);
+  }
+  .section h2 .tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: 10px;
+    vertical-align: middle;
+    background: rgba(88,166,255,0.15);
+    color: var(--accent);
+    border: 1px solid rgba(88,166,255,0.3);
+  }
+  .section h3 {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 28px 0 12px;
+  }
+  .section h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent4);
+    margin: 20px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .section p { margin: 10px 0; color: #cdd5df; }
+
+  /* ── Feynman Box ── */
+  .feynman {
+    background: rgba(255,215,0,0.05);
+    border: 1px solid rgba(255,215,0,0.25);
+    border-left: 4px solid var(--feynman);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 20px 0;
+    position: relative;
+  }
+  .feynman::before {
+    content: '🧠 Feynman';
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--feynman);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .feynman p { color: #f0d060; margin: 6px 0; }
+  .feynman strong { color: var(--feynman); }
+
+  /* ── Code ── */
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    overflow-x: auto;
+    margin: 16px 0;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  code {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    font-size: 0.9em;
+  }
+  p code, li code {
+    background: rgba(88,166,255,0.1);
+    color: var(--accent);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+
+  /* ── Syntax colours ── */
+  .kw { color: #ff7b72; }
+  .fn { color: #d2a8ff; }
+  .str { color: #a5d6ff; }
+  .num { color: #79c0ff; }
+  .cm { color: #8b949e; font-style: italic; }
+  .type { color: #ffa657; }
+  .op { color: #7ee787; }
+
+  /* ── Tables ── */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th {
+    background: var(--surface2);
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 2px solid var(--border);
+  }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* ── Flow diagram ── */
+  .flow {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin: 20px 0;
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 13px;
+    overflow-x: auto;
+    line-height: 1.8;
+  }
+  .flow-node {
+    display: inline-block;
+    background: rgba(88,166,255,0.12);
+    border: 1px solid rgba(88,166,255,0.3);
+    border-radius: 6px;
+    padding: 3px 10px;
+    color: var(--accent);
+    font-weight: 600;
+    margin: 2px;
+  }
+  .flow-node.green {
+    background: rgba(126,231,135,0.1);
+    border-color: rgba(126,231,135,0.3);
+    color: var(--accent2);
+  }
+  .flow-node.orange {
+    background: rgba(255,166,87,0.1);
+    border-color: rgba(255,166,87,0.3);
+    color: var(--accent6);
+  }
+  .flow-node.red {
+    background: rgba(255,123,114,0.1);
+    border-color: rgba(255,123,114,0.3);
+    color: var(--accent5);
+  }
+  .flow-node.purple {
+    background: rgba(210,168,255,0.1);
+    border-color: rgba(210,168,255,0.3);
+    color: var(--accent4);
+  }
+  .flow-arrow { color: var(--muted); margin: 0 4px; }
+
+  /* ── Cards ── */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 20px 0; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card h4 { color: var(--accent); font-size: 14px; margin-bottom: 8px; }
+  .card p { color: var(--muted); font-size: 13px; margin: 0; }
+
+  /* ── Alert boxes ── */
+  .alert {
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  .alert.info { background: rgba(88,166,255,0.08); border: 1px solid rgba(88,166,255,0.25); color: #93bfef; }
+  .alert.success { background: rgba(126,231,135,0.08); border: 1px solid rgba(126,231,135,0.25); color: #7ee787; }
+  .alert.warning { background: rgba(255,166,87,0.08); border: 1px solid rgba(255,166,87,0.25); color: #ffa657; }
+  .alert.error { background: rgba(255,123,114,0.08); border: 1px solid rgba(255,123,114,0.25); color: #ff7b72; }
+  .alert strong { display: block; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* ── Divider ── */
+  hr { border: none; border-top: 1px solid var(--border); margin: 48px 0; }
+
+  /* ── Phase badge ── */
+  .phase-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+  .phase-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent2); }
+
+  /* ── Error class ── */
+  .error-class {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin: 20px 0;
+    border-left: 4px solid var(--accent5);
+  }
+  .error-class.b { border-left-color: var(--accent6); }
+  .error-class.c { border-left-color: var(--accent4); }
+  .error-class.d { border-left-color: var(--accent2); }
+  .error-class h3 { color: var(--text); font-size: 16px; margin-bottom: 6px; }
+  .error-class .trigger { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+
+  /* ── Timeline ── */
+  .timeline { position: relative; padding-left: 32px; margin: 20px 0; }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px; top: 8px; bottom: 8px;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--accent), var(--accent4));
+    border-radius: 2px;
+  }
+  .timeline-item { position: relative; margin: 0 0 20px; }
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -28px; top: 6px;
+    width: 10px; height: 10px;
+    background: var(--accent);
+    border-radius: 50%;
+    border: 2px solid var(--bg);
+  }
+  .timeline-item.reflect::before { background: var(--accent4); }
+  .timeline-item.act::before { background: var(--accent2); }
+  .timeline-item.error::before { background: var(--accent5); }
+  .timeline-item strong { font-size: 14px; font-weight: 700; color: var(--text); }
+  .timeline-item p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  /* ── Kalman viz ── */
+  .kalman-box {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 16px 0;
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 13px;
+  }
+  .kalman-row { display: flex; align-items: center; gap: 12px; margin: 6px 0; flex-wrap: wrap; }
+  .kalman-label { color: var(--muted); min-width: 80px; font-size: 12px; }
+  .kalman-eq { color: var(--accent); flex: 1; }
+  .kalman-desc { color: var(--accent2); font-size: 11px; }
+
+  /* ── Footer ── */
+  footer {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 32px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 80px;
+  }
+  footer strong { color: var(--text); }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 640px) {
+    .container { padding: 0 16px; }
+    .hero { padding: 40px 16px 32px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════ HERO ══════════════════════════════ -->
+<div class="hero">
+  <h1>HipCortex Architecture</h1>
+  <p class="subtitle">Every component explained from first principles — how a task flows end-to-end through cognitive state, world model, digital twin, and error recovery.</p>
+  <span class="version-badge">v1.2.0 — Causal SCM Continuous Substrate</span>
+</div>
+
+<div class="container">
+
+<!-- ══════════════════════════════ TOC ══════════════════════════════ -->
+<div class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#what-is">What Is HipCortex?</a></li>
+    <li><a href="#entry">Entry Point — MCP Auto-Injection</a></li>
+    <li><a href="#goal">Phase 1: Goal Creation &amp; Storage</a></li>
+    <li><a href="#react">Phase 2: ReactEngine — The Cognitive Heartbeat</a></li>
+    <li><a href="#cogstate">Phase 3: Cognitive State — Live Snapshot</a></li>
+    <li><a href="#worldmodel">Phase 4: World Model — Learning from Every Action</a></li>
+    <li><a href="#twin">Phase 5: Digital Twin — Continuous Simulation</a></li>
+    <li><a href="#errors">Phase 6: Error Handling — When Things Go Wrong</a></li>
+    <li><a href="#flow">Full End-to-End Data Flow</a></li>
+    <li><a href="#automatic">What's Automatic vs Explicit</a></li>
+  </ol>
+</div>
+
+<!-- ══════════════════════════════ WHAT IS ══════════════════════════════ -->
+<div class="section" id="what-is">
+  <div class="section-header">
+    <div class="section-num">★</div>
+    <div>
+      <h2>What Is HipCortex? <span class="tag">Overview</span></h2>
+    </div>
+  </div>
+
+  <div class="feynman">
+    <p>Imagine you hire a brilliant contractor but every morning they wake up with <strong>complete amnesia</strong>. You tell them "build me a house." They start, make some decisions… then forget everything overnight. Next day you start over. That's every AI agent today.</p>
+    <p>HipCortex is the <strong>persistent brain</strong> you bolt onto any AI agent. It remembers goals across sessions, tracks beliefs about the world, learns which actions lead to which outcomes, simulates future trajectories, and — critically — knows when its own beliefs are wrong and fixes them.</p>
+    <p>Think of it as three things fused together: a <strong>diary</strong> (memory), a <strong>mental model</strong> (world model + digital twin), and a <strong>self-critic</strong> (coherence + error recovery).</p>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <h4>Memory Layer</h4>
+      <p>Goals, beliefs, decisions, observations — all typed records with SHA-256 integrity, Merkle audit chain, WAL crash recovery, AES-GCM encryption.</p>
+    </div>
+    <div class="card">
+      <h4>Intelligence Layer</h4>
+      <p>Self-model (capability tracking), world model (transition learning, Kalman entities, causal graph), coherence (contradiction detection, conflict resolution).</p>
+    </div>
+    <div class="card">
+      <h4>Continuous Layer</h4>
+      <p>Digital twin with RK4 integrator, causal SCM (structural equations, do-calculus, counterfactual credit assignment). Physics-style simulation of task state.</p>
+    </div>
+    <div class="card">
+      <h4>Surfaces</h4>
+      <p>REST (Axum), gRPC (Tonic), MCP stdio (45 tools, 7 resources), Python SDK, TypeScript SDK, VS Code extension.</p>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- ══════════════════════════════ ENTRY ══════════════════════════════ -->
+<div class="section" id="entry">
+  <div class="section-header">
+    <div class="section-num">1</div>
+    <div><h2>Entry Point — MCP Auto-Injection <span class="tag">Passive</span></h2></div>
+  </div>
+
+  <div class="feynman">
+    <p>Before a class starts, a good teacher reads their notes from last week. They don't wait for a student to ask "what did we cover?" — they walk in already knowing the context.</p>
+    <p>MCP resources work the same way. The moment a Claude Code session starts, HipCortex <strong>automatically shoves relevant memories into Claude's context window</strong> — no tool call needed, no prompt engineering required. Claude walks into every task already briefed.</p>
+  </div>
+
+  <p>Three MCP resources auto-inject at session start (via <code>hipcortex://</code> resource URIs):</p>
+
+  <table>
+    <thead><tr><th>Resource</th><th>What it loads</th><th>Use case</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>hipcortex://context/relevant</code></td>
+        <td>Top-k semantically similar past memories to current task</td>
+        <td>Past decisions, prior failures, architectural choices</td>
+      </tr>
+      <tr>
+        <td><code>hipcortex://beliefs/current</code></td>
+        <td>Active Symbolic records (user preferences, project facts)</td>
+        <td>"User prefers TypeScript", "project uses PostgreSQL"</td>
+      </tr>
+      <tr>
+        <td><code>hipcortex://context/conversation</code></td>
+        <td>Recent Temporal traces for current actor (<code>HIPCORTEX_ACTOR</code>)</td>
+        <td>What happened in last N interactions</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="alert info">
+    <strong>Key insight</strong>
+    Fresh session → nothing injected (blank slate). Returning session → Claude arrives with full context of past decisions, failures, and beliefs. This is why HipCortex eliminates "re-explain the project" overhead on every new session.
+  </div>
+
+  <h3>Hot Store vs Cold Store</h3>
+  <div class="feynman">
+    <p>Your working desk (Hot Store) only has files you're actively using. Archived boxes in the basement (Cold Store) have old files — still retrievable for audits, but not cluttering your workspace.</p>
+  </div>
+  <p>Semantic search targets <strong>Hot Store only</strong> by default — active, unconflicted records. Superseded beliefs and decayed traces move to <code>ArchiveStore</code> (Cold Store) via <code>ArchiveStore::archive()</code>. Pass <code>include_archived: true</code> for audit queries. Never set <code>status = "archived"</code> on a live record — that pollutes Hot Store searches.</p>
+</div>
+
+<hr>
+
+<!-- ══════════════════════════════ GOAL ══════════════════════════════ -->
+<div class="section" id="goal">
+  <div class="section-header">
+    <div class="section-num">2</div>
+    <div><h2>Phase 1: Goal Creation &amp; Storage <span class="tag">MemoryStore</span></h2></div>
+  </div>
+
+  <div class="feynman">
+    <p>When you give a mission to a squad, you write it on a whiteboard with <strong>clear success criteria</strong>: "Deliver package to address X by 5 PM — success when: package signed for, recipient confirms receipt." Not vague instructions — a typed contract with measurable exit conditions.</p>
+    <p>HipCortex Goal records are exactly that. Not "build Facebook" as a string — a structured record with urgency, cost estimate, and a checklist of things that must be true before the goal is "done."</p>
+  </div>
+
+  <h3>Example: "Build full-stack Facebook replica"</h3>
+<pre><code><span class="cm">// Agent calls cognitive_transact (MCP) or POST /v1/cognitive/transact</span>
+{
+  <span class="str">"delta"</span>: <span class="str">"AssertGoal"</span>,
+  <span class="str">"actor"</span>: <span class="str">"claude-code-session-abc"</span>,
+  <span class="str">"payload"</span>: {
+    <span class="str">"description"</span>: <span class="str">"Build full-stack Facebook replica"</span>,
+    <span class="str">"urgency"</span>: <span class="num">0.9</span>,
+    <span class="str">"estimated_cost"</span>: <span class="num">0.4</span>,
+    <span class="str">"success_factors"</span>: [
+      <span class="str">"auth_working"</span>, <span class="str">"posts_crud"</span>, <span class="str">"news_feed"</span>,
+      <span class="str">"realtime_chat"</span>, <span class="str">"deploy_live"</span>
+    ],
+    <span class="str">"status"</span>: <span class="str">"Pending"</span>
+  }
+}</code></pre>
+
+  <h3>Example: "7-day Kyoto sakura trip from Singapore"</h3>
+<pre><code>{
+  <span class="str">"delta"</span>: <span class="str">"AssertGoal"</span>,
+  <span class="str">"payload"</span>: {
+    <span class="str">"description"</span>: <span class="str">"Plan 7-day Kyoto sakura trip from Singapore"</span>,
+    <span class="str">"urgency"</span>: <span class="num">0.7</span>,
+    <span class="str">"estimated_cost"</span>: <span class="num">0.2</span>,
+    <span class="str">"success_factors"</span>: [
+      <span class="str">"day1_to_7_itinerary"</span>, <span class="str">"accommodation_booked"</span>,
+      <span class="str">"jr_pass_arranged"</span>, <span class="str">"sakura_spots_selected"</span>,
+      <span class="str">"restaurants_reserved"</span>
+    ],
+    <span class="str">"status"</span>: <span class="str">"Pending"</span>
+  }
+}</code></pre>
+
+  <h3>What MemoryStore does on every write</h3>
+  <div class="timeline">
+    <div class="timeline-item">
+      <strong>1. SHA-256 integrity hash computed</strong>
+      <p>Hash of record content stored inline. On load, recomputed and compared — tampered records rejected instantly.</p>
+    </div>
+    <div class="timeline-item">
+      <strong>2. WAL (Write-Ahead Log) entry appended</strong>
+      <p>Operation logged before data written. If crash occurs mid-write, WAL replays on restart — zero data loss.</p>
+    </div>
+    <div class="timeline-item">
+      <strong>3. Merkle audit.log chain extended</strong>
+      <p>Each record's hash feeds into the next chain link. Any retroactive tampering breaks the chain — forensically detectable.</p>
+    </div>
+    <div class="timeline-item reflect">
+      <strong>4. AES-GCM encrypted (if configured)</strong>
+      <p>Envelope encryption via <code>MemoryStore::new_encrypted()</code>. Key stored separately — records unreadable without it.</p>
+    </div>
+    <div class="timeline-item act">
+      <strong>5. GoalScheduler re-ranks</strong>
+      <p>Ranks all Pending/InProgress goals by <code>urgency / estimated_cost</code>. High urgency + low cost = top priority. Returned on every <code>cognitive_report</code> as "next recommended action."</p>
+    </div>
+  </div>
+
+  <div class="alert success">
+    <strong>GoalScheduler formula</strong>
+    priority = urgency / estimated_cost. Facebook (0.9 / 0.4 = 2.25) beats a low-urgency documentation task (0.3 / 0.5 = 0.6). Always returns the highest-ratio pending goal as "what to do next."
+  </div>
+</div>
+
+<hr>
+
+<!-- ══════════════════════════════ REACT ══════════════════════════════ -->
+<div class="section" id="react">
+  <div class="section-header">
+    <div class="section-num">3</div>
+    <div><h2>Phase 2: ReactEngine — The Cognitive Heartbeat <span class="tag">loop_engine.rs</span></h2></div>
+  </div>
+
+  <div class="feynman">
+    <p>A chess grandmaster doesn't just move pieces randomly. They <strong>observe</strong> the board, <strong>reflect</strong> ("if I move here, opponent does that, then I lose the bishop..."), then <strong>act</strong> with the best move. Then they observe the response, reflect again, act again. That loop — Observe → Reflect → Act — is how intelligent agents work.</p>
+    <p>ReactEngine is HipCortex's implementation of that loop, but for AI tasks. Each iteration writes evidence to memory, so the loop is not just in RAM — it's permanently recorded and auditable.</p>
+  </div>
+
+  <h3>The Loop</h3>
+  <div class="flow">
+<pre style="background:none;border:none;padding:0;">
+<span style="color:#8b949e">ReactEngine::run(&amp;mut store, goal_id, agent_id)</span>
+
+┌─────────────────────────────────────────────────────────────────┐
+│  iter N                                                         │
+│                                                                 │
+│  <span style="color:#58a6ff">OBSERVE</span>                                                         │
+│    write MemoryType::Temporal {                                 │
+│      action: "observation_N",                                   │
+│      derived_from: goal_id,       ← provenance link             │
+│      react_iteration: N,          ← which loop wrote this       │
+│      metadata: { current_state }                                │
+│    }                                                            │
+│    → WorldModelUpdater fires automatically                      │
+│                                                                 │
+│  <span style="color:#d2a8ff">REFLECT</span>                                                         │
+│    AureusBridge.reflect() calls:                                │
+│      BeliefInvalidator  → any new contradictions?               │
+│      EmergenceDetector  → pattern in last 50 Temporals?         │
+│      CoherenceChecker   → graph still consistent?               │
+│    write MemoryType::Reflexion {                                │
+│      action: "critique_N",                                      │
+│      derived_from: observation_N_id                             │
+│    }                                                            │
+│                                                                 │
+│  <span style="color:#7ee787">ACT</span>                                                             │
+│    ExecutionGate.can_execute(op)                                │
+│      → SelfModel checks capability registry                     │
+│      → returns (bool, confidence, rationale)                    │
+│    write MemoryType::Decision {                                 │
+│      option_chosen, alternatives, rationale,                    │
+│      confidence, outcome (filled after action)                  │
+│    }                                                            │
+│                                                                 │
+│  CHECK: success_factors all satisfied?                          │
+│    YES  → GoalStatus::Succeeded  → STOP                         │
+│    NO   → iter N+1                                              │
+│    FAIL → GoalStatus::Failed (max_react_iterations hit)         │
+└─────────────────────────────────────────────────────────────────┘</pre>
+  </div>
+
+  <h3>Concrete iteration trace — Facebook build</h3>
+  <table>
+    <thead><tr><th>Iter</th><th>Observe</th><th>Reflect</th><th>Act</th><th>Success factor cleared</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>"Starting backend, no stack chosen"</td>
+        <td>"Need DB + API framework first"</td>
+        <td>Choose PostgreSQL + Axum</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>"DB schema designed"</td>
+        <td>"Auth is highest-risk component"</td>
+        <td>Implement JWT auth</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>"Auth tests pass (12/12)"</td>
+        <td>"Posts CRUD next — low risk"</td>
+        <td>Implement posts endpoints</td>
+        <td>✓ auth_working</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>"Posts CRUD done, news feed needs ranking"</td>
+        <td>"Feed ranking = ML problem, estimate cost"</td>
+        <td>Implement chronological feed first</td>
+        <td>✓ posts_crud</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>"Feed live, need WebSocket for chat"</td>
+        <td>"WebSocket state is complex — isolate"</td>
+        <td>Implement chat with ws crate</td>
+        <td>✓ news_feed</td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td>"Chat works locally, ready to deploy"</td>
+        <td>"Fly.io fastest for Rust binary"</td>
+        <td>Deploy to Fly.io</td>
+        <td>✓ realtime_chat, ✓ deploy_live</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="alert info">
+    <strong>Provenance chain</strong>
+    Every record in this table links: Decision.derived_from → Reflexion.derived_from → Temporal.derived_from → Goal. BFS traversal via GET /v1/memory/:id/provenance (depth 20) reconstructs the full reasoning chain. You can audit exactly why any decision was made.
+  </div>
+
+  <h3>Concrete iteration trace — Kyoto trip</h3>
+  <table>
+    <thead><tr><th>Iter</th><th>Observe</th><th>Reflect</th><th>Act</th><th>Success factor cleared</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>"Sakura peak: Apr 1–10 historical avg"</td><td>"Book early — accommodation fills fast"</td><td>Assert belief "book by Feb"</td><td>—</td></tr>
+      <tr><td>2</td><td>"Flights SIN→KIX found, ¥45K"</td><td>"JR Pass cheaper than individual tickets"</td><td>Include JR Pass in plan</td><td>✓ jr_pass_arranged</td></tr>
+      <tr><td>3</td><td>"Gion Machiya available Apr 3–10"</td><td>"Central location, worth premium"</td><td>Book Machiya</td><td>✓ accommodation_booked</td></tr>
+      <tr><td>4</td><td>"Maruyama Park, Arashiyama, Philosopher's Path top-rated"</td><td>"Space days: crowd-heavy sites on weekdays"</td><td>Plan Day 1–3 itinerary</td><td>—</td></tr>
+      <tr><td>5</td><td>"Kikunoi, Nishiki market lunch options researched"</td><td>"Reserve Kikunoi 2+ weeks ahead"</td><td>Add restaurant reservations</td><td>✓ restaurants_reserved, ✓ sakura_spots_selected</td></tr>
+      <tr><td>6</td><td>"Days 4–7 filled with Nara, Osaka day trips"</td><td>"All 7 days planned, coherent"</td><td>Finalize itinerary doc</td><td>✓ day1_to_7_itinerary</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<hr>
+
+<!-- ══════════════════════════════ COGSTATE ══════════════════════════════ -->
+<div class="section" id="cogstate">
+  <div class="section-header">
+    <div class="section-num">4</div>
+    <div><h2>Phase 3: Cognitive State — Live Snapshot <span class="tag">cognitive_state.rs</span></h2></div>
+  </div>
+
+  <div class="feynman">
+    <p>A pilot in the cockpit doesn't just fly — they constantly check a dashboard: altitude, speed, fuel, warnings. At any moment they can answer: "Where am I? What's working? What's broken? What should I do next?"</p>
+    <p><code>CognitiveStateReport</code> is that dashboard for an AI agent. One call, ten answers.</p>
+  </div>
+
+  <table>
+    <thead><tr><th>#</th><th>Question answered</th><th>Source in code</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>What goals are active?</td><td>Goal records filtered <code>status != Succeeded</code></td></tr>
+      <tr><td>2</td><td>What beliefs are current?</td><td>Symbolic records, confidence above threshold</td></tr>
+      <tr><td>3</td><td>What assumptions am I making?</td><td>Beliefs with <code>source = "inferred"</code></td></tr>
+      <tr><td>4</td><td>What decisions have I made?</td><td>Last N Decision records with full DecisionPayload</td></tr>
+      <tr><td>5</td><td>What has failed?</td><td>Temporal records with <code>action = "failed"</code></td></tr>
+      <tr><td>6</td><td>What am I authorized to do?</td><td><code>ActionRegistry.list_authorized(self_model)</code></td></tr>
+      <tr><td>7</td><td>What's the next recommendation?</td><td><code>GoalScheduler.next_goal()</code> — highest urgency/cost</td></tr>
+      <tr><td>8</td><td>How calibrated am I?</td><td><code>CalibrationTracker.calibration_score</code> (EWMA of prediction errors)</td></tr>
+      <tr><td>9</td><td>How uncertain are my beliefs?</td><td>Epistemic entropy of belief confidence distribution</td></tr>
+      <tr><td>10</td><td>World model health?</td><td>Dirichlet concentration + Kalman covariance norm</td></tr>
+    </tbody>
+  </table>
+
+  <h3>CognitiveDelta — The Transaction System</h3>
+  <div class="feynman">
+    <p>A bank never just changes your balance — it records a <strong>transaction</strong>: who, what amount, when, why. That transaction is the unit of change, not the raw number. You can replay all transactions to reconstruct any historical balance.</p>
+    <p><code>CognitiveDelta</code> is the transaction for cognitive state. Every state change is a typed delta that gets validated, applied, and audit-logged atomically.</p>
+  </div>
+
+<pre><code><span class="cm">// All deltas that can change cognitive state:</span>
+<span class="kw">enum</span> <span class="type">CognitiveDelta</span> {
+    AssertGoal(<span class="type">GoalPayload</span>),
+    RetractBelief { id: <span class="type">Uuid</span> },
+    AssertJustification { belief_id, justification },
+    WorkspaceOpen { mode: <span class="type">Private</span> | <span class="type">Shared</span> },
+    WorkspaceMerge { workspace_id },
+    AutoConsolidate { min_frequency },
+
+    <span class="cm">// v1.2.0 — Causal SCM operators:</span>
+    Intervene { var: <span class="type">String</span>, value: <span class="type">f64</span> },
+    Counterfactual { query: <span class="type">String</span> },
+    CreditAssign { trajectory_ids: <span class="type">Vec</span>&lt;<span class="type">Uuid</span>&gt; },
+    RewriteStructuralEquation { node_id: <span class="type">String</span>, new_weights: <span class="type">Vec</span>&lt;<span class="type">f64</span>&gt; },
+}
+
+<span class="cm">// Every delta goes through CognitiveState::transact_ex():</span>
+<span class="cm">// 1. CoherenceChecker validates preconditions</span>
+<span class="cm">// 2. SafetyGuardrail::check_precondition gates mutation</span>
+<span class="cm">// 3. apply_delta(&amp;delta, actor) executes with lock discipline</span>
+<span class="cm">// 4. TxLog records the operation (tx_cursor incremented)</span>
+<span class="cm">// 5. Reflexion audit record written</span></code></pre>
+
+  <h3>Lock Order (Critical — Never Violate)</h3>
+  <div class="alert warning">
+    <strong>Deadlock prevention rule</strong>
+    Lock order is always: world (RwLock read) → causal_graph (RwLock write) → memory (Mutex). Never hold two simultaneously if acquiring in a different order. Each apply_delta arm acquires locks, does work, drops immediately before next acquire.
+  </div>
+</div>
+
+<hr>
+
+<!-- ══════════════════════════════ WORLD MODEL ══════════════════════════════ -->
+<div class="section" id="worldmodel">
+  <div class="section-header">
+    <div class="section-num">5</div>
+    <div><h2>Phase 4: World Model — Learning from Every Action <span class="tag">world_model_enhanced</span></h2></div>
+  </div>
+
+  <div class="feynman">
+    <p>A weather forecaster has three tools: (1) a <strong>history of weather patterns</strong> — "when it's humid like this, it usually rains" (Dirichlet transitions). (2) A <strong>sensor that tracks temperature right now</strong> — even through noise (Kalman filter). (3) A <strong>map of causes</strong> — "low pressure causes clouds, clouds cause rain" (causal graph).</p>
+    <p>HipCortex's World Model has exactly these three sub-models, firing in parallel on every observation.</p>
+  </div>
+
+  <h3>Sub-model 1: Dirichlet-Multinomial Transitions</h3>
+  <div class="feynman">
+    <p>Imagine a coin that isn't necessarily fair. Every time you flip it, you update your estimate of P(heads). Start with a weak prior (could be anything), then each observation sharpens the posterior. A Dirichlet distribution is the generalization of this to many outcomes — not just heads/tails, but "auth_done", "auth_failed", "auth_partial"...</p>
+  </div>
+
+<pre><code><span class="cm">// Every ReactEngine observation fires WorldModelUpdater:</span>
+<span class="fn">observe</span>(state: <span class="str">"auth_started"</span>, action: <span class="str">"implement_oauth"</span>, next: <span class="str">"auth_done"</span>)
+  → transition_counts[(<span class="str">"auth_started"</span>, <span class="str">"implement_oauth"</span>, <span class="str">"auth_done"</span>)] += <span class="num">1</span>
+
+<span class="cm">// Posterior predictive (Laplace smoothed):</span>
+P(s' | s, a) = (count(s, a, s') + α) / (Σ_s' count(s, a, s') + K·α)
+
+<span class="cm">// After enough iterations on the Facebook build:</span>
+P(auth_done | impl_oauth)  = <span class="num">0.73</span>
+P(auth_fail | impl_oauth)  = <span class="num">0.21</span>   <span class="cm">// learned from past failures</span>
+P(auth_part | impl_oauth)  = <span class="num">0.06</span>
+
+P(deploy_ok | tests_pass, staging_ok) = <span class="num">0.87</span>   <span class="cm">// strongly concentrated</span></code></pre>
+
+  <div class="alert success">
+    <strong>Self-improving</strong>
+    The model gets sharper every iteration. Session 1: uncertain priors. Session 10: confident posteriors based on real observed transitions. This is the "learning" that survives across sessions.
+  </div>
+
+  <h3>Sub-model 2: Kalman Entity Tracking</h3>
+  <div class="feynman">
+    <p>A submarine captain knows their speed and heading, so they can estimate position — but error accumulates over time. When they get a GPS ping (an observation), they update their estimate, weighted by how much they trust the GPS vs their dead reckoning. That's a Kalman filter: blending a physics-based prediction with noisy observations to get the best estimate.</p>
+    <p>HipCortex tracks entities like "build_progress", "budget_remaining", "sakura_bloom_date" the same way — predicting with a model, correcting with observations.</p>
+  </div>
+
+  <div class="kalman-box">
+    <div class="kalman-row">
+      <span class="kalman-label">PREDICT</span>
+      <span class="kalman-eq">x̂ₖ = F·xₖ₋₁</span>
+      <span class="kalman-desc">← project state forward (e.g., "build_progress grows at 5%/day")</span>
+    </div>
+    <div class="kalman-row">
+      <span class="kalman-label"></span>
+      <span class="kalman-eq">Pₖ = F·Pₖ₋₁·Fᵀ + Q</span>
+      <span class="kalman-desc">← uncertainty grows without observations</span>
+    </div>
+    <div class="kalman-row" style="margin-top:12px">
+      <span class="kalman-label">UPDATE</span>
+      <span class="kalman-eq">Kₖ = Pₖ·Hᵀ·(H·Pₖ·Hᵀ + R)⁻¹</span>
+      <span class="kalman-desc">← Kalman gain: how much to trust observation vs model</span>
+    </div>
+    <div class="kalman-row">
+      <span class="kalman-label"></span>
+      <span class="kalman-eq">x̂ₖ = x̂ₖ + Kₖ·(zₖ - H·x̂ₖ)</span>
+      <span class="kalman-desc">← pull estimate toward observation (zₖ = Claude's reported value)</span>
+    </div>
+    <div class="kalman-row">
+      <span class="kalman-label"></span>
+      <span class="kalman-eq">Pₖ = (I - Kₖ·H)·Pₖ</span>
+      <span class="kalman-desc">← uncertainty collapses after good observation</span>
+    </div>
+  </div>
+
+  <p>For the Kyoto trip: <code>sakura_bloom_date</code> has prior mean=Apr 5, uncertainty=±5 days. As real bloom forecasts arrive (observations <code>zₖ</code>), the estimate sharpens. If a forecast says Mar 28, Kalman update pulls estimate earlier, reduces uncertainty.</p>
+
+  <h3>Sub-model 3: Causal Graph with Structural Equations (v1.2.0)</h3>
+  <div class="feynman">
+    <p>Correlation isn't causation — everyone knows this. But <strong>intervention</strong> reveals causation. If you vaccinate a group (an intervention — do(vaccine=1)) and disease drops, that's causal, not just correlated. Judea Pearl's do-calculus formalizes exactly this.</p>
+    <p>HipCortex's causal graph tracks not just "A happens before B" but the actual <strong>structural equations</strong> that generate the relationship: <code>B = f(A, noise)</code>. This lets us do two things correlation can't: (1) simulate interventions before doing them, (2) assign blame when things go wrong.</p>
+  </div>
+
+<pre><code><span class="cm">// Facebook causal graph edges (built from observations):</span>
+db_setup  ──[weight 0.9]──→  api_layer
+api_layer ──[weight 0.85]──→ auth
+auth      ──[weight 0.8]──→  posts
+posts     ──[weight 0.9]──→  feed
+feed      ──[weight 0.75]──→ chat
+chat      ──[weight 0.95]──→ deploy
+
+<span class="cm">// Kyoto causal graph:</span>
+bloom_date       ──→ crowd_level
+bloom_date       ──→ best_viewing_spots
+crowd_level      ──→ optimal_visit_time
+best_spots       ──→ day_plan_quality
+accommodation    ──→ transport_efficiency
+jr_pass          ──→ day_trip_feasibility
+
+<span class="cm">// Each node has a StructuralEquation f_i(parent_inputs, noise):</span>
+<span class="cm">// LinearSE implements: output = weights · inputs + noise_term</span>
+<span class="cm">// Evaluable: compute forward. Invertible: solve for inputs given output.</span></code></pre>
+
+  <h4>do-calculus — Interventions</h4>
+<pre><code><span class="cm">// Two intervention modes:</span>
+
+<span class="cm">// 1. Persistent (apply_intervention) — mutates shared graph in-place:</span>
+causal_graph.<span class="fn">apply_intervention</span>(<span class="str">"sakura_bloom_date"</span>, <span class="num">20240328.0</span>)
+<span class="cm">// → removes all incoming edges to bloom_date (severs existing causes)</span>
+<span class="cm">// → pins bloom_date = Mar 28 permanently</span>
+<span class="cm">// → all downstream nodes (crowd_level, best_spots) recompute from this fixed value</span>
+
+<span class="cm">// 2. Simulation (do_operator) — clones graph, leaves original intact:</span>
+<span class="kw">let</span> simulated = causal_graph.<span class="fn">do_operator</span>(<span class="str">"deploy_readiness"</span>, <span class="num">1.0</span>)
+<span class="cm">// → safe to rollout without affecting live cognitive state</span></code></pre>
+</div>
+
+<hr>
+
+<!-- ══════════════════════════════ TWIN ══════════════════════════════ -->
+<div class="section" id="twin">
+  <div class="section-header">
+    <div class="section-num">6</div>
+    <div><h2>Phase 5: Digital Twin — Continuous Simulation <span class="tag">digital_twin.rs</span></h2></div>
+  </div>
+
+  <div class="feynman">
+    <p>NASA doesn't just send a rocket to Mars and hope. They have a <strong>digital twin</strong> — a full simulation of the rocket running in parallel. They test maneuvers in simulation first. If the twin shows the fuel will run out, they fix the plan before burning real fuel.</p>
+    <p>HipCortex's Digital Twin does this for tasks. It models the project as a <strong>continuous state vector</strong> (a list of numbers representing "how done is each component") and uses physics-style integration (RK4) to simulate how the state evolves as actions are taken — before committing to them in reality.</p>
+  </div>
+
+  <h3>State vector design</h3>
+
+  <div class="cards">
+    <div class="card">
+      <h4>Facebook replica (dim=7)</h4>
+      <p><code>[db_readiness, api_coverage, auth_status, frontend_progress, test_coverage, ci_passing, deploy_readiness]</code><br><br>Each dimension: 0.0 (not started) → 1.0 (complete).</p>
+    </div>
+    <div class="card">
+      <h4>Kyoto trip (dim=6)</h4>
+      <p><code>[days_planned, budget_used, transport_booked, accommodation_booked, attractions_selected, bookings_confirmed]</code><br><br>Budget dimension: 0.0 (none spent) → 1.0 (fully allocated).</p>
+    </div>
+  </div>
+
+  <h3>RK4 Integration — step(action)</h3>
+  <div class="feynman">
+    <p>Euler's method of integration is like walking in a straight line at your current velocity — it accumulates error. Runge-Kutta 4 (RK4) is like checking your velocity four times per step (at start, two midpoints, end) and averaging them. Same cost, 4× accuracy. Used in flight simulators, spacecraft navigation, game physics engines.</p>
+  </div>
+
+<pre><code><span class="cm">// step(action: &amp;str) → new state vector</span>
+<span class="kw">let</span> k1 = <span class="fn">f</span>(xₙ, action);
+<span class="kw">let</span> k2 = <span class="fn">f</span>(xₙ + dt/<span class="num">2</span>·k1, action);
+<span class="kw">let</span> k3 = <span class="fn">f</span>(xₙ + dt/<span class="num">2</span>·k2, action);
+<span class="kw">let</span> k4 = <span class="fn">f</span>(xₙ + dt·k3, action);
+xₙ₊₁ = xₙ + dt/<span class="num">6</span>·(k1 + <span class="num">2</span>k2 + <span class="num">2</span>k3 + k4);
+
+<span class="cm">// v1.2.0: After RK4, clamp pinned intervention variables:</span>
+<span class="kw">for</span> (var, pinned_val) <span class="kw">in</span> &amp;self.pinned {
+    <span class="kw">let</span> dim = self.var_to_dim[var];
+    xₙ₊₁[dim] = *pinned_val;   <span class="cm">// causal impulse overrides ODE dynamics</span>
+}
+<span class="cm">// This means: if you intervene on "deploy_readiness = 0" (blocked),</span>
+<span class="cm">// the RK4 physics can't push it above 0 — causal constraint wins.</span></code></pre>
+
+  <h3>rollout_hybrid — Multi-step Future Simulation</h3>
+<pre><code><span class="cm">// Simulate: "if I do these 5 actions, where will I be?"</span>
+twin.<span class="fn">rollout_hybrid</span>(
+    actions: [<span class="str">"implement_auth"</span>, <span class="str">"add_posts"</span>, <span class="str">"build_feed"</span>,
+              <span class="str">"add_chat"</span>, <span class="str">"deploy"</span>],
+    causal_nodes: <span class="type">Some</span>([<span class="str">"auth"</span>, <span class="str">"api_layer"</span>])
+)
+
+<span class="cm">// Returns:</span>
+HybridRolloutResult {
+    continuous_trajectory: Vec&lt;StateVector&gt;,  <span class="cm">// state after each action</span>
+    continuous_sigma_norm: <span class="type">f64</span>,              <span class="cm">// uncertainty growth (Kalman covariance norm)</span>
+    causal_nodes: <span class="type">Some</span>([<span class="str">"auth"</span>, <span class="str">"api_layer"</span>]),
+
+    <span class="cm">// Also writes to ExperienceStore (Gap A — causal provenance):</span>
+    <span class="cm">// MemoryType::Temporal { action: "rollout_provenance",</span>
+    <span class="cm">//   metadata: { causal_provenance: { nodes, twin_id, rollout_steps } } }</span>
+}
+
+<span class="cm">// Kalman uncertainty grows with each step (discrete Lyapunov):</span>
+<span class="cm">// Pₖ = Pₖ₋₁ + Q   (uncertainty expands without observations)</span>
+<span class="cm">// When sigma_norm spikes → GoalDistanceDrift alarm fires</span></code></pre>
+
+  <div class="alert warning">
+    <strong>GoalDistanceDrift alarm</strong>
+    When ||x_current - x_goal||₂ exceeds the drift threshold — i.e., simulation shows the current action sequence won't reach the goal state — the alarm fires. Agent should re-plan, not blindly continue.
+  </div>
+</div>
+
+<hr>
+
+<!-- ══════════════════════════════ ERRORS ══════════════════════════════ -->
+<div class="section" id="errors">
+  <div class="section-header">
+    <div class="section-num">7</div>
+    <div><h2>Phase 6: Error Handling — When Things Go Wrong <span class="tag">Four classes</span></h2></div>
+  </div>
+
+  <div class="feynman">
+    <p>A good scientist doesn't just admit they were wrong — they have a <strong>protocol</strong>: detect the anomaly, trace which assumption failed, update the model, rerun the prediction. Ad-hoc "oh it broke, fix it" is engineering. Systematic detection → tracing → updating is science.</p>
+    <p>HipCortex has four distinct error classes, each with its own detection instrument and recovery chain. Think of them as four different kinds of "wrong" an AI agent can be.</p>
+  </div>
+
+  <!-- ERROR CLASS A -->
+  <div class="error-class">
+    <h3>🔴 Error Class A — World Model Prediction Wrong</h3>
+    <p class="trigger"><strong>Scenario:</strong> ReactEngine predicted <code>auth_done</code> after <code>implement_oauth</code>. Test suite reports 8/12 tests fail. The world model was wrong about this transition.</p>
+
+    <h4>Detection — CalibrationTracker (EWMA)</h4>
+    <div class="feynman" style="margin:12px 0">
+      <p>EWMA (Exponentially Weighted Moving Average) is like a memory that forgets the past gradually. Recent errors count more than old ones. If you keep making big prediction errors recently, EWMA spikes — your calibration score falls. A weather forecaster who was wrong the last 5 days has bad calibration right now, even if they were good last month.</p>
+    </div>
+<pre><code>prediction_error_ewma = α · |predicted - observed| + (1-α) · prev_ewma
+<span class="cm">// α = 0.1 typically — recent errors weighted 10%, history weighted 90%</span>
+
+<span class="cm">// When ewma > threshold:</span>
+calibration_score    ↓   <span class="cm">// self-model knows it's less reliable</span>
+epistemic_entropy    ↑   <span class="cm">// beliefs become more uncertain</span>
+ExecutionGate        →   <span class="cm">// may block high-stakes actions until recalibrated</span></code></pre>
+
+    <h4>Recovery Chain</h4>
+    <div class="timeline">
+      <div class="timeline-item">
+        <strong>1. Temporal record written</strong>
+        <p>ReactEngine observe step: <code>action="auth_test_failed", metadata: {failed_count: 4, error: "JWT expiry mismatch"}</code></p>
+      </div>
+      <div class="timeline-item">
+        <strong>2. Dirichlet automatically reweights</strong>
+        <p><code>transition_counts[("auth_started","implement_oauth","auth_failed")] += 1</code>. No code to write — the next <code>P(s'|s,a)</code> query returns the updated posterior. Self-healing.</p>
+      </div>
+      <div class="timeline-item reflect">
+        <strong>3. BeliefInvalidator decays related beliefs</strong>
+        <p>Scans Symbolic records citing <code>implement_oauth</code> as reliable. Applies: <code>new_conf = old_conf × (1 - contradiction_score × 0.3)</code>. If conf drops below 0.2 → archives belief to Cold Store.</p>
+      </div>
+      <div class="timeline-item act">
+        <strong>4. EmergenceDetector may synthesize new Belief</strong>
+        <p>If "JWT expiry mismatch" pattern appears in ≥5 Temporal records in last 50 → auto-creates Belief: <code>"JWT libraries have breaking changes in v2.x"</code> with evidence pointers.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ERROR CLASS B -->
+  <div class="error-class b">
+    <h3>🟠 Error Class B — Digital Twin State Drift</h3>
+    <p class="trigger"><strong>Scenario:</strong> Twin predicted <code>test_coverage = 0.8</code> after 3 sprints. Actual measurement: 0.4. The physics model was wrong — RK4 dynamics overestimated progress velocity.</p>
+
+    <h4>Detection — sigma_norm spike + GoalDistanceDrift</h4>
+<pre><code><span class="cm">// Kalman covariance matrix grows when predictions repeatedly miss:</span>
+continuous_sigma_norm = ||Pₖ||_F   <span class="cm">// Frobenius norm of covariance matrix</span>
+
+<span class="cm">// Goal distance drift alarm:</span>
+||x_current - x_goal||₂ > drift_threshold
+<span class="cm">// → current trajectory won't reach goal state in time</span></code></pre>
+
+    <h4>Recovery Chain</h4>
+    <div class="timeline">
+      <div class="timeline-item">
+        <strong>1. Kalman update corrects state estimate</strong>
+        <p>Observation zₖ = 0.4 (actual). <code>x̂ₖ = x̂ₖ + Kₖ·(0.4 - 0.8)</code> — pulls estimate from 0.8 down toward 0.4. Kalman gain Kₖ determines how aggressively. <code>Pₖ = (I - Kₖ·H)·Pₖ</code> — uncertainty collapses post-update.</p>
+      </div>
+      <div class="timeline-item reflect">
+        <strong>2. CognitiveDelta::Intervene pins corrected value</strong>
+        <p><code>apply_intervention("test_coverage", 0.4)</code> — removes incoming edges to test_coverage node in causal graph, pins at 0.4. Future RK4 clamps this dimension to 0.4 — model can't drift above it without explicit update.</p>
+      </div>
+      <div class="timeline-item act">
+        <strong>3. Rollout re-run from corrected state</strong>
+        <p>Previous trajectory was based on x=0.8. New rollout from x=0.4 gives accurate future projection. GoalDistanceDrift alarm may trigger re-planning.</p>
+      </div>
+      <div class="timeline-item">
+        <strong>4. SafetyGuardrail gates the intervention</strong>
+        <p><code>SafetyGuardrail::check_precondition</code> runs before any causal graph mutation. Logs to audit trail. If precondition fails (e.g., intervention would violate acyclicity), it's rejected.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ERROR CLASS C -->
+  <div class="error-class c">
+    <h3>🟣 Error Class C — Causal Structural Equation Wrong</h3>
+    <p class="trigger"><strong>Scenario:</strong> Causal graph assumed <code>deploy_readiness</code> driven by <code>test_coverage</code> alone. Reality: it's gated 30% by tests, 70% by <code>security_audit</code>. The structural equation was miscalibrated.</p>
+
+    <h4>Detection — AAP Triad (CreditAssign)</h4>
+    <div class="feynman" style="margin:12px 0">
+      <p>Counterfactual reasoning: "If only the OAuth token had been correct, would auth have worked?" You hold everything else constant, change just that one thing, and see if the outcome changes. If it does — that's the cause. Abduction (find noise), Action (pin it), Prediction (rerun) — Pearl's three steps for counterfactual analysis.</p>
+    </div>
+<pre><code><span class="cm">// ABDUCTION: find noise variables consistent with observed outcome</span>
+U_deploy = observed_deploy_readiness - f_deploy(PA_deploy)
+<span class="cm">//          actual 0.3              - predicted 0.7 = -0.4 residual</span>
+<span class="cm">// → the deploy structural equation is off by 0.4</span>
+
+<span class="cm">// ACTION: pin all noise variables at abducted values</span>
+apply_intervention(<span class="str">"test_coverage"</span>, observed_test_val)   <span class="cm">// hold constant</span>
+apply_intervention(<span class="str">"security_audit"</span>, observed_audit_val) <span class="cm">// hold constant</span>
+
+<span class="cm">// PREDICTION: re-run structural equations forward</span>
+predicted_deploy_new = f_deploy_with_abducted_noise(PA_deploy)
+<span class="cm">// if this still ≠ observed → deploy structural equation is the broken one</span>
+<span class="cm">// CreditAssign returns: node_id = "deploy_readiness" as the culprit</span></code></pre>
+
+    <h4>Recovery Chain</h4>
+    <div class="timeline">
+      <div class="timeline-item">
+        <strong>1. CreditAssign identifies broken equation</strong>
+        <p>Returns: <code>node_id = "deploy_readiness"</code> with evidence that test_coverage weight should be 0.3, security_audit weight 0.7.</p>
+      </div>
+      <div class="timeline-item reflect">
+        <strong>2. CognitiveDelta::RewriteStructuralEquation applied</strong>
+        <p><code>{ node_id: "deploy_readiness", new_weights: [0.3, 0.7] }</code> → <code>transact_ex</code> → <code>apply_delta</code> → acquires world.read() → causal_graph.write() → calls <code>rewrite_structural_equation</code>.</p>
+      </div>
+      <div class="timeline-item act">
+        <strong>3. Reflexion audit record written</strong>
+        <p>"Structural equation rewritten after credit assignment: deploy_readiness weights [0.5,0.5]→[0.3,0.7], evidence: 3 observed deployments." Full audit trail with actor, timestamp, prior/posterior weights.</p>
+      </div>
+      <div class="timeline-item">
+        <strong>4. SystemInvariants re-checked</strong>
+        <p>Acyclicity: no new cycles from rewrite. Decay monotonicity: confidence decay still one-directional. Conservation: total belief mass within bounds. If any invariant fails → rollback.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ERROR CLASS D -->
+  <div class="error-class d">
+    <h3>🟢 Error Class D — Coherence Violation (Contradictory Beliefs)</h3>
+    <p class="trigger"><strong>Scenario:</strong> Kyoto trip — two beliefs: "peak sakura Apr 5–10" (conf 0.8, from 2023 data) and "peak sakura Mar 28–Apr 5" (conf 0.7, from 2024 JMA forecast). Contradiction — both can't be true.</p>
+
+    <h4>Detection — ConsistencyChecker</h4>
+<pre><code><span class="cm">// ConsistencyChecker scans all Symbolic records pairwise:</span>
+<span class="cm">// Two beliefs about same entity (sakura_peak_date) with different values</span>
+<span class="cm">// and combined confidence > overlap threshold → contradiction flagged</span></code></pre>
+
+    <h4>Recovery — ConflictResolver (3 strategies)</h4>
+    <table>
+      <thead><tr><th>Strategy</th><th>Rule</th><th>Used when</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Consensus</strong></td><td>Average if beliefs close, keep both weighted</td><td>Similar confidence, minor disagreement</td></tr>
+        <tr><td><strong>Recency</strong></td><td>Newer belief wins</td><td>Domain knowledge evolves (e.g., forecast vs historical)</td></tr>
+        <tr><td><strong>Confidence</strong></td><td>Higher confidence wins</td><td>One source clearly more reliable</td></tr>
+      </tbody>
+    </table>
+
+<pre><code><span class="cm">// Resolution for sakura conflict:</span>
+<span class="cm">// Recency: 2024 JMA forecast newer → "Mar 28–Apr 5" wins</span>
+winner = belief_2024_forecast  (conf <span class="num">0.7</span>)
+loser  = belief_2023_historical
+
+<span class="cm">// Loser confidence decayed by contradiction penalty:</span>
+loser.confidence = <span class="num">0.8</span> × (<span class="num">1</span> - <span class="num">0.3</span>) = <span class="num">0.56</span>
+<span class="cm">// If drops below 0.2 → archived to Cold Store</span>
+<span class="cm">// Write belief_invalidated Temporal marker</span>
+
+<span class="cm">// SystemInvariants final sweep:</span>
+<span class="cm">// ✓ causal graph acyclic</span>
+<span class="cm">// ✓ belief confidence decay monotonic (no resurrection)</span>
+<span class="cm">// ✓ belief mass within conservation bounds</span></code></pre>
+  </div>
+</div>
+
+<hr>
+
+<!-- ══════════════════════════════ FLOW ══════════════════════════════ -->
+<div class="section" id="flow">
+  <div class="section-header">
+    <div class="section-num">8</div>
+    <div><h2>Full End-to-End Data Flow <span class="tag">Both examples</span></h2></div>
+  </div>
+
+  <div class="flow">
+<pre style="background:none;border:none;padding:0;font-size:12px;line-height:1.9;">
+User: "build full stack Facebook replica" / "plan 7-day Kyoto trip"
+              │
+              ▼
+  ┌─────────────────────────────────────┐
+  │   MCP SESSION START (passive)       │
+  │   hipcortex://context/relevant  →   │
+  │   hipcortex://beliefs/current   →   │  Auto-inject prior context
+  │   hipcortex://context/convo     →   │
+  └─────────────────────────────────────┘
+              │
+              ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │  cognitive_transact(AssertGoal)                         │
+  │  MemoryStore:                                           │
+  │    → SHA-256 hash                                       │
+  │    → WAL append                                         │
+  │    → Merkle audit chain                                 │
+  │    → GoalScheduler.rank()                               │
+  └─────────────────────────────────────────────────────────┘
+              │
+              ▼
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  ReactEngine.run(goal_id)  ← LOOP UNTIL success_factors all ✓      │
+  │                                                                     │
+  │  OBSERVE ──→ Temporal record (derived_from: goal_id)               │
+  │      │           │                                                  │
+  │      │           └──→ WorldModelUpdater ─────────────────────────┐ │
+  │      │                   ├── DirichletMultinomial += 1 count      │ │
+  │      │                   ├── Kalman entity update                 │ │
+  │      │                   └── CausalGraph edge++                   │ │
+  │      │                                                            │ │
+  │  REFLECT ──→ AureusBridge                                         │ │
+  │      │         ├── BeliefInvalidator (decay contradictions)       │ │
+  │      │         ├── EmergenceDetector (synthesize new beliefs)     │ │
+  │      │         └── CoherenceChecker (scan for conflicts)          │ │
+  │      │       ──→ Reflexion record                                 │ │
+  │      │                                                            │ │
+  │  ACT ──→ ExecutionGate.can_execute(op)                            │ │
+  │            └── SelfModel capability + resource check              │ │
+  │          ──→ Decision record                                      │ │
+  │                                                                   │ │
+  └───────────────────────────────────────────────────────────────────┘ │
+              │          ▲ feeds back                                    │
+              │          └────────────────────────────────────────────────┘
+              │
+              ▼
+  ┌─────────────────────────────────────────────┐
+  │  WorldModelEnhanced (parallel, always-on)   │
+  │                                             │
+  │  DirichletMultinomial                       │
+  │    P(s'|s,a) sharpens each iteration        │
+  │                                             │
+  │  KalmanEntityTracker                        │
+  │    x̂ₖ, Pₖ updated per observation           │
+  │                                             │
+  │  CausalGraph + StructuralEquations          │
+  │    edges strengthen, weights calibrate      │
+  └─────────────────────────────────────────────┘
+              │
+              ▼ (if twin created)
+  ┌─────────────────────────────────────────────┐
+  │  DigitalTwin.rollout_hybrid(actions, ...)   │
+  │    RK4 step() × N                           │
+  │    causal clamps (pinned vars)              │
+  │    continuous_trajectory returned           │
+  │    continuous_sigma_norm (uncertainty)      │
+  │    causal_provenance written to store       │
+  └─────────────────────────────────────────────┘
+              │
+              ▼
+  ERROR? ─────────────────────────────────────────────────────────────┐
+                                                                       │
+  ┌────────────────────────────────────────────────────────────────────┘
+  │
+  ├─ CLASS A: Prediction wrong
+  │     CalibrationTracker EWMA spike
+  │     → Dirichlet reweights (automatic)
+  │     → BeliefInvalidator decays stale beliefs
+  │     → EmergenceDetector may synthesize new belief
+  │
+  ├─ CLASS B: Twin drifts
+  │     sigma_norm spike / GoalDistanceDrift alarm
+  │     → Kalman update corrects estimate (zₖ pulls x̂ toward truth)
+  │     → CognitiveDelta::Intervene pins corrected value
+  │     → Rollout re-run from corrected state
+  │
+  ├─ CLASS C: Structural equation wrong
+  │     CreditAssign AAP triad (Abduct → Action → Predict)
+  │     → Identifies broken node
+  │     → CognitiveDelta::RewriteStructuralEquation
+  │     → Reflexion audit record
+  │     → SystemInvariants re-check
+  │
+  └─ CLASS D: Belief contradiction
+        ConsistencyChecker detects
+        ConflictResolver: consensus / recency / confidence
+        Loser belief decayed → archived if conf &lt; 0.2
+        SystemInvariants final sweep
+              │
+              ▼
+  CognitiveStateReport (any time):
+    10 questions answered in one call
+    → active goals, beliefs, decisions, failures,
+      authorized actions, next recommendation,
+      calibration score, epistemic entropy</pre>
+  </div>
+</div>
+
+<hr>
+
+<!-- ══════════════════════════════ AUTO vs EXPLICIT ══════════════════════════════ -->
+<div class="section" id="automatic">
+  <div class="section-header">
+    <div class="section-num">9</div>
+    <div><h2>What's Automatic vs Explicit <span class="tag">Behavior matrix</span></h2></div>
+  </div>
+
+  <div class="feynman">
+    <p>A car has things that happen automatically (brakes engage ABS when skidding, engine adjusts fuel injection) and things that require you to act (turn signal, gear shift). Knowing which is which prevents double-work and missed steps. Same for HipCortex.</p>
+  </div>
+
+  <h3>Always-On (zero agent calls needed)</h3>
+  <table>
+    <thead><tr><th>Component</th><th>When it fires</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>WorldModelUpdater</code></td>
+        <td>Every Temporal write</td>
+        <td>Dirichlet += 1, Kalman update, causal edge++</td>
+      </tr>
+      <tr>
+        <td><code>BeliefInvalidator</code></td>
+        <td>Every Temporal write</td>
+        <td>Scans for contradictions, decays confidence, archives below 0.2</td>
+      </tr>
+      <tr>
+        <td><code>EmergenceDetector</code></td>
+        <td>Every 10 Temporal writes</td>
+        <td>Scans last 50 records, synthesizes new Belief from dense patterns</td>
+      </tr>
+      <tr>
+        <td><code>CoherenceChecker</code></td>
+        <td>Every <code>transact_ex</code></td>
+        <td>Pre/post validation of cognitive state consistency</td>
+      </tr>
+      <tr>
+        <td><code>CalibrationTracker</code></td>
+        <td>Every prediction+observation pair</td>
+        <td>EWMA updates prediction_error_ewma, calibration_score</td>
+      </tr>
+      <tr>
+        <td>MCP resource injection</td>
+        <td>Session start</td>
+        <td>3 resources auto-loaded into Claude context</td>
+      </tr>
+      <tr>
+        <td><code>SafetyGuardrail</code></td>
+        <td>Every mutation</td>
+        <td>Precondition check + audit log — blocks unsafe mutations</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Explicit Agent Calls Required</h3>
+  <table>
+    <thead><tr><th>Action</th><th>REST</th><th>MCP Tool</th></tr></thead>
+    <tbody>
+      <tr><td>Create DigitalTwin</td><td><code>POST /v1/twin</code></td><td><code>twin_create</code></td></tr>
+      <tr><td>Trigger ReactEngine loop</td><td><code>POST /goal/:id/react</code></td><td><code>react</code></td></tr>
+      <tr><td>Run rollout simulation</td><td><code>POST /v1/twin/:id/rollout</code></td><td><code>twin_rollout</code></td></tr>
+      <tr><td>Causal intervention</td><td><code>POST /v1/cognitive/transact</code> (Intervene)</td><td><code>causal_intervene</code></td></tr>
+      <tr><td>Credit assignment</td><td><code>POST /v1/cognitive/transact</code> (CreditAssign)</td><td><code>causal_credit_assign</code></td></tr>
+      <tr><td>Rewrite structural equation</td><td><code>POST /v1/cognitive/transact</code> (RSE)</td><td><code>causal_rewrite_equation</code></td></tr>
+      <tr><td>Cognitive snapshot</td><td><code>GET /v1/cognitive/snapshot</code></td><td><code>cognitive_snapshot</code></td></tr>
+      <tr><td>Full cognitive report</td><td><code>GET /v1/cognitive/report</code></td><td><code>cognitive_report</code></td></tr>
+      <tr><td>State diff (tx range)</td><td><code>POST /v1/state/diff</code></td><td><code>compute_state_diff</code></td></tr>
+      <tr><td>Provenance chain</td><td><code>GET /v1/memory/:id/provenance</code></td><td><code>get_provenance</code></td></tr>
+      <tr><td>GDPR forget actor</td><td><code>DELETE /v1/actor/:id</code></td><td><code>forget_actor</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Two Integration Profiles</h3>
+  <div class="cards">
+    <div class="card">
+      <h4>Profile 0 — Zero Config (Passive)</h4>
+      <p>Agent doesn't call <code>add_memory</code> at all. Passive observers capture automatically:<br><br>
+      • <code>HipCortexCallbackHandler</code> — LangChain<br>
+      • <code>HipCortexCrewObserver</code> — CrewAI<br>
+      • <code>HipCortexAutoGenObserver</code> — AutoGen<br>
+      • VS Code extension — file saves + terminal<br><br>
+      All observers <strong>fail silently</strong> — never raise, never slow the agent loop.</p>
+    </div>
+    <div class="card">
+      <h4>Profile 1 — Standard (Explicit)</h4>
+      <p>Agent explicitly calls SDK tools. Full control over what gets stored and when.<br><br>
+      • <code>HipCortexClient.add_memory()</code> — Python<br>
+      • <code>HipCortexClient.addMemory()</code> — TypeScript<br>
+      • <code>add_memory</code> MCP tool<br>
+      • <code>make_memory_tools()</code> — inject into CrewAI agent tools<br><br>
+      Best for: structured goal-driven workflows.</p>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- ══════════════════════════════ SUMMARY ══════════════════════════════ -->
+<div class="section" id="summary">
+  <div class="section-header">
+    <div class="section-num">★</div>
+    <div><h2>The One-Paragraph Summary</h2></div>
+  </div>
+
+  <div class="feynman">
+    <p>When you give Claude Code a complex task with HipCortex installed: <strong>Step 1</strong> — past context auto-loads from memory into Claude's window before anything happens. <strong>Step 2</strong> — the task becomes a typed Goal record with measurable success criteria, SHA-256 integrity, and full audit trail. <strong>Step 3</strong> — ReactEngine loops Observe→Reflect→Act, writing evidence records at every step that are linked by provenance. <strong>Step 4</strong> — every observation automatically trains three parallel models: a probability model (what transitions are likely), a physics model (where are entities right now), and a causal model (what causes what). <strong>Step 5</strong> — if a Digital Twin is created, it simulates the future as a continuous state vector via RK4 integration with causal clamping, so you can ask "if I do X then Y, where will I end up?" before committing. <strong>When things go wrong</strong>, HipCortex has four recovery mechanisms: EWMA calibration (wrong predictions → beliefs decay, model reweights), Kalman correction (drifted state → observation snaps estimate back to reality), AAP credit assignment (wrong causal equation → identified and rewritten with full audit), and conflict resolution (contradictory beliefs → resolved by recency/confidence, loser archived). Everything — memories, mutations, interventions, rewrites — flows through <code>SafetyGuardrail</code> and is permanently logged to a Merkle-chained audit trail. The result: an agent that remembers, learns, simulates, self-corrects, and knows why it made every decision.</p>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<footer>
+  <strong>HipCortex v1.2.0</strong> — Causal SCM Continuous Substrate<br>
+  Apache-2.0 · <a href="https://github.com/farmountain/HipCortex" style="color:var(--accent)">github.com/farmountain/HipCortex</a>
+</footer>
+
+</body>
+</html>

@@ -92,6 +92,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|e| eprintln!("[TxLog] open error: {e}"))
         .ok();
     let coherence = Arc::new(CoherenceChecker::new());
+    coherence.set_consistency_topo(hipcortex::causal_topo::CausalTopoGraph::new());
     let calibration = Arc::new(CalibrationTracker::new());
     let cognitive = Arc::new(hipcortex::cognitive_state::CognitiveHandle::new(
         Arc::clone(&memory_store),

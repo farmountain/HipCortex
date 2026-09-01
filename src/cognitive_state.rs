@@ -205,6 +205,7 @@ pub struct CognitiveHandle<B: MemoryBackend + Send + Sync + 'static> {
     pub(crate) coherence: Arc<CoherenceChecker>,
     pub(crate) calibration: Arc<CalibrationTracker>,
     pub(crate) gc: Arc<CognitiveGC>,
+    pub(crate) emergence: Arc<Mutex<crate::emergence::EmergenceDetector>>,
     /// Optional Cold Store for archived records (Phase 4). None = archive silently skipped.
     pub(crate) archive_store: Option<Arc<Mutex<ArchiveStore>>>,
     /// Phase 4: multi-agent workspace registry.
@@ -239,6 +240,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
     ) -> Self {
         Self {
             memory, world, self_model, tx_log, coherence, calibration, gc,
+            emergence: Arc::new(Mutex::new(crate::emergence::EmergenceDetector::new())),
             archive_store: None,
             workspace_registry: Arc::new(Mutex::new(WorkspaceRegistry::new())),
         }
@@ -567,11 +569,49 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         match delta {
             CognitiveDelta::AddMemory(record) => {
                 let id = record.id;
+                let mem_type = record.record_type.clone();
+
+                // Memory write
                 self.memory
                     .lock()
                     .map_err(|_| CognitiveError::LockError)?
                     .add(record.clone())
                     .map_err(|e| CognitiveError::StoreError(e.to_string()))?;
+
+                // G1a: update world model; G2a: calibrate from transition entropy
+                if mem_type == MemoryType::Temporal {
+                    if let Ok(mut wm) = self.world.write() {
+                        crate::wm_updater::update_from_temporal(record, &mut wm);
+                        // Use same (from_state, action) key as update_from_temporal
+                        let wm_action = record
+                            .metadata
+                            .get("action")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("symbolic_step");
+                        let entropy = wm
+                            .get_transition_uncertainty(&record.target, wm_action)
+                            .unwrap_or(0.0) as f32;
+                        drop(wm);
+                        self.calibration.record_prediction_error(entropy);
+                    }
+                }
+
+                // G1b: invalidate stale beliefs on Temporal/Reflexion writes
+                if mem_type == MemoryType::Temporal || mem_type == MemoryType::Reflexion {
+                    if let Ok(mut store) = self.memory.lock() {
+                        crate::belief_invalidator::BeliefInvalidator::process(record, &mut store);
+                    }
+                }
+
+                // G1c: emergence detection on Temporal writes (lock order: emergence → memory)
+                if mem_type == MemoryType::Temporal {
+                    if let Ok(mut ed) = self.emergence.lock() {
+                        if let Ok(mut store) = self.memory.lock() {
+                            ed.on_temporal_write(&mut store, actor);
+                        }
+                    }
+                }
+
                 Ok(vec![id])
             }
 
@@ -987,6 +1027,13 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             overall_health: s.calibration_score,
             current_tx: s.current_tx,
         }
+    }
+
+    pub fn wm_transition_count(&self) -> usize {
+        self.world
+            .read()
+            .map(|wm| wm.transition_count())
+            .unwrap_or(0)
     }
 }
 

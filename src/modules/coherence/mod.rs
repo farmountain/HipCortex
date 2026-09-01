@@ -224,6 +224,12 @@ impl CoherenceChecker {
         }
     }
 
+    pub fn set_consistency_topo(&self, topo: crate::topological_memory::CausalTopoGraph) {
+        if let Ok(mut checker) = self.checker.write() {
+            checker.set_causal_topo(topo);
+        }
+    }
+
     // ========================================================================
     // Inconsistency Detection
     // ========================================================================

@@ -3736,6 +3736,27 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         })
     };
 
+    // POST /v1/loop/omega — run one omega loop iteration
+    let v1_loop_omega_route = {
+        let tg = topo_arc.clone();
+        post(move |Json(_req): Json<serde_json::Value>| async move {
+            let topo_clone = match tg.lock() {
+                Ok(t) => t.clone(),
+                Err(_) => {
+                    return Json(serde_json::json!({"ok": false, "error": "topo lock failed"}))
+                }
+            };
+            let mut engine = crate::loop_engine::LoopEngine::new(topo_clone);
+            match engine.run_omega_loop() {
+                Ok(()) => Json(serde_json::json!({
+                    "ok": true,
+                    "iterations": engine.metrics.iterations,
+                })),
+                Err(e) => Json(serde_json::json!({"ok": false, "error": e})),
+            }
+        })
+    };
+
     // GET /v1/state/tx — current tx counter
     let v1_state_tx_route = {
         let txl = tx_log_arc.clone();
@@ -3842,6 +3863,7 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/v1/memory/consolidate", v1_consolidate_route)
         .route("/v1/state/tx", v1_state_tx_route)
         .route("/v1/beliefs", v1_beliefs_route)
+        .route("/v1/loop/omega", v1_loop_omega_route)
         .layer(middleware::from_fn(api_key_middleware));
 
     axum::Server::bind(&addr)
