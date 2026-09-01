@@ -2,7 +2,7 @@
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
     "description": "HipCortex v1.2.0 — Causal SCM Continuous Substrate: structural equations, do-calculus interventions, counterfactual credit assignment, DigitalTwin RK4 clamping, ExperienceStore provenance, OOD invariance. Bundled multi-OS server (crate 1.2.0).",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "publisher": "farmountain",
     "repository": {
         "type": "git",

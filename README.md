@@ -28,6 +28,21 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 ---
 
+## What's new in v1.2.1 — Cognitive Substrate Closure
+
+| Capability | Details |
+|-----------|---------|
+| **WMUpdater auto-wired** | Every `AddMemory(Temporal)` now fires `update_from_temporal` → world model stays live without ReactEngine |
+| **BeliefInvalidator auto-wired** | Temporal/Reflexion writes automatically invalidate contradicting Symbolic beliefs via `apply_delta` |
+| **EmergenceDetector auto-wired** | Every 10th Temporal write triggers emergence scan; synthesised Beliefs written to Hot Store |
+| **Live calibration** | G2a: Dirichlet entropy from real WM transitions replaces hardcoded 0.0 signal in `CalibrationTracker` |
+| **Causal topo wired at startup** | `CoherenceChecker.set_consistency_topo()` called in webserver + MCP server; causal violations now detected |
+| **`POST /v1/loop/omega`** | REST endpoint exposes `LoopEngine.run_omega_loop()` — coverage gap detection, rollout sim, belief mutation |
+| **`run_omega_loop` MCP tool** | 20th MCP tool; agents can trigger one omega iteration from Claude Code / Cursor |
+| **550+ tests, 0 failures** | 358 unit + 53 property + 140 integration. All prior tests green. |
+
+---
+
 ## What's new in v1.2.0 — Causal SCM Continuous Substrate
 
 | Capability | Details |

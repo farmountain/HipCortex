@@ -1,13 +1,13 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v1.2.0`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v1.2.1`)
 
-[![Version](https://img.shields.io/badge/version-v1.2.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v1.2.1-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
 **Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, and topological graph tools.**
 
-VSIX **1.2.0** (Causal SCM Continuous Substrate) · server/pip/npm **1.2.0**. 406 tests pass (353 unit + 53 property). See [docs/channels.md](../docs/channels.md).
+VSIX **1.2.1** (Cognitive Substrate Closure) · server/pip/npm **1.2.1**. 551 tests pass (358 unit + 53 property + 140 integration). See [docs/channels.md](../docs/channels.md).
 
 ---
 
@@ -22,8 +22,25 @@ Install from Marketplace / Open VSX / GitHub release VSIX. Extension **starts a 
 - **Passive capture**: saves code edits and terminal output automatically when `hipcortex.passiveCapture` is `true`
 
 ```bash
-code --install-extension hipcortex-memory-1.2.0.vsix
+code --install-extension hipcortex-memory-1.2.1.vsix
 ```
+
+---
+
+## What's new in v1.2.1 — Cognitive Substrate Closure
+
+v1.2.1 closes 7 remaining cognitive architecture gaps: every `AddMemory(Temporal)` write now automatically fires the WorldModel updater, BeliefInvalidator, EmergenceDetector, and live calibration — not just inside ReactEngine but on every direct `add_memory` call. The causal topology is wired at startup. A new REST endpoint and MCP tool expose the Omega substrate loop.
+
+| Capability | Details |
+|-----------|---------|
+| **WMUpdater auto-wired (G1a)** | `apply_delta` AddMemory arm feeds every Temporal record into `WorldModelEnhanced` via `update_from_temporal` |
+| **BeliefInvalidator auto-wired (G1b)** | Temporal/Reflexion writes automatically invalidate contradicting Symbolic beliefs |
+| **EmergenceDetector auto-wired (G1c)** | Every 10th Temporal write triggers emergence scan; recurring patterns → new Beliefs |
+| **Live calibration signal (G2a)** | Dirichlet transition entropy replaces hardcoded 0.0 — `CalibrationTracker` now reflects real WM uncertainty |
+| **Causal topo wired at startup (G2c)** | `CoherenceChecker.set_consistency_topo()` called in server init; causal cycle violations now detected |
+| **`POST /v1/loop/omega`** | REST endpoint runs `LoopEngine.run_omega_loop()` — coverage gap detection, rollout, credit assignment |
+| **`run_omega_loop` MCP tool** | 20th MCP tool; agents invoke one omega iteration from Claude Code / Cursor |
+| **551 tests, 0 failures** | 358 unit + 53 property + 140 integration. All prior tests green. |
 
 ---
 
