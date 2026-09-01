@@ -1,13 +1,13 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v1.1.0`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v1.2.0`)
 
-[![Version](https://img.shields.io/badge/version-v1.1.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v1.2.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
 **Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, and topological graph tools.**
 
-VSIX **1.1.0** (Cognitive Loop Closure) · server/pip/npm **1.1.0**. 835 tests pass (339 lib + 348 unit + 138 integration + 10 property). See [docs/channels.md](../docs/channels.md).
+VSIX **1.2.0** (Causal SCM Continuous Substrate) · server/pip/npm **1.2.0**. 406 tests pass (353 unit + 53 property). See [docs/channels.md](../docs/channels.md).
 
 ---
 
@@ -22,8 +22,24 @@ Install from Marketplace / Open VSX / GitHub release VSIX. Extension **starts a 
 - **Passive capture**: saves code edits and terminal output automatically when `hipcortex.passiveCapture` is `true`
 
 ```bash
-code --install-extension hipcortex-memory-1.1.0.vsix
+code --install-extension hipcortex-memory-1.2.0.vsix
 ```
+
+---
+
+## What's new in v1.2.0 — Causal SCM Continuous Substrate
+
+v1.2.0 elevates the causal graph to the **primary executive layer**: structural equations, do-calculus interventions, counterfactual credit assignment, DigitalTwin RK4 clamping, and ExperienceStore causal provenance.
+
+| Capability | Details |
+|-----------|---------|
+| **Structural Equations** | `f_i(PA_i, U_i)` on every causal node via `StructuralEquation` trait |
+| **Interventions** | `CognitiveDelta::Intervene` mutates shared graph, writes Reflexion audit |
+| **Credit Assignment** | AAP triad (Abduction→Action→Prediction) isolates broken structural equation |
+| **DigitalTwin clamping** | `step()` clamps RK4 output to pinned vars — causal impulses override ODE |
+| **ExperienceStore provenance** | `rollout_hybrid` persists `causal_provenance` record to fork store |
+| **OOD invariance** | Perturbed nodes isolated; stable equations never blamed |
+| **MCP tools** | `causal_intervene`, `causal_counterfactual`, `causal_credit_assign`, `causal_rewrite_equation` |
 
 ---
 

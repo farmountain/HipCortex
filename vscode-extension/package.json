@@ -1,8 +1,8 @@
 {
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
-    "description": "HipCortex v1.1.0 — Cognitive Loop Closure: DecisionPayload, BeliefInvalidator, EmergenceDetector, GoalScheduler, CognitiveStateReport, WorldModel feedback, provenance chain, 10-AC acceptance suite. Bundled multi-OS server (crate 1.1.0).",
-    "version": "1.1.0",
+    "description": "HipCortex v1.2.0 — Causal SCM Continuous Substrate: structural equations, do-calculus interventions, counterfactual credit assignment, DigitalTwin RK4 clamping, ExperienceStore provenance, OOD invariance. Bundled multi-OS server (crate 1.2.0).",
+    "version": "1.2.0",
     "publisher": "farmountain",
     "repository": {
         "type": "git",

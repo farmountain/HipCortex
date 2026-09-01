@@ -28,6 +28,20 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 ---
 
+## What's new in v1.2.0 — Causal SCM Continuous Substrate
+
+| Capability | Details |
+|-----------|---------|
+| **Structural Equations** | Every causal node carries `f_i(PA_i, U_i)` via `StructuralEquation` trait. `LinearSE` is evaluable + invertible. |
+| **do-calculus** | `apply_intervention(var, val)` mutates shared graph in-place (persistent). `do_operator` clones for rollout simulation. |
+| **Counterfactual Credit Assignment** | Full AAP triad: Abduction → Action → Prediction. `CreditAssign` returns the single broken structural equation. OOD invariance: stable equations never blamed. |
+| **Continuous substrate as primary** | `DigitalTwin.step()` clamps RK4 output to pinned intervention vars — causal impulses override ODE dynamics. |
+| **ExperienceStore provenance** | `rollout_hybrid` with `causal_nodes` writes a `causal_provenance` record to the fork store. |
+| **Transactional gate** | All 4 SCM operators (`Intervene`, `Counterfactual`, `CreditAssign`, `RewriteStructuralEquation`) through `CognitiveDelta` with Reflexion audit records. |
+| **542 tests** | 353 unit + 53 property + 138 integration. 0 regressions. |
+
+---
+
 ## What's new in v1.1.0 — Cognitive Loop Closure
 
 | Capability | Details |
@@ -68,11 +82,11 @@ hipcortex install --url https://hipcortex.fly.dev   # optional managed endpoint
 npm install hipcortex
 ```
 
-**VS Code / Antigravity VSIX** (multi-OS server binaries bundled; extension **1.1.0**):  
+**VS Code / Antigravity VSIX** (multi-OS server binaries bundled; extension **1.2.0**):  
 Package from repo (`vscode-extension`) or latest GitHub Release VSIX. Mac/Linux auto-`chmod` bundled bins.
 
 ```bash
-code --install-extension hipcortex-memory-1.1.0.vsix
+code --install-extension hipcortex-memory-1.2.0.vsix
 ```
 
 Honest support matrix (what's native vs docs-only): **[docs/channels.md](docs/channels.md)** · CLI: `hipcortex channels`
@@ -156,4 +170,4 @@ We ship faster when users tell us what broke or what you love.
 | [DEPLOY.md](DEPLOY.md) | Self-host / Fly / Docker |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Build from source |
 
-**License:** [Apache-2.0](LICENSE) · **Version:** `1.1.0` · VSIX `1.1.0`
+**License:** [Apache-2.0](LICENSE) · **Version:** `1.2.0` · VSIX `1.2.0`
