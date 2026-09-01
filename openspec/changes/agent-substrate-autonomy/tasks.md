@@ -45,25 +45,25 @@ Use GitNexus for any symbol changes (impact before edit per AGENTS.md). Follow e
    - Use existing GraphDatabase trait + Hyp DAG.
    - Verification: Returns merged JSON (facts + beliefs + preds + score); used in SKILL examples; GitNexus on "symbolic" + "hypotheses" confirms merge points. Benchmarks show reduced calls.
 
-2.4 Expose trigger_reflexion more for agent CoT (minimal)
+2.4 Expose trigger_reflexion more for agent CoT (minimal) [x] (POST /memory/reflect route at web_server.rs:1043; trigger_reflexion at integration_layer.rs:191; documented with examples in docs/harness.md)
    - Files: src/modules/integration_layer.rs (already has), web_server.rs (ensure /memory/reflect uses it).
    - Make prominent in docs/harness.
    - Verification: Agent can call for substrate CoT (with WM prior + coherence); no new logic.
 
 ## Phase 3: Harness Definition, Multi-Agent, Docs
-3.1 Formalize Claude Agent Harness (SKILL as harness + examples)
+3.1 Formalize Claude Agent Harness (SKILL as harness + examples) [x] (docs/harness.md created: action space table, observations surface, ReAct loop pattern, trigger_reflexion CoT, multi-agent actor scoping, worked examples for Facebook replica + Kyoto trip)
    - Files: sdk/python/hipcortex/install/SKILL.md (as in 1.1), docs/usage.md, README (add "Harness" section), examples (new claude_harness.md or in sdk).
    - Per agent-harness-construction: detail action space (tools), observations (substrate outputs), to drive memory-centric loop (higher completion, minimal LLM).
    - Include multi-agent notes (actor scoping).
    - Verification: Harness doc exists; examples show agent using substrate first; SKILL content matches.
 
-3.2 Strengthen actor scoping for multi-agent policies
+3.2 Strengthen actor scoping for multi-agent policies [x] (cli.py:1508 --actor flag; cmd_install:715 reads actor, passes to _install_claude_code; actor-scoped queries in web_server; HIPCORTEX_ACTOR env in MCP server; multi-agent section in docs/harness.md)
    - Files: src/memory_record.rs (ensure actor), src/memory_store.rs / web_server (queries), cli.py (per-actor install note).
    - Add support in installer for --actor or global policy.
    - In substrate: policies can be per-actor (e.g., different SKILL variants per git).
    - Verification: Multi-actor (e.g., Claude + shell) share without conflict; policies scoped. Tests cover actor filter.
 
-3.3 Update docs, examples, registration
+3.3 Update docs, examples, registration [x] (README.md: v1.3.0 What's new section with token reduction numbers; vscode-extension/README.md: v1.3.0 section; docs/harness.md: Memory-Centric ReAct Loop section; harness.md: compliance targets table 70-99%)
    - Files: README.md (add memory-centric harness section + reduction numbers), docs/usage.md, docs/integration.md, sdk examples (langchain etc. to use new surface), CLAUDE.md registration (via installer).
    - Add "Memory Centric Loop" example (perceive → substrate heavy → minimal LLM).
    - Verification: Docs build; examples run; GitNexus confirms no broken links/flows.

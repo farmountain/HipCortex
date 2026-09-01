@@ -1,13 +1,13 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v1.2.1`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v1.3.0`)
 
-[![Version](https://img.shields.io/badge/version-v1.2.1-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v1.3.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
 **Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, and topological graph tools.**
 
-VSIX **1.2.1** (Cognitive Substrate Closure) · server/pip/npm **1.2.1**. 551 tests pass (358 unit + 53 property + 140 integration). See [docs/channels.md](../docs/channels.md).
+VSIX **1.3.0** (Autonomous Agent Harness) · server/pip/npm **1.3.0**. 551 tests pass (358 unit + 53 property + 140 integration). See [docs/channels.md](../docs/channels.md).
 
 ---
 
@@ -24,6 +24,32 @@ Install from Marketplace / Open VSX / GitHub release VSIX. Extension **starts a 
 ```bash
 code --install-extension hipcortex-memory-1.2.1.vsix
 ```
+
+---
+
+## What's new in v1.3.0 — Autonomous Agent Harness
+
+v1.3.0 completes the agent-substrate-autonomy milestone. HipCortex is now a full autonomous agent harness: proactive substrate-first mode, unified live_beliefs surface, AgentMessage auto-ingest, and ReAct goal loop — all wired end-to-end.
+
+| Capability | Details |
+|-----------|---------|
+| **Proactive harness mode** | `hipcortex install --mode proactive` — SKILL mandates `get_live_beliefs` before every response; 70-99% LLM token reduction |
+| **Unified `live_beliefs`** | `GET /memory/live_beliefs` returns symbolic facts + code KG + hypotheses + world preds + self/coherence intel in one call |
+| **AgentMessage auto-ingest** | `HIPCORTEX_AGENT_DEFAULTS=1` — PerceptionSession wired for agent paths; messages auto-stored as Temporal records |
+| **Multi-agent `--actor`** | `hipcortex install --actor <name>` — per-actor SKILL install; shared substrate, no cross-actor contamination |
+| **ReAct goal loop** | `ReactEngine` + `LoopEngine.run_omega_loop()` — goal-driven iterations with causal attribution on surprise |
+| **`/memory/reflect`** | `POST /memory/reflect` — substrate chain-of-thought via AureusBridge (world prior + coherence before LLM output) |
+| **G2a calibration fidelity** | `calibrate_after_tx` no longer zeroes entropy — CalibrationTracker gets unattenuated Dirichlet signal |
+| **`docs/harness.md`** | Full agent harness reference with worked examples (Facebook replica, Kyoto trip) |
+
+---
+
+## What's new in v1.2.2 — Calibration Fidelity
+
+| Fix | Details |
+|-----|---------|
+| **G2a calibration signal unattenuated** | `calibrate_after_tx` no longer calls `record_prediction_error(0.0)` — Dirichlet transition entropy from G2a is now the sole, unattenuated signal feeding `CalibrationTracker` |
+| **Version stamp corrections** | Stale `1.2.0`/`1.1.0` references in README and VSIX packaging example updated |
 
 ---
 
@@ -283,7 +309,7 @@ npm test
 npx @vscode/vsce package --no-dependencies
 ```
 
-Produces `hipcortex-memory-1.1.0.vsix` (version from `package.json`).
+Produces `hipcortex-memory-1.2.1.vsix` (version from `package.json`).
 
 ---
 

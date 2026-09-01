@@ -562,7 +562,6 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             );
             self.calibration.update_from_store(&*store, pressure, tx_cursor);
         }
-        self.calibration.record_prediction_error(0.0);
     }
 
     fn apply_delta(&self, delta: &CognitiveDelta, actor: &str) -> Result<Vec<Uuid>, CognitiveError> {

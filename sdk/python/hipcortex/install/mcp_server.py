@@ -1539,7 +1539,7 @@ def main() -> None:
             respond(id_, {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}, "resources": {}},
-                "serverInfo": {"name": "hipcortex", "version": "1.2.1"},
+                "serverInfo": {"name": "hipcortex", "version": "1.3.0"},
             })
         elif method == "initialized":
             pass  # notification — no response

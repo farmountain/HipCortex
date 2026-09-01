@@ -28,6 +28,30 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 ---
 
+## What's new in v1.3.0 — Autonomous Agent Harness
+
+| Capability | Details |
+|-----------|---------|
+| **Proactive harness mode** | `hipcortex install --mode proactive` — SKILL.md mandates `get_live_beliefs` before every project-state question; substrate carries state, not LLM context |
+| **Unified `live_beliefs` surface** | `GET /memory/live_beliefs` merges symbolic facts, code KG, Aureus hypotheses, world model predictions, and self/coherence intel in one call |
+| **AgentMessage auto-ingest** | `HIPCORTEX_AGENT_DEFAULTS=1` — PerceptionSession wired by default for agent paths; incoming messages auto-stored as low-priority Temporal records |
+| **Multi-agent actor scoping** | `hipcortex install --actor <name>` — per-actor SKILL install; shared substrate with no cross-actor contamination |
+| **`POST /memory/reflect`** | Substrate chain-of-thought via AureusBridge — world-model prior + coherence check before LLM final output |
+| **G2a calibration fidelity** | `calibrate_after_tx` no longer zeroes prediction error — unattenuated Dirichlet entropy feeds CalibrationTracker |
+| **`docs/harness.md`** | Full agent harness reference: action space, observations, ReAct loop pattern, multi-agent notes |
+| **551 tests, 0 failures** | All prior tests green. |
+
+---
+
+## What's new in v1.2.2 — Calibration Fidelity
+
+| Fix | Details |
+|-----|---------|
+| **G2a calibration signal unattenuated** | `calibrate_after_tx` no longer calls `record_prediction_error(0.0)` after every transaction — the Dirichlet entropy set by G2a in `apply_delta` is now the sole prediction-error signal, not silently damped by 0.9× |
+| **README version stamps corrected** | All `1.2.0` / `1.1.0` stale references in README and VSIX description updated |
+
+---
+
 ## What's new in v1.2.1 — Cognitive Substrate Closure
 
 | Capability | Details |
@@ -97,11 +121,11 @@ hipcortex install --url https://hipcortex.fly.dev   # optional managed endpoint
 npm install hipcortex
 ```
 
-**VS Code / Antigravity VSIX** (multi-OS server binaries bundled; extension **1.2.0**):  
+**VS Code / Antigravity VSIX** (multi-OS server binaries bundled; extension **1.2.1**):  
 Package from repo (`vscode-extension`) or latest GitHub Release VSIX. Mac/Linux auto-`chmod` bundled bins.
 
 ```bash
-code --install-extension hipcortex-memory-1.2.0.vsix
+code --install-extension hipcortex-memory-1.2.1.vsix
 ```
 
 Honest support matrix (what's native vs docs-only): **[docs/channels.md](docs/channels.md)** · CLI: `hipcortex channels`
@@ -185,4 +209,4 @@ We ship faster when users tell us what broke or what you love.
 | [DEPLOY.md](DEPLOY.md) | Self-host / Fly / Docker |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Build from source |
 
-**License:** [Apache-2.0](LICENSE) · **Version:** `1.2.0` · VSIX `1.2.0`
+**License:** [Apache-2.0](LICENSE) · **Version:** `1.3.0` · VSIX `1.3.0`
