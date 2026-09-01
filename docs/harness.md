@@ -24,13 +24,44 @@ Claude Code (LLM) — language surface only
        └─ minimal LLM output ◄────────────────┘
 ```
 
+## Tool Discovery (start here for complex tasks)
+
+Before starting any complex multi-step task, call `recommend_tools` to get the right MCP servers, skills, and setup commands for your use case:
+
+```bash
+# Via MCP tool (preferred)
+recommend_tools(task="Build a full-stack Facebook replica")
+
+# Via REST
+curl -X POST http://localhost:3030/agent/recommend-tools \
+  -H "Content-Type: application/json" \
+  -d '{"task": "Plan a 7-day Kyoto trip with hotel and flight costs"}'
+```
+
+Returns:
+```json
+{
+  "task_category": "web_research",
+  "mcp_servers": [
+    {"name": "playwright", "install": "npx @playwright/mcp", "use_for": "Browser automation"},
+    {"name": "fetch", "install": "npx @modelcontextprotocol/server-fetch", "use_for": "Fetch HTML/JSON"}
+  ],
+  "setup_commands": ["pip install hipcortex", "hipcortex install --mode proactive", "npx @playwright/mcp install"],
+  "react_goal_template": "{\"success_factors\":[\"data_collected\",\"cost_computed\"],\"max_react_iterations\":30}"
+}
+```
+
+Use `react_goal_template` as the starting `GoalPayload` for the ReAct loop. Install the `mcp_servers` before starting work.
+
+**Supported categories:** `web_research` · `full_stack_dev` · `data_analysis` · `devops` · `code_review` · `agent_orchestration` · `content_creation` · `general`
+
 ## Harness Installation
 
 ```bash
 # Standard (conservative) — explicit invocation
 hipcortex install
 
-# Proactive (substrate-first) — MUST substrate before every response
+# Proactive (substrate-first) — strongly recommends substrate before every response
 hipcortex install --mode proactive
 
 # Per-actor (multi-agent) — scoped actor namespace

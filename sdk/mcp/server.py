@@ -744,6 +744,20 @@ TOOLS = [
             "required": [],
         },
     },
+    {
+        "name": "recommend_tools",
+        "description": "POST /agent/recommend-tools — given a task description, returns recommended MCP servers, skills, tech stack, and setup commands. CALL THIS FIRST for any complex multi-step task before starting the ReAct loop.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task": {
+                    "type": "string",
+                    "description": "Natural language description of the task (e.g. 'build a full-stack app', 'research hotel costs for Kyoto trip').",
+                },
+            },
+            "required": ["task"],
+        },
+    },
 ]
 
 RESOURCES = [
@@ -1361,6 +1375,11 @@ def handle_run_omega_loop(args: dict) -> str:
     r = _req("POST", "/v1/loop/omega", {})
     return json.dumps(r)
 
+def handle_recommend_tools(args: dict) -> str:
+    task = args.get("task", "")
+    r = _req("POST", "/agent/recommend-tools", {"task": task})
+    return json.dumps(r)
+
 def dispatch_tool(name: str, args: dict) -> str:
     global _live_beliefs_seen
     handlers = {
@@ -1415,6 +1434,7 @@ def dispatch_tool(name: str, args: dict) -> str:
         "list_authorized_actions": handle_list_authorized_actions,
         "get_provenance":          handle_get_provenance,
         "run_omega_loop":          handle_run_omega_loop,
+        "recommend_tools":         handle_recommend_tools,
     }
     handler = handlers.get(name)
     if handler is None:

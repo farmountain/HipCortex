@@ -988,6 +988,7 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
         .route("/memory/contradict/:id", contradict_route)
         .route("/memory/context", context_route)
         .route("/memory/live_beliefs", live_beliefs_route)
+        .route("/agent/recommend-tools", post(handle_agent_recommend_tools))
         .route("/memory/:id",             delete_memory_route)
         .route("/metrics", metrics_route)
         .route("/stats", stats_route)
@@ -6428,4 +6429,10 @@ async fn handle_health_summary(
             "transitions_observed": wm_transition_count,
         },
     }))
+}
+
+async fn handle_agent_recommend_tools(Json(req): Json<serde_json::Value>) -> Json<serde_json::Value> {
+    let task = req.get("task").and_then(|v| v.as_str()).unwrap_or("");
+    let rec = crate::task_discovery::recommend(task);
+    Json(serde_json::to_value(rec).unwrap_or(serde_json::json!({"error": "serialization failed"})))
 }

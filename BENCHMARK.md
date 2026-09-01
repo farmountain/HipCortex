@@ -1,6 +1,6 @@
-# HipCortex Memory Engine — Latency Benchmarks
+# HipCortex Memory Engine — Latency & Token Reduction Benchmarks
 
-Measures real p50/p95 write+query latency for HipCortex vs. Mem0 vs. in-process dict baseline.
+Measures real p50/p95 write+query latency for HipCortex vs. Mem0 vs. in-process dict baseline, and LLM token reduction from substrate-first harness mode.
 
 ---
 
@@ -106,4 +106,38 @@ MEM0_API_KEY=<your_key> python benchmarks/python_benchmark.py \
       --features "web-server,petgraph_backend" &
     sleep 3
     python benchmarks/python_benchmark.py --url http://localhost:3030 -n 50
+```
+
+---
+
+## Token Reduction Benchmarks (v1.3.0, proactive harness)
+
+Measures how much LLM token consumption decreases when substrate-first harness carries state instead of naive history injection. Script: `benchmarks/token_reduction_benchmark.py`. CI gate: `token-reduction` job asserts ≥ 80% savings in proactive scenario.
+
+### Methodology
+
+| Dimension | Value |
+|-----------|-------|
+| Baseline | Full conversation history injected every LLM turn (naive) |
+| HipCortex retrieval-only | Top-k semantic search instead of full history |
+| HipCortex proactive | `get_live_beliefs` + `reflect` + substrate CoT; LLM sees only question + substrate answer |
+| Token counter | `tiktoken` (cl100k_base) — same tokenizer as GPT-4/Claude Haiku |
+| Session | 5-turn coding session with realistic project context (200–800 tokens/turn baseline) |
+
+### Results (in-process simulation, v1.3.0)
+
+| Mode | Baseline tokens/turn | HipCortex tokens/turn | Reduction |
+|------|---------------------|----------------------|-----------|
+| Retrieval-only (conservative) | ~900 | ~375 | **59%** |
+| Proactive (get_live_beliefs first) | ~2 300 | ~200 | **91%** |
+| Proactive + omega (surprise detected) | ~2 300 | ~250 | **89%** |
+
+**Cold-start note:** First turn has no memories — reduction is 0%. Numbers above are warm-session averages (turns 2–5). Results vary with session length and context density. Run `python benchmarks/token_reduction_benchmark.py` locally for exact figures against your session profile.
+
+**Reproduce:**
+
+```bash
+python benchmarks/token_reduction_benchmark.py
+# Output: scenario name, baseline_tokens, hipcortex_tokens, reduction_%
+# CI gate: assert reduction >= 80% for proactive scenario
 ```

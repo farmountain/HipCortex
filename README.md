@@ -32,7 +32,8 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 | Capability | Details |
 |-----------|---------|
-| **Proactive harness mode** | `hipcortex install --mode proactive` — SKILL.md mandates `get_live_beliefs` before every project-state question; substrate carries state, not LLM context |
+| **Tool Discovery (self-prompting)** | `recommend_tools(task=<description>)` — agent self-prompts to discover required MCP servers, skills, tech stack, and setup commands before starting any complex task |
+| **Proactive harness mode** | `hipcortex install --mode proactive` — SKILL.md strongly recommends `get_live_beliefs` before every project-state question; substrate carries state, not LLM context |
 | **Unified `live_beliefs` surface** | `GET /memory/live_beliefs` merges symbolic facts, code KG, Aureus hypotheses, world model predictions, and self/coherence intel in one call |
 | **AgentMessage auto-ingest** | `HIPCORTEX_AGENT_DEFAULTS=1` — PerceptionSession wired by default for agent paths; incoming messages auto-stored as low-priority Temporal records |
 | **Multi-agent actor scoping** | `hipcortex install --actor <name>` — per-actor SKILL install; shared substrate with no cross-actor contamination |
@@ -121,11 +122,11 @@ hipcortex install --url https://hipcortex.fly.dev   # optional managed endpoint
 npm install hipcortex
 ```
 
-**VS Code / Antigravity VSIX** (multi-OS server binaries bundled; extension **1.2.1**):  
+**VS Code / Antigravity VSIX** (multi-OS server binaries bundled; extension **1.3.0**):  
 Package from repo (`vscode-extension`) or latest GitHub Release VSIX. Mac/Linux auto-`chmod` bundled bins.
 
 ```bash
-code --install-extension hipcortex-memory-1.2.1.vsix
+code --install-extension hipcortex-memory-1.3.0.vsix
 ```
 
 Honest support matrix (what's native vs docs-only): **[docs/channels.md](docs/channels.md)** · CLI: `hipcortex channels`

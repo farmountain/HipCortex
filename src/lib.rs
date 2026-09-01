@@ -3,6 +3,7 @@
 
 pub mod a2a_protocol;
 pub mod action_registry;
+pub mod task_discovery;
 pub mod archive_store;
 #[cfg(feature = "async-store")]
 pub mod async_memory_store;
