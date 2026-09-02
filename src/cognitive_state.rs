@@ -515,9 +515,16 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
                 if !matches!(rec.record_type, MemoryType::Temporal | MemoryType::Symbolic) {
                     continue;
                 }
+                // Normalize action: lowercase + strip non-alphanumeric so "Store Memory"
+                // == "store_memory" == "store-memory" collapse to same fingerprint.
+                let norm_action: String = rec.action
+                    .to_lowercase()
+                    .chars()
+                    .filter(|c| c.is_alphanumeric())
+                    .collect();
                 let fp = format!(
                     "{}\x00{}\x00{}\x00{:?}",
-                    rec.actor, rec.action, rec.target, rec.record_type
+                    rec.actor, norm_action, rec.target, rec.record_type
                 );
                 groups.entry(fp).or_default().push(rec.id);
             }

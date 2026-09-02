@@ -149,3 +149,50 @@ fn ac6i_dominant_wm_belief_passes_wm_gate() {
     // Contrast: ac6h sparse WM confidence=0.2 DOES block rollout; here WM gate does not block.
     let _ops = list_authorized_world_model(&sm, &wm); // must not panic
 }
+
+// ─── Gap 5: Auth WM-policy for react_loop and credit_assign ──────────────────
+
+/// AC-6j: react_loop must be blocked when WM has 0 transitions (WM-policy gate).
+#[test]
+fn ac6j_react_loop_blocked_without_wm_transitions() {
+    let sm = SelfModel::new();
+    let wm = WorldModelEnhanced::new(); // 0 transitions
+    assert_eq!(wm.transition_count(), 0, "precondition: no transitions");
+    let ops = list_authorized_world_model(&sm, &wm);
+    let has_react = ops.iter().any(|o| o.op == "react_loop");
+    assert!(
+        !has_react,
+        "AC-6j: react_loop must be blocked when WM has 0 transitions"
+    );
+}
+
+/// AC-6k: WM with ≥1 transition lets react_loop through the WM-policy gate.
+/// WM_CONSTRAINTS must declare react_loop with requires_wm=true.
+#[test]
+fn ac6k_react_loop_wm_gate_passes_with_transitions() {
+    let sm = SelfModel::new();
+    let mut wm = WorldModelEnhanced::new();
+    wm.observe_transition("s0".to_string(), "act".to_string(), "s1".to_string());
+    assert!(wm.transition_count() > 0, "precondition: has transitions");
+    // Constraint declared with requires_wm=true
+    let c = WM_CONSTRAINTS.iter().find(|c| c.op == "react_loop")
+        .expect("AC-6k: react_loop must be in WM_CONSTRAINTS");
+    assert!(c.requires_wm, "AC-6k: react_loop requires_wm must be true");
+    // WM gate does not block; SelfModel determines final auth — must not panic
+    let _ops = list_authorized_world_model(&sm, &wm);
+}
+
+/// AC-6l: credit_assign must be blocked when WM has neither causal nodes nor transitions.
+#[test]
+fn ac6l_credit_assign_blocked_without_wm_causal_or_transitions() {
+    let sm = SelfModel::new();
+    let wm = WorldModelEnhanced::new(); // 0 causal nodes, 0 transitions
+    assert_eq!(wm.causal_node_count(), 0, "precondition: no causal nodes");
+    assert_eq!(wm.transition_count(), 0, "precondition: no transitions");
+    let ops = list_authorized_world_model(&sm, &wm);
+    let has_credit = ops.iter().any(|o| o.op == "credit_assign");
+    assert!(
+        !has_credit,
+        "AC-6l: credit_assign must be blocked when WM has 0 causal nodes and 0 transitions"
+    );
+}

@@ -200,26 +200,13 @@ impl SubstrateDaemon {
                     let should_consolidate = pressure > config.pressure_threshold;
                     if let Ok(mut sc) = sc_clone.lock() { sc[2] += 1; }
 
-                    // Stage 3: CriticVeto — use real active goal when available; dummy otherwise (Gap 1)
+                    // Stage 3: CriticVeto — only against real active goals.
+                    // Idle daemon (no goal) must not veto maintenance: dummy-goal always passes.
                     // When vetoed, writes Decision{rejected, rationale_chain} to memory.
-                    let vetoed = {
+                    let vetoed = if let Some((_, ref goal_payload)) = active_goal {
                         use crate::loop_gates::{CriticDecision, CriticGate};
-                        use crate::payloads::{GoalPayload, SuccessFactor};
-                        let goal = active_goal
-                            .as_ref()
-                            .map(|(_, p)| p.clone())
-                            .unwrap_or_else(|| GoalPayload {
-                                target_state: "daemon_step".to_string(),
-                                success_factors: vec![SuccessFactor {
-                                    name: "iteration complete".to_string(),
-                                    weight: 1.0,
-                                    satisfied: false,
-                                }],
-                                ..Default::default()
-                            });
-                        match CriticGate::evaluate(&goal, "daemon_step", loop_iter) {
+                        match CriticGate::evaluate(goal_payload, "daemon_step", loop_iter) {
                             CriticDecision::Rejected { rationale } => {
-                                // Write Decision{rejected} with rationale chain.
                                 use crate::memory_record::{MemoryRecord, MemoryType};
                                 use crate::payloads::DecisionPayload;
                                 let dp = DecisionPayload {
@@ -245,6 +232,8 @@ impl SubstrateDaemon {
                             }
                             CriticDecision::Approved { .. } => false,
                         }
+                    } else {
+                        false // idle daemon — no goal to veto against, maintenance always runs
                     };
                     if let Ok(mut sc) = sc_clone.lock() { sc[3] += 1; }
 
@@ -267,12 +256,22 @@ impl SubstrateDaemon {
                                 &actor_clone,
                             );
                         }
-                        // Drive active goal one ReAct round (daemon owns the loop).
-                        if let Some((goal_id, _)) = &active_goal {
+                        // Drive active goal: FullCycle exhausts loop in one tick; StepByStep
+                        // advances one ReAct iteration per tick, keeping goal InProgress across
+                        // daemon ticks so CriticGate can veto at iter ≥ 1.
+                        if let Some((goal_id, goal_payload)) = &active_goal {
                             use crate::loop_engine::ReactEngine;
+                            use crate::payloads::GoalExecutionMode;
                             let mut engine = ReactEngine::new();
                             if let Ok(mut ms) = cognitive.memory.lock() {
-                                let _ = engine.run(&mut ms, *goal_id, 0u32);
+                                match goal_payload.execution_mode {
+                                    GoalExecutionMode::StepByStep => {
+                                        let _ = engine.run_one_step(&mut ms, *goal_id, 0u32);
+                                    }
+                                    GoalExecutionMode::FullCycle => {
+                                        let _ = engine.run(&mut ms, *goal_id, 0u32);
+                                    }
+                                }
                             }
                         }
                         // Gap C: OLS-weight SCM rewrite — use computed coefficient, not placeholder.
@@ -309,7 +308,10 @@ impl SubstrateDaemon {
                         let _ = ms.add(rec);
 
                         // Gap 8: write one Temporal per WM entity (continuous dynamics bridge)
+                        // Gap 4-verifier: annotate uncertain entity states — VerifierGate operates on
+                        // strings and cannot block continuous Kalman writes, so we annotate instead.
                         if let Ok(wm) = cognitive.world.read() {
+                            let most_uncertain = wm.most_uncertain_entity();
                             for (entity_name, mean_vec) in wm.entity_mean_vectors() {
                                 let snap = MemoryRecord::new(
                                     MemoryType::Temporal,
@@ -319,6 +321,17 @@ impl SubstrateDaemon {
                                     serde_json::json!({ "mean": mean_vec }),
                                 );
                                 let _ = ms.add(snap);
+                                // Annotate when this entity is the most uncertain (trace > 1.0).
+                                if most_uncertain.as_deref() == Some(entity_name.as_str()) {
+                                    let annot = MemoryRecord::new(
+                                        MemoryType::Belief,
+                                        actor_clone.clone(),
+                                        "entity_state_uncertain".to_string(),
+                                        entity_name.clone(),
+                                        serde_json::json!({ "covariance_trace_above_threshold": true }),
+                                    );
+                                    let _ = ms.add(annot);
+                                }
                             }
                         }
                     }

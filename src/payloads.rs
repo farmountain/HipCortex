@@ -31,6 +31,17 @@ pub enum GoalStatus {
     Abandoned,
 }
 
+/// Controls how the daemon drives a goal through its ReAct iterations.
+/// `FullCycle` (default): `ReactEngine::run()` exhausts all iterations in one daemon tick.
+/// `StepByStep`: daemon advances exactly one ReAct iteration per tick via `run_one_step()`,
+/// keeping the goal InProgress across ticks — enables CriticGate veto at iter ≥ 1.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub enum GoalExecutionMode {
+    #[default]
+    FullCycle,
+    StepByStep,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct GoalPayload {
     pub target_state: String,
@@ -41,6 +52,9 @@ pub struct GoalPayload {
     pub status: GoalStatus,
     #[serde(default)]
     pub current_iteration: u32,
+    /// FullCycle (default) = entire loop per daemon tick; StepByStep = one iter per tick.
+    #[serde(default)]
+    pub execution_mode: GoalExecutionMode,
     /// 0.0–1.0 priority signal; higher = schedule sooner. Default 0.5.
     #[serde(default = "default_urgency")]
     pub urgency: f64,

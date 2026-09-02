@@ -1,13 +1,23 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v1.3.0`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v1.6.3`)
 
-[![Version](https://img.shields.io/badge/version-v1.3.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v1.6.3-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
 **Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, and topological graph tools.**
 
-VSIX **1.3.0** (Autonomous Agent Harness) · server/pip/npm **1.3.0**. 551 tests pass (358 unit + 53 property + 140 integration). See [docs/channels.md](../docs/channels.md).
+VSIX **1.6.3** (Dual-mode ReactEngine) · server/pip/npm **1.6.3**. 652 tests pass (430 unit + 56 property + 158 integration + 8 acceptance). See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v1.6.3 — Dual-mode ReactEngine
+
+| Change | Details |
+|--------|---------|
+| **GoalExecutionMode::StepByStep** | One ReAct iteration per daemon tick — goal persists `InProgress` across ticks, CriticGate veto structurally achievable at iter ≥ 1 |
+| **GoalExecutionMode::FullCycle** | Default — `ReactEngine::run()` exhausts all iterations in one tick (backward-compatible) |
+| **`ReactEngine::run_one_step()`** | Writes Temporal + Reflexion per step; increments `current_iteration`; leaves `InProgress` until done |
 
 ---
 

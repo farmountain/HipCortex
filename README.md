@@ -28,6 +28,35 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 ---
 
+## What's new in v1.6.3 — Dual-mode ReactEngine (StepByStep + FullCycle)
+
+Closes the structural limit where CriticGate veto at iter ≥ 1 could never fire.
+
+| Change | Details |
+|--------|---------|
+| **GoalExecutionMode::StepByStep** | New field on `GoalPayload` — daemon advances exactly one ReAct iteration per tick; goal persists `InProgress` across daemon ticks, enabling CriticGate veto at iter ≥ 1 |
+| **GoalExecutionMode::FullCycle** | Default (backward-compatible) — `ReactEngine::run()` exhausts all iterations in one daemon tick, goal terminates per tick |
+| **`ReactEngine::run_one_step()`** | Writes 1 Temporal + 1 Reflexion per call; increments `current_iteration`; returns `InProgress` until exhausted or all success_factors satisfied |
+| **CriticGate veto now structurally achievable at iter ≥ 1** | With StepByStep, `CriticGate::evaluate(goal, "daemon_step", loop_iter=1)` fires against a live goal; proven by test writing 2 `Decision{critic_veto}` while `current_iteration` stays locked at 1 |
+| | **652 tests, 0 failures** | 430 unit · 158 integration · 56 property · 8 acceptance |
+
+---
+
+## What's new in v1.6.2 — Cognitive Gap Closure (Gaps 1–5)
+
+Five production gaps in the cognitive loop closed and test-covered.
+
+| Gap | Capability | Details |
+|-----|-----------|---------|
+| **1+3 — Idle daemon no veto** | Idle maintenance never blocked | When no clarified InProgress goal exists, `vetoed=false` — AutoConsolidate and OLS rewrites always run; no spurious `Decision{critic_veto}` for idle ticks |
+| **2 — Semantic dedup** | Normalized action fingerprint | `AutoConsolidate` fingerprint = `(actor, lowercase+alphanumeric(action), target, type)` — "CleanUp", "clean_up", "cleanup" all deduplicate to one record |
+| **4 — Verifier uncertain entity** | Entity uncertainty annotation | Daemon Stage 6 writes `Belief{action=entity_state_uncertain}` for the entity with highest Kalman covariance trace (> 1.0); world model tracks which entities need better data |
+| **5 — WM-policy auth** | `react_loop` + `credit_assign` WM gates | `WM_CONSTRAINTS` declares both ops with `requires_wm=true`; `react_loop` blocked until `transition_count > 0`; `credit_assign` blocked until `causal_node_count > 0 \|\| transition_count > 0` |
+| **CriticGate iter-0 invariant** | Iter 0 always approves | `CriticGate::evaluate` at `loop_iter=0` is always `Approved` — daemon first tick never vetoes its own first act |
+| | **640 tests, 0 failures** | 426 unit · 158 integration · 56 property |
+
+---
+
 ## What's new in v1.6.1 — Daemon Loop Ownership + Critic Executive Veto
 
 Daemon now fully owns the cognitive loop and critic is executive (not advisory).

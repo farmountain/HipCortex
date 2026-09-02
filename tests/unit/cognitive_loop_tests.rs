@@ -553,52 +553,84 @@ fn ac_abs_structural_dedup_contracts_identical_records() {
 
 // ─── Gap H/I: Critic executive veto ──────────────────────────────────────────
 
-/// AC-veto-a: At iteration 1 the critic gate vetos (0 satisfied / 1 required < 0.25 threshold).
-/// Daemon must write a Decision{action="critic_veto", option_chosen="rejected"} record.
+/// AC-veto-a: CriticGate always approves at loop_iter==0 (iter-0 invariant).
+/// With a real InProgress goal present, daemon iter 0: approved → OLS rewrite fires.
+/// ReactEngine exhausts the goal (marks Failed) in the same Act stage. No Decision{critic_veto}.
+/// Contrast with ac_idle_a/b which prove idle daemon (no goal) also never writes critic_veto.
 #[test]
 fn ac_veto_a_critic_veto_writes_decision_rejected() {
+    use hipcortex::cognitive_state::CognitiveDelta;
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+    use hipcortex::payloads::{GoalPayload, GoalStatus, SuccessFactor};
+
     let cog = make_cognitive();
 
-    // 2 iterations: iter 0 always passes, iter 1 vetos (dummy goal 0/1 satisfied)
+    // Real InProgress goal — CriticGate will evaluate it (not the dummy-goal from the old bug).
+    let payload = GoalPayload {
+        target_state: "veto_target".into(),
+        success_factors: vec![SuccessFactor { name: "not_done".into(), weight: 1.0, satisfied: false }],
+        status: GoalStatus::InProgress,
+        max_react_iterations: 1,
+        ..Default::default()
+    };
+    let meta = serde_json::to_value(&payload).unwrap();
+    let goal_rec = MemoryRecord::new(MemoryType::Goal, "veto-agent".into(), "pursue".into(), "veto_target".into(), meta);
+    cog.transact(CognitiveDelta::AddMemory(goal_rec), "veto-agent").unwrap();
+
+    // OLS drift: ≥2 observations required; ols_weight = |Σxy/Σx²| = 2.0 > 0.3
+    cog.add_causal_node("veto_a_node".into()).unwrap();
+    cog.observe_prediction_drift("veto_a_node", 0.9, 1.0, 2.0);
+    cog.observe_prediction_drift("veto_a_node", 0.9, 1.0, 2.0);
+
+    // 1 iteration: iter 0 — CriticGate always approves → OLS rewrite fires → ReactEngine marks goal Failed.
     let mut daemon = SubstrateDaemon::new();
-    let id = daemon.subscribe_with_config("veto-agent".into(), cog.clone(), fast_config(2));
-    let reached = wait_iterations(&daemon, id, 2, 5000);
-    assert!(reached, "AC-veto-a: daemon must complete 2 iterations");
+    let id = daemon.subscribe_with_config("veto-agent".into(), cog.clone(), fast_config(1));
+    let reached = wait_iterations(&daemon, id, 1, 3000);
+    assert!(reached, "AC-veto-a: daemon must complete 1 iteration");
 
     let ms = cog.memory.lock().unwrap();
-    let decisions: Vec<_> = ms.all().iter()
-        .filter(|r| r.record_type == hipcortex::memory_record::MemoryType::Decision
-            && r.action == "critic_veto")
+    // iter 0 always approved → OLS rewrite fires
+    let rewrites: Vec<_> = ms.all().iter()
+        .filter(|r| r.action == "rewrite_equation" && r.target == "veto_a_node")
         .collect();
-    assert!(
-        !decisions.is_empty(),
-        "AC-veto-a: daemon must write Decision{{action=critic_veto}} when critic vetos at iter 1"
-    );
-    // Verify option_chosen == "rejected"
-    let payload: hipcortex::payloads::DecisionPayload =
-        serde_json::from_value(decisions[0].metadata.clone()).unwrap_or_default();
-    assert_eq!(
-        payload.option_chosen, "rejected",
-        "AC-veto-a: Decision.option_chosen must be 'rejected'"
-    );
-    assert!(
-        !payload.rationale_chain.is_empty(),
-        "AC-veto-a: Decision.rationale_chain must be non-empty"
-    );
+    assert_eq!(rewrites.len(), 1, "AC-veto-a: CriticGate must approve at iter 0 → rewrite fires once");
+    // iter 0 invariant: no critic_veto decision at iter 0
+    let veto_decisions: Vec<_> = ms.all().iter()
+        .filter(|r| r.action == "critic_veto")
+        .collect();
+    assert_eq!(veto_decisions.len(), 0, "AC-veto-a: CriticGate must NOT veto at iter 0");
 }
 
-/// AC-veto-b: When critic vetos (iter 1), OLS rewrite must NOT fire.
-/// Total rewrite_equation Reflexions must equal 1 (from iter 0 only), not 2.
+/// AC-veto-b: Real goal present at iter 0 (CriticGate approves) → OLS fires → ReactEngine marks
+/// goal Failed. At iter 1 goal is gone → idle path → OLS fires again. Total: 2 rewrites.
+/// This proves idle-path (no goal → no veto) kicks in after goal termination. Contrast with
+/// ac_veto_a (1 iter, proves iter-0 invariant) and ac_idle_a (never had a goal).
 #[test]
 fn ac_veto_b_critic_veto_gates_ols_rewrite() {
+    use hipcortex::cognitive_state::CognitiveDelta;
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+    use hipcortex::payloads::{GoalPayload, GoalStatus, SuccessFactor};
+
     let cog = make_cognitive();
 
-    // Set up drift: x=1.0, y=2.0 twice → ols_weight = |4.0/2.0| = 2.0 > 0.3
+    // Real InProgress goal with 1 unsatisfied factor (never satisfied → veto at iter 1)
+    let payload = GoalPayload {
+        target_state: "veto_ols_target".into(),
+        success_factors: vec![SuccessFactor { name: "not_done".into(), weight: 1.0, satisfied: false }],
+        status: GoalStatus::InProgress,
+        max_react_iterations: 1,
+        ..Default::default()
+    };
+    let meta = serde_json::to_value(&payload).unwrap();
+    let goal_rec = MemoryRecord::new(MemoryType::Goal, "veto-ols-agent".into(), "pursue".into(), "veto_ols_target".into(), meta);
+    cog.transact(CognitiveDelta::AddMemory(goal_rec), "veto-ols-agent").unwrap();
+
+    // Drift: x=1.0, y=2.0 twice → ols_weight = |4.0/2.0| = 2.0 > 0.3
     cog.add_causal_node("veto_node".into()).unwrap();
     cog.observe_prediction_drift("veto_node", 0.9, 1.0, 2.0);
     cog.observe_prediction_drift("veto_node", 0.9, 1.0, 2.0);
 
-    // 2 iterations: iter 0 → not vetoed → rewrite fires; iter 1 → vetoed → rewrite blocked
+    // 2 iterations: iter 0 → approved → rewrite fires; iter 1 → vetoed (real goal) → blocked
     let mut daemon = SubstrateDaemon::new();
     let id = daemon.subscribe_with_config("veto-ols-agent".into(), cog.clone(), fast_config(2));
     let reached = wait_iterations(&daemon, id, 2, 5000);
@@ -609,8 +641,8 @@ fn ac_veto_b_critic_veto_gates_ols_rewrite() {
         .filter(|r| r.action == "rewrite_equation" && r.target == "veto_node")
         .collect();
     assert_eq!(
-        rewrites.len(), 1,
-        "AC-veto-b: rewrite_equation must fire exactly once (iter 0 only); got {}",
+        rewrites.len(), 2,
+        "AC-veto-b: rewrite_equation must fire at both iters (iter 0: goal active+approved; iter 1: goal gone→idle); got {}",
         rewrites.len()
     );
 }
@@ -722,5 +754,309 @@ fn ac_react_daemon_drives_react_goal_to_terminal() {
         matches!(final_payload.status, GoalStatus::Succeeded | GoalStatus::Failed),
         "AC-react-daemon: goal must be Succeeded or Failed after daemon drives ReactEngine; got {:?}",
         final_payload.status
+    );
+}
+
+// ─── Gap 1+3: Idle daemon never vetos — maintenance runs every iteration ──────
+
+/// AC-idle-a: No active goal → vetoed=false → OLS rewrite fires at BOTH iterations.
+/// Contrast with ac_veto_b where real goal causes veto at iter 1 → only 1 rewrite.
+#[test]
+fn ac_daemon_idle_no_veto_allows_maintenance() {
+    let cog = make_cognitive();
+
+    // ≥2 observations required; ols_weight = |Σxy/Σx²| = 2.0 > 0.3; no active goal → no veto either iter
+    cog.add_causal_node("idle_node".into()).unwrap();
+    cog.observe_prediction_drift("idle_node", 0.9, 1.0, 2.0);
+    cog.observe_prediction_drift("idle_node", 0.9, 1.0, 2.0);
+
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("idle-agent".into(), cog.clone(), fast_config(2));
+    let reached = wait_iterations(&daemon, id, 2, 5000);
+    assert!(reached, "AC-idle-a: daemon must complete 2 iterations");
+
+    let ms = cog.memory.lock().unwrap();
+    let rewrites: Vec<_> = ms.all().iter()
+        .filter(|r| r.action == "rewrite_equation" && r.target == "idle_node")
+        .collect();
+    assert_eq!(
+        rewrites.len(), 2,
+        "AC-idle-a: idle daemon must rewrite at BOTH iterations (no veto); got {}",
+        rewrites.len()
+    );
+}
+
+/// AC-idle-b: No active goal → Stage 3 never writes Decision{{critic_veto}}.
+#[test]
+fn ac_daemon_idle_no_decision_rejected_when_no_goal() {
+    let cog = make_cognitive();
+
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("idle-b-agent".into(), cog.clone(), fast_config(2));
+    let reached = wait_iterations(&daemon, id, 2, 5000);
+    assert!(reached, "AC-idle-b: daemon must complete 2 iterations");
+
+    let ms = cog.memory.lock().unwrap();
+    let veto_decisions: Vec<_> = ms.all().iter()
+        .filter(|r| r.action == "critic_veto")
+        .collect();
+    assert_eq!(
+        veto_decisions.len(), 0,
+        "AC-idle-b: idle daemon must write 0 critic_veto Decision records; got {}",
+        veto_decisions.len()
+    );
+}
+
+// ─── Gap 2: Abstraction — normalize action before fingerprinting ───────────────
+
+/// AC-abs-dedup: AutoConsolidate collapses "store_memory", "Store-Memory", "STORE_MEMORY"
+/// to the same fingerprint (all norm to "storememory") → 2 of 3 deleted, 1 survives.
+#[test]
+fn ac_abs_semantic_dedup_normalizes_action_variation() {
+    use hipcortex::cognitive_state::CognitiveDelta;
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+
+    let cog = make_cognitive();
+
+    for action in &["store_memory", "Store-Memory", "STORE_MEMORY"] {
+        let rec = MemoryRecord::new(
+            MemoryType::Temporal,
+            "dedup-agent".into(),
+            action.to_string(),
+            "dedup_target".into(),
+            serde_json::json!({}),
+        );
+        cog.transact(CognitiveDelta::AddMemory(rec), "dedup-agent").unwrap();
+    }
+
+    // pressure_threshold: 0.0 forces AutoConsolidate regardless of actual memory pressure
+    let config = CognitiveLoopConfig {
+        interval_secs: 0,
+        pressure_threshold: 0.0,
+        min_consolidation_frequency: 3,
+        max_iterations: Some(1),
+    };
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("dedup-agent".into(), cog.clone(), config);
+    let reached = wait_iterations(&daemon, id, 1, 3000);
+    assert!(reached, "AC-abs-dedup: daemon must complete 1 iteration");
+
+    let ms = cog.memory.lock().unwrap();
+    let remaining: Vec<_> = ms.all().iter()
+        .filter(|r| r.target == "dedup_target" && r.record_type == MemoryType::Temporal)
+        .collect();
+    assert_eq!(
+        remaining.len(), 1,
+        "AC-abs-dedup: normalized fingerprint must collapse 3 variants to 1; got {}",
+        remaining.len()
+    );
+}
+
+// ─── Gap 4: Verifier — entity uncertainty annotation ──────────────────────────
+
+/// AC-verifier: daemon Stage 6 writes Belief{{entity_state_uncertain}} for the
+/// entity with highest Kalman covariance trace (> 1.0). VerifierGate cannot block
+/// continuous Kalman writes; this annotation is the additive bridge.
+#[test]
+fn ac_verifier_entity_uncertain_annotated() {
+    use hipcortex::memory_record::MemoryType;
+    use hipcortex::world_model_enhanced::EntityState;
+
+    let cog = make_cognitive();
+
+    // Register entity with covariance trace = 5.0 > 1.0 → most_uncertain_entity returns it
+    cog.register_wm_entity(
+        "uncertain_robot".to_string(),
+        EntityState {
+            properties: vec![0.0],
+            covariance: vec![vec![5.0]],
+        },
+    ).unwrap();
+
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("verifier-agent".into(), cog.clone(), fast_config(1));
+    let reached = wait_iterations(&daemon, id, 1, 3000);
+    assert!(reached, "AC-verifier: daemon must complete 1 iteration");
+
+    let ms = cog.memory.lock().unwrap();
+    let annotations: Vec<_> = ms.all().iter()
+        .filter(|r| {
+            r.action == "entity_state_uncertain"
+                && r.target == "uncertain_robot"
+                && r.record_type == MemoryType::Belief
+        })
+        .collect();
+    assert!(
+        !annotations.is_empty(),
+        "AC-verifier: Stage 6 must write Belief{{entity_state_uncertain}} for most uncertain entity"
+    );
+}
+
+// ─── Dual-mode ReactEngine: StepByStep + FullCycle (AC-step) ─────────────────
+
+/// AC-step-1: GoalExecutionMode::StepByStep round-trips through serde.
+#[test]
+fn ac_step_execution_mode_serializes() {
+    use hipcortex::payloads::{GoalExecutionMode, GoalPayload, GoalStatus, SuccessFactor};
+
+    let payload = GoalPayload {
+        target_state: "reach_goal".into(),
+        success_factors: vec![SuccessFactor { name: "done".into(), weight: 1.0, satisfied: false }],
+        status: GoalStatus::InProgress,
+        execution_mode: GoalExecutionMode::StepByStep,
+        max_react_iterations: 3,
+        ..Default::default()
+    };
+    let json = serde_json::to_value(&payload).unwrap();
+    let recovered: GoalPayload = serde_json::from_value(json).unwrap();
+    assert_eq!(
+        recovered.execution_mode,
+        GoalExecutionMode::StepByStep,
+        "AC-step-1: GoalExecutionMode::StepByStep must survive serde round-trip"
+    );
+}
+
+/// AC-step-2: One daemon tick with StepByStep goal — goal stays InProgress, current_iteration
+/// advances from 0 to 1. Contrast with FullCycle which terminates goal in the same tick.
+#[test]
+fn ac_step_one_step_advances_iteration() {
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+    use hipcortex::payloads::{GoalExecutionMode, GoalPayload, GoalStatus, SuccessFactor};
+
+    let cog = make_cognitive();
+
+    let payload = GoalPayload {
+        target_state: "step_target".into(),
+        success_factors: vec![SuccessFactor { name: "step_done".into(), weight: 1.0, satisfied: false }],
+        status: GoalStatus::InProgress,
+        execution_mode: GoalExecutionMode::StepByStep,
+        max_react_iterations: 5,
+        ..Default::default()
+    };
+    let goal_rec = MemoryRecord::new(
+        MemoryType::Goal,
+        "step-agent".into(),
+        "achieve".into(),
+        "step_target".into(),
+        serde_json::to_value(&payload).unwrap(),
+    );
+    let goal_id = goal_rec.id;
+    { let mut ms = cog.memory.lock().unwrap(); ms.add(goal_rec).unwrap(); }
+
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("step-agent".into(), cog.clone(), fast_config(1));
+    assert!(wait_iterations(&daemon, id, 1, 3000), "AC-step-2: daemon must complete 1 iteration");
+
+    let ms = cog.memory.lock().unwrap();
+    let updated = ms.find_by_id(goal_id).expect("goal must still exist");
+    let gp: GoalPayload = serde_json::from_value(updated.metadata.clone()).unwrap();
+    assert!(
+        matches!(gp.status, GoalStatus::InProgress),
+        "AC-step-2: StepByStep goal must stay InProgress after 1 tick; got {:?}", gp.status
+    );
+    assert_eq!(
+        gp.current_iteration, 1,
+        "AC-step-2: current_iteration must advance 0→1 after one step; got {}", gp.current_iteration
+    );
+}
+
+/// AC-step-3: 1/2 satisfied (ratio=0.5 ≥ VETO_THRESHOLD=0.25) → CriticGate approves every tick.
+/// 3 daemon ticks, max_react_iterations=3 → goal advances each tick → exhausted → Failed.
+#[test]
+fn ac_step_goal_advances_across_multiple_ticks() {
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+    use hipcortex::payloads::{GoalExecutionMode, GoalPayload, GoalStatus, SuccessFactor};
+
+    let cog = make_cognitive();
+
+    let payload = GoalPayload {
+        target_state: "multi_step_target".into(),
+        success_factors: vec![
+            SuccessFactor { name: "s1".into(), weight: 1.0, satisfied: true },
+            SuccessFactor { name: "s2".into(), weight: 1.0, satisfied: false },
+        ],
+        status: GoalStatus::InProgress,
+        execution_mode: GoalExecutionMode::StepByStep,
+        max_react_iterations: 3,
+        ..Default::default()
+    };
+    let goal_rec = MemoryRecord::new(
+        MemoryType::Goal,
+        "step-multi-agent".into(),
+        "achieve".into(),
+        "multi_step_target".into(),
+        serde_json::to_value(&payload).unwrap(),
+    );
+    let goal_id = goal_rec.id;
+    { let mut ms = cog.memory.lock().unwrap(); ms.add(goal_rec).unwrap(); }
+
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("step-multi-agent".into(), cog.clone(), fast_config(3));
+    assert!(wait_iterations(&daemon, id, 3, 5000), "AC-step-3: daemon must complete 3 iterations");
+
+    let ms = cog.memory.lock().unwrap();
+    let updated = ms.find_by_id(goal_id).expect("goal must still exist");
+    let gp: GoalPayload = serde_json::from_value(updated.metadata.clone()).unwrap();
+    assert!(
+        matches!(gp.status, GoalStatus::Failed),
+        "AC-step-3: StepByStep goal exhausted after 3 ticks must be Failed; got {:?}", gp.status
+    );
+    assert_eq!(
+        gp.current_iteration, 3,
+        "AC-step-3: current_iteration must reach max_react_iterations=3; got {}", gp.current_iteration
+    );
+}
+
+/// AC-step-4: 0/1 satisfied (ratio=0.0 < VETO_THRESHOLD=0.25) — CriticGate vetoes at ticks 1+.
+/// Tick 0: approves, run_one_step fires (current_iteration 0→1).
+/// Ticks 1,2: Rejected → 2 Decision{critic_veto} written, step NOT run, goal stays InProgress.
+#[test]
+fn ac_step_veto_at_tick1_blocks_step_writes_decision() {
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+    use hipcortex::payloads::{GoalExecutionMode, GoalPayload, GoalStatus, SuccessFactor};
+
+    let cog = make_cognitive();
+
+    let payload = GoalPayload {
+        target_state: "veto_target".into(),
+        success_factors: vec![SuccessFactor { name: "v1".into(), weight: 1.0, satisfied: false }],
+        status: GoalStatus::InProgress,
+        execution_mode: GoalExecutionMode::StepByStep,
+        max_react_iterations: 5,
+        ..Default::default()
+    };
+    let goal_rec = MemoryRecord::new(
+        MemoryType::Goal,
+        "step-veto-agent".into(),
+        "achieve".into(),
+        "veto_target".into(),
+        serde_json::to_value(&payload).unwrap(),
+    );
+    let goal_id = goal_rec.id;
+    { let mut ms = cog.memory.lock().unwrap(); ms.add(goal_rec).unwrap(); }
+
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("step-veto-agent".into(), cog.clone(), fast_config(3));
+    assert!(wait_iterations(&daemon, id, 3, 5000), "AC-step-4: daemon must complete 3 iterations");
+
+    let ms = cog.memory.lock().unwrap();
+
+    let veto_decisions: Vec<_> = ms.all().iter()
+        .filter(|r| r.action == "critic_veto" && r.record_type == MemoryType::Decision)
+        .collect();
+    assert_eq!(
+        veto_decisions.len(), 2,
+        "AC-step-4: must have 2 Decision{{critic_veto}} (ticks 1,2); got {}", veto_decisions.len()
+    );
+
+    let updated = ms.find_by_id(goal_id).expect("goal must still exist");
+    let gp: GoalPayload = serde_json::from_value(updated.metadata.clone()).unwrap();
+    assert!(
+        matches!(gp.status, GoalStatus::InProgress),
+        "AC-step-4: goal must remain InProgress when vetoed at ticks 1+2; got {:?}", gp.status
+    );
+    assert_eq!(
+        gp.current_iteration, 1,
+        "AC-step-4: current_iteration must be 1 (only tick 0 ran); got {}", gp.current_iteration
     );
 }

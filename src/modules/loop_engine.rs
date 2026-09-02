@@ -885,6 +885,92 @@ impl ReactEngine {
             .map(|_| ())
             .map_err(|e| format!("Failed to update goal: {}", e))
     }
+
+    /// Advance goal by exactly one ReAct iteration (StepByStep execution mode).
+    /// Returns InProgress when more steps remain, Succeeded/Failed when terminal.
+    /// Goal persists across daemon ticks — CriticGate can veto at iter ≥ 1.
+    pub fn run_one_step(
+        &mut self,
+        store: &mut crate::memory_store::MemoryStore<impl crate::persistence::MemoryBackend>,
+        goal_id: uuid::Uuid,
+        _skill_hint: u32,
+    ) -> Result<crate::payloads::GoalStatus, String> {
+        use crate::memory_record::{MemoryRecord, MemoryType};
+        use crate::payloads::{GoalPayload, GoalStatus};
+
+        let goal_record = store
+            .find_by_id(goal_id)
+            .ok_or_else(|| format!("Goal not found: {}", goal_id))?
+            .clone();
+        let mut payload: GoalPayload = serde_json::from_value(goal_record.metadata.clone())
+            .map_err(|e| format!("Goal metadata parse error: {}", e))?;
+
+        if payload.success_factors.is_empty() {
+            return Err(format!("Goal {} has no success_factors", goal_id));
+        }
+        if matches!(payload.status, GoalStatus::Succeeded | GoalStatus::Failed) {
+            return Ok(payload.status.clone());
+        }
+
+        let max_iter = self
+            .max_iterations_override
+            .unwrap_or(payload.max_react_iterations);
+        let i = payload.current_iteration;
+
+        if i >= max_iter {
+            payload.status = GoalStatus::Failed;
+            self.update_goal_status(store, goal_id, &payload)?;
+            return Ok(GoalStatus::Failed);
+        }
+
+        payload.status = GoalStatus::InProgress;
+
+        let mut obs = MemoryRecord::new(
+            MemoryType::Temporal,
+            "react_engine".to_string(),
+            "observe".to_string(),
+            payload.target_state.clone(),
+            serde_json::json!({
+                "step": i,
+                "mode": "StepByStep",
+                "target": payload.target_state,
+            }),
+        );
+        obs.derived_from = Some(goal_id);
+        obs.react_iteration = Some(i);
+        let _ = store.add(obs);
+
+        let satisfied_count = payload.success_factors.iter().filter(|f| f.satisfied).count();
+        let total_count = payload.success_factors.len();
+        let mut refl = MemoryRecord::new(
+            MemoryType::Reflexion,
+            "react_engine".to_string(),
+            "reflect".to_string(),
+            payload.target_state.clone(),
+            serde_json::json!({
+                "step": i,
+                "satisfied": satisfied_count,
+                "total": total_count,
+            }),
+        );
+        refl.derived_from = Some(goal_id);
+        refl.react_iteration = Some(i);
+        let _ = store.add(refl);
+
+        if payload.success_factors.iter().all(|f| f.satisfied) {
+            payload.status = GoalStatus::Succeeded;
+            self.update_goal_status(store, goal_id, &payload)?;
+            return Ok(GoalStatus::Succeeded);
+        }
+
+        let next_iter = i + 1;
+        payload.current_iteration = next_iter;
+        if next_iter >= max_iter {
+            payload.status = GoalStatus::Failed;
+        }
+        self.update_goal_status(store, goal_id, &payload)?;
+        Ok(payload.status.clone())
+    }
 }
 
 impl Default for ReactEngine {

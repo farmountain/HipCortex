@@ -64,10 +64,14 @@ pub struct OpConstraint {
 }
 
 /// Declared world-model op constraints (Phase 3c). Caps match REST endpoint validation.
+/// react_loop and credit_assign added with WM-policy gates: agent must have learned dynamics
+/// before running reasoning (react_loop) or have causal graph for attribution (credit_assign).
 pub const WM_CONSTRAINTS: &[OpConstraint] = &[
     OpConstraint { op: "world_model_rollout",  requires_wm: true, max_depth: 10, max_iterations: 200 },
     OpConstraint { op: "counterfactual",       requires_wm: true, max_depth:  5, max_iterations:  50 },
     OpConstraint { op: "intervene",            requires_wm: true, max_depth:  3, max_iterations:  10 },
+    OpConstraint { op: "react_loop",           requires_wm: true, max_depth:  0, max_iterations:   0 },
+    OpConstraint { op: "credit_assign",        requires_wm: true, max_depth:  0, max_iterations:   0 },
 ];
 
 /// Return world-model ops passing both `WM_CONSTRAINTS`, the SelfModel, and live WM state (Gap 6).
@@ -92,6 +96,9 @@ pub fn list_authorized_world_model(
                 }
                 "counterfactual" => wm.causal_node_count() > 0,
                 "intervene"      => wm.causal_edge_count() > 0,
+                // WM-policy gates: agent must have learned dynamics before reasoning / attribution.
+                "react_loop"     => wm.transition_count() > 0,
+                "credit_assign"  => wm.causal_node_count() > 0 || wm.transition_count() > 0,
                 _                => true,
             };
             if !wm_ready {
