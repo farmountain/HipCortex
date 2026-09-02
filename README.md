@@ -28,6 +28,20 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 ---
 
+## What's new in v1.6.0 — Production Hardening (Gaps A, B, C, E)
+
+Four remaining production gaps closed — structural deduplication, WM-belief-bound auth, SCM drift auto-rewrite, and autonomous goal synthesis.
+
+| Gap | Capability | Details |
+|-----|-----------|---------|
+| **A — Structural abstraction** | Homomorphic deduplication | `AutoConsolidate` now groups records by `(actor, action, target, type)` fingerprint and archives all but the newest in each group — bounds month-3 context growth structurally, not heuristically |
+| **B — WM-belief-bound auth** | Dirichlet confidence gate | `list_authorized_world_model` gates rollout on `max_transition_confidence() ≥ 0.5` — Laplace-smoothed posterior; sparse uniform beliefs (5 outcomes, each seen once → 0.2) are blocked; dominant beliefs (4 same-pair obs → 1.0) pass |
+| **C — SCM drift auto-rewrite** | OLS trigger → RewriteStructuralEquation | Daemon Stage 5 calls `most_drifted_node_with_weight()`; when OLS weight > 0.3, fires `CognitiveDelta::RewriteStructuralEquation{node_id, new_weights:[1.0]}` — closes the observe-name-rewrite loop |
+| **E — Daemon novel goals** | Autonomous goal synthesis | Daemon Stage 1, when no clarified InProgress goal exists, calls `most_uncertain_entity()` (Kalman covariance trace > 1.0); synthesizes `Goal{success_factors:[entity_uncertainty_below_threshold]}` — daemon generates its own next objective |
+| | **629 tests, 0 failures** | 415 unit · 158 integration · 56 property |
+
+---
+
 ## What's new in v1.5.0 — Gap Closure (Gaps 1, 5, 6, 7, 8)
 
 Five production gaps from the autonomous cognitive OS assessment — all closed and test-covered.

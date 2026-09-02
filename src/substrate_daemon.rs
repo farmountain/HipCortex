@@ -141,6 +141,59 @@ impl SubstrateDaemon {
                                     }
                                 })
                         });
+                    // Gap E: Autonomous goal synthesis — when no clarified InProgress goal,
+                    // synthesize a new goal from WM entity uncertainty (daemon generates novel goals).
+                    let active_goal = if active_goal.is_none() {
+                        let uncertain = cognitive.world.read().ok()
+                            .and_then(|wm| wm.most_uncertain_entity());
+                        if let Some(ref entity_name) = uncertain {
+                            let already_exists = cognitive.memory.lock().ok()
+                                .map(|ms| {
+                                    ms.all().iter().any(|r| {
+                                        r.record_type == crate::memory_record::MemoryType::Goal
+                                            && r.target == *entity_name
+                                            && r.actor == actor_clone
+                                    })
+                                })
+                                .unwrap_or(true);
+                            if !already_exists {
+                                use crate::payloads::{GoalPayload, GoalStatus, SuccessFactor};
+                                let payload = GoalPayload {
+                                    target_state: format!("stabilize_{}", entity_name),
+                                    success_factors: vec![SuccessFactor {
+                                        name: "entity_uncertainty_below_threshold".to_string(),
+                                        weight: 1.0,
+                                        satisfied: false,
+                                    }],
+                                    status: GoalStatus::InProgress,
+                                    max_react_iterations: 3,
+                                    ..Default::default()
+                                };
+                                if let Ok(meta) = serde_json::to_value(&payload) {
+                                    let goal_rec = crate::memory_record::MemoryRecord::new(
+                                        crate::memory_record::MemoryType::Goal,
+                                        actor_clone.clone(),
+                                        "synthesize".to_string(),
+                                        entity_name.clone(),
+                                        meta,
+                                    );
+                                    let goal_id = goal_rec.id;
+                                    if let Ok(mut ms) = cognitive.memory.lock() {
+                                        let _ = ms.add(goal_rec);
+                                    }
+                                    Some((goal_id, payload))
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        active_goal
+                    };
                     if let Ok(mut sc) = sc_clone.lock() { sc[1] += 1; }
 
                     // Stage 2: Plan — determine required actions
@@ -186,6 +239,22 @@ impl SubstrateDaemon {
                             },
                             &actor_clone,
                         );
+                    }
+                    // Gap C: Named-drift OLS trigger → RewriteStructuralEquation (isolate f_i, hold U).
+                    // Only fires when a specific named node's OLS weight exceeds threshold.
+                    if let Some((drifted_node, ols_weight)) =
+                        cognitive.self_model.most_drifted_node_with_weight()
+                    {
+                        const OLS_DRIFT_THRESHOLD: f64 = 0.3;
+                        if ols_weight > OLS_DRIFT_THRESHOLD {
+                            let _ = cognitive.transact(
+                                crate::cognitive_state::CognitiveDelta::RewriteStructuralEquation {
+                                    node_id: drifted_node,
+                                    new_weights: vec![1.0],
+                                },
+                                &actor_clone,
+                            );
+                        }
                     }
                     if let Ok(mut sc) = sc_clone.lock() { sc[5] += 1; }
 

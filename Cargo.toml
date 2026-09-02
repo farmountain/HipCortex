@@ -1,6 +1,6 @@
 [package]
 name = "hipcortex"
-version = "1.5.1"
+version = "1.6.0"
 edition = "2021"
 description = "A modular, agentic AI memory engine for reasoning, edge, and multi-agent workflows"
 repository = "https://github.com/farmountain/HipCortex"

@@ -84,11 +84,15 @@ pub fn list_authorized_world_model(
         .iter()
         .filter_map(|c| {
             // WM-state gate (Gap 6): verify WM has data needed for this op.
+            // WM-state gate: data presence check.
+            // WM-belief gate: confident learned beliefs required for rollout (Gap 6 v2).
             let wm_ready = match c.op {
-                "world_model_rollout" => wm.transition_count() > 0,
-                "counterfactual"      => wm.causal_node_count() > 0,
-                "intervene"           => wm.causal_edge_count() > 0,
-                _                     => true,
+                "world_model_rollout" => {
+                    wm.transition_count() > 0 && wm.max_transition_confidence() >= 0.5
+                }
+                "counterfactual" => wm.causal_node_count() > 0,
+                "intervene"      => wm.causal_edge_count() > 0,
+                _                => true,
             };
             if !wm_ready {
                 return None;

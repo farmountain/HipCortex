@@ -99,6 +99,38 @@ impl TransitionModel {
         *self.totals.entry(sa_key).or_insert(0) += boost;
     }
 
+    /// Highest Dirichlet posterior probability across all (state,action) pairs.
+    /// 0.0 = no transitions recorded; approaches 1.0 as one outcome dominates.
+    pub fn max_transition_confidence(&self) -> f64 {
+        let mut max_prob = 0.0f64;
+        for ((state, action), &total) in &self.totals {
+            if total == 0 {
+                continue;
+            }
+            let n = self
+                .counts
+                .keys()
+                .filter(|(s, a, _)| s == state && a == action)
+                .count();
+            if n == 0 {
+                continue;
+            }
+            let max_c = self
+                .counts
+                .iter()
+                .filter(|((s, a, _), _)| s == state && a == action)
+                .map(|(_, &c)| c)
+                .max()
+                .unwrap_or(0);
+            let prob = (max_c as f64 + self.smoothing)
+                / (total as f64 + n as f64 * self.smoothing);
+            if prob > max_prob {
+                max_prob = prob;
+            }
+        }
+        max_prob
+    }
+
     /// Predict next state distribution given current state and action
     pub fn predict(&self, state: &str, action: &str) -> Result<TransitionPrediction, String> {
         let sa_key = (state.to_string(), action.to_string());

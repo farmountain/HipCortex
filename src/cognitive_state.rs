@@ -505,6 +505,37 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
                 }
             }
         }
+        // Gap A: Structural dedup — archive duplicate (actor, action, target, type) records.
+        // Contracts identical structural triples to one record, bounding context growth.
+        let structural_dupes: Vec<uuid::Uuid> = {
+            use std::collections::HashMap;
+            let ms = self.memory.lock().map_err(|_| CognitiveError::LockError)?;
+            let mut groups: HashMap<String, Vec<uuid::Uuid>> = HashMap::new();
+            for rec in ms.all().iter() {
+                if !matches!(rec.record_type, MemoryType::Temporal | MemoryType::Symbolic) {
+                    continue;
+                }
+                let fp = format!(
+                    "{}\x00{}\x00{}\x00{:?}",
+                    rec.actor, rec.action, rec.target, rec.record_type
+                );
+                groups.entry(fp).or_default().push(rec.id);
+            }
+            groups
+                .into_values()
+                .filter(|ids| ids.len() > 1)
+                .flat_map(|mut ids| {
+                    ids.pop(); // keep last (most recent), delete the rest
+                    ids
+                })
+                .collect()
+        };
+        if !structural_dupes.is_empty() {
+            let mut ms = self.memory.lock().map_err(|_| CognitiveError::LockError)?;
+            for id in structural_dupes {
+                ms.delete_by_id(id);
+            }
+        }
         let tx_cursor = if let Some(tx) = &self.tx_log {
             tx.append(
                 TxKind::Consolidate,
@@ -837,6 +868,20 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             .read()
             .map_err(|e| format!("WM lock: {}", e))?
             .register_entity(entity_id, state)
+    }
+
+    /// Feed a named-node prediction error to the self-model drift monitor.
+    /// Use in tests or external observers after any predict/react cycle.
+    pub fn observe_prediction_drift(&self, node: &str, error: f64, x: f64, y: f64) {
+        self.self_model.observe_named_drift(node, error, x, y);
+    }
+
+    /// Add a standalone causal graph node (test helper for SCM rewrite tests).
+    pub fn add_causal_node(&self, node_id: String) -> Result<(), String> {
+        self.world
+            .read()
+            .map_err(|_| "lock poisoned".to_string())?
+            .add_causal_node(node_id)
     }
 
     /// Materialise a complete CognitiveSnapshot for the given actor.

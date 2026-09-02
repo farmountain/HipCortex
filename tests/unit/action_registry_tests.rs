@@ -100,3 +100,52 @@ fn ac6g_wm_gate_does_not_block_rollout_after_transition() {
     let ops = list_authorized_world_model(&sm, &wm);
     let _ = ops; // no panic, gate passes through to SelfModel for final decision
 }
+
+/// AC-6h: Sparse WM (5 distinct outcomes each seen once) → max_transition_confidence < 0.5
+/// → 'world_model_rollout' blocked by WM-belief confidence gate.
+#[test]
+fn ac6h_sparse_wm_blocks_rollout_via_confidence_gate() {
+    let sm = SelfModel::new();
+    let mut wm = WorldModelEnhanced::new();
+    // 5 distinct next-states → Dirichlet posterior max prob = (1+1)/(5+5×1) = 0.2 < 0.5
+    for i in 0..5 {
+        wm.observe_transition("state_s".to_string(), "action_a".to_string(), format!("to_{i}"));
+    }
+    assert!(
+        wm.transition_count() > 0,
+        "AC-6h: WM must have transitions (data-presence passes)"
+    );
+    assert!(
+        wm.max_transition_confidence() < 0.5,
+        "AC-6h: max_transition_confidence must be < 0.5 for sparse 5-way uniform; got {}",
+        wm.max_transition_confidence()
+    );
+    let ops = list_authorized_world_model(&sm, &wm);
+    let has_rollout = ops.iter().any(|o| o.op == "world_model_rollout");
+    assert!(
+        !has_rollout,
+        "AC-6h: rollout must be blocked when WM confidence < 0.5 (got {:.3})",
+        wm.max_transition_confidence()
+    );
+}
+
+/// AC-6i: Dominant WM belief (same outcome seen 4 times) → max_transition_confidence ≥ 0.5.
+/// WM-belief gate passes; final auth still depends on SelfModel health (ac6g pattern).
+/// Contrast with ac6h (sparse WM blocks rollout) — here the WM portion does not block.
+#[test]
+fn ac6i_dominant_wm_belief_passes_wm_gate() {
+    let sm = SelfModel::new();
+    let mut wm = WorldModelEnhanced::new();
+    // 4 observations same (state,action,next_state) → Dirichlet max prob = (4+1)/(4+1×1) = 1.0
+    for _ in 0..4 {
+        wm.observe_transition("state_x".to_string(), "action_y".to_string(), "state_z".to_string());
+    }
+    assert!(
+        wm.max_transition_confidence() >= 0.5,
+        "AC-6i: max_transition_confidence must be ≥ 0.5 after 4 same-pair obs; got {}",
+        wm.max_transition_confidence()
+    );
+    // WM-belief gate condition is met; SelfModel determines the final auth result.
+    // Contrast: ac6h sparse WM confidence=0.2 DOES block rollout; here WM gate does not block.
+    let _ops = list_authorized_world_model(&sm, &wm); // must not panic
+}

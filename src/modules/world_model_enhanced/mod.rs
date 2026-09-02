@@ -316,6 +316,48 @@ impl WorldModelEnhanced {
         }
     }
 
+    /// Entity with highest covariance trace (most uncertain Kalman state).
+    /// Returns None when no entities registered or max trace ≤ 1.0.
+    pub fn most_uncertain_entity(&self) -> Option<String> {
+        self.entities
+            .read()
+            .ok()?
+            .iter()
+            .map(|(k, v)| {
+                let state = v.get_state();
+                let trace: f64 = state
+                    .covariance
+                    .iter()
+                    .enumerate()
+                    .map(|(i, row)| row.get(i).copied().unwrap_or(0.0))
+                    .sum();
+                (k.clone(), trace)
+            })
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .filter(|(_, trace)| *trace > 1.0)
+            .map(|(k, _)| k)
+    }
+
+    /// Highest Dirichlet posterior probability across all observed (state,action) pairs.
+    /// Wraps `TransitionModel::max_transition_confidence`. 0.0 = no beliefs.
+    pub fn max_transition_confidence(&self) -> f64 {
+        self.transitions
+            .read()
+            .map(|t| t.max_transition_confidence())
+            .unwrap_or(0.0)
+    }
+
+    /// Add a standalone causal graph node without edges.
+    /// Used for SCM rewrite tests and direct structural equation registration.
+    pub fn add_causal_node(&self, node_id: String) -> Result<(), String> {
+        let mut g = self
+            .causal_graph
+            .write()
+            .map_err(|e| format!("causal lock: {e}"))?;
+        g.add_node(node_id)?;
+        Ok(())
+    }
+
     /// List all tracked entities
     pub fn list_entities(&self) -> Result<Vec<String>, String> {
         let entities = self

@@ -378,6 +378,11 @@ impl SelfModel {
     pub fn most_drifted_node(&self) -> Option<String> {
         self.prediction_monitor.lock().ok()?.most_drifted_node()
     }
+
+    /// Return (node_name, OLS_weight) for the named node with highest drift weight.
+    pub fn most_drifted_node_with_weight(&self) -> Option<(String, f64)> {
+        self.prediction_monitor.lock().ok()?.most_drifted_node_with_weight()
+    }
 }
 
 impl Default for SelfModel {

@@ -344,3 +344,209 @@ fn ac_gap8b_no_snapshot_when_no_entities() {
         "AC-gap8b: no wm_state_snapshot records expected when WM has 0 entities"
     );
 }
+
+// ─── Gap E: Autonomous goal synthesis ────────────────────────────────────────
+
+/// AC-novel-a: Uncertain WM entity + no InProgress goals → daemon synthesizes Goal record.
+#[test]
+fn ac_novel_a_synthesizes_goal_for_uncertain_entity() {
+    use hipcortex::world_model_enhanced::EntityState;
+
+    let cog = make_cognitive();
+    // Register entity with covariance trace = 4.0 > 1.0 threshold
+    cog.register_wm_entity(
+        "sensor".into(),
+        EntityState {
+            properties: vec![0.0, 0.0],
+            covariance: vec![vec![2.0, 0.0], vec![0.0, 2.0]],
+        },
+    ).unwrap();
+
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("novel-a-agent".into(), cog.clone(), fast_config(1));
+    let reached = wait_iterations(&daemon, id, 1, 3000);
+    assert!(reached, "AC-novel-a: daemon must complete 1 iteration");
+
+    let ms = cog.memory.lock().unwrap();
+    let synthesized: Vec<_> = ms.all().iter()
+        .filter(|r| r.action == "synthesize" && r.actor == "novel-a-agent")
+        .collect();
+    assert!(
+        !synthesized.is_empty(),
+        "AC-novel-a: daemon must synthesize a Goal record when uncertain entity exists"
+    );
+}
+
+/// AC-novel-b: Synthesized goal must have ≥1 success_factor (not vacuously empty).
+#[test]
+fn ac_novel_b_synthesized_goal_has_success_factors() {
+    use hipcortex::world_model_enhanced::EntityState;
+    use hipcortex::payloads::GoalPayload;
+
+    let cog = make_cognitive();
+    cog.register_wm_entity(
+        "sensor".into(),
+        EntityState {
+            properties: vec![0.0],
+            covariance: vec![vec![3.0]],
+        },
+    ).unwrap();
+
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("novel-b-agent".into(), cog.clone(), fast_config(1));
+    let reached = wait_iterations(&daemon, id, 1, 3000);
+    assert!(reached, "AC-novel-b: daemon must complete 1 iteration");
+
+    let ms = cog.memory.lock().unwrap();
+    let goal = ms.all().iter()
+        .find(|r| r.action == "synthesize" && r.actor == "novel-b-agent")
+        .expect("AC-novel-b: synthesized goal must exist");
+    let payload: GoalPayload = serde_json::from_value(goal.metadata.clone())
+        .expect("AC-novel-b: synthesized goal must have valid GoalPayload");
+    assert!(
+        !payload.success_factors.is_empty(),
+        "AC-novel-b: synthesized goal must have ≥1 success_factor (not vacuously empty)"
+    );
+}
+
+/// AC-novel-c: Existing InProgress goal → daemon does NOT synthesize a new goal.
+#[test]
+fn ac_novel_c_no_synthesis_when_active_goal_exists() {
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+    use hipcortex::payloads::{GoalPayload, GoalStatus, SuccessFactor};
+    use hipcortex::world_model_enhanced::EntityState;
+
+    let cog = make_cognitive();
+    // Register uncertain entity so synthesis would otherwise trigger
+    cog.register_wm_entity(
+        "sensor".into(),
+        EntityState {
+            properties: vec![0.0],
+            covariance: vec![vec![5.0]],
+        },
+    ).unwrap();
+
+    // Add an existing InProgress goal with non-empty factors
+    let payload = GoalPayload {
+        target_state: "existing_goal".into(),
+        success_factors: vec![SuccessFactor { name: "done".into(), weight: 1.0, satisfied: false }],
+        status: GoalStatus::InProgress,
+        max_react_iterations: 3,
+        ..Default::default()
+    };
+    let goal_rec = MemoryRecord::new(
+        MemoryType::Goal,
+        "novel-c-agent".into(),
+        "achieve".into(),
+        "existing_goal".into(),
+        serde_json::to_value(&payload).unwrap(),
+    );
+    cog.memory.lock().unwrap().add(goal_rec).unwrap();
+
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("novel-c-agent".into(), cog.clone(), fast_config(1));
+    let reached = wait_iterations(&daemon, id, 1, 3000);
+    assert!(reached, "AC-novel-c: daemon must complete 1 iteration");
+
+    let ms = cog.memory.lock().unwrap();
+    let synthesized: Vec<_> = ms.all().iter()
+        .filter(|r| r.action == "synthesize" && r.actor == "novel-c-agent")
+        .collect();
+    assert!(
+        synthesized.is_empty(),
+        "AC-novel-c: daemon must NOT synthesize a new goal when an InProgress goal already exists"
+    );
+}
+
+/// AC-novel-d: No WM entities → daemon does NOT synthesize any goal.
+#[test]
+fn ac_novel_d_no_synthesis_when_no_entities() {
+    let cog = make_cognitive(); // empty WM
+
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("novel-d-agent".into(), cog.clone(), fast_config(1));
+    let reached = wait_iterations(&daemon, id, 1, 3000);
+    assert!(reached, "AC-novel-d: daemon must complete 1 iteration");
+
+    let ms = cog.memory.lock().unwrap();
+    let synthesized: Vec<_> = ms.all().iter()
+        .filter(|r| r.action == "synthesize" && r.actor == "novel-d-agent")
+        .collect();
+    assert!(
+        synthesized.is_empty(),
+        "AC-novel-d: no goal synthesis expected when WM has no entities"
+    );
+}
+
+// ─── Gap C: SCM drift isolation — named OLS → RewriteStructuralEquation ──────
+
+/// AC-drift-scm: Named node with high OLS weight → daemon emits RewriteStructuralEquation
+/// → Reflexion{action="rewrite_equation", target=node_id} written to memory.
+#[test]
+fn ac_drift_scm_ols_trigger_rewrites_equation() {
+    let cog = make_cognitive();
+
+    // Add causal graph node so rewrite_structural_equation does not return Err
+    cog.add_causal_node("broken_node".into()).unwrap();
+
+    // Two observations: xtx=2.0, xty=4.0 → OLS weight |4.0/2.0| = 2.0 > 0.3 threshold
+    cog.observe_prediction_drift("broken_node", 0.9, 1.0, 2.0);
+    cog.observe_prediction_drift("broken_node", 0.9, 1.0, 2.0);
+
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("drift-scm-agent".into(), cog.clone(), fast_config(1));
+    let reached = wait_iterations(&daemon, id, 1, 3000);
+    assert!(reached, "AC-drift-scm: daemon must complete 1 iteration");
+
+    let ms = cog.memory.lock().unwrap();
+    let rewrites: Vec<_> = ms.all().iter()
+        .filter(|r| r.action == "rewrite_equation" && r.target == "broken_node")
+        .collect();
+    assert!(
+        !rewrites.is_empty(),
+        "AC-drift-scm: Reflexion{{action=rewrite_equation, target=broken_node}} must exist after daemon tick"
+    );
+}
+
+// ─── Gap A: Structural deduplication ─────────────────────────────────────────
+
+/// AC-abs: Three identical (actor, action, target) Temporal records contracted to one
+/// after AutoConsolidate triggers structural dedup.
+#[test]
+fn ac_abs_structural_dedup_contracts_identical_records() {
+    use hipcortex::cognitive_state::CognitiveDelta;
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+
+    let cog = make_cognitive();
+
+    // Add 3 identical Temporal records (same actor/action/target, different ids)
+    for _ in 0..3 {
+        let rec = MemoryRecord::new(
+            MemoryType::Temporal,
+            "dedup-agent".into(),
+            "heartbeat".into(),
+            "service".into(),
+            serde_json::Value::Null,
+        );
+        cog.transact(CognitiveDelta::AddMemory(rec), "dedup-agent").unwrap();
+    }
+
+    let before: Vec<_> = cog.memory.lock().unwrap().all().iter()
+        .filter(|r| r.action == "heartbeat" && r.target == "service")
+        .map(|r| r.id)
+        .collect();
+    assert_eq!(before.len(), 3, "AC-abs prerequisite: 3 heartbeat records before dedup");
+
+    // Trigger AutoConsolidate (min_frequency=1 to ensure it runs)
+    cog.transact(CognitiveDelta::AutoConsolidate { min_frequency: 1 }, "dedup-agent").unwrap();
+
+    let after: Vec<_> = cog.memory.lock().unwrap().all().iter()
+        .filter(|r| r.action == "heartbeat" && r.target == "service")
+        .map(|r| r.id)
+        .collect();
+    assert_eq!(
+        after.len(), 1,
+        "AC-abs: structural dedup must contract 3 identical (actor,action,target) records to 1; got {}",
+        after.len()
+    );
+}

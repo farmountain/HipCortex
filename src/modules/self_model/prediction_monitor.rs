@@ -49,6 +49,12 @@ impl PredictionMonitor {
     /// Return name of the node whose OLS weight |Σ(x·y)/Σ(x²)| is highest.
     /// Returns None if no node has ≥2 observations.
     pub fn most_drifted_node(&self) -> Option<String> {
+        self.most_drifted_node_with_weight().map(|(name, _)| name)
+    }
+
+    /// Return (name, OLS_weight) for node with highest drift weight.
+    /// Returns None if no node has ≥2 observations.
+    pub fn most_drifted_node_with_weight(&self) -> Option<(String, f64)> {
         self.named_obs
             .iter()
             .filter(|(_, deque)| deque.len() >= 2)
@@ -59,7 +65,6 @@ impl PredictionMonitor {
                 (name.clone(), w)
             })
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-            .map(|(name, _)| name)
     }
 
     /// Record a normalised prediction error (0.0 = perfect, 1.0 = total miss).
