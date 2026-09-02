@@ -180,3 +180,120 @@ fn ac1h_stage_counts_sum_equals_eight_times_iterations() {
     assert_eq!(sum, expected,
         "AC-1h: stage_counts sum={sum} must equal 8*iterations={expected}");
 }
+
+// ─── Gap 1: Daemon dequeues real InProgress goals ────────────────────────────
+
+/// AC-gap1a: Daemon marks a fully-satisfied InProgress goal as Succeeded after 1 iteration.
+#[test]
+fn ac_gap1a_daemon_marks_satisfied_goal_succeeded() {
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+    use hipcortex::payloads::{GoalPayload, GoalStatus, SuccessFactor};
+
+    let cog = make_cognitive();
+
+    // Pre-load an InProgress goal whose factors are already satisfied.
+    let payload = GoalPayload {
+        target_state: "integration_complete".into(),
+        success_factors: vec![SuccessFactor { name: "done".into(), weight: 1.0, satisfied: true }],
+        status: GoalStatus::InProgress,
+        max_react_iterations: 3,
+        ..Default::default()
+    };
+    let mut goal_rec = MemoryRecord::new(
+        MemoryType::Goal,
+        "gap1-agent".into(),
+        "achieve".into(),
+        "integration_complete".into(),
+        serde_json::to_value(&payload).unwrap(),
+    );
+    let goal_id = goal_rec.id;
+    {
+        let mut ms = cog.memory.lock().unwrap();
+        ms.add(goal_rec).unwrap();
+    }
+
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("gap1-agent".into(), cog.clone(), fast_config(1));
+    let reached = wait_iterations(&daemon, id, 1, 3000);
+    assert!(reached, "AC-gap1a: daemon must complete 1 iteration");
+
+    // After 1 iteration the ExitCheck should have updated the goal to Succeeded.
+    let ms = cog.memory.lock().unwrap();
+    let updated = ms.find_by_id(goal_id).expect("goal record must still exist");
+    let updated_payload: GoalPayload = serde_json::from_value(updated.metadata.clone()).unwrap();
+    assert!(
+        matches!(updated_payload.status, GoalStatus::Succeeded),
+        "AC-gap1a: goal with all satisfied factors must become Succeeded; got {:?}",
+        updated_payload.status
+    );
+}
+
+/// AC-gap1b: Daemon with no active goals uses dummy — does not panic, writes daemon_step Temporal.
+#[test]
+fn ac_gap1b_daemon_no_goals_uses_dummy() {
+    let cog = make_cognitive();
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("gap1b-agent".into(), cog.clone(), fast_config(1));
+    let reached = wait_iterations(&daemon, id, 1, 3000);
+    assert!(reached, "AC-gap1b: daemon must complete 1 iteration even with no goals");
+
+    let ms = cog.memory.lock().unwrap();
+    let has_step = ms.all().iter().any(|r| r.action == "daemon_step");
+    assert!(has_step, "AC-gap1b: daemon_step Temporal must be written even with no active goal");
+}
+
+// ─── Gap 8: Continuous dynamics bridge ───────────────────────────────────────
+
+/// AC-gap8a: After 1 daemon iteration, Temporal{action="wm_state_snapshot"} exists per entity.
+#[test]
+fn ac_gap8a_daemon_snapshots_wm_entity() {
+    use hipcortex::world_model_enhanced::EntityState;
+
+    let cog = make_cognitive();
+
+    // Register an entity via the public helper so entity_mean_vectors returns it.
+    cog.register_wm_entity(
+        "robot".into(),
+        EntityState {
+            properties: vec![1.0, 0.0],
+            covariance: vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+        },
+    ).unwrap();
+
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("gap8-agent".into(), cog.clone(), fast_config(1));
+    let reached = wait_iterations(&daemon, id, 1, 3000);
+    assert!(reached, "AC-gap8a: daemon must complete 1 iteration");
+
+    let ms = cog.memory.lock().unwrap();
+    let snapshots: Vec<_> = ms
+        .all()
+        .iter()
+        .filter(|r| r.action == "wm_state_snapshot" && r.target == "robot")
+        .collect();
+    assert!(
+        !snapshots.is_empty(),
+        "AC-gap8a: Temporal{{action='wm_state_snapshot', target='robot'}} must be written by daemon"
+    );
+}
+
+/// AC-gap8b: No snapshot records when WM has no registered entities.
+#[test]
+fn ac_gap8b_no_snapshot_when_no_entities() {
+    let cog = make_cognitive(); // empty WM
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("gap8b-agent".into(), cog.clone(), fast_config(1));
+    let reached = wait_iterations(&daemon, id, 1, 3000);
+    assert!(reached, "AC-gap8b: daemon must complete 1 iteration");
+
+    let ms = cog.memory.lock().unwrap();
+    let snapshots: Vec<_> = ms
+        .all()
+        .iter()
+        .filter(|r| r.action == "wm_state_snapshot")
+        .collect();
+    assert!(
+        snapshots.is_empty(),
+        "AC-gap8b: no wm_state_snapshot records expected when WM has 0 entities"
+    );
+}

@@ -28,6 +28,21 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 ---
 
+## What's new in v1.5.0 — Gap Closure (Gaps 1, 5, 6, 7, 8)
+
+Five production gaps from the autonomous cognitive OS assessment — all closed and test-covered.
+
+| Gap | Capability | Details |
+|-----|-----------|---------|
+| **7 — GoalClarify gate** | ReactEngine pre-flight check | `run()` returns `Err` when `success_factors` is empty — forces `/goal/:id/clarify` before loop starts; no silent no-op runs |
+| **5 — Named drift isolation** | Per-node OLS drift tracking | `PredictionMonitor::observe_named(node, error, x, y)` tracks (x,y) pairs per named node; `most_drifted_node()` returns the node with highest OLS weight; exposed via `SelfModel::most_drifted_node()` |
+| **6 — WM-state auth gate** | Live WM data guards ops | `list_authorized_world_model(sm, wm)` now gates per WM state: rollout requires `transition_count() > 0`, counterfactual requires `causal_node_count() > 0`, intervene requires `causal_edge_count() > 0`; REST `GET /v1/actions/authorized-wm` passes live WM |
+| **1 — Daemon real goals** | Daemon dequeues InProgress goals | Stage 1 finds highest-priority InProgress goal for actor via `search_by_goal_status`; Stage 3 CriticVeto uses real goal's `success_factors`; ExitCheck marks goal `Succeeded` when all factors satisfied |
+| **8 — Continuous dynamics bridge** | WM entity snapshots per tick | Daemon Stage 6 iterates `entity_mean_vectors()` and writes `Temporal{action="wm_state_snapshot", target=entity_name}` per entity per iteration |
+| | **620 tests, 0 failures** | 406 unit · 158 integration · 56 property |
+
+---
+
 ## What's new in v1.4.0 — Depth & Ownership (Phases 1–5)
 
 Six architectural mechanisms that give the agent true executive control over its own reasoning loop.
@@ -231,4 +246,4 @@ We ship faster when users tell us what broke or what you love.
 | [DEPLOY.md](DEPLOY.md) | Self-host / Fly / Docker |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Build from source |
 
-**License:** [Apache-2.0](LICENSE) · **Version:** `1.3.0` · VSIX `1.3.0`
+**License:** [Apache-2.0](LICENSE) · **Version:** `1.5.0` · VSIX `1.5.0`

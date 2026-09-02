@@ -827,6 +827,18 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         }
     }
 
+    /// Register a tracked entity in the world model (Gap 8 / test helper).
+    pub fn register_wm_entity(
+        &self,
+        entity_id: String,
+        state: crate::world_model_enhanced::EntityState,
+    ) -> Result<(), String> {
+        self.world
+            .read()
+            .map_err(|e| format!("WM lock: {}", e))?
+            .register_entity(entity_id, state)
+    }
+
     /// Materialise a complete CognitiveSnapshot for the given actor.
     /// actor = "" → include all actors.
     pub fn snapshot(&self, actor: &str) -> Result<CognitiveSnapshot, CognitiveError> {

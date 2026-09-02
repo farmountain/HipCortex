@@ -3709,11 +3709,16 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         })
     };
 
-    // GET /v1/actions/authorized-wm — list world-model ops approved by SelfModel (Phase 3c)
+    // GET /v1/actions/authorized-wm — list world-model ops approved by SelfModel + WM state (Phase 3c / Gap 6)
     let v1_authorized_wm_route = {
         let sm = self_model.clone();
+        let wm = world_model.clone();
         get(move || async move {
-            let ops = crate::action_registry::list_authorized_world_model(&sm);
+            let ops = if let Ok(wm_guard) = wm.read() {
+                crate::action_registry::list_authorized_world_model(&sm, &*wm_guard)
+            } else {
+                vec![]
+            };
             (StatusCode::OK, axum::Json(serde_json::json!({ "authorized": ops })))
         })
     };

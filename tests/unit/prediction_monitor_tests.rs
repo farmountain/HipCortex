@@ -113,3 +113,70 @@ fn ac5d_self_model_record_with_obs_and_drift_weights() {
     let weights = sm.prediction_drift_weights();
     assert!(weights.is_some(), "AC-5d: prediction_drift_weights must return Some after 2 obs");
 }
+
+/// AC-5e: observe_named tracks per-node observations independently.
+#[test]
+fn ac5e_observe_named_tracks_per_node() {
+    use hipcortex::self_model::prediction_monitor::PredictionMonitor;
+    let mut pm = PredictionMonitor::new("root", 10, 0.3);
+    pm.observe_named("node_a", 0.1, 1.0, 2.0);
+    pm.observe_named("node_b", 0.1, 1.0, 5.0);
+    pm.observe_named("node_a", 0.1, 2.0, 4.0);
+    // most_drifted_node returns None until each node has ≥2 obs
+    // node_a has 2 obs with OLS w = Σ(x*y)/Σ(x²) = (1*2 + 2*4)/(1+4) = 10/5 = 2.0
+    // node_b has 1 obs → not eligible
+    let drifted = pm.most_drifted_node();
+    assert_eq!(
+        drifted.as_deref(),
+        Some("node_a"),
+        "AC-5e: node_a must be returned — only node with ≥2 obs; got {:?}", drifted
+    );
+}
+
+/// AC-5f: most_drifted_node returns None when no node has ≥2 observations.
+#[test]
+fn ac5f_most_drifted_node_none_before_two_obs() {
+    use hipcortex::self_model::prediction_monitor::PredictionMonitor;
+    let mut pm = PredictionMonitor::new("root", 10, 0.3);
+    pm.observe_named("node_x", 0.1, 1.0, 2.0); // only 1 obs
+    assert_eq!(
+        pm.most_drifted_node(),
+        None,
+        "AC-5f: most_drifted_node must return None when no node has ≥2 observations"
+    );
+}
+
+/// AC-5g: most_drifted_node returns highest-weight node when multiple nodes qualify.
+#[test]
+fn ac5g_most_drifted_node_returns_highest_weight() {
+    use hipcortex::self_model::prediction_monitor::PredictionMonitor;
+    let mut pm = PredictionMonitor::new("root", 10, 0.3);
+    // node_low: y ≈ x   → weight ≈ 1.0
+    pm.observe_named("node_low", 0.05, 1.0, 1.0);
+    pm.observe_named("node_low", 0.05, 2.0, 2.0);
+    // node_high: y ≈ 10x → weight ≈ 10.0
+    pm.observe_named("node_high", 0.05, 1.0, 10.0);
+    pm.observe_named("node_high", 0.05, 2.0, 20.0);
+    let drifted = pm.most_drifted_node();
+    assert_eq!(
+        drifted.as_deref(),
+        Some("node_high"),
+        "AC-5g: node_high (w≈10) must win over node_low (w≈1); got {:?}", drifted
+    );
+}
+
+/// AC-5h: SelfModel::most_drifted_node wraps PredictionMonitor correctly.
+#[test]
+fn ac5h_self_model_most_drifted_node() {
+    let sm = SelfModel::new();
+    sm.observe_named_drift("sensor_a", 0.1, 1.0, 5.0);
+    sm.observe_named_drift("sensor_a", 0.1, 2.0, 10.0);
+    sm.observe_named_drift("sensor_b", 0.1, 1.0, 1.0);
+    sm.observe_named_drift("sensor_b", 0.1, 2.0, 2.0);
+    let drifted = sm.most_drifted_node();
+    assert_eq!(
+        drifted.as_deref(),
+        Some("sensor_a"),
+        "AC-5h: sensor_a (w≈5) must win over sensor_b (w≈1); got {:?}", drifted
+    );
+}

@@ -118,30 +118,46 @@ impl SubstrateDaemon {
                     let snapshot = cognitive.snapshot(&actor_clone);
                     if let Ok(mut sc) = sc_clone.lock() { sc[0] += 1; }
 
-                    // Stage 1: Reflect — assess pressure and active goals
+                    // Stage 1: Reflect — assess pressure; find highest-priority InProgress goal (Gap 1)
                     let pressure = snapshot
                         .as_ref()
                         .map(|s| s.self_model.consolidation_pressure)
                         .unwrap_or(0.0);
+                    // Find the first InProgress goal for this actor to drive Stage 3 and ExitCheck.
+                    let active_goal: Option<(uuid::Uuid, crate::payloads::GoalPayload)> =
+                        cognitive.memory.lock().ok().and_then(|ms| {
+                            ms.search_by_goal_status(&actor_clone, "InProgress")
+                                .into_iter()
+                                .next()
+                                .map(|rec| {
+                                    let payload: crate::payloads::GoalPayload =
+                                        serde_json::from_value(rec.metadata.clone())
+                                            .unwrap_or_default();
+                                    (rec.id, payload)
+                                })
+                        });
                     if let Ok(mut sc) = sc_clone.lock() { sc[1] += 1; }
 
                     // Stage 2: Plan — determine required actions
                     let should_consolidate = pressure > config.pressure_threshold;
                     if let Ok(mut sc) = sc_clone.lock() { sc[2] += 1; }
 
-                    // Stage 3: CriticVeto — pre-action veto (iter 0 always passes)
+                    // Stage 3: CriticVeto — use real active goal when available; dummy otherwise (Gap 1)
                     let vetoed = {
                         use crate::loop_gates::{CriticDecision, CriticGate};
                         use crate::payloads::{GoalPayload, SuccessFactor};
-                        let goal = GoalPayload {
-                            target_state: "daemon_step".to_string(),
-                            success_factors: vec![SuccessFactor {
-                                name: "iteration complete".to_string(),
-                                weight: 1.0,
-                                satisfied: false,
-                            }],
-                            ..Default::default()
-                        };
+                        let goal = active_goal
+                            .as_ref()
+                            .map(|(_, p)| p.clone())
+                            .unwrap_or_else(|| GoalPayload {
+                                target_state: "daemon_step".to_string(),
+                                success_factors: vec![SuccessFactor {
+                                    name: "iteration complete".to_string(),
+                                    weight: 1.0,
+                                    satisfied: false,
+                                }],
+                                ..Default::default()
+                            });
                         matches!(
                             CriticGate::evaluate(&goal, "daemon_step", loop_iter),
                             CriticDecision::Rejected { .. }
@@ -168,7 +184,7 @@ impl SubstrateDaemon {
                     }
                     if let Ok(mut sc) = sc_clone.lock() { sc[5] += 1; }
 
-                    // Stage 6: Update — write Temporal record for this iteration
+                    // Stage 6: Update — write daemon_step Temporal; snapshot WM entity state (Gap 8)
                     if let Ok(mut ms) = cognitive.memory.lock() {
                         use crate::memory_record::{MemoryRecord, MemoryType};
                         let rec = MemoryRecord::new(
@@ -182,10 +198,52 @@ impl SubstrateDaemon {
                             }),
                         );
                         let _ = ms.add(rec);
+
+                        // Gap 8: write one Temporal per WM entity (continuous dynamics bridge)
+                        if let Ok(wm) = cognitive.world.read() {
+                            for (entity_name, mean_vec) in wm.entity_mean_vectors() {
+                                let snap = MemoryRecord::new(
+                                    MemoryType::Temporal,
+                                    actor_clone.clone(),
+                                    "wm_state_snapshot".to_string(),
+                                    entity_name.clone(),
+                                    serde_json::json!({ "mean": mean_vec }),
+                                );
+                                let _ = ms.add(snap);
+                            }
+                        }
                     }
                     if let Ok(mut sc) = sc_clone.lock() { sc[6] += 1; }
 
-                    // Stage 7: ExitCheck — increment counter, check stop/cap, then sleep
+                    // Stage 7: ExitCheck — if active goal fully satisfied, mark Succeeded (Gap 1)
+                    if let Some((goal_id, _)) = &active_goal {
+                        if let Ok(mut ms) = cognitive.memory.lock() {
+                            if let Some(goal_rec) = ms.find_by_id(*goal_id) {
+                                if let Ok(mut payload) =
+                                    serde_json::from_value::<crate::payloads::GoalPayload>(
+                                        goal_rec.metadata.clone(),
+                                    )
+                                {
+                                    if payload.success_factors.iter().all(|f| f.satisfied)
+                                        && !matches!(
+                                            payload.status,
+                                            crate::payloads::GoalStatus::Succeeded
+                                        )
+                                    {
+                                        payload.status = crate::payloads::GoalStatus::Succeeded;
+                                        if let Ok(v) = serde_json::to_value(&payload) {
+                                            let _ = ms.update_record(
+                                                *goal_id,
+                                                None, None, None, None,
+                                                Some(v),
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     loop_iter += 1;
                     iter_clone.fetch_add(1, Ordering::Relaxed);
                     if let Ok(mut sc) = sc_clone.lock() { sc[7] += 1; }

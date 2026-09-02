@@ -193,6 +193,28 @@ mod tests {
         );
     }
 
+    /// E2E-Gap7: ReactEngine::run() returns Err when goal has no success_factors.
+    #[test]
+    fn test_react_loop_rejects_goal_with_no_success_factors() {
+        let mut store = MemoryStore::new_in_memory();
+        let goal = make_goal(vec![], vec![], 3); // empty success_factors
+        let goal_id = goal.id;
+        store.add(goal).unwrap();
+
+        let mut engine = ReactEngine::new();
+        let result = engine.run(&mut store, goal_id, 1);
+        assert!(
+            result.is_err(),
+            "E2E-Gap7: run() must return Err when success_factors is empty"
+        );
+        let msg = result.unwrap_err();
+        assert!(
+            msg.contains("success_factors"),
+            "E2E-Gap7: error must mention 'success_factors', got: {}",
+            msg
+        );
+    }
+
     /// E2E-5: CognitiveGC — referenced obs gets Archive; unreferenced gets Delete.
     #[test]
     fn test_cognitive_gc_with_react_provenance() {

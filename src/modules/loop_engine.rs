@@ -580,6 +580,13 @@ impl ReactEngine {
         let mut goal_payload: GoalPayload = serde_json::from_value(goal_record.metadata.clone())
             .map_err(|e| format!("Goal metadata parse error: {}", e))?;
 
+        if goal_payload.success_factors.is_empty() {
+            return Err(format!(
+                "Goal {} has no success_factors — call /goal/{}/clarify before running",
+                goal_id, goal_id
+            ));
+        }
+
         let max_iter = self
             .max_iterations_override
             .unwrap_or(goal_payload.max_react_iterations);

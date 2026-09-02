@@ -3,6 +3,7 @@
 //! call list_authorized(self_model) to get ops approved by DecisionEngine.
 
 use crate::self_model::{DecisionContext, SelfModel};
+use crate::world_model_enhanced::WorldModelEnhanced;
 use serde::{Deserialize, Serialize};
 
 /// Known operation names in HipCortex.
@@ -69,11 +70,29 @@ pub const WM_CONSTRAINTS: &[OpConstraint] = &[
     OpConstraint { op: "intervene",            requires_wm: true, max_depth:  3, max_iterations:  10 },
 ];
 
-/// Return world-model ops that pass both `WM_CONSTRAINTS` and the SelfModel's DecisionEngine.
-pub fn list_authorized_world_model(self_model: &SelfModel) -> Vec<AuthorizedOp> {
+/// Return world-model ops passing both `WM_CONSTRAINTS`, the SelfModel, and live WM state (Gap 6).
+///
+/// WM-state gates:
+///   rollout     → wm.transition_count() > 0  (no transitions → can't predict next state)
+///   counterfactual → wm.causal_node_count() > 0
+///   intervene   → wm.causal_edge_count() > 0
+pub fn list_authorized_world_model(
+    self_model: &SelfModel,
+    wm: &WorldModelEnhanced,
+) -> Vec<AuthorizedOp> {
     WM_CONSTRAINTS
         .iter()
         .filter_map(|c| {
+            // WM-state gate (Gap 6): verify WM has data needed for this op.
+            let wm_ready = match c.op {
+                "world_model_rollout" => wm.transition_count() > 0,
+                "counterfactual"      => wm.causal_node_count() > 0,
+                "intervene"           => wm.causal_edge_count() > 0,
+                _                     => true,
+            };
+            if !wm_ready {
+                return None;
+            }
             let decision = self_model
                 .can_execute(c.op, crate::self_model::DecisionContext::default_context())
                 .ok()?;

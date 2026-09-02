@@ -366,6 +366,18 @@ impl SelfModel {
     pub fn prediction_drift_weights(&self) -> Option<Vec<f64>> {
         self.prediction_monitor.lock().ok()?.fit_ols()
     }
+
+    /// Record a named-node (x, y) scalar observation for cross-node drift isolation (Gap 5).
+    pub fn observe_named_drift(&self, node: &str, error: f64, x: f64, y: f64) {
+        if let Ok(mut pm) = self.prediction_monitor.lock() {
+            pm.observe_named(node, error, x, y);
+        }
+    }
+
+    /// Return the named node with the highest OLS drift weight, if any has ≥2 observations.
+    pub fn most_drifted_node(&self) -> Option<String> {
+        self.prediction_monitor.lock().ok()?.most_drifted_node()
+    }
 }
 
 impl Default for SelfModel {

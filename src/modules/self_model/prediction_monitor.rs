@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 /// Rolling-window prediction-error tracker for Phase-E structural drift detection.
 ///
@@ -9,6 +9,9 @@ use std::collections::VecDeque;
 /// Phase-3b extension: `obs_pairs` stores (feature_vec, target_vec) pairs for
 /// OLS regression via `fit_ols()` — returns per-feature regression weights that
 /// isolate which input dimensions drive observed drift.
+///
+/// Phase-5 (Gap 5): `named_obs` tracks per-named-node (x, y) scalar pairs for
+/// `observe_named` / `most_drifted_node` — identifies which node drives drift.
 pub struct PredictionMonitor {
     error_history: VecDeque<f64>,
     window: usize,
@@ -16,6 +19,8 @@ pub struct PredictionMonitor {
     node_id: String,
     /// (feature_vec, target_vec) pairs for OLS drift analysis.
     obs_pairs: VecDeque<(Vec<f64>, Vec<f64>)>,
+    /// Per-named-node (x, y) scalar pairs for cross-node drift isolation (Gap 5).
+    named_obs: HashMap<String, VecDeque<(f64, f64)>>,
 }
 
 impl PredictionMonitor {
@@ -26,7 +31,35 @@ impl PredictionMonitor {
             error_threshold,
             node_id: node_id.into(),
             obs_pairs: VecDeque::new(),
+            named_obs: HashMap::new(),
         }
+    }
+
+    /// Record a (x, y) scalar obs for a named node. Capped at window size.
+    /// Also calls record_error so the rolling monitor stays consistent.
+    pub fn observe_named(&mut self, node: &str, error: f64, x: f64, y: f64) {
+        let deque = self.named_obs.entry(node.to_string()).or_insert_with(VecDeque::new);
+        if deque.len() >= self.window.max(2) {
+            deque.pop_front();
+        }
+        deque.push_back((x, y));
+        self.record_error(error);
+    }
+
+    /// Return name of the node whose OLS weight |Σ(x·y)/Σ(x²)| is highest.
+    /// Returns None if no node has ≥2 observations.
+    pub fn most_drifted_node(&self) -> Option<String> {
+        self.named_obs
+            .iter()
+            .filter(|(_, deque)| deque.len() >= 2)
+            .map(|(name, deque)| {
+                let xtx: f64 = deque.iter().map(|(x, _)| x * x).sum();
+                let xty: f64 = deque.iter().map(|(x, y)| x * y).sum();
+                let w = if xtx > 1e-10 { (xty / xtx).abs() } else { 0.0 };
+                (name.clone(), w)
+            })
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(name, _)| name)
     }
 
     /// Record a normalised prediction error (0.0 = perfect, 1.0 = total miss).
