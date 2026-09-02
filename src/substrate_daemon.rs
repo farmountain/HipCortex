@@ -201,6 +201,7 @@ impl SubstrateDaemon {
                     if let Ok(mut sc) = sc_clone.lock() { sc[2] += 1; }
 
                     // Stage 3: CriticVeto — use real active goal when available; dummy otherwise (Gap 1)
+                    // When vetoed, writes Decision{rejected, rationale_chain} to memory.
                     let vetoed = {
                         use crate::loop_gates::{CriticDecision, CriticGate};
                         use crate::payloads::{GoalPayload, SuccessFactor};
@@ -216,10 +217,34 @@ impl SubstrateDaemon {
                                 }],
                                 ..Default::default()
                             });
-                        matches!(
-                            CriticGate::evaluate(&goal, "daemon_step", loop_iter),
-                            CriticDecision::Rejected { .. }
-                        )
+                        match CriticGate::evaluate(&goal, "daemon_step", loop_iter) {
+                            CriticDecision::Rejected { rationale } => {
+                                // Write Decision{rejected} with rationale chain.
+                                use crate::memory_record::{MemoryRecord, MemoryType};
+                                use crate::payloads::DecisionPayload;
+                                let dp = DecisionPayload {
+                                    option_chosen: "rejected".to_string(),
+                                    rationale_chain: rationale,
+                                    confidence: 0.0,
+                                    ..Default::default()
+                                };
+                                if let (Ok(mut ms), Ok(meta)) = (
+                                    cognitive.memory.lock(),
+                                    serde_json::to_value(&dp),
+                                ) {
+                                    let rec = MemoryRecord::new(
+                                        MemoryType::Decision,
+                                        actor_clone.clone(),
+                                        "critic_veto".to_string(),
+                                        format!("iter={loop_iter}"),
+                                        meta,
+                                    );
+                                    let _ = ms.add(rec);
+                                }
+                                true
+                            }
+                            CriticDecision::Approved { .. } => false,
+                        }
                     };
                     if let Ok(mut sc) = sc_clone.lock() { sc[3] += 1; }
 
@@ -231,29 +256,39 @@ impl SubstrateDaemon {
                         .and_then(|wm| wm.predict_next_state(&actor_clone, "daemon_step").ok());
                     if let Ok(mut sc) = sc_clone.lock() { sc[4] += 1; }
 
-                    // Stage 5: Act — execute planned actions (skip if critic vetoed)
-                    if !vetoed && should_consolidate {
-                        let _ = cognitive.transact(
-                            crate::cognitive_state::CognitiveDelta::AutoConsolidate {
-                                min_frequency: config.min_consolidation_frequency,
-                            },
-                            &actor_clone,
-                        );
-                    }
-                    // Gap C: Named-drift OLS trigger → RewriteStructuralEquation (isolate f_i, hold U).
-                    // Only fires when a specific named node's OLS weight exceeds threshold.
-                    if let Some((drifted_node, ols_weight)) =
-                        cognitive.self_model.most_drifted_node_with_weight()
-                    {
-                        const OLS_DRIFT_THRESHOLD: f64 = 0.3;
-                        if ols_weight > OLS_DRIFT_THRESHOLD {
+                    // Stage 5: Act — all acts gated by critic veto.
+                    if !vetoed {
+                        // AutoConsolidate when pressure warrants it.
+                        if should_consolidate {
                             let _ = cognitive.transact(
-                                crate::cognitive_state::CognitiveDelta::RewriteStructuralEquation {
-                                    node_id: drifted_node,
-                                    new_weights: vec![1.0],
+                                crate::cognitive_state::CognitiveDelta::AutoConsolidate {
+                                    min_frequency: config.min_consolidation_frequency,
                                 },
                                 &actor_clone,
                             );
+                        }
+                        // Drive active goal one ReAct round (daemon owns the loop).
+                        if let Some((goal_id, _)) = &active_goal {
+                            use crate::loop_engine::ReactEngine;
+                            let mut engine = ReactEngine::new();
+                            if let Ok(mut ms) = cognitive.memory.lock() {
+                                let _ = engine.run(&mut ms, *goal_id, 0u32);
+                            }
+                        }
+                        // Gap C: OLS-weight SCM rewrite — use computed coefficient, not placeholder.
+                        if let Some((drifted_node, ols_weight)) =
+                            cognitive.self_model.most_drifted_node_with_weight()
+                        {
+                            const OLS_DRIFT_THRESHOLD: f64 = 0.3;
+                            if ols_weight > OLS_DRIFT_THRESHOLD {
+                                let _ = cognitive.transact(
+                                    crate::cognitive_state::CognitiveDelta::RewriteStructuralEquation {
+                                        node_id: drifted_node,
+                                        new_weights: vec![ols_weight],
+                                    },
+                                    &actor_clone,
+                                );
+                            }
                         }
                     }
                     if let Ok(mut sc) = sc_clone.lock() { sc[5] += 1; }

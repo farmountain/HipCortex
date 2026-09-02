@@ -550,3 +550,177 @@ fn ac_abs_structural_dedup_contracts_identical_records() {
         after.len()
     );
 }
+
+// ─── Gap H/I: Critic executive veto ──────────────────────────────────────────
+
+/// AC-veto-a: At iteration 1 the critic gate vetos (0 satisfied / 1 required < 0.25 threshold).
+/// Daemon must write a Decision{action="critic_veto", option_chosen="rejected"} record.
+#[test]
+fn ac_veto_a_critic_veto_writes_decision_rejected() {
+    let cog = make_cognitive();
+
+    // 2 iterations: iter 0 always passes, iter 1 vetos (dummy goal 0/1 satisfied)
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("veto-agent".into(), cog.clone(), fast_config(2));
+    let reached = wait_iterations(&daemon, id, 2, 5000);
+    assert!(reached, "AC-veto-a: daemon must complete 2 iterations");
+
+    let ms = cog.memory.lock().unwrap();
+    let decisions: Vec<_> = ms.all().iter()
+        .filter(|r| r.record_type == hipcortex::memory_record::MemoryType::Decision
+            && r.action == "critic_veto")
+        .collect();
+    assert!(
+        !decisions.is_empty(),
+        "AC-veto-a: daemon must write Decision{{action=critic_veto}} when critic vetos at iter 1"
+    );
+    // Verify option_chosen == "rejected"
+    let payload: hipcortex::payloads::DecisionPayload =
+        serde_json::from_value(decisions[0].metadata.clone()).unwrap_or_default();
+    assert_eq!(
+        payload.option_chosen, "rejected",
+        "AC-veto-a: Decision.option_chosen must be 'rejected'"
+    );
+    assert!(
+        !payload.rationale_chain.is_empty(),
+        "AC-veto-a: Decision.rationale_chain must be non-empty"
+    );
+}
+
+/// AC-veto-b: When critic vetos (iter 1), OLS rewrite must NOT fire.
+/// Total rewrite_equation Reflexions must equal 1 (from iter 0 only), not 2.
+#[test]
+fn ac_veto_b_critic_veto_gates_ols_rewrite() {
+    let cog = make_cognitive();
+
+    // Set up drift: x=1.0, y=2.0 twice → ols_weight = |4.0/2.0| = 2.0 > 0.3
+    cog.add_causal_node("veto_node".into()).unwrap();
+    cog.observe_prediction_drift("veto_node", 0.9, 1.0, 2.0);
+    cog.observe_prediction_drift("veto_node", 0.9, 1.0, 2.0);
+
+    // 2 iterations: iter 0 → not vetoed → rewrite fires; iter 1 → vetoed → rewrite blocked
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("veto-ols-agent".into(), cog.clone(), fast_config(2));
+    let reached = wait_iterations(&daemon, id, 2, 5000);
+    assert!(reached, "AC-veto-b: daemon must complete 2 iterations");
+
+    let ms = cog.memory.lock().unwrap();
+    let rewrites: Vec<_> = ms.all().iter()
+        .filter(|r| r.action == "rewrite_equation" && r.target == "veto_node")
+        .collect();
+    assert_eq!(
+        rewrites.len(), 1,
+        "AC-veto-b: rewrite_equation must fire exactly once (iter 0 only); got {}",
+        rewrites.len()
+    );
+}
+
+// ─── Gap K: Drift uses OLS coefficient, not placeholder ──────────────────────
+
+/// AC-drift-weight: rewrite_equation Reflexion metadata contains the computed OLS weight (2.0),
+/// not the hardcoded placeholder (1.0).
+#[test]
+fn ac_drift_weight_uses_ols_coefficient_not_placeholder() {
+    let cog = make_cognitive();
+
+    // x=1.0, y=2.0 twice → ols_weight = |Σ(x·y)/Σ(x²)| = |4.0/2.0| = 2.0
+    cog.add_causal_node("weight_node".into()).unwrap();
+    cog.observe_prediction_drift("weight_node", 0.9, 1.0, 2.0);
+    cog.observe_prediction_drift("weight_node", 0.9, 1.0, 2.0);
+
+    // 1 iteration (iter 0 — not vetoed — rewrite fires with computed weight)
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("weight-agent".into(), cog.clone(), fast_config(1));
+    let reached = wait_iterations(&daemon, id, 1, 3000);
+    assert!(reached, "AC-drift-weight: daemon must complete 1 iteration");
+
+    let ms = cog.memory.lock().unwrap();
+    let rewrite = ms.all().iter()
+        .find(|r| r.action == "rewrite_equation" && r.target == "weight_node")
+        .expect("AC-drift-weight: rewrite_equation Reflexion must exist");
+
+    // The handler stores new_weights in metadata
+    let weights = rewrite.metadata.get("new_weights")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|v| v.as_f64()).collect::<Vec<_>>())
+        .unwrap_or_default();
+    assert!(
+        !weights.is_empty(),
+        "AC-drift-weight: rewrite metadata must contain new_weights array"
+    );
+    let w = weights[0];
+    assert!(
+        (w - 2.0).abs() < 1e-9,
+        "AC-drift-weight: new_weights[0] must be OLS coefficient 2.0, got {w:.6}"
+    );
+    assert!(
+        (w - 1.0).abs() > 0.5,
+        "AC-drift-weight: new_weights[0] must NOT be placeholder 1.0"
+    );
+}
+
+// ─── Daemon drives ReactEngine ────────────────────────────────────────────────
+
+/// AC-react-daemon: Daemon Stage 5 calls ReactEngine::run() on the active InProgress goal.
+/// After 1 daemon tick, Temporal records linked via derived_from to the goal must exist,
+/// and the goal must be in a terminal state (Succeeded or Failed).
+#[test]
+fn ac_react_daemon_drives_react_goal_to_terminal() {
+    use hipcortex::cognitive_state::CognitiveDelta;
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+    use hipcortex::payloads::{GoalPayload, GoalStatus, SuccessFactor};
+
+    let cog = make_cognitive();
+
+    // Add an InProgress goal with 1 success_factor (will not be auto-satisfied → Failed)
+    let goal_payload = GoalPayload {
+        target_state: "daemon_react_target".to_string(),
+        success_factors: vec![SuccessFactor {
+            name: "must_complete".to_string(),
+            weight: 1.0,
+            satisfied: false,
+        }],
+        status: GoalStatus::InProgress,
+        max_react_iterations: 2,
+        ..Default::default()
+    };
+    let meta = serde_json::to_value(&goal_payload).unwrap();
+    let goal_rec = MemoryRecord::new(
+        MemoryType::Goal,
+        "react-daemon-agent".into(),
+        "pursue".into(),
+        "daemon_react_target".into(),
+        meta,
+    );
+    let goal_id = goal_rec.id;
+    cog.transact(CognitiveDelta::AddMemory(goal_rec), "react-daemon-agent").unwrap();
+
+    // 1 iteration: iter 0 → not vetoed → ReactEngine runs
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config(
+        "react-daemon-agent".into(), cog.clone(), fast_config(1),
+    );
+    let reached = wait_iterations(&daemon, id, 1, 5000);
+    assert!(reached, "AC-react-daemon: daemon must complete 1 iteration");
+
+    let ms = cog.memory.lock().unwrap();
+    // ReactEngine writes Temporal records with derived_from = goal_id
+    let linked: Vec<_> = ms.all().iter()
+        .filter(|r| r.derived_from == Some(goal_id)
+            && r.record_type == MemoryType::Temporal)
+        .collect();
+    assert!(
+        !linked.is_empty(),
+        "AC-react-daemon: ReactEngine must write ≥1 Temporal record linked to goal {goal_id}"
+    );
+
+    // Goal must be in terminal state after ReactEngine ran to completion
+    let goal_final = ms.find_by_id(goal_id).expect("goal record must still exist");
+    let final_payload: GoalPayload = serde_json::from_value(goal_final.metadata.clone())
+        .unwrap_or_default();
+    assert!(
+        matches!(final_payload.status, GoalStatus::Succeeded | GoalStatus::Failed),
+        "AC-react-daemon: goal must be Succeeded or Failed after daemon drives ReactEngine; got {:?}",
+        final_payload.status
+    );
+}
