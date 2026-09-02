@@ -28,6 +28,24 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 ---
 
+## What's new in v1.4.0 — Depth & Ownership (Phases 1–5)
+
+Six architectural mechanisms that give the agent true executive control over its own reasoning loop.
+
+| Phase | Capability | Details |
+|-------|-----------|---------|
+| **1 — Clarify gate** | GoalNotClarified guard | `CognitiveDelta::AddMemory(Goal{InProgress, empty factors})` → `GoalNotClarified` error; `POST /goal/:id/clarify` returns clarifying questions; self-prompting resolves ambiguity before loop starts |
+| **2 — CriticGate + VerifierGate** | Pre-action veto + post-observe check | `CriticGate`: iter 0 always passes; iter N with success fraction < 0.25 → `Decision{action="rejected"}` + iteration skipped. `VerifierGate`: WM prediction vs actual target — mismatch → `Belief{action="verifier_mismatch"}` + skip |
+| **3a — Workspace lease** | TTL-bounded workspaces | `lease_until: Option<SystemTime>` on `Workspace`; `POST /v1/workspace/:id/renew` extends lease; backward compatible (`None` = no expiry) |
+| **3b — OLS drift isolation** | Coordinate-wise drift weights | `PredictionMonitor::feed_with_obs(error, x, y)` accumulates feature/target pairs; `fit_ols()` returns per-dimension weights identifying which inputs drive drift |
+| **3c — WM authorization table** | Static op constraints | `WM_CONSTRAINTS` table (rollout ≤ depth 10/iter 200, counterfactual ≤ 5/50, intervene ≤ 3/10); `GET /v1/actions/authorized-wm` filters by `SelfModel` health |
+| **3d — Motif contraction** | Cycle guard + archive-before-delete | `has_derived_from_cycle()` skips motifs with corrupted provenance; causal validity check via WM; source records appended to `ArchiveStore` before hot-store deletion |
+| **4 — 8-stage daemon** | Owned cognitive loop | `SubstrateDaemon` runs Observe→Reflect→Plan→CriticVeto→Predict→Act→Update→ExitCheck per tick; `CognitiveLoopConfig` controls timing + consolidation threshold; `POST /v1/loop/stop/:handle` |
+| **5 — harness.md rewrite** | Accurate docs | `docs/harness.md` fully rewritten to match v1.4.0 — daemon-owned loop, all new endpoints, veto semantics, clarify gate, self-prompting lifecycle |
+| | **608 tests, 0 failures** | 395 unit · 157 integration · 56 property |
+
+---
+
 ## What's new in v1.3.0 — Cognitive Loop Closure (Phases A–H)
 
 Nine structural gaps in the cognitive architecture closed. Every gap has a dedicated test.

@@ -1,7 +1,7 @@
 {
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
-    "description": "HipCortex v1.3.0 — Cognitive Loop Closure: decision rationale chains, JTMS belief retraction, causal motif mining, durable workspaces, Kalman drift monitor, SubstrateDaemon background GC, Critic+Verifier in ReactEngine, versioned state export. 583 tests. Bundled multi-OS server (crate 1.3.0).",
+    "description": "HipCortex v1.4.0 — Depth & Ownership: CriticGate pre-action veto, VerifierGate WM prediction check, GoalNotClarified clarify gate, workspace TTL lease, OLS drift isolation, WM authorization table, motif contraction with cycle guard, 8-stage cognitive daemon (Observe→…→ExitCheck). 608 tests. Bundled multi-OS server (crate 1.4.0).",
     "version": "1.4.0",
     "publisher": "farmountain",
     "repository": {
