@@ -2,7 +2,7 @@
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
     "description": "HipCortex v1.5.1 — Gap Closure: GoalClarify gate (ReactEngine rejects empty success_factors), named drift isolation (observe_named/most_drifted_node), WM-state auth (rollout/counterfactual/intervene gated on live WM data), daemon dequeues real InProgress goals + marks Succeeded, WM entity state snapshots per tick. 620 tests. Bundled multi-OS server (crate 1.5.0).",
-    "version": "1.6.0",
+    "version": "1.6.1",
     "publisher": "farmountain",
     "repository": {
         "type": "git",

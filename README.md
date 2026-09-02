@@ -28,6 +28,20 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 ---
 
+## What's new in v1.6.1 — Daemon Loop Ownership + Critic Executive Veto
+
+Daemon now fully owns the cognitive loop and critic is executive (not advisory).
+
+| Change | Details |
+|--------|---------|
+| **Daemon owns ReactEngine** | Stage 5 calls `ReactEngine::run()` on the active InProgress goal each tick — no host `POST /goal/:id/react` needed; close the laptop, the mind keeps running |
+| **Critic executive veto** | `CriticGate` rejection now gates ALL Stage 5 acts (AutoConsolidate, ReactEngine, OLS rewrite); writes `Decision{action=critic_veto, option_chosen=rejected, rationale_chain}` to memory |
+| **OLS weight correction** | SCM rewrite uses computed coefficient `|Σ(x·y)/Σ(x²)|` instead of hardcoded `vec![1.0]` placeholder |
+| **Workspace TTL confirmed** | `Workspace::open()` sets `lease_until: None` — workspaces never expire by TTL (month-scale by construction) |
+| | **633 tests, 0 failures** | 419 unit · 158 integration · 56 property |
+
+---
+
 ## What's new in v1.6.0 — Production Hardening (Gaps A, B, C, E)
 
 Four remaining production gaps closed — structural deduplication, WM-belief-bound auth, SCM drift auto-rewrite, and autonomous goal synthesis.
