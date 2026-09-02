@@ -1,0 +1,17 @@
+{
+    "pythonVersion": "3.11",
+    "pythonPlatform": "Windows",
+    "venvPath": "C:/Users/user/AppData/Roaming/uv/python",
+    "extraPaths": [
+        "sdk/python",
+        "tests"
+    ],
+    "exclude": [
+        "**/node_modules",
+        "**/__pycache__",
+        "vscode-extension",
+        "target"
+    ],
+    "reportMissingImports": "warning",
+    "reportMissingModuleSource": "none"
+}
