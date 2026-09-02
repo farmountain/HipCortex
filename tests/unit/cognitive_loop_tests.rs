@@ -277,6 +277,53 @@ fn ac_gap8a_daemon_snapshots_wm_entity() {
     );
 }
 
+/// AC-gap1c: Daemon must NOT mark InProgress goal with 0 success_factors as Succeeded.
+/// Vacuous-truth guard: [].iter().all(f) == true in Rust — daemon Stage 1 must skip unclarified goals.
+#[test]
+fn ac_gap1c_daemon_skips_unclarified_zero_factor_goal() {
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+    use hipcortex::payloads::{GoalPayload, GoalStatus};
+
+    let cog = make_cognitive();
+
+    // Add an InProgress goal with NO success_factors (bypasses AddMemory gate via raw store insert).
+    let payload = GoalPayload {
+        target_state: "ambiguous_goal".into(),
+        success_factors: vec![], // empty — unclarified
+        status: GoalStatus::InProgress,
+        max_react_iterations: 3,
+        ..Default::default()
+    };
+    let goal_rec = MemoryRecord::new(
+        MemoryType::Goal,
+        "gap1c-agent".into(),
+        "achieve".into(),
+        "ambiguous_goal".into(),
+        serde_json::to_value(&payload).unwrap(),
+    );
+    let goal_id = goal_rec.id;
+    {
+        // Insert directly to bypass GoalNotClarified gate (simulates Pending→InProgress transition)
+        let mut ms = cog.memory.lock().unwrap();
+        ms.add(goal_rec).unwrap();
+    }
+
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("gap1c-agent".into(), cog.clone(), fast_config(1));
+    let reached = wait_iterations(&daemon, id, 1, 3000);
+    assert!(reached, "AC-gap1c: daemon must complete 1 iteration even with unclarified goal");
+
+    // Goal must remain InProgress — daemon must not vacuously mark it Succeeded.
+    let ms = cog.memory.lock().unwrap();
+    let goal = ms.find_by_id(goal_id).expect("goal record must still exist");
+    let gp: GoalPayload = serde_json::from_value(goal.metadata.clone()).unwrap();
+    assert!(
+        matches!(gp.status, GoalStatus::InProgress),
+        "AC-gap1c: 0-factor goal must remain InProgress (not vacuously Succeeded); got {:?}",
+        gp.status
+    );
+}
+
 /// AC-gap8b: No snapshot records when WM has no registered entities.
 #[test]
 fn ac_gap8b_no_snapshot_when_no_entities() {

@@ -123,17 +123,22 @@ impl SubstrateDaemon {
                         .as_ref()
                         .map(|s| s.self_model.consolidation_pressure)
                         .unwrap_or(0.0);
-                    // Find the first InProgress goal for this actor to drive Stage 3 and ExitCheck.
+                    // Find first InProgress goal with ≥1 success_factors (skip unclarified goals).
+                    // Goals with empty factors bypass the GoalNotClarified gate if added via
+                    // Pending→InProgress transition — daemon must not act on or mark them Succeeded.
                     let active_goal: Option<(uuid::Uuid, crate::payloads::GoalPayload)> =
                         cognitive.memory.lock().ok().and_then(|ms| {
                             ms.search_by_goal_status(&actor_clone, "InProgress")
                                 .into_iter()
-                                .next()
-                                .map(|rec| {
+                                .find_map(|rec| {
                                     let payload: crate::payloads::GoalPayload =
                                         serde_json::from_value(rec.metadata.clone())
                                             .unwrap_or_default();
-                                    (rec.id, payload)
+                                    if payload.success_factors.is_empty() {
+                                        None // skip unclarified goal
+                                    } else {
+                                        Some((rec.id, payload))
+                                    }
                                 })
                         });
                     if let Ok(mut sc) = sc_clone.lock() { sc[1] += 1; }
