@@ -1656,13 +1656,17 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     // ── Status bar ────────────────────────────────────────────────────────────
+    // NOTE: statusBarItem.show() is deferred to AFTER all registerCommand() calls below.
+    // Showing the status bar before its command is registered causes "command not found"
+    // if the user clicks it during the synchronous activation path (LM tool registration
+    // block runs between here and the registerCommand block at the end of activate()).
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     statusBarItem.tooltip = 'HipCortex Memory — click to query';
     statusBarItem.command = 'hipcortex.queryMemory';
     const initMode = vscode.workspace.getConfiguration('hipcortex').get<string>('optimizationMode', 'headroom');
     const initModeCap = initMode === 'caveman' ? 'Caveman' : 'Headroom';
     statusBarItem.text = tokenTracker.formatStatusBarLabel(0, 0, initModeCap);
-    statusBarItem.show();
+    // statusBarItem.show() moved to end of activate() — after registerCommand() calls.
     context.subscriptions.push(statusBarItem);
     const updateStatusBar = (trans: number = 0, loops: number = 0, predSuffix: string = '') => {
         const mode = vscode.workspace.getConfiguration('hipcortex').get<string>('optimizationMode', 'headroom');
@@ -2243,6 +2247,12 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     context.subscriptions.push(addMemoryCommand, queryMemoryCommand, testExtensionCommand, restartServerCommand, systemHealthCommand, stateDiffCommand, cognitiveHealthCommand, cognitiveSnapshotCommand, twinCreateCommand, twinStepCommand, twinRolloutCommand, twinGetCommand, experienceTiersCommand);
+
+    // Show status bar only after ALL commands are registered. This prevents the race
+    // condition where clicking the status bar before registerCommand() fires throws
+    // "command 'hipcortex.queryMemory' not found".
+    statusBarItem.show();
+    console.log('✅ HipCortex status bar shown — all commands registered');
 }
 
 export function deactivate() {
