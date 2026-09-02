@@ -39,7 +39,7 @@ fn causal_motif_mining_induces_skills() {
     }
 
     let before_count = store.record_count();
-    let report = mine_and_consolidate(&mut store, None, 3, actor)
+    let report = mine_and_consolidate(&mut store, None, None, None, 3, actor)
         .expect("mine_and_consolidate must succeed");
 
     assert!(

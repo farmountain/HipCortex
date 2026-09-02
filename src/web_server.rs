@@ -1,5 +1,6 @@
 #[cfg(feature = "web-server")]
 use crate::archive_store::ArchiveStore;
+use crate::workspace::{WorkspaceId, WorkspaceRegistry};
 #[cfg(feature = "web-server")]
 use crate::aureus_bridge::AureusBridge;
 #[cfg(feature = "web-server")]
@@ -162,6 +163,7 @@ pub struct AppState<B: MemoryBackend + Send + Sync + 'static> {
     pub forks: Arc<Mutex<std::collections::HashMap<uuid::Uuid, Arc<Mutex<crate::simulation_fork::SimulationFork<B>>>>>>,
     pub twins: Arc<Mutex<std::collections::HashMap<uuid::Uuid, Arc<Mutex<crate::digital_twin::DigitalTwin<B>>>>>>,
     pub daemon: Arc<Mutex<crate::substrate_daemon::SubstrateDaemon>>,
+    pub workspace_registry: Arc<Mutex<WorkspaceRegistry>>,
 }
 
 /// Manual Clone: all fields are Arc<…> so clone is a ref-count bump regardless of B.
@@ -183,6 +185,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> Clone for AppState<B> {
             forks: self.forks.clone(),
             twins: self.twins.clone(),
             daemon: self.daemon.clone(),
+            workspace_registry: self.workspace_registry.clone(),
         }
     }
 }
@@ -540,6 +543,7 @@ pub async fn run_with_memory<B: MemoryBackend + Send + Sync + 'static>(
         forks: Arc::new(Mutex::new(std::collections::HashMap::new())),
         twins: Arc::new(Mutex::new(std::collections::HashMap::new())),
         daemon: Arc::new(Mutex::new(crate::substrate_daemon::SubstrateDaemon::new())),
+        workspace_registry: Arc::new(Mutex::new(WorkspaceRegistry::new())),
     };
     run_with_state(addr, state).await;
 }
@@ -565,6 +569,7 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
     let forks = state.forks.clone();
     let twins = state.twins.clone();
     let daemon = state.daemon.clone();
+    let workspace_registry = state.workspace_registry.clone();
 
     // ── Symbolic store routes ─────────────────────────────────────────────
     let graph_route = {
@@ -3387,6 +3392,9 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
     )));
     let tx_log_arc: Option<Arc<TxLog>> = None;
     let calibration: Arc<CalibrationTracker> = Arc::new(CalibrationTracker::new());
+    let self_model: Arc<SelfModel> = Arc::new(SelfModel::new());
+    let workspace_registry: Arc<Mutex<WorkspaceRegistry>> =
+        Arc::new(Mutex::new(WorkspaceRegistry::new()));
 
     // Symbolic store routes
     let graph_route = {
@@ -3611,18 +3619,35 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         post(move |Path(id): Path<String>| async move {
             let goal_id = match uuid::Uuid::parse_str(&id) {
                 Ok(u) => u,
-                Err(_) => return Json(serde_json::json!({"error": "invalid uuid"})),
+                Err(_) => return (StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"error": "invalid uuid"}))),
             };
+            // Clarify gate: reject if goal has no success_factors
+            {
+                let s = store.lock().unwrap();
+                if let Some(rec) = s.find_by_id(goal_id) {
+                    if let Ok(payload) = serde_json::from_value::<crate::payloads::GoalPayload>(rec.metadata.clone()) {
+                        if payload.success_factors.is_empty() {
+                            return (
+                                StatusCode::UNPROCESSABLE_ENTITY,
+                                axum::Json(serde_json::json!({
+                                    "error": "goal must be clarified before react: POST /goal/{id}/clarify",
+                                    "goal_id": goal_id.to_string()
+                                })),
+                            );
+                        }
+                    }
+                }
+            }
             let mut engine = crate::loop_engine::ReactEngine::new();
             let result = {
                 let mut s = store.lock().unwrap();
                 engine.run(&mut s, goal_id, 0)
             };
             match result {
-                Ok(status) => Json(
+                Ok(status) => (StatusCode::OK, axum::Json(
                     serde_json::json!({"goal_id": goal_id.to_string(), "status": format!("{:?}", status)}),
-                ),
-                Err(e) => Json(serde_json::json!({"error": e})),
+                )),
+                Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({"error": e}))),
             }
         })
     };
@@ -3681,6 +3706,86 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
                     "error": "no verifier report found — goal may still be running",
                 })),
             }
+        })
+    };
+
+    // GET /v1/actions/authorized-wm — list world-model ops approved by SelfModel (Phase 3c)
+    let v1_authorized_wm_route = {
+        let sm = self_model.clone();
+        get(move || async move {
+            let ops = crate::action_registry::list_authorized_world_model(&sm);
+            (StatusCode::OK, axum::Json(serde_json::json!({ "authorized": ops })))
+        })
+    };
+
+    // POST /v1/workspace/:id/renew — renew workspace lease (Phase 3a)
+    let workspace_renew_route = {
+        let registry = workspace_registry.clone();
+        post(
+            move |Path(id): Path<String>, body: Option<Json<serde_json::Value>>| async move {
+                let ws_uuid = match uuid::Uuid::parse_str(&id) {
+                    Ok(u) => u,
+                    Err(_) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            axum::Json(serde_json::json!({"error": "invalid workspace id"})),
+                        )
+                    }
+                };
+                let secs = body
+                    .and_then(|Json(v)| v.get("secs").and_then(|s| s.as_u64()))
+                    .unwrap_or(3600);
+                let ws_id = crate::workspace::WorkspaceId(ws_uuid);
+                match registry.lock().unwrap().renew(&ws_id, secs) {
+                    Ok(()) => (
+                        StatusCode::OK,
+                        axum::Json(serde_json::json!({"renewed": true, "secs": secs})),
+                    ),
+                    Err(e) => (
+                        StatusCode::NOT_FOUND,
+                        axum::Json(serde_json::json!({"error": e})),
+                    ),
+                }
+            },
+        )
+    };
+
+    // POST /goal/:id/clarify — set success_factors + acceptance_criteria before InProgress
+    let goal_clarify_route = {
+        let store = memory_store.clone();
+        post(move |Path(id): Path<String>, Json(body): Json<serde_json::Value>| async move {
+            let goal_id = match uuid::Uuid::parse_str(&id) {
+                Ok(u) => u,
+                Err(_) => return (StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"error": "invalid uuid"}))),
+            };
+            let mut s = store.lock().unwrap();
+            let rec = match s.find_by_id(goal_id) {
+                Some(r) => r.clone(),
+                None => return (StatusCode::NOT_FOUND, axum::Json(serde_json::json!({"error": "goal not found"}))),
+            };
+            let mut payload = serde_json::from_value::<crate::payloads::GoalPayload>(rec.metadata.clone())
+                .unwrap_or_default();
+            if matches!(payload.status, crate::payloads::GoalStatus::Succeeded | crate::payloads::GoalStatus::Failed) {
+                return (StatusCode::CONFLICT, axum::Json(serde_json::json!({"error": "cannot clarify completed goal"})));
+            }
+            if let Some(factors) = body.get("success_factors") {
+                if let Ok(sf) = serde_json::from_value::<Vec<crate::payloads::SuccessFactor>>(factors.clone()) {
+                    payload.success_factors = sf;
+                }
+            }
+            if let Some(ac) = body.get("acceptance_criteria") {
+                if let Ok(criteria) = serde_json::from_value::<Vec<String>>(ac.clone()) {
+                    payload.acceptance_criteria = criteria;
+                }
+            }
+            let new_meta = serde_json::to_value(&payload).unwrap_or_default();
+            let _ = s.update_record(goal_id, None, None, None, None, Some(new_meta.clone()));
+            (StatusCode::OK, axum::Json(serde_json::json!({
+                "goal_id": goal_id.to_string(),
+                "success_factors": payload.success_factors.len(),
+                "acceptance_criteria": payload.acceptance_criteria.len(),
+                "status": format!("{:?}", payload.status),
+            })))
         })
     };
 
@@ -3764,7 +3869,7 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
             };
             let mut ms = store.lock().unwrap();
             if strategy == "motif" {
-                match crate::consolidation::mine_and_consolidate(&mut ms, Some(log_ref), min_frequency, actor) {
+                match crate::consolidation::mine_and_consolidate(&mut ms, None, None, Some(log_ref), min_frequency, actor) {
                     Ok(r) => Json(serde_json::to_value(r).unwrap_or(serde_json::json!({"error": "serialization failed"}))),
                     Err(e) => Json(serde_json::json!({"error": e})),
                 }
@@ -3843,14 +3948,37 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
                 .and_then(|v| v.as_str())
                 .unwrap_or("daemon")
                 .to_string();
+            let cfg = req.get("config").and_then(|c| {
+                serde_json::from_value::<crate::substrate_daemon::CognitiveLoopConfig>(c.clone()).ok()
+            }).unwrap_or_default();
             match dmn.lock() {
                 Ok(mut d) => {
-                    let id = d.subscribe(actor, cog);
+                    let id = d.subscribe_with_config(actor, cog, cfg);
                     Json(serde_json::json!({"ok": true, "handle_id": id}))
                 }
                 Err(_) => Json(serde_json::json!({"ok": false, "error": "daemon lock failed"})),
             }
         })
+    };
+
+    // POST /v1/loop/stop/:handle — signal a daemon handle to stop
+    let v1_loop_stop_route = {
+        let dmn = daemon.clone();
+        post(
+            move |axum::extract::Path(handle): axum::extract::Path<String>| async move {
+                let id = match uuid::Uuid::parse_str(&handle) {
+                    Ok(u) => u,
+                    Err(_) => return Json(serde_json::json!({"ok": false, "error": "invalid handle UUID"})),
+                };
+                match dmn.lock() {
+                    Ok(d) => {
+                        let stopped = d.stop(id);
+                        Json(serde_json::json!({"ok": true, "stopped": stopped}))
+                    }
+                    Err(_) => Json(serde_json::json!({"ok": false, "error": "daemon lock failed"})),
+                }
+            },
+        )
     };
 
     // GET /v1/loop/status/:handle — retrieve handle info
@@ -3961,6 +4089,9 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/goal/:id/react", goal_react_route)
         .route("/goal/:id/trace", goal_trace_route)
         .route("/goal/:id/verify", goal_verify_route)
+        .route("/goal/:id/clarify", goal_clarify_route)
+        .route("/v1/workspace/:id/renew", workspace_renew_route)
+        .route("/v1/actions/authorized-wm", v1_authorized_wm_route)
         .route("/memory/diff", memory_diff_route)
         .route("/v1/state/diff", v1_state_diff_route)
         .route("/v1/memory/consolidate", v1_consolidate_route)
@@ -3969,6 +4100,7 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/v1/loop/omega", v1_loop_omega_route)
         .route("/v1/loop/subscribe", v1_loop_subscribe_route)
         .route("/v1/loop/status/:handle", v1_loop_status_route)
+        .route("/v1/loop/stop/:handle", v1_loop_stop_route)
         .layer(middleware::from_fn(api_key_middleware));
 
     axum::Server::bind(&addr)

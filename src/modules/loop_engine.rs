@@ -584,6 +584,7 @@ impl ReactEngine {
             .max_iterations_override
             .unwrap_or(goal_payload.max_react_iterations);
 
+        let mut prev_wm_prediction: Option<String> = None;
         for i in 0..max_iter {
             goal_payload.current_iteration = i;
             goal_payload.status = GoalStatus::InProgress;
@@ -599,6 +600,33 @@ impl ReactEngine {
                 "iteration": i,
                 "target": goal_payload.target_state,
             });
+
+            // CRITIC-GATE: pre-action veto (Phase 2, AC-4a/4b)
+            {
+                use crate::loop_gates::{CriticDecision, CriticGate};
+                if let CriticDecision::Rejected { rationale } =
+                    CriticGate::evaluate(&goal_payload, "symbolic_step", i)
+                {
+                    use crate::payloads::DecisionPayload;
+                    let veto_payload = DecisionPayload {
+                        option_chosen: "rejected".to_string(),
+                        alternatives: vec!["symbolic_step".to_string()],
+                        rationale_chain: rationale,
+                        ..Default::default()
+                    };
+                    let mut veto_rec = MemoryRecord::new(
+                        MemoryType::Decision,
+                        "react_engine".to_string(),
+                        "rejected".to_string(),
+                        goal_payload.target_state.clone(),
+                        serde_json::to_value(&veto_payload).unwrap_or_default(),
+                    );
+                    veto_rec.derived_from = Some(goal_id);
+                    veto_rec.react_iteration = Some(i);
+                    let _ = store.add(veto_rec);
+                    continue;
+                }
+            }
 
             // ACT — Decision record before executing (P1.6)
             use crate::payloads::DecisionPayload;
@@ -635,11 +663,41 @@ impl ReactEngine {
             obs.react_iteration = Some(i);
             let obs_snapshot = obs.clone();
             let obs_id = obs.id;
+            // VERIFIER-GATE: check WM prediction vs actual observation (Phase 2, AC-4c/4d)
+            {
+                use crate::loop_gates::{VerifierGate, VerifierResult};
+                if let VerifierResult::Mismatch { predicted, observed } =
+                    VerifierGate::check(prev_wm_prediction.as_deref(), &obs_snapshot.target)
+                {
+                    let mut mm_rec = MemoryRecord::new(
+                        MemoryType::Belief,
+                        "react_engine".to_string(),
+                        "verifier_mismatch".to_string(),
+                        goal_payload.target_state.clone(),
+                        serde_json::json!({"predicted": predicted, "observed": observed, "iteration": i}),
+                    );
+                    mm_rec.derived_from = Some(goal_id);
+                    mm_rec.react_iteration = Some(i);
+                    let _ = store.add(mm_rec);
+                    continue;
+                }
+            }
             store
                 .add(obs)
                 .map_err(|e| format!("Failed to write observation: {}", e))?;
             // Feedback → WorldModel (P1.5)
             crate::wm_updater::update_from_temporal(&obs_snapshot, &mut self.wm);
+            // Update WM prediction for next iteration (Phase 2)
+            prev_wm_prediction = self
+                .wm
+                .predict_next_state(&obs_snapshot.target, "symbolic_step")
+                .ok()
+                .and_then(|p| {
+                    p.probabilities
+                        .into_iter()
+                        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
+                        .map(|(k, _)| k)
+                });
             // Back-fill Decision.outcome (P1.6)
             decision_payload.outcome = Some(obs_id);
             let _ = store.update_record(

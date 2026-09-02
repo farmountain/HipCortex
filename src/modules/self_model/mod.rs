@@ -350,6 +350,22 @@ impl SelfModel {
         let mut pm = self.prediction_monitor.lock().ok()?;
         pm.feed(error)
     }
+
+    /// Feed (error, feature_vec, target_vec) to the OLS-capable monitor.
+    pub fn record_prediction_error_with_obs(
+        &self,
+        error: f64,
+        x: Vec<f64>,
+        y: Vec<f64>,
+    ) -> Option<(String, Vec<f64>)> {
+        let mut pm = self.prediction_monitor.lock().ok()?;
+        pm.feed_with_obs(error, x, y)
+    }
+
+    /// Return OLS weights from the prediction monitor's accumulated obs_pairs.
+    pub fn prediction_drift_weights(&self) -> Option<Vec<f64>> {
+        self.prediction_monitor.lock().ok()?.fit_ols()
+    }
 }
 
 impl Default for SelfModel {

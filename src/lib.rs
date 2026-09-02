@@ -6,6 +6,7 @@ pub mod action_registry;
 pub mod agent_guidance;
 pub mod task_discovery;
 pub mod archive_store;
+pub mod loop_gates;
 pub mod substrate_daemon;
 #[cfg(feature = "async-store")]
 pub mod async_memory_store;

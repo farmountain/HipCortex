@@ -19,6 +19,18 @@ impl ArchiveStore {
         }
     }
 
+    /// Create an archive backed by a uniquely-named temp file (suitable for tests).
+    pub fn new_in_memory() -> Self {
+        let path = std::env::temp_dir()
+            .join(format!("hipcortex_archive_{}.jsonl", uuid::Uuid::new_v4()));
+        Self { path }
+    }
+
+    /// Count records (convenience alias consistent with MemoryStore).
+    pub fn record_count(&self) -> usize {
+        self.count().unwrap_or(0)
+    }
+
     /// Append one record to the archive file.
     pub fn append(&mut self, record: MemoryRecord) -> Result<()> {
         let mut file = OpenOptions::new()

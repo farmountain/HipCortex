@@ -247,3 +247,51 @@ fn evict_expired_removes_stale_workspaces() {
     assert_eq!(evicted, 0);
     assert_eq!(reg.workspace_count(), 2);
 }
+
+// ── Phase 3a: Workspace lease tests (AC-2a through AC-2d) ─────────────────────
+
+#[test]
+fn ac2a_no_lease_never_expires() {
+    let store = MemoryStore::<InMemoryBackend>::new_in_memory();
+    let ws = hipcortex::workspace::Workspace::open(
+        WorkspaceId::new(),
+        WorkspaceMode::Private,
+        &store,
+    );
+    assert!(!ws.is_expired(), "AC-2a: workspace with no lease must not be expired");
+    assert!(ws.expires_at().is_none(), "AC-2a: expires_at must be None when no lease set");
+}
+
+#[test]
+fn ac2b_renew_lease_sets_expires_at() {
+    let store = MemoryStore::<InMemoryBackend>::new_in_memory();
+    let mut ws = hipcortex::workspace::Workspace::open(
+        WorkspaceId::new(),
+        WorkspaceMode::Private,
+        &store,
+    );
+    ws.renew_lease(3600);
+    assert!(!ws.is_expired(), "AC-2b: freshly renewed lease must not be expired");
+    assert!(ws.expires_at().is_some(), "AC-2b: expires_at must be Some after renew_lease");
+}
+
+#[test]
+fn ac2c_registry_renew_ok_for_existing_workspace() {
+    let store = MemoryStore::<InMemoryBackend>::new_in_memory();
+    let mut reg = WorkspaceRegistry::new();
+    let id = WorkspaceId::new();
+    reg.open(id.clone(), WorkspaceMode::Private, &store);
+
+    let result = reg.renew(&id, 3600);
+    assert!(result.is_ok(), "AC-2c: renew on existing workspace must return Ok; got: {:?}", result);
+    let expires = reg.get(&id).and_then(|ws| ws.expires_at());
+    assert!(expires.is_some(), "AC-2c: expires_at must be Some after registry renew");
+}
+
+#[test]
+fn ac2d_registry_renew_err_for_unknown_workspace() {
+    let mut reg = WorkspaceRegistry::new();
+    let unknown = WorkspaceId::new();
+    let result = reg.renew(&unknown, 3600);
+    assert!(result.is_err(), "AC-2d: renew on unknown workspace must return Err");
+}

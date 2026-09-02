@@ -59,7 +59,7 @@ fn consolidation_induces_skills_from_causal_chains() {
         build_chain(&mut store, actor, action, 10);
     }
 
-    let report = mine_and_consolidate(&mut store, None, 3, actor)
+    let report = mine_and_consolidate(&mut store, None, None, None, 3, actor)
         .expect("mine_and_consolidate failed");
 
     assert!(
@@ -83,7 +83,7 @@ fn induced_skills_carry_evidence_links() {
         build_chain(&mut store, actor, action, 10);
     }
 
-    mine_and_consolidate(&mut store, None, 3, actor).expect("mine_and_consolidate failed");
+    mine_and_consolidate(&mut store, None, None, None, 3, actor).expect("mine_and_consolidate failed");
 
     let skill_records = store.all_by_type(MemoryType::Skill);
     assert!(
@@ -113,7 +113,7 @@ fn consolidation_archives_source_records() {
         build_chain(&mut store, actor, action, 8);
     }
 
-    let report = mine_and_consolidate(&mut store, None, 3, actor)
+    let report = mine_and_consolidate(&mut store, None, None, None, 3, actor)
         .expect("mine_and_consolidate failed");
 
     assert!(
@@ -140,7 +140,7 @@ proptest! {
             build_chain(&mut store, actor, action, chain_len);
         }
 
-        let report = mine_and_consolidate(&mut store, None, n_chains, actor)
+        let report = mine_and_consolidate(&mut store, None, None, None, n_chains, actor)
             .expect("mine_and_consolidate failed");
 
         prop_assert!(

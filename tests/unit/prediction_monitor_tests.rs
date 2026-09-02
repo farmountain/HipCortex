@@ -67,3 +67,49 @@ fn self_model_record_prediction_error_returns_some_on_persistent_drift() {
     assert_eq!(node_id, "world-model-default");
     assert!(!weights.is_empty());
 }
+
+// ── Phase-3b OLS drift isolation (AC-5a through AC-5d) ────────────────────────
+
+#[test]
+fn ac5a_feed_with_obs_stores_pairs_for_ols() {
+    // AC-5a: feed_with_obs accumulates (x, y) pairs
+    let mut pm = PredictionMonitor::new("eq-ols", 5, 0.3);
+    pm.feed_with_obs(0.1, vec![1.0, 0.0], vec![0.5]);
+    pm.feed_with_obs(0.1, vec![2.0, 0.0], vec![1.0]);
+    let weights = pm.fit_ols();
+    assert!(weights.is_some(), "AC-5a: fit_ols must return Some after >= 2 obs pairs");
+}
+
+#[test]
+fn ac5b_fit_ols_returns_none_before_two_pairs() {
+    // AC-5b: fit_ols returns None when fewer than 2 pairs collected
+    let pm = PredictionMonitor::new("eq-ols", 5, 0.3);
+    assert!(pm.fit_ols().is_none(), "AC-5b: fit_ols must return None before 2 pairs");
+}
+
+#[test]
+fn ac5c_ols_weights_approximate_linear_relationship() {
+    // AC-5c: OLS weights should match w ≈ y/x for a simple y = 2x relationship
+    let mut pm = PredictionMonitor::new("eq-ols", 10, 0.3);
+    for i in 1..=5 {
+        let x = i as f64;
+        pm.feed_with_obs(0.1, vec![x], vec![2.0 * x]);
+    }
+    let weights = pm.fit_ols().expect("AC-5c: fit_ols must return Some");
+    assert!(!weights.is_empty(), "AC-5c: weights must not be empty");
+    let w0 = weights[0];
+    assert!(
+        (w0 - 2.0).abs() < 0.01,
+        "AC-5c: OLS weight should ≈ 2.0 for y=2x; got {w0}"
+    );
+}
+
+#[test]
+fn ac5d_self_model_record_with_obs_and_drift_weights() {
+    // AC-5d: SelfModel wiring — record_prediction_error_with_obs + prediction_drift_weights
+    let sm = SelfModel::new();
+    sm.record_prediction_error_with_obs(0.1, vec![1.0], vec![1.0]);
+    sm.record_prediction_error_with_obs(0.1, vec![2.0], vec![2.0]);
+    let weights = sm.prediction_drift_weights();
+    assert!(weights.is_some(), "AC-5d: prediction_drift_weights must return Some after 2 obs");
+}

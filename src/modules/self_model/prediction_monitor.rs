@@ -5,11 +5,17 @@ use std::collections::VecDeque;
 /// When every slot in the window exceeds `error_threshold`, the monitored
 /// causal equation is considered broken and `broken_equation()` returns the
 /// node ID to rewrite via `CognitiveDelta::RewriteStructuralEquation`.
+///
+/// Phase-3b extension: `obs_pairs` stores (feature_vec, target_vec) pairs for
+/// OLS regression via `fit_ols()` — returns per-feature regression weights that
+/// isolate which input dimensions drive observed drift.
 pub struct PredictionMonitor {
     error_history: VecDeque<f64>,
     window: usize,
     error_threshold: f64,
     node_id: String,
+    /// (feature_vec, target_vec) pairs for OLS drift analysis.
+    obs_pairs: VecDeque<(Vec<f64>, Vec<f64>)>,
 }
 
 impl PredictionMonitor {
@@ -19,6 +25,7 @@ impl PredictionMonitor {
             window,
             error_threshold,
             node_id: node_id.into(),
+            obs_pairs: VecDeque::new(),
         }
     }
 
@@ -52,6 +59,47 @@ impl PredictionMonitor {
         } else {
             None
         }
+    }
+
+    /// Like `feed`, but also stores (feature_vec, target_vec) for OLS drift analysis.
+    pub fn feed_with_obs(
+        &mut self,
+        error: f64,
+        x: Vec<f64>,
+        y: Vec<f64>,
+    ) -> Option<(String, Vec<f64>)> {
+        if self.obs_pairs.len() >= self.window.max(1) {
+            self.obs_pairs.pop_front();
+        }
+        self.obs_pairs.push_back((x, y));
+        self.feed(error)
+    }
+
+    /// Fit OLS on collected obs_pairs. Returns per-feature weights w where w·x ≈ y[0].
+    /// Uses coordinate-wise (diagonal) normal equations. Returns None if < 2 pairs.
+    pub fn fit_ols(&self) -> Option<Vec<f64>> {
+        if self.obs_pairs.len() < 2 {
+            return None;
+        }
+        let d = self.obs_pairs.front().map(|(x, _)| x.len()).unwrap_or(0);
+        if d == 0 {
+            return None;
+        }
+        let mut xtx = vec![0.0f64; d];
+        let mut xty = vec![0.0f64; d];
+        for (x, y) in &self.obs_pairs {
+            let y0 = y.first().copied().unwrap_or(0.0);
+            for (i, xi) in x.iter().take(d).enumerate() {
+                xtx[i] += xi * xi;
+                xty[i] += xi * y0;
+            }
+        }
+        Some(
+            xtx.iter()
+                .zip(xty.iter())
+                .map(|(xx, xy)| if *xx > 1e-10 { xy / xx } else { 0.0 })
+                .collect(),
+        )
     }
 }
 

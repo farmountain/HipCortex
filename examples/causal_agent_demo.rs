@@ -19,6 +19,7 @@ fn main() {
         intervention_value: 1.0,
         conditioned_on: std::collections::HashMap::new(),
         outcome: "outcome".to_string(),
+        intervention_label: None,
     };
     if let Ok(dist) = wm.causal_intervention(query) {
         println!("Intervention P(outcome | do(treatment=1)): {:?}", dist);

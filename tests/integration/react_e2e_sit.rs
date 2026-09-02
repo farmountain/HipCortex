@@ -119,15 +119,18 @@ mod tests {
             .filter(|r| r.record_type == MemoryType::Reflexion && r.derived_from == Some(goal_id))
             .collect();
 
+        // v1.4.0: CriticGate passes iteration 0 unconditionally; iteration 1 is vetoed
+        // (0 satisfied factors → fraction 0.0 < 0.25 threshold) → writes Decision{rejected},
+        // no Temporal for that iteration. So expect exactly 1 Temporal from iter 0.
         assert_eq!(
             temporal_obs.len(),
-            2,
-            "Expected 2 Temporal observations (one per iteration), got {}",
+            1,
+            "Expected 1 Temporal observation (iter 0 passes, iter 1 vetoed by CriticGate), got {}",
             temporal_obs.len()
         );
         assert!(
-            reflexion_obs.len() >= 2,
-            "Expected ≥2 Reflexion records (one critique per iteration + optional attribution), got {}",
+            reflexion_obs.len() >= 1,
+            "Expected ≥1 Reflexion record (iter 0 critique), got {}",
             reflexion_obs.len()
         );
 
@@ -136,7 +139,14 @@ mod tests {
             .filter_map(|r| r.react_iteration)
             .collect();
         iter_vals.sort();
-        assert_eq!(iter_vals, vec![0, 1], "react_iteration must be 0 and 1");
+        assert_eq!(iter_vals, vec![0], "react_iteration must be 0 only (iter 1 vetoed)");
+
+        // Verify CriticGate veto record written for iter 1
+        let vetoed: Vec<_> = all
+            .iter()
+            .filter(|r| r.action == "rejected" && r.react_iteration == Some(1))
+            .collect();
+        assert!(!vetoed.is_empty(), "CriticGate must write a rejected Decision for iter 1");
 
         let search_results = store.search_semantic(None, "test_target", 100, false);
         assert!(

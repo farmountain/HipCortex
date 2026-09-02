@@ -53,6 +53,46 @@ pub fn list_authorized_contextual(
         .collect()
 }
 
+/// A declared constraint on a world-model operation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpConstraint {
+    pub op: &'static str,
+    pub requires_wm: bool,
+    pub max_depth: usize,
+    pub max_iterations: usize,
+}
+
+/// Declared world-model op constraints (Phase 3c). Caps match REST endpoint validation.
+pub const WM_CONSTRAINTS: &[OpConstraint] = &[
+    OpConstraint { op: "world_model_rollout",  requires_wm: true, max_depth: 10, max_iterations: 200 },
+    OpConstraint { op: "counterfactual",       requires_wm: true, max_depth:  5, max_iterations:  50 },
+    OpConstraint { op: "intervene",            requires_wm: true, max_depth:  3, max_iterations:  10 },
+];
+
+/// Return world-model ops that pass both `WM_CONSTRAINTS` and the SelfModel's DecisionEngine.
+pub fn list_authorized_world_model(self_model: &SelfModel) -> Vec<AuthorizedOp> {
+    WM_CONSTRAINTS
+        .iter()
+        .filter_map(|c| {
+            let decision = self_model
+                .can_execute(c.op, crate::self_model::DecisionContext::default_context())
+                .ok()?;
+            if decision.should_execute {
+                Some(AuthorizedOp {
+                    op: c.op.to_string(),
+                    confidence: decision.confidence,
+                    rationale: format!(
+                        "{} (depth≤{} iter≤{})",
+                        decision.rationale, c.max_depth, c.max_iterations
+                    ),
+                })
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 /// Return all ops currently approved by the SelfModel's DecisionEngine.
 pub fn list_authorized(self_model: &SelfModel) -> Vec<AuthorizedOp> {
     ALL_OPS

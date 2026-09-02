@@ -66,3 +66,5 @@ mod topological_substrate_tests;
 mod causal_compactor_sit;
 mod workspace_durability_sit;
 mod critic_verifier_sit;
+mod loop_gates_sit;
+mod motif_contraction_sit;

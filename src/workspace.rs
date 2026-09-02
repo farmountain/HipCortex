@@ -69,6 +69,8 @@ pub struct Workspace {
     pub id: WorkspaceId,
     pub mode: WorkspaceMode,
     created_at: SystemTime,
+    /// When this workspace lease expires; None means no expiry.
+    pub lease_until: Option<SystemTime>,
     /// IDs present in the parent store at open time — never mutated.
     baseline_ids: HashSet<Uuid>,
     /// OR-Set additions (one entry per actor×record_id pair).
@@ -91,6 +93,7 @@ impl Workspace {
             id,
             mode,
             created_at: SystemTime::now(),
+            lease_until: None,
             baseline_ids,
             or_added: Vec::new(),
             or_tombstones: HashSet::new(),
@@ -140,12 +143,22 @@ impl Workspace {
     }
 
     /// 5-minute TTL for auto-eviction (configurable; 0 = no expiry).
+    /// Expired when `lease_until` is set and already passed.
+    /// Workspaces with no lease never expire.
     pub fn is_expired(&self) -> bool {
-        SystemTime::now()
-            .duration_since(self.created_at)
-            .unwrap_or_default()
-            .as_secs()
-            > 300
+        self.lease_until
+            .map(|t| SystemTime::now() > t)
+            .unwrap_or(false)
+    }
+
+    /// The expiry instant, if a lease was set.
+    pub fn expires_at(&self) -> Option<SystemTime> {
+        self.lease_until
+    }
+
+    /// Set or extend the lease by `secs` seconds from now.
+    pub fn renew_lease(&mut self, secs: u64) {
+        self.lease_until = Some(SystemTime::now() + std::time::Duration::from_secs(secs));
     }
 
     /// Persist this workspace to `dir/workspace_<id>.jsonl`.
@@ -212,6 +225,15 @@ impl WorkspaceRegistry {
 
     pub fn remove(&mut self, id: &WorkspaceId) -> Option<Workspace> {
         self.workspaces.remove(id)
+    }
+
+    /// Renew the lease on workspace `id` by `secs` seconds from now.
+    /// Returns Err if the workspace does not exist.
+    pub fn renew(&mut self, id: &WorkspaceId, secs: u64) -> Result<(), String> {
+        self.workspaces
+            .get_mut(id)
+            .map(|ws| ws.renew_lease(secs))
+            .ok_or_else(|| format!("workspace {} not found", id.0))
     }
 
     /// OR-Set merge of `from` into `into`. Both must be Shared.

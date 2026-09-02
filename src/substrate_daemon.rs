@@ -1,9 +1,11 @@
-//! Phase-D: SubstrateDaemon — background cognitive maintenance loop (G-LOOP, AC-8).
+//! Phase-4: SubstrateDaemon — 8-stage cognitive loop.
+//! Stages: Observe → Reflect → Plan → CriticVeto → Predict → Act → Update → ExitCheck.
 //!
 //! Chain-of-thought:
-//!   subscribe(actor, cognitive) → spawn std::thread loop → GC + AutoConsolidate on pressure.
-//!   Each handle is addressable by Uuid; status readable without blocking the loop.
-//!   Stopping sets a Stopped flag the thread checks after each sleep.
+//!   subscribe_with_config(actor, cognitive, config) → spawn thread → run 8 stages per iteration.
+//!   CriticVeto at iteration 0 always passes (CriticGate invariant).
+//!   stop() sets AtomicBool the thread checks in ExitCheck.
+//!   stage_counts[0..7] tracks how many times each stage completed.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -11,9 +13,29 @@ use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 use uuid::Uuid;
 
-const LOOP_INTERVAL_SECS: u64 = 30;
-const PRESSURE_THRESHOLD: f32 = 0.7;
-const MIN_CONSOLIDATION_FREQUENCY: usize = 3;
+/// Configuration for the cognitive maintenance loop.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CognitiveLoopConfig {
+    /// Seconds to sleep between iterations (0 for tests).
+    pub interval_secs: u64,
+    /// Consolidation pressure threshold (0.0–1.0); above this Act stage consolidates.
+    pub pressure_threshold: f32,
+    /// Minimum motif frequency for AutoConsolidate.
+    pub min_consolidation_frequency: usize,
+    /// Iteration cap; None = run indefinitely.
+    pub max_iterations: Option<u32>,
+}
+
+impl Default for CognitiveLoopConfig {
+    fn default() -> Self {
+        Self {
+            interval_secs: 30,
+            pressure_threshold: 0.7,
+            min_consolidation_frequency: 3,
+            max_iterations: None,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum DaemonStatus {
@@ -29,6 +51,8 @@ pub struct HandleInfo {
     pub started_at: SystemTime,
     pub iterations: u32,
     pub status: DaemonStatus,
+    /// Per-stage completion counts (indices 0–7: Observe..ExitCheck).
+    pub stage_counts: Vec<u32>,
 }
 
 struct HandleState {
@@ -37,6 +61,7 @@ struct HandleState {
     started_at: SystemTime,
     iterations: Arc<AtomicU32>,
     stopped: Arc<std::sync::atomic::AtomicBool>,
+    stage_counts: Arc<Mutex<[u32; 8]>>,
 }
 
 /// Registry of all active daemon handles (held in `AppState` behind `Arc<Mutex<_>>`).
@@ -49,7 +74,7 @@ impl SubstrateDaemon {
         Self { handles: HashMap::new() }
     }
 
-    /// Spawn a background maintenance thread for `actor` and return its handle ID.
+    /// Spawn with default config (backward-compatible).
     pub fn subscribe<B>(
         &mut self,
         actor: String,
@@ -58,52 +83,136 @@ impl SubstrateDaemon {
     where
         B: crate::persistence::MemoryBackend + Send + Sync + 'static,
     {
+        self.subscribe_with_config(actor, cognitive, CognitiveLoopConfig::default())
+    }
+
+    /// Spawn a background 8-stage cognitive loop thread and return its handle ID.
+    pub fn subscribe_with_config<B>(
+        &mut self,
+        actor: String,
+        cognitive: Arc<crate::cognitive_state::CognitiveHandle<B>>,
+        config: CognitiveLoopConfig,
+    ) -> Uuid
+    where
+        B: crate::persistence::MemoryBackend + Send + Sync + 'static,
+    {
         let id = Uuid::new_v4();
         let iterations = Arc::new(AtomicU32::new(0));
         let stopped = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let stage_counts = Arc::new(Mutex::new([0u32; 8]));
 
         let iter_clone = Arc::clone(&iterations);
         let stop_clone = Arc::clone(&stopped);
+        let sc_clone = Arc::clone(&stage_counts);
         let actor_clone = actor.clone();
 
         std::thread::Builder::new()
             .name(format!("substrate-{}", &id.to_string()[..8]))
             .spawn(move || {
+                let mut loop_iter = 0u32;
                 loop {
-                    std::thread::sleep(std::time::Duration::from_secs(LOOP_INTERVAL_SECS));
-
-                    if stop_clone.load(Ordering::Relaxed) {
-                        break;
-                    }
-
-                    // GC: purge expired records from hot store
+                    // Stage 0: Observe — purge expired records, take snapshot
                     if let Ok(mut ms) = cognitive.memory.lock() {
                         ms.purge_expired();
                     }
+                    let snapshot = cognitive.snapshot(&actor_clone);
+                    if let Ok(mut sc) = sc_clone.lock() { sc[0] += 1; }
 
-                    // AutoConsolidate if snapshot shows consolidation pressure above threshold
-                    let should_consolidate = cognitive
-                        .snapshot(&actor_clone)
-                        .map(|s| s.self_model.consolidation_pressure > PRESSURE_THRESHOLD)
-                        .unwrap_or(false);
+                    // Stage 1: Reflect — assess pressure and active goals
+                    let pressure = snapshot
+                        .as_ref()
+                        .map(|s| s.self_model.consolidation_pressure)
+                        .unwrap_or(0.0);
+                    if let Ok(mut sc) = sc_clone.lock() { sc[1] += 1; }
 
-                    if should_consolidate {
+                    // Stage 2: Plan — determine required actions
+                    let should_consolidate = pressure > config.pressure_threshold;
+                    if let Ok(mut sc) = sc_clone.lock() { sc[2] += 1; }
+
+                    // Stage 3: CriticVeto — pre-action veto (iter 0 always passes)
+                    let vetoed = {
+                        use crate::loop_gates::{CriticDecision, CriticGate};
+                        use crate::payloads::{GoalPayload, SuccessFactor};
+                        let goal = GoalPayload {
+                            target_state: "daemon_step".to_string(),
+                            success_factors: vec![SuccessFactor {
+                                name: "iteration complete".to_string(),
+                                weight: 1.0,
+                                satisfied: false,
+                            }],
+                            ..Default::default()
+                        };
+                        matches!(
+                            CriticGate::evaluate(&goal, "daemon_step", loop_iter),
+                            CriticDecision::Rejected { .. }
+                        )
+                    };
+                    if let Ok(mut sc) = sc_clone.lock() { sc[3] += 1; }
+
+                    // Stage 4: Predict — WM prediction for next state
+                    let _prediction = cognitive
+                        .world
+                        .read()
+                        .ok()
+                        .and_then(|wm| wm.predict_next_state(&actor_clone, "daemon_step").ok());
+                    if let Ok(mut sc) = sc_clone.lock() { sc[4] += 1; }
+
+                    // Stage 5: Act — execute planned actions (skip if critic vetoed)
+                    if !vetoed && should_consolidate {
                         let _ = cognitive.transact(
                             crate::cognitive_state::CognitiveDelta::AutoConsolidate {
-                                min_frequency: MIN_CONSOLIDATION_FREQUENCY,
+                                min_frequency: config.min_consolidation_frequency,
                             },
                             &actor_clone,
                         );
                     }
+                    if let Ok(mut sc) = sc_clone.lock() { sc[5] += 1; }
 
+                    // Stage 6: Update — write Temporal record for this iteration
+                    if let Ok(mut ms) = cognitive.memory.lock() {
+                        use crate::memory_record::{MemoryRecord, MemoryType};
+                        let rec = MemoryRecord::new(
+                            MemoryType::Temporal,
+                            actor_clone.clone(),
+                            "daemon_step".to_string(),
+                            format!("iter={loop_iter}"),
+                            serde_json::json!({
+                                "vetoed": vetoed,
+                                "consolidated": !vetoed && should_consolidate,
+                            }),
+                        );
+                        let _ = ms.add(rec);
+                    }
+                    if let Ok(mut sc) = sc_clone.lock() { sc[6] += 1; }
+
+                    // Stage 7: ExitCheck — increment counter, check stop/cap, then sleep
+                    loop_iter += 1;
                     iter_clone.fetch_add(1, Ordering::Relaxed);
+                    if let Ok(mut sc) = sc_clone.lock() { sc[7] += 1; }
+
+                    if stop_clone.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    if config.max_iterations.map(|m| loop_iter >= m).unwrap_or(false) {
+                        break;
+                    }
+                    if config.interval_secs > 0 {
+                        std::thread::sleep(std::time::Duration::from_secs(config.interval_secs));
+                    }
                 }
             })
             .expect("substrate thread spawn");
 
         self.handles.insert(
             id,
-            HandleState { id, actor, started_at: SystemTime::now(), iterations, stopped },
+            HandleState {
+                id,
+                actor,
+                started_at: SystemTime::now(),
+                iterations,
+                stopped,
+                stage_counts,
+            },
         );
         id
     }
@@ -116,16 +225,23 @@ impl SubstrateDaemon {
         } else {
             DaemonStatus::Running
         };
+        let stage_counts = s
+            .stage_counts
+            .lock()
+            .ok()
+            .map(|sc| sc.to_vec())
+            .unwrap_or_else(|| vec![0u32; 8]);
         Some(HandleInfo {
             id: s.id,
             actor: s.actor.clone(),
             started_at: s.started_at,
             iterations: s.iterations.load(Ordering::Relaxed),
             status,
+            stage_counts,
         })
     }
 
-    /// Signal the background thread to stop after its current sleep.
+    /// Signal the background thread to stop after its current iteration.
     pub fn stop(&self, id: Uuid) -> bool {
         if let Some(s) = self.handles.get(&id) {
             s.stopped.store(true, Ordering::Relaxed);

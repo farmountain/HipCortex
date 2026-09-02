@@ -18,6 +18,7 @@ use crate::payloads::{BeliefPayload, EpistemicStatus, SkillPayload};
 use crate::persistence::MemoryBackend;
 use crate::symbolic_store::{GraphDatabase, SymbolicStore};
 use crate::tx_log::{TxKind, TxLog};
+use crate::world_model_enhanced::WorldModelEnhanced;
 
 // ── Legacy bulk API ───────────────────────────────────────────────────────────
 
@@ -264,6 +265,25 @@ pub struct MiningReport {
     pub source_ids_archived: Vec<Uuid>,
 }
 
+/// Detect a cycle in the `derived_from` provenance chain starting from `id`.
+/// Uses tortoise-and-hare via a visited set with depth cap to avoid unbounded traversal.
+pub fn has_derived_from_cycle<B: MemoryBackend>(id: uuid::Uuid, store: &MemoryStore<B>) -> bool {
+    let mut visited = std::collections::HashSet::new();
+    let mut current = id;
+    loop {
+        if !visited.insert(current) {
+            return true; // visited twice → cycle
+        }
+        match store.find_by_id(current).and_then(|r| r.derived_from) {
+            Some(parent) => current = parent,
+            None => return false,
+        }
+        if visited.len() > 1024 {
+            return false; // depth cap — treat as acyclic
+        }
+    }
+}
+
 /// Mine recurring causal chains from `derived_from` links in Temporal records.
 ///
 /// Returns motifs with `frequency >= min_frequency` and chain length in `[min_len, max_len]`.
@@ -378,6 +398,8 @@ pub fn induce_belief_record(motif: &CausalMotif, skill_id: Uuid, actor: &str) ->
 /// Returns source IDs that were archived (to be committed to cold store by the caller).
 pub fn mine_and_consolidate<B: MemoryBackend>(
     store: &mut MemoryStore<B>,
+    mut archive: Option<&mut ArchiveStore>,
+    wm: Option<&WorldModelEnhanced>,
     log: Option<&TxLog>,
     min_frequency: usize,
     actor: &str,
@@ -393,6 +415,26 @@ pub fn mine_and_consolidate<B: MemoryBackend>(
     let mut all_source_ids: HashSet<Uuid> = HashSet::new();
 
     for motif in &motifs {
+        // Cycle guard: skip motifs whose provenance chain contains a cycle.
+        let has_cycle = motif.member_ids.iter().any(|&id| has_derived_from_cycle(id, store));
+        if has_cycle {
+            continue;
+        }
+
+        // Causal validity check: if WM is provided and has transition data, skip motifs
+        // whose first action has no plausible support in the world model.
+        if let (Some(wm_ref), Some(first_action)) = (wm, motif.action_sequence.first()) {
+            if let Ok(pred) = wm_ref.predict_next_state(first_action, "motif") {
+                if !pred.probabilities.is_empty() {
+                    // WM has an opinion — ensure at least one predicted state is non-zero
+                    let max_p = pred.probabilities.values().cloned().fold(0.0f64, f64::max);
+                    if max_p < 1e-6 {
+                        continue; // WM says this action leads nowhere plausible
+                    }
+                }
+            }
+        }
+
         let skill = induce_skill_record(motif, actor);
         let skill_id = skill.id;
         store.add(skill).map_err(|e| format!("skill add: {e}"))?;
@@ -410,9 +452,14 @@ pub fn mine_and_consolidate<B: MemoryBackend>(
         }
     }
 
-    // Delete source episodes from hot store (caller archives to cold store separately)
+    // Archive source records to Cold Store, then remove from Hot Store.
     let source_ids_archived: Vec<Uuid> = all_source_ids.into_iter().collect();
     for &id in &source_ids_archived {
+        if let Some(arc) = archive.as_deref_mut() {
+            if let Some(rec) = store.find_by_id(id).cloned() {
+                let _ = arc.append(rec);
+            }
+        }
         store.delete_by_id(id);
     }
 

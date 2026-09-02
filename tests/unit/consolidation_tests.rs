@@ -104,7 +104,7 @@ fn mine_and_consolidate_induces_and_archives() {
     }
     let initial_count = store.record_count();
 
-    let report = mine_and_consolidate(&mut store, None, 3, "agent").unwrap();
+    let report = mine_and_consolidate(&mut store, None, None, None, 3, "agent").unwrap();
 
     assert!(report.motifs_found > 0, "should find motifs");
     assert!(report.skills_induced > 0, "should induce skills");

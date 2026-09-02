@@ -33,6 +33,9 @@ pub enum CognitiveError {
     StoreError(String),
     NotImplemented(String),
     LockError,
+    /// Goal transitioned to InProgress without any success_factors defined.
+    /// Caller must POST /goal/:id/clarify before running the ReAct loop.
+    GoalNotClarified(uuid::Uuid),
 }
 
 impl fmt::Display for CognitiveError {
@@ -43,6 +46,7 @@ impl fmt::Display for CognitiveError {
             Self::StoreError(r) => write!(f, "store error: {r}"),
             Self::NotImplemented(op) => write!(f, "{op} not implemented in Phase 0"),
             Self::LockError => write!(f, "lock poisoned"),
+            Self::GoalNotClarified(id) => write!(f, "goal {id} has no success_factors — clarify before InProgress"),
         }
     }
 }
@@ -481,6 +485,8 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             let mut ms = self.memory.lock().map_err(|_| CognitiveError::LockError)?;
             crate::consolidation::mine_and_consolidate(
                 &mut *ms,
+                None,
+                None,
                 self.tx_log.as_deref(),
                 freq,
                 actor,
@@ -569,6 +575,17 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             CognitiveDelta::AddMemory(record) => {
                 let id = record.id;
                 let mem_type = record.record_type.clone();
+
+                // Phase-1 clarify gate: InProgress goal must have success_factors
+                if mem_type == crate::memory_record::MemoryType::Goal {
+                    if let Ok(payload) = serde_json::from_value::<crate::payloads::GoalPayload>(record.metadata.clone()) {
+                        if payload.status == crate::payloads::GoalStatus::InProgress
+                            && payload.success_factors.is_empty()
+                        {
+                            return Err(CognitiveError::GoalNotClarified(id));
+                        }
+                    }
+                }
 
                 // Memory write
                 self.memory
@@ -1050,6 +1067,26 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
     ) -> Result<(), CognitiveError> {
         if let Some((node_id, new_weights)) =
             self.self_model.record_prediction_error(prediction_error)
+        {
+            self.transact(
+                CognitiveDelta::RewriteStructuralEquation { node_id, new_weights },
+                actor,
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Like `check_prediction_drift` but feeds the (feature_vec, target_vec) pair
+    /// to the OLS monitor so drift weights can be inspected via `self_model.prediction_drift_weights()`.
+    pub fn check_prediction_drift_with_obs(
+        &self,
+        prediction_error: f64,
+        x: Vec<f64>,
+        y: Vec<f64>,
+        actor: &str,
+    ) -> Result<(), CognitiveError> {
+        if let Some((node_id, new_weights)) =
+            self.self_model.record_prediction_error_with_obs(prediction_error, x, y)
         {
             self.transact(
                 CognitiveDelta::RewriteStructuralEquation { node_id, new_weights },

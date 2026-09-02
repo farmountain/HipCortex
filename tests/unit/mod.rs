@@ -67,3 +67,6 @@ mod world_model_export_tests;
 mod world_model_tests;
 mod prediction_monitor_tests;
 mod substrate_daemon_tests;
+mod clarify_gate_tests;
+mod action_registry_tests;
+mod cognitive_loop_tests;
