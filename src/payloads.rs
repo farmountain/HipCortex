@@ -72,6 +72,9 @@ pub struct DecisionPayload {
     /// IDs of Temporal/Belief records that informed this decision.
     #[serde(default)]
     pub rationale: Vec<Uuid>,
+    /// Ordered human-readable steps explaining the choice ("observed X → inferred Y → chose Z").
+    #[serde(default)]
+    pub rationale_chain: Vec<String>,
     /// Confidence in the chosen option (0.0–1.0).
     #[serde(default = "default_decision_confidence")]
     pub confidence: f64,

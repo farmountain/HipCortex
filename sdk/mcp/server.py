@@ -812,6 +812,38 @@ TOOLS = [
             "required": ["iteration", "max_iterations", "progress_ratio"],
         },
     },
+    {
+        "name": "loop_subscribe",
+        "description": "POST /v1/loop/subscribe — spawn a SubstrateDaemon background maintenance thread (GC + AutoConsolidate). Returns handle_id for status queries.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "actor": {"type": "string", "description": "Actor namespace for this daemon handle (default: 'daemon')."},
+            },
+        },
+    },
+    {
+        "name": "loop_status",
+        "description": "GET /v1/loop/status/:handle — query iteration count and running/stopped status of a SubstrateDaemon handle.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "handle_id": {"type": "string", "description": "UUID returned by loop_subscribe."},
+            },
+            "required": ["handle_id"],
+        },
+    },
+    {
+        "name": "get_verifier_report",
+        "description": "GET /goal/:id/verify — retrieve the ReactEngine verifier_report Belief for a goal. Contains verified flag, final_status, and per-factor scores.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "goal_id": {"type": "string", "description": "UUID of the goal record."},
+            },
+            "required": ["goal_id"],
+        },
+    },
 ]
 
 RESOURCES = [
@@ -1460,6 +1492,20 @@ def handle_should_exit(args: dict) -> str:
     })
     return json.dumps(r)
 
+def handle_loop_subscribe(args: dict) -> str:
+    r = _req("POST", "/v1/loop/subscribe", {"actor": args.get("actor", "daemon")})
+    return json.dumps(r)
+
+def handle_loop_status(args: dict) -> str:
+    handle_id = args.get("handle_id", "")
+    r = _req("GET", f"/v1/loop/status/{handle_id}")
+    return json.dumps(r)
+
+def handle_get_verifier_report(args: dict) -> str:
+    goal_id = args.get("goal_id", "")
+    r = _req("GET", f"/goal/{goal_id}/verify")
+    return json.dumps(r)
+
 def dispatch_tool(name: str, args: dict) -> str:
     global _live_beliefs_seen
     handlers = {
@@ -1519,6 +1565,9 @@ def dispatch_tool(name: str, args: dict) -> str:
         "plan_validation":         handle_plan_validation,
         "check_progress":          handle_check_progress,
         "should_exit":             handle_should_exit,
+        "loop_subscribe":          handle_loop_subscribe,
+        "loop_status":             handle_loop_status,
+        "get_verifier_report":     handle_get_verifier_report,
     }
     handler = handlers.get(name)
     if handler is None:

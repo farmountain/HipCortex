@@ -605,6 +605,11 @@ impl ReactEngine {
             let mut decision_payload = DecisionPayload {
                 option_chosen: "symbolic_step".to_string(),
                 alternatives: vec!["skip".to_string(), "llm_call".to_string()],
+                rationale_chain: vec![
+                    format!("goal: {}", goal_payload.target_state),
+                    format!("iteration {i}: observed world state"),
+                    "selected symbolic_step as lowest-cost action".to_string(),
+                ],
                 ..Default::default()
             };
             let mut dec_rec = MemoryRecord::new(
@@ -647,6 +652,29 @@ impl ReactEngine {
             let all_satisfied = goal_payload.success_factors.iter().all(|f| f.satisfied);
 
             if all_satisfied {
+                // VERIFIER: write formal verification Belief on success.
+                {
+                    let factor_scores: Vec<serde_json::Value> = goal_payload
+                        .success_factors
+                        .iter()
+                        .map(|f| serde_json::json!({"name": f.name, "satisfied": f.satisfied}))
+                        .collect();
+                    let mut ver = MemoryRecord::new(
+                        MemoryType::Belief,
+                        "react_engine".to_string(),
+                        "verifier_report".to_string(),
+                        goal_payload.target_state.clone(),
+                        serde_json::json!({
+                            "goal_id": goal_id,
+                            "verified": true,
+                            "final_status": "Succeeded",
+                            "factor_scores": factor_scores,
+                        }),
+                    );
+                    ver.confidence = 1.0;
+                    ver.derived_from = Some(goal_id);
+                    let _ = store.add(ver);
+                }
                 goal_payload.status = GoalStatus::Succeeded;
                 self.update_goal_status(store, goal_id, &goal_payload)?;
                 return Ok(GoalStatus::Succeeded);
@@ -676,8 +704,58 @@ impl ReactEngine {
             store
                 .add(reflection)
                 .map_err(|e| format!("Failed to write reflection: {}", e))?;
+
+            // CRITIC: score iteration progress as fraction of success_factors satisfied.
+            {
+                let satisfied = goal_payload.success_factors.iter().filter(|f| f.satisfied).count();
+                let total = goal_payload.success_factors.len().max(1);
+                let critic_score = satisfied as f32 / total as f32;
+                let mut critic_rec = MemoryRecord::new(
+                    MemoryType::Belief,
+                    "react_engine".to_string(),
+                    "critic_score".to_string(),
+                    goal_payload.target_state.clone(),
+                    serde_json::json!({
+                        "critic_score": critic_score,
+                        "iteration": i,
+                        "satisfied": satisfied,
+                        "total": total,
+                    }),
+                );
+                critic_rec.confidence = critic_score;
+                critic_rec.derived_from = Some(goal_id);
+                critic_rec.react_iteration = Some(i);
+                let _ = store.add(critic_rec);
+            }
+
             // Invalidate beliefs contradicted by this critique (P1.4)
             crate::belief_invalidator::BeliefInvalidator::process(&reflection_snapshot, store);
+        }
+
+        // VERIFIER: write final verification Belief on failure path.
+        {
+            let satisfied = goal_payload.success_factors.iter().filter(|f| f.satisfied).count();
+            let total = goal_payload.success_factors.len().max(1);
+            let factor_scores: Vec<serde_json::Value> = goal_payload
+                .success_factors
+                .iter()
+                .map(|f| serde_json::json!({"name": f.name, "satisfied": f.satisfied}))
+                .collect();
+            let mut ver = MemoryRecord::new(
+                MemoryType::Belief,
+                "react_engine".to_string(),
+                "verifier_report".to_string(),
+                goal_payload.target_state.clone(),
+                serde_json::json!({
+                    "goal_id": goal_id,
+                    "verified": false,
+                    "final_status": "Failed",
+                    "factor_scores": factor_scores,
+                }),
+            );
+            ver.confidence = satisfied as f32 / total as f32;
+            ver.derived_from = Some(goal_id);
+            let _ = store.add(ver);
         }
 
         // Counterfactual attribution before declaring Failed (P1.4)

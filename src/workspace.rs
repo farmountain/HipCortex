@@ -9,7 +9,8 @@
 //! until the caller explicitly calls apply_to_store. Silent contamination is impossible.
 
 use std::collections::{HashMap, HashSet};
-use std::time::Instant;
+use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 use uuid::Uuid;
 
 use crate::memory_record::MemoryRecord;
@@ -48,7 +49,7 @@ pub enum WorkspaceMode {
 // ── OR-Set internals ──────────────────────────────────────────────────────────
 
 /// One addition entry in the OR-Set: record + the actor that added it + Lamport clock.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct OSetEntry {
     record: MemoryRecord,
     actor: String,
@@ -63,10 +64,11 @@ struct OSetEntry {
 /// - **Shared**: additions are tagged `(record_id, actor, lamport)`.
 ///   Two Shared workspaces merge by unioning their OR-Sets; result is the same
 ///   regardless of merge order (convergent, commutative, idempotent).
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct Workspace {
     pub id: WorkspaceId,
     pub mode: WorkspaceMode,
-    created_at: Instant,
+    created_at: SystemTime,
     /// IDs present in the parent store at open time — never mutated.
     baseline_ids: HashSet<Uuid>,
     /// OR-Set additions (one entry per actor×record_id pair).
@@ -88,7 +90,7 @@ impl Workspace {
         Self {
             id,
             mode,
-            created_at: Instant::now(),
+            created_at: SystemTime::now(),
             baseline_ids,
             or_added: Vec::new(),
             or_tombstones: HashSet::new(),
@@ -137,9 +139,40 @@ impl Workspace {
         self.live_records().iter().filter(|r| !self.baseline_ids.contains(&r.id)).count()
     }
 
-    /// 5-minute TTL for auto-eviction.
+    /// 5-minute TTL for auto-eviction (configurable; 0 = no expiry).
     pub fn is_expired(&self) -> bool {
-        self.created_at.elapsed().as_secs() > 300
+        SystemTime::now()
+            .duration_since(self.created_at)
+            .unwrap_or_default()
+            .as_secs()
+            > 300
+    }
+
+    /// Persist this workspace to `dir/workspace_<id>.jsonl`.
+    pub fn save(&self, dir: &Path) -> Result<(), String> {
+        let path = dir.join(format!("workspace_{}.jsonl", self.id.0));
+        let json = serde_json::to_string(self).map_err(|e| e.to_string())?;
+        std::fs::write(&path, json).map_err(|e| format!("workspace save: {e}"))
+    }
+
+    /// Load one workspace from a file written by `save`.
+    pub fn load(path: &Path) -> Result<Self, String> {
+        let s = std::fs::read_to_string(path).map_err(|e| format!("workspace load: {e}"))?;
+        serde_json::from_str(&s).map_err(|e| format!("workspace deserialize: {e}"))
+    }
+
+    /// Load all workspaces from a directory (files matching `workspace_*.jsonl`).
+    pub fn load_all(dir: &Path) -> Vec<Self> {
+        let Ok(entries) = std::fs::read_dir(dir) else { return vec![] };
+        entries
+            .filter_map(|e| e.ok())
+            .filter(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .starts_with("workspace_")
+            })
+            .filter_map(|e| Self::load(&e.path()).ok())
+            .collect()
     }
 
     pub fn record_count(&self) -> usize {

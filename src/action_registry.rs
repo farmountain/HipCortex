@@ -28,6 +28,31 @@ pub struct AuthorizedOp {
     pub rationale: String,
 }
 
+/// Return ops filtered by current goal, workspace, and health context — no SelfModel required.
+pub fn list_authorized_contextual(
+    goal_id: Option<uuid::Uuid>,
+    _actor: &str,
+    has_active_workspace: bool,
+    health_score: f32,
+) -> Vec<String> {
+    ALL_OPS
+        .iter()
+        .filter(|&&op| {
+            if health_score < 0.4 && matches!(op, "archive_record" | "memory_diff") {
+                return false;
+            }
+            if !has_active_workspace && op == "cognitive_report" {
+                // workspace_merge only valid when workspace open; keep others
+            }
+            if goal_id.is_none() && matches!(op, "react_loop" | "credit_assign" | "world_model_rollout") {
+                return false;
+            }
+            true
+        })
+        .map(|s| s.to_string())
+        .collect()
+}
+
 /// Return all ops currently approved by the SelfModel's DecisionEngine.
 pub fn list_authorized(self_model: &SelfModel) -> Vec<AuthorizedOp> {
     ALL_OPS

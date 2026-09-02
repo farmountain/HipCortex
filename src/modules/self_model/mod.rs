@@ -67,6 +67,7 @@ mod decision;
 mod health;
 mod performance;
 mod resource;
+pub mod prediction_monitor;
 
 pub use calibration::{CalibrationState, CalibrationTracker};
 pub use capability::{CapabilityDescriptor, CapabilityRegistry, Limitation};
@@ -74,6 +75,7 @@ pub use decision::{Decision, DecisionContext, DecisionEngine};
 pub use health::{HealthAggregator, HealthScore, ModuleHealth};
 pub use performance::{OperationOutcome, PerformanceMetrics, PerformanceTracker};
 pub use resource::{ResourceMonitor, ResourcePrediction, ResourceUsage};
+pub use prediction_monitor::PredictionMonitor;
 
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
@@ -87,6 +89,8 @@ pub struct SelfModel {
     decision: Arc<RwLock<DecisionEngine>>,
     /// Optional override: if set, delegates `can_execute` to this gate instead of DecisionEngine.
     gate_override: Option<Arc<std::sync::Mutex<dyn crate::execution_gate::ExecutionGate>>>,
+    /// Phase-E: rolling prediction-error tracker for structural drift detection.
+    prediction_monitor: std::sync::Mutex<PredictionMonitor>,
 }
 
 impl SelfModel {
@@ -105,6 +109,11 @@ impl SelfModel {
             health,
             decision,
             gate_override: None,
+            prediction_monitor: std::sync::Mutex::new(PredictionMonitor::new(
+                "world-model-default",
+                5,
+                0.3,
+            )),
         }
     }
 
@@ -332,6 +341,14 @@ impl SelfModel {
             .read()
             .map_err(|e| format!("Failed to read performance: {}", e))?;
         perf.predict(operation)
+    }
+
+    /// Record a normalised prediction error (0.0 = perfect, 1.0 = total miss).
+    /// Returns `Some((node_id, weights))` when the rolling window signals persistent drift,
+    /// indicating caller should emit `CognitiveDelta::RewriteStructuralEquation`.
+    pub fn record_prediction_error(&self, error: f64) -> Option<(String, Vec<f64>)> {
+        let mut pm = self.prediction_monitor.lock().ok()?;
+        pm.feed(error)
     }
 }
 

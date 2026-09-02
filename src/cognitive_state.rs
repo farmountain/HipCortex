@@ -595,10 +595,15 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
                     }
                 }
 
-                // G1b: invalidate stale beliefs on Temporal/Reflexion writes
+                // G1b: invalidate stale beliefs via JTMS (read-only scan → retract through handle)
                 if mem_type == MemoryType::Temporal || mem_type == MemoryType::Reflexion {
-                    if let Ok(mut store) = self.memory.lock() {
-                        crate::belief_invalidator::BeliefInvalidator::process(record, &mut store);
+                    let inv_ids: Vec<uuid::Uuid> = if let Ok(store) = self.memory.lock() {
+                        crate::belief_invalidator::BeliefInvalidator::process(record, &store)
+                    } else {
+                        vec![]
+                    };
+                    for id in inv_ids {
+                        let _ = self.retract_belief(id, actor);
                     }
                 }
 
@@ -1033,6 +1038,25 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             .read()
             .map(|wm| wm.transition_count())
             .unwrap_or(0)
+    }
+
+    /// Record a normalised prediction error and, when the rolling window signals
+    /// persistent structural drift, emit `RewriteStructuralEquation` via transact.
+    /// Safe to call externally after any predict/react cycle (no lock re-entry).
+    pub fn check_prediction_drift(
+        &self,
+        prediction_error: f64,
+        actor: &str,
+    ) -> Result<(), CognitiveError> {
+        if let Some((node_id, new_weights)) =
+            self.self_model.record_prediction_error(prediction_error)
+        {
+            self.transact(
+                CognitiveDelta::RewriteStructuralEquation { node_id, new_weights },
+                actor,
+            )?;
+        }
+        Ok(())
     }
 }
 

@@ -31,6 +31,7 @@ pub struct DecisionSummary {
     pub option_chosen: String,
     pub confidence: f64,
     pub goal_id: Option<Uuid>,
+    pub rationale_chain: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -139,6 +140,7 @@ pub fn build_report<B: MemoryBackend>(
                 option_chosen: p.option_chosen,
                 confidence: p.confidence,
                 goal_id: r.derived_from,
+                rationale_chain: p.rationale_chain,
             })
         })
         .collect();
@@ -187,11 +189,10 @@ pub fn build_report<B: MemoryBackend>(
         .len();
     let open_uncertainties = UncertaintySummary { uncertain_beliefs, invalidated_count };
 
-    // Q9 — authorized actions (static list, no SelfModel available without Arc)
-    let authorized_actions: Vec<String> = crate::action_registry::ALL_OPS
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
+    // Q9 — authorized actions filtered by current goal + health context
+    let active_goal_id = active_goals.first().map(|g| g.id);
+    let authorized_actions =
+        crate::action_registry::list_authorized_contextual(active_goal_id, actor, false, 1.0);
 
     // Q10 — next recommendation
     let next_goal = crate::goal_scheduler::GoalScheduler::next(store, actor);

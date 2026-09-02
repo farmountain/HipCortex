@@ -3,6 +3,54 @@
 All notable changes to HipCortex are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.0] - 2026-09-01 — Cognitive Loop Closure (Phases A–H)
+
+### Added
+
+**G-WHY — Rationale Chain (Phase A1)**
+- `DecisionPayload.rationale_chain: Vec<String>` — human-readable decision trace alongside UUID evidence links
+- `DecisionSummary.rationale_chain` propagated through `build_report`; `loop_engine` populates per iteration
+
+**G-AUTH — Contextual Action Authorization (Phase A2)**
+- `action_registry::list_authorized_contextual(goal_id, actor, has_workspace, health_score)` — filters `ALL_OPS` by active goal and health constraints
+- `cognitive_report` Q9 now calls `list_authorized_contextual` instead of static `ALL_OPS`
+
+**G-REV — JTMS-Routed Belief Retraction (Phase B1)**
+- `BeliefInvalidator::process` is now read-only (`&MemoryStore<B>`); returns `Vec<Uuid>` of IDs to retract
+- All callers route through `CognitiveHandle::retract_belief` → JTMS cascade (`propagate_retraction`)
+
+**G-ABS — Causal Motif Mining (Phase C)**
+- `consolidation.rs`: `mine_causal_motifs` + `mine_and_consolidate` — induces `Skill` + `Belief` records from recurring `derived_from` chains
+- REST `/v1/memory/consolidate` supports `strategy=motif` to trigger motif compaction
+
+**G-WS — Durable Workspaces (Phase F)**
+- `Workspace`: `created_at` changed to `SystemTime`; `save(dir)`, `load(path)`, `load_all(dir)` JSONL persistence
+- OR-Set CRDT merge survives restart; `WorkspaceRegistry::evict_expired` for 5-minute TTL
+
+**G-ROLL / G-SHIFT — Kalman Prediction Monitor (Phase E)**
+- `src/modules/self_model/prediction_monitor.rs`: `PredictionMonitor` — rolling-window structural drift detector
+- `SelfModel::record_prediction_error` + `CognitiveHandle::check_prediction_drift` → emits `RewriteStructuralEquation` on persistent drift
+
+**G-LOOP — SubstrateDaemon Background Worker (Phase D)**
+- `src/substrate_daemon.rs`: `SubstrateDaemon` spawns per-actor maintenance threads (GC + AutoConsolidate)
+- REST `POST /v1/loop/subscribe` → handle ID; `GET /v1/loop/status/:handle` → iteration count + status
+
+**G-CRIT / G-VER — Critic + Verifier in ReactEngine (Phase G)**
+- Critic: writes `Belief{action="critic_score"}` per ReAct iteration (fraction of `success_factors` satisfied)
+- Verifier: writes `Belief{action="verifier_report"}` on loop exit (success or failure) with `factor_scores`
+- REST `GET /goal/:id/verify` → returns the latest verifier report Belief
+
+**G-EXPORT — Versioned State Export Schema (Phase H)**
+- `knowledge_export::EXPORT_SCHEMA_VERSION` — single source of truth (`env!("CARGO_PKG_VERSION")`)
+- `knowledge_export::StateExportSchema::current()` — schema descriptor with top-level field list
+- REST `GET /v1/state/export` now stamps `schema_version` from the constant
+
+### Changed
+- `AppState` (web-server feature) gains `daemon: Arc<Mutex<SubstrateDaemon>>`
+- `SelfModel` struct gains `prediction_monitor: Mutex<PredictionMonitor>` field
+
+---
+
 ## [0.6.0] - 2026-08-15
 
 ### Added

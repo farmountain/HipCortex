@@ -1,5 +1,43 @@
 use anyhow::Result;
 use printpdf::*;
+
+// ── Versioned State Export Schema ────────────────────────────────────────────
+
+/// Single source of truth for the memory export schema version.
+/// Matches the crate version in Cargo.toml at compile time.
+pub const EXPORT_SCHEMA_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Descriptor for the versioned state export schema.
+/// Included in every `GET /v1/state/export` response so consumers can
+/// detect breaking changes and migrate accordingly.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct StateExportSchema {
+    pub schema_version: String,
+    pub format: &'static str,
+    pub top_level_fields: Vec<&'static str>,
+}
+
+impl StateExportSchema {
+    /// Return the current export schema descriptor.
+    pub fn current() -> Self {
+        Self {
+            schema_version: EXPORT_SCHEMA_VERSION.to_string(),
+            format: "json",
+            top_level_fields: vec![
+                "schema_version",
+                "exported_at_ms",
+                "temporal",
+                "world",
+                "self_model",
+                "goals",
+                "skills",
+                "beliefs",
+            ],
+        }
+    }
+}
+
+
 use reqwest::blocking::Client;
 use serde_json::json;
 use std::fs::File;

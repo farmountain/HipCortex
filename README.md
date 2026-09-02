@@ -28,19 +28,22 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 ---
 
-## What's new in v1.3.0 — Autonomous Agent Harness
+## What's new in v1.3.0 — Cognitive Loop Closure (Phases A–H)
 
-| Capability | Details |
-|-----------|---------|
-| **Tool Discovery (self-prompting)** | `recommend_tools(task=<description>)` — agent self-prompts to discover required MCP servers, skills, tech stack, and setup commands before starting any complex task |
-| **Proactive harness mode** | `hipcortex install --mode proactive` — SKILL.md strongly recommends `get_live_beliefs` before every project-state question; substrate carries state, not LLM context |
-| **Unified `live_beliefs` surface** | `GET /memory/live_beliefs` merges symbolic facts, code KG, Aureus hypotheses, world model predictions, and self/coherence intel in one call |
-| **AgentMessage auto-ingest** | `HIPCORTEX_AGENT_DEFAULTS=1` — PerceptionSession wired by default for agent paths; incoming messages auto-stored as low-priority Temporal records |
-| **Multi-agent actor scoping** | `hipcortex install --actor <name>` — per-actor SKILL install; shared substrate with no cross-actor contamination |
-| **`POST /memory/reflect`** | Substrate chain-of-thought via AureusBridge — world-model prior + coherence check before LLM final output |
-| **G2a calibration fidelity** | `calibrate_after_tx` no longer zeroes prediction error — unattenuated Dirichlet entropy feeds CalibrationTracker |
-| **`docs/harness.md`** | Full agent harness reference: action space, observations, ReAct loop pattern, multi-agent notes |
-| **551 tests, 0 failures** | All prior tests green. |
+Nine structural gaps in the cognitive architecture closed. Every gap has a dedicated test.
+
+| Gap | Capability | Details |
+|-----|-----------|---------|
+| **G-WHY** | Decision rationale chain | `DecisionPayload.rationale_chain: Vec<String>` — human-readable decision trace alongside UUID evidence links; persisted per ReactEngine act-phase |
+| **G-AUTH** | Contextual action authorization | `list_authorized_contextual(goal_id, actor, has_workspace, health_score)` — Q9 of `CognitiveStateReport` now filters live actions by active goal + health, not a static list |
+| **G-REV** | JTMS-routed belief retraction | `BeliefInvalidator::process` is now read-only; returns `Vec<Uuid>` to retract — callers route through `CognitiveHandle::retract_belief` → JTMS cascade |
+| **G-ABS** | Causal motif mining | `mine_and_consolidate` induces `Skill` + `Belief` records from recurring `derived_from` chains; REST `POST /v1/memory/consolidate?strategy=motif` |
+| **G-WS** | Durable workspaces | `Workspace.save(dir)` / `load(path)` / `load_all(dir)` JSONL persistence; OR-Set CRDT merge survives restart |
+| **G-SHIFT** | Kalman prediction monitor | `PredictionMonitor` rolling-window drift detector — 5 consecutive errors > 0.3 emits `CognitiveDelta::RewriteStructuralEquation` |
+| **G-LOOP** | SubstrateDaemon background worker | Per-actor maintenance threads (GC + AutoConsolidate every 30 s); REST `POST /v1/loop/subscribe` + `GET /v1/loop/status/:handle` |
+| **G-CRIT/VER** | Critic + Verifier in ReactEngine | Critic writes `Belief{action="critic_score"}` per iteration (fraction of success_factors satisfied); Verifier writes `Belief{action="verifier_report"}` on exit; `GET /goal/:id/verify` |
+| **G-EXPORT** | Versioned state export schema | `EXPORT_SCHEMA_VERSION = env!("CARGO_PKG_VERSION")` — compile-time single source of truth; `StateExportSchema::current()` stamped on every `GET /v1/state/export` |
+| | **583 tests, 0 failures** | 371 unit · 148 integration · 8 acceptance · 56 property |
 
 ---
 

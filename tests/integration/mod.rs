@@ -63,3 +63,6 @@ mod ood_invariance_sit;
 #[cfg(feature = "web-server")]
 mod rollout_bounds_sit;
 mod topological_substrate_tests;
+mod causal_compactor_sit;
+mod workspace_durability_sit;
+mod critic_verifier_sit;

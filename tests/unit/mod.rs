@@ -65,3 +65,5 @@ mod tx_log_tests;
 mod vision_encoder_tests;
 mod world_model_export_tests;
 mod world_model_tests;
+mod prediction_monitor_tests;
+mod substrate_daemon_tests;

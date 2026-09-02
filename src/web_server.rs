@@ -161,6 +161,7 @@ pub struct AppState<B: MemoryBackend + Send + Sync + 'static> {
     pub cognitive: Arc<crate::cognitive_state::CognitiveHandle<B>>,
     pub forks: Arc<Mutex<std::collections::HashMap<uuid::Uuid, Arc<Mutex<crate::simulation_fork::SimulationFork<B>>>>>>,
     pub twins: Arc<Mutex<std::collections::HashMap<uuid::Uuid, Arc<Mutex<crate::digital_twin::DigitalTwin<B>>>>>>,
+    pub daemon: Arc<Mutex<crate::substrate_daemon::SubstrateDaemon>>,
 }
 
 /// Manual Clone: all fields are Arc<…> so clone is a ref-count bump regardless of B.
@@ -181,6 +182,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> Clone for AppState<B> {
             cognitive: self.cognitive.clone(),
             forks: self.forks.clone(),
             twins: self.twins.clone(),
+            daemon: self.daemon.clone(),
         }
     }
 }
@@ -537,6 +539,7 @@ pub async fn run_with_memory<B: MemoryBackend + Send + Sync + 'static>(
         cognitive,
         forks: Arc::new(Mutex::new(std::collections::HashMap::new())),
         twins: Arc::new(Mutex::new(std::collections::HashMap::new())),
+        daemon: Arc::new(Mutex::new(crate::substrate_daemon::SubstrateDaemon::new())),
     };
     run_with_state(addr, state).await;
 }
@@ -561,6 +564,7 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
     let cognitive = state.cognitive.clone();
     let forks = state.forks.clone();
     let twins = state.twins.clone();
+    let daemon = state.daemon.clone();
 
     // ── Symbolic store routes ─────────────────────────────────────────────
     let graph_route = {
@@ -1171,7 +1175,7 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
                         let mut val = serde_json::to_value(&snap)
                             .unwrap_or_else(|_| serde_json::json!({"error": "serialization failed"}));
                         if let Some(obj) = val.as_object_mut() {
-                            obj.insert("schema_version".to_string(), serde_json::json!("0.8.0"));
+                            obj.insert("schema_version".to_string(), serde_json::json!(crate::knowledge_export::EXPORT_SCHEMA_VERSION));
                             obj.insert(
                                 "exported_at_ms".to_string(),
                                 serde_json::json!(
@@ -3645,6 +3649,41 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         })
     };
 
+    // GET /goal/:id/verify — return the verifier_report Belief written by ReactEngine.
+    let goal_verify_route = {
+        let store = memory_store.clone();
+        get(move |Path(id): Path<String>| async move {
+            let goal_id = match uuid::Uuid::parse_str(&id) {
+                Ok(u) => u,
+                Err(_) => return Json(serde_json::json!({"error": "invalid uuid"})),
+            };
+            let report = {
+                let s = store.lock().unwrap();
+                s.all()
+                    .iter()
+                    .filter(|r| {
+                        r.derived_from == Some(goal_id) && r.action == "verifier_report"
+                    })
+                    .cloned()
+                    .last()
+            };
+            match report {
+                Some(r) => Json(serde_json::json!({
+                    "goal_id": goal_id.to_string(),
+                    "verified": r.metadata.get("verified").and_then(|v| v.as_bool()).unwrap_or(false),
+                    "final_status": r.metadata.get("final_status").and_then(|v| v.as_str()).unwrap_or("unknown"),
+                    "factor_scores": r.metadata.get("factor_scores"),
+                    "confidence": r.confidence,
+                })),
+                None => Json(serde_json::json!({
+                    "goal_id": goal_id.to_string(),
+                    "verified": false,
+                    "error": "no verifier report found — goal may still be running",
+                })),
+            }
+        })
+    };
+
     let memory_diff_route = {
         let store = memory_store.clone();
         post(move |Json(req): Json<serde_json::Value>| async move {
@@ -3710,14 +3749,9 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         let sym = symbolic_store.clone();
         let txl = tx_log_arc.clone();
         post(move |Json(req): Json<serde_json::Value>| async move {
-            let min_group = req
-                .get("min_group_size")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(3) as usize;
-            let config = crate::consolidation::ConsolidationConfig {
-                min_group_size: min_group,
-                ..Default::default()
-            };
+            let strategy = req.get("strategy").and_then(|v| v.as_str()).unwrap_or("bulk");
+            let actor = req.get("actor").and_then(|v| v.as_str()).unwrap_or("system");
+            let min_frequency = req.get("min_frequency").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
             let dummy_log;
             let log_ref: &crate::tx_log::TxLog = match &txl {
                 Some(l) => l,
@@ -3729,14 +3763,23 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
                 }
             };
             let mut ms = store.lock().unwrap();
-            let mut arc = arc.lock().unwrap();
-            let mut sym = sym.lock().unwrap();
-            match crate::consolidation::consolidate(&mut ms, &mut arc, &mut sym, log_ref, &config) {
-                Ok(r) => Json(
-                    serde_json::to_value(r)
-                        .unwrap_or(serde_json::json!({"error": "serialization failed"})),
-                ),
-                Err(e) => Json(serde_json::json!({"error": e})),
+            if strategy == "motif" {
+                match crate::consolidation::mine_and_consolidate(&mut ms, Some(log_ref), min_frequency, actor) {
+                    Ok(r) => Json(serde_json::to_value(r).unwrap_or(serde_json::json!({"error": "serialization failed"}))),
+                    Err(e) => Json(serde_json::json!({"error": e})),
+                }
+            } else {
+                let min_group = req.get("min_group_size").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
+                let config = crate::consolidation::ConsolidationConfig {
+                    min_group_size: min_group,
+                    ..Default::default()
+                };
+                let mut arc = arc.lock().unwrap();
+                let mut sym = sym.lock().unwrap();
+                match crate::consolidation::consolidate(&mut ms, &mut arc, &mut sym, log_ref, &config) {
+                    Ok(r) => Json(serde_json::to_value(r).unwrap_or(serde_json::json!({"error": "serialization failed"}))),
+                    Err(e) => Json(serde_json::json!({"error": e})),
+                }
             }
         })
     };
@@ -3786,6 +3829,60 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
                     .and_then(|v| v.parse().ok())
                     .unwrap_or(0.0);
                 handle_v1_beliefs(store, min_conf).await
+            },
+        )
+    };
+
+    // POST /v1/loop/subscribe — spawn a background SubstrateDaemon handle
+    let v1_loop_subscribe_route = {
+        let dmn = daemon.clone();
+        let cog = cognitive.clone();
+        post(move |Json(req): Json<serde_json::Value>| async move {
+            let actor = req
+                .get("actor")
+                .and_then(|v| v.as_str())
+                .unwrap_or("daemon")
+                .to_string();
+            match dmn.lock() {
+                Ok(mut d) => {
+                    let id = d.subscribe(actor, cog);
+                    Json(serde_json::json!({"ok": true, "handle_id": id}))
+                }
+                Err(_) => Json(serde_json::json!({"ok": false, "error": "daemon lock failed"})),
+            }
+        })
+    };
+
+    // GET /v1/loop/status/:handle — retrieve handle info
+    let v1_loop_status_route = {
+        let dmn = daemon.clone();
+        get(
+            move |axum::extract::Path(handle): axum::extract::Path<String>| async move {
+                let id = match uuid::Uuid::parse_str(&handle) {
+                    Ok(u) => u,
+                    Err(_) => {
+                        return Json(
+                            serde_json::json!({"ok": false, "error": "invalid handle UUID"}),
+                        )
+                    }
+                };
+                match dmn.lock() {
+                    Ok(d) => match d.status(id) {
+                        Some(info) => Json(serde_json::json!({
+                            "ok": true,
+                            "handle_id": info.id,
+                            "actor": info.actor,
+                            "iterations": info.iterations,
+                            "status": info.status,
+                        })),
+                        None => {
+                            Json(serde_json::json!({"ok": false, "error": "handle not found"}))
+                        }
+                    },
+                    Err(_) => {
+                        Json(serde_json::json!({"ok": false, "error": "daemon lock failed"}))
+                    }
+                }
             },
         )
     };
@@ -3863,12 +3960,15 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         )
         .route("/goal/:id/react", goal_react_route)
         .route("/goal/:id/trace", goal_trace_route)
+        .route("/goal/:id/verify", goal_verify_route)
         .route("/memory/diff", memory_diff_route)
         .route("/v1/state/diff", v1_state_diff_route)
         .route("/v1/memory/consolidate", v1_consolidate_route)
         .route("/v1/state/tx", v1_state_tx_route)
         .route("/v1/beliefs", v1_beliefs_route)
         .route("/v1/loop/omega", v1_loop_omega_route)
+        .route("/v1/loop/subscribe", v1_loop_subscribe_route)
+        .route("/v1/loop/status/:handle", v1_loop_status_route)
         .layer(middleware::from_fn(api_key_middleware));
 
     axum::Server::bind(&addr)
