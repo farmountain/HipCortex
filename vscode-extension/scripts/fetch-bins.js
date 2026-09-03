@@ -15,8 +15,8 @@ const PLATFORMS = [
 
 const BASE_DIR = path.join(__dirname, '..', 'server');
 const MIN_BYTES = 1_000_000;
-// Pin to release that matches EXPECTED_SERVER_VERSION / crate 0.5.0 public ships.
-const RELEASE_TAG = process.env.HIPCORTEX_RELEASE_TAG || 'v0.5.0';
+// Pin to release that matches EXPECTED_SERVER_VERSION / crate version.
+const RELEASE_TAG = process.env.HIPCORTEX_RELEASE_TAG || 'v1.8.0';
 const FORCE =
   process.env.FORCE_FETCH_BINS === '1' ||
   process.argv.includes('--force');

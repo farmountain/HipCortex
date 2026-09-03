@@ -30,6 +30,23 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 ---
 
+## What's new in v1.8.0 — Cognitive Report Closure
+
+Closes all remaining "not Yes" gaps in the 10-question cognitive state report and makes verifier mismatch a first-class revision event.
+
+| Gap | Fix |
+|-----|-----|
+| **Q3 — assumptions valid** | `Unknown+0.5` beliefs tagged `Provisional(...)` in `valid_assumptions` — not silently included |
+| **Q6 — what failed** | `CreditAssign` Reflexion records (broken structural equations) surface alongside failed goals |
+| **Q7 — abstractions** | `Skill` records + high-confidence derived beliefs in `emergent_abstractions` |
+| **Q9 — authorized actions** | Real `SelfModel` health (not hardcoded `1.0`) drives the authorized-actions filter |
+| **Q10 — what next** | `SynthesisMode` (Escalate/Balanced/Autonomous) + `ClarifyEngine` pending status wired to `next_recommendation` |
+| **Verifier → CreditAssign** | Prediction/observation mismatch fires `CreditAssign` — same revision path as critic veto; no more silent skipped ticks |
+
+445 unit + 158 integration + 56 property + 8 acceptance, 0 failures.
+
+---
+
 ## What's new in v1.7.0 — Epistemic Closure
 
 Closes the four remaining epistemic gaps in the cognitive loop:
@@ -82,16 +99,16 @@ hipcortex install --url https://hipcortex.fly.dev   # optional managed endpoint
 npm install hipcortex
 ```
 
-**VS Code / Antigravity VSIX** (multi-OS server binaries bundled; extension **1.7.0**):  
+**VS Code / Antigravity VSIX** (multi-OS server binaries bundled; extension **1.8.0**):  
 Package from repo (`vscode-extension`) or latest GitHub Release VSIX. Mac/Linux auto-`chmod` bundled bins.
 
 ```bash
-code --install-extension hipcortex-memory-1.7.0.vsix
+code --install-extension hipcortex-memory-1.8.0.vsix
 ```
 
 Honest support matrix (what's native vs docs-only): **[docs/channels.md](docs/channels.md)** · CLI: `hipcortex channels`
 
-Release notes for v1.1.0–v1.6.3 remain in git history on this file; the latest user-facing notes are v1.7.0 above.
+Release notes for v1.1.0–v1.6.3 remain in git history on this file; the latest user-facing notes are v1.8.0 above.
 
 ---
 
