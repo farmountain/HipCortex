@@ -652,8 +652,8 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
 
                 // G1b: invalidate stale beliefs via JTMS (read-only scan → retract through handle)
                 if mem_type == MemoryType::Temporal || mem_type == MemoryType::Reflexion {
-                    let inv_ids: Vec<uuid::Uuid> = if let Ok(store) = self.memory.lock() {
-                        crate::belief_invalidator::BeliefInvalidator::process(record, &store)
+                    let inv_ids: Vec<uuid::Uuid> = if let Ok(mut store) = self.memory.lock() {
+                        crate::belief_invalidator::BeliefInvalidator::process(record, &mut *store)
                     } else {
                         vec![]
                     };

@@ -55,9 +55,7 @@ fn seed_goal(
 
 #[test]
 fn belief_invalidator_decays_on_negation_overlap() {
-    // BeliefInvalidator::process is read-only (Phase B1: caller routes through JTMS).
-    // Use very low initial confidence (0.05) so the computed decay pushes it below
-    // ARCHIVE_THRESHOLD (0.2), causing the belief ID to appear in the returned Vec.
+    // BeliefInvalidator::process decays confidence directly and writes a marker.
     let mut store = MemoryStore::new_in_memory();
     let bid = seed_belief(&mut store, "service is healthy", 0.05);
 
@@ -69,22 +67,25 @@ fn belief_invalidator_decays_on_negation_overlap() {
         "service is broken".into(),
         serde_json::json!({ "thought": "service not healthy error" }),
     );
-    let invalidated = BeliefInvalidator::process(&obs, &store);
+    let invalidated = BeliefInvalidator::process(&obs, &mut store);
 
-    // process is read-only — store must be unchanged
+    // Confidence must be decayed below ARCHIVE_THRESHOLD (0.2)
     let stored = store.find_by_id(bid).unwrap();
-    assert_eq!(stored.confidence, 0.05, "process must not mutate store");
+    assert!(stored.confidence < 0.2, "process must decay confidence; got {}", stored.confidence);
 
-    // With confidence 0.05, decay pushes new_conf below threshold → ID returned
+    // ID returned for JTMS retraction
     assert!(
         invalidated.contains(&bid),
         "Low-confidence contradicted belief must be in invalidated set; got {:?}",
         invalidated,
     );
-    {
-        // Kept block to preserve the original structure (no store marker expected — caller writes it)
-        let _ = true; // store marker written by CognitiveHandle::retract_belief, not BeliefInvalidator
-    }
+
+    // belief_invalidated marker written to store
+    let markers = store.find_by_action("belief_invalidated");
+    assert!(
+        markers.iter().any(|r| r.derived_from == Some(bid)),
+        "belief_invalidated marker must exist for bid",
+    );
 }
 
 #[test]

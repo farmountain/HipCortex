@@ -25,7 +25,7 @@ impl BeliefInvalidator {
     /// CognitiveHandle::retract_belief — never write to store directly from this function).
     pub fn process<B: MemoryBackend>(
         new_record: &MemoryRecord,
-        store: &crate::memory_store::MemoryStore<B>,
+        store: &mut crate::memory_store::MemoryStore<B>,
     ) -> Vec<Uuid> {
         let content = format!(
             "{} {} {}",
@@ -70,9 +70,22 @@ impl BeliefInvalidator {
             let new_conf = ((current_conf as f64) - contradiction_score * DECAY_FACTOR)
                 .max(0.0) as f32;
 
-            // Return ID for JTMS retraction when below threshold; caller must route through
-            // CognitiveHandle::retract_belief — no direct store mutation here.
+            // Decay confidence directly in the store.
+            let _ = store.update_record(belief_id, None, None, Some(new_conf), None, None);
+
             if new_conf < ARCHIVE_THRESHOLD {
+                // Write invalidation marker so callers and cognitive_report can surface it.
+                let marker = MemoryRecord::new(
+                    MemoryType::Temporal,
+                    new_record.actor.clone(),
+                    "belief_invalidated".into(),
+                    proposition.clone(),
+                    serde_json::json!({ "reason": "contradiction", "confidence": new_conf }),
+                );
+                let mut marker = marker;
+                marker.derived_from = Some(belief_id);
+                let _ = store.add(marker);
+                // Return ID for JTMS retraction; caller routes through retract_belief.
                 invalidated.push(belief_id);
             }
         }
