@@ -218,6 +218,32 @@ impl SubstrateDaemon {
                     }
                     if let Ok(mut sc) = sc_clone.lock() { sc[1] += 1; }
 
+                    // Stage 1b: OOD anomaly detection — Mahalanobis severity > threshold on the
+                    // most uncertain entity → targeted CreditAssign("ood_shift:entity_id").
+                    // Only the anomalous entity's causal equations are blamed; unrelated beliefs
+                    // remain In. One CreditAssign per daemon tick to avoid log flooding.
+                    if let Ok(wm) = cognitive.world.read() {
+                        if let Some(ref entity_id) = wm.most_uncertain_entity() {
+                            if let Ok(anomalies) = wm.get_entity_anomalies(entity_id) {
+                                for anomaly in &anomalies {
+                                    if anomaly.severity > anomaly.threshold {
+                                        let signal = format!(
+                                            "ood_shift:entity={entity_id} severity={:.2}",
+                                            anomaly.severity
+                                        );
+                                        let _ = cognitive.transact(
+                                            crate::cognitive_state::CognitiveDelta::CreditAssign(
+                                                crate::world_model_enhanced::causal::FailureSignal::ExplicitFail(signal),
+                                            ),
+                                            &actor_clone,
+                                        );
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Stage 2: Plan — determine required actions
                     let should_consolidate = pressure > config.pressure_threshold;
                     if let Ok(mut sc) = sc_clone.lock() { sc[2] += 1; }

@@ -1,4 +1,4 @@
-# Claude Agent Harness — HipCortex v1.8.0
+# Claude Agent Harness — HipCortex v1.9.0
 
 HipCortex turns Claude Code (or any MCP-capable LLM) into a **substrate-first autonomous agent**: the cognitive state (memories, beliefs, world model, coherence) is the primary durable mind; the LLM is a thin language surface used only for final output or high-entropy creative hypotheses.
 
@@ -146,7 +146,8 @@ The WM prediction updates after each successful observation commit so the next i
 | # | Stage | What happens |
 |---|-------|-------------|
 | 0 | **Observe** | `purge_expired()` removes decayed records; snapshot taken |
-| 1 | **Reflect** | Consolidation pressure computed from `SelfModel`; health read → SynthesisMode |
+| 1 | **Reflect** | Consolidation pressure computed from `SelfModel`; health read → SynthesisMode; autonomous goal synthesis from `most_uncertain_entity` if no InProgress goal |
+| 1b | **OOD Detect** | `get_entity_anomalies(most_uncertain_entity)` — if `severity > threshold`: `CreditAssign("ood_shift:entity_id")`. Targeted: only anomalous entity blamed; unrelated beliefs stay `In`. One CreditAssign per tick. |
 | 2 | **Plan** | Decide: consolidate if `pressure > pressure_threshold` |
 | 3 | **CriticVeto** | `CriticGate::evaluate` with dynamic threshold from SelfModel; veto → `CreditAssign` + possibly `ClarifyEngine{ConsecutiveVeto}` |
 | 4 | **Predict** | `WorldModelEnhanced::predict_next_state(actor, "daemon_step")` |

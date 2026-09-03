@@ -1,6 +1,6 @@
 [package]
 name = "hipcortex"
-version = "1.8.0"
+version = "1.9.0"
 edition = "2021"
 description = "A modular, agentic AI memory engine for reasoning, edge, and multi-agent workflows"
 repository = "https://github.com/farmountain/HipCortex"
@@ -110,6 +110,11 @@ harness = false
 [[test]]
 name = "acceptance_suite_v110"
 path = "tests/acceptance_suite_v110.rs"
+harness = false
+
+[[test]]
+name = "acceptance_suite_v190"
+path = "tests/acceptance_suite_v190.rs"
 harness = false
 
 [[bench]]

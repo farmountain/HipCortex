@@ -30,6 +30,20 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 ---
 
+## What's new in v1.9.0 — 3-Month Agent Coherence
+
+Proves the long-running agent claim across three axes: restart survivability, targeted OOD isolation, and abstraction persistence.
+
+| Claim | Implementation | Test |
+|-------|---------------|------|
+| **Restart survivable** | JSONL store + WM file + JTMS-in-store survive process kill; InProgress goals auto-resume on daemon Stage 1 first tick | AC-R1…R5 (7/7 pass) |
+| **OOD → targeted isolation** | Daemon Stage 1b: Mahalanobis `severity > threshold` on most-uncertain entity → `CreditAssign("ood_shift:entity_id")`; unrelated beliefs stay `In` | AC-O1, AC-O2 |
+| **Abstraction survival** | `mine_and_consolidate` → `SkillPayload` in JSONL → `emergent_abstractions` intact after reload | AC-R4, skill_abstractions_survive_restart |
+
+163 integration + 445 unit + 7 v1.9.0 acceptance + 8 v1.1.0 acceptance, 0 failures.
+
+---
+
 ## What's new in v1.8.0 — Cognitive Report Closure
 
 Closes all remaining "not Yes" gaps in the 10-question cognitive state report and makes verifier mismatch a first-class revision event.

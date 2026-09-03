@@ -428,7 +428,7 @@ interface QueryMemoryResponse {
  * Crate / bundled server binary version (CARGO_PKG_VERSION), NOT vscode package.json.
  * Keep in sync with Cargo.toml [package].version and published hipcortex-* assets.
  */
-export const EXPECTED_SERVER_VERSION = '1.8.0'; // Keep in sync with package.json version
+export const EXPECTED_SERVER_VERSION = '1.9.0'; // Keep in sync with package.json version
 
 /** Parse listen port from hipcortex.apiUrl / HipCortexAPI.baseUrl. */
 export function extractPortFromBaseUrl(baseUrl: string): { port: number; portStr: string } {

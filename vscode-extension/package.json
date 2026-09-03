@@ -1,8 +1,8 @@
 {
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
-    "description": "HipCortex v1.8.0 — Cognitive Report Closure: verifier mismatch fires CreditAssign (same path as critic veto); Q3 Unknown+0.5 beliefs marked Provisional; Q6 includes CreditAssign reflexions; Q7 includes Skill records + derived beliefs; Q9 uses real SelfModel health; Q10 wired to SynthesisMode + ClarifyEngine pending. 445 unit + 158 integration + 8 acceptance tests. Bundled multi-OS server.",
-    "version": "1.8.0",
+    "description": "HipCortex v1.9.0 — 3-Month Agent Coherence: restart-survivable snapshot (JSONL+WM+JTMS persist across kill); OOD entity anomaly (Mahalanobis > threshold) fires targeted CreditAssign per entity, leaving unrelated beliefs intact; Skill abstractions survive reload. 445 unit + 163 integration + 7 acceptance (v1.9.0) + 8 acceptance (v1.1.0). Bundled multi-OS server.",
+    "version": "1.9.0",
     "publisher": "farmountain",
     "repository": {
         "type": "git",
