@@ -1060,3 +1060,239 @@ fn ac_step_veto_at_tick1_blocks_step_writes_decision() {
         "AC-step-4: current_iteration must be 1 (only tick 0 ran); got {}", gp.current_iteration
     );
 }
+
+// ─── v1.7.0 P0 Epistemic Closure AC tests ────────────────────────────────────
+
+// P0-D: SelfModel steers loop config
+#[test]
+fn ac_self_model_default_loop_config_is_balanced() {
+    use hipcortex::self_model::SynthesisMode;
+    let sm = hipcortex::self_model::SelfModel::new();
+    let cfg = sm.recommend_loop_config();
+    // New SelfModel with no degraded modules → health aggregator returns 1.0 → Autonomous branch
+    assert!((cfg.effective_veto_threshold - 0.15).abs() < 1e-6,
+        "new SelfModel must be Autonomous (threshold 0.15); got {}", cfg.effective_veto_threshold);
+    assert_eq!(cfg.synthesis_mode, SynthesisMode::Autonomous,
+        "new SelfModel synthesis mode must be Autonomous");
+}
+
+#[test]
+fn ac_self_model_low_health_escalates() {
+    use hipcortex::self_model::{SelfModel, ModuleHealth, SynthesisMode};
+    let sm = SelfModel::new();
+    // error_rate=0.99 → compute_score ≈ 0.01 < 0.3 → Escalate
+    sm.report_health("core".to_string(), ModuleHealth {
+        latency_ms: 0.0, error_rate: 0.99, resource_usage: 0.0,
+    }).unwrap();
+    let cfg = sm.recommend_loop_config();
+    assert!((cfg.effective_veto_threshold - 0.50).abs() < 1e-6,
+        "low health must raise threshold to 0.50; got {}", cfg.effective_veto_threshold);
+    assert_eq!(cfg.synthesis_mode, SynthesisMode::Escalate);
+}
+
+#[test]
+fn ac_self_model_high_health_autonomous() {
+    use hipcortex::self_model::{SelfModel, ModuleHealth, SynthesisMode};
+    let sm = SelfModel::new();
+    // error_rate=0.0, latency=0, resource=0 → score = 1.0 > 0.8 → Autonomous
+    sm.report_health("core".to_string(), ModuleHealth {
+        latency_ms: 0.0, error_rate: 0.0, resource_usage: 0.0,
+    }).unwrap();
+    let cfg = sm.recommend_loop_config();
+    assert!((cfg.effective_veto_threshold - 0.15).abs() < 1e-6,
+        "high health must lower threshold to 0.15; got {}", cfg.effective_veto_threshold);
+    assert_eq!(cfg.synthesis_mode, SynthesisMode::Autonomous);
+}
+
+// P0-B: CriticGate dynamic threshold
+#[test]
+fn ac_critic_gate_dynamic_threshold_raises_bar() {
+    use hipcortex::loop_gates::{CriticGate, CriticDecision};
+    use hipcortex::payloads::{GoalPayload, GoalStatus, SuccessFactor};
+    // 1/4 factors satisfied = 0.25
+    let goal = GoalPayload {
+        target_state: "t".into(),
+        status: GoalStatus::InProgress,
+        success_factors: (0..4usize).map(|i| SuccessFactor {
+            name: format!("f{i}"), weight: 1.0, satisfied: i < 1,
+        }).collect(),
+        ..Default::default()
+    };
+    // threshold 0.24 → 0.25 >= 0.24 → Approved
+    assert!(matches!(
+        CriticGate::evaluate_with_threshold(&goal, "act", 1, 0.24),
+        CriticDecision::Approved { .. }
+    ));
+    // threshold 0.30 → 0.25 < 0.30 → Rejected
+    assert!(matches!(
+        CriticGate::evaluate_with_threshold(&goal, "act", 1, 0.30),
+        CriticDecision::Rejected { .. }
+    ));
+}
+
+// P0-A: ClarifyEngine
+#[test]
+fn ac_clarify_self_resolves_from_belief() {
+    use hipcortex::clarify_engine::{ClarifyEngine, ClarifyOutcome, ClarifyTrigger};
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+    use hipcortex::payloads::{BeliefPayload, GoalPayload, GoalStatus, SuccessFactor, EpistemicStatus};
+    use hipcortex::memory_store::MemoryStore;
+
+    let mut store = MemoryStore::new_in_memory();
+
+    // Add goal with empty success_factors
+    let goal_payload = GoalPayload {
+        target_state: "stabilize_widget".into(),
+        status: GoalStatus::InProgress,
+        success_factors: vec![],
+        ..Default::default()
+    };
+    let goal_rec = MemoryRecord::new(
+        MemoryType::Goal, "agent".into(), "plan".into(), "stabilize_widget".into(),
+        serde_json::to_value(&goal_payload).unwrap(),
+    );
+    let goal_id = goal_rec.id;
+    store.add(goal_rec).unwrap();
+
+    // Add belief whose proposition contains the target_state
+    let bp = BeliefPayload {
+        proposition: "stabilize_widget is achievable via calibration".into(),
+        confidence: 0.8,
+        epistemic_status: EpistemicStatus::Observed,
+        ..Default::default()
+    };
+    let belief_rec = MemoryRecord::new(
+        MemoryType::Belief, "agent".into(), "observe".into(), "widget".into(),
+        serde_json::to_value(&bp).unwrap(),
+    );
+    store.add(belief_rec).unwrap();
+
+    let outcome = ClarifyEngine::run(&mut store, goal_id, "agent", ClarifyTrigger::EmptyAC);
+    assert_eq!(outcome, ClarifyOutcome::ClarifiedBySubstrate,
+        "matching belief must self-resolve as ClarifiedBySubstrate");
+
+    // Must have written Reflexion{self_clarified}
+    let reflexions = store.all_by_type(MemoryType::Reflexion);
+    assert!(reflexions.iter().any(|r| r.action == "self_clarified" && r.derived_from == Some(goal_id)),
+        "ClarifyEngine must write Reflexion{{self_clarified}} linked to goal");
+}
+
+#[test]
+fn ac_clarify_escalates_after_max_rounds() {
+    use hipcortex::clarify_engine::{ClarifyEngine, ClarifyOutcome, ClarifyTrigger};
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+    use hipcortex::payloads::{GoalPayload, GoalStatus};
+    use hipcortex::memory_store::MemoryStore;
+
+    let mut store = MemoryStore::new_in_memory();
+    let goal_payload = GoalPayload {
+        target_state: "nonexistent_target".into(),
+        status: GoalStatus::InProgress,
+        success_factors: vec![],
+        ..Default::default()
+    };
+    let goal_rec = MemoryRecord::new(
+        MemoryType::Goal, "agent".into(), "plan".into(), "nonexistent_target".into(),
+        serde_json::to_value(&goal_payload).unwrap(),
+    );
+    let goal_id = goal_rec.id;
+    store.add(goal_rec).unwrap();
+
+    let outcome = ClarifyEngine::run(&mut store, goal_id, "agent", ClarifyTrigger::EmptyAC);
+    assert_eq!(outcome, ClarifyOutcome::NeedsUserClarification,
+        "no matching belief must escalate to NeedsUserClarification");
+
+    // Must have written exactly one Belief{clarify_needed}
+    let clarify_beliefs = store.all_by_type(MemoryType::Belief).into_iter()
+        .filter(|r| r.action == "clarify_needed" && r.derived_from == Some(goal_id))
+        .count();
+    assert_eq!(clarify_beliefs, 1, "must write exactly one Belief{{clarify_needed}}; got {clarify_beliefs}");
+}
+
+#[test]
+fn ac_clarify_deduplicates_clarify_needed() {
+    use hipcortex::clarify_engine::{ClarifyEngine, ClarifyOutcome, ClarifyTrigger};
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+    use hipcortex::payloads::{GoalPayload, GoalStatus};
+    use hipcortex::memory_store::MemoryStore;
+
+    let mut store = MemoryStore::new_in_memory();
+    let goal_payload = GoalPayload {
+        target_state: "dup_target".into(),
+        status: GoalStatus::InProgress,
+        success_factors: vec![],
+        ..Default::default()
+    };
+    let goal_rec = MemoryRecord::new(
+        MemoryType::Goal, "agent".into(), "plan".into(), "dup_target".into(),
+        serde_json::to_value(&goal_payload).unwrap(),
+    );
+    let goal_id = goal_rec.id;
+    store.add(goal_rec).unwrap();
+
+    // Run twice — must only write one Belief{clarify_needed}
+    let _ = ClarifyEngine::run(&mut store, goal_id, "agent", ClarifyTrigger::EmptyAC);
+    let _ = ClarifyEngine::run(&mut store, goal_id, "agent", ClarifyTrigger::EmptyAC);
+
+    let clarify_beliefs = store.all_by_type(MemoryType::Belief).into_iter()
+        .filter(|r| r.action == "clarify_needed" && r.derived_from == Some(goal_id))
+        .count();
+    assert_eq!(clarify_beliefs, 1, "second run must be deduped; got {clarify_beliefs}");
+}
+
+// P0-E: JTMS as report truth
+#[test]
+fn ac_jtms_in_belief_appears_in_valid_assumptions() {
+    use hipcortex::cognitive_report::build_report;
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+    use hipcortex::payloads::{BeliefPayload, EpistemicStatus, JtmsLabel};
+    use hipcortex::memory_store::MemoryStore;
+
+    let mut store = MemoryStore::new_in_memory();
+    let bp = BeliefPayload {
+        proposition: "jtms_in_belief is valid".into(),
+        confidence: 0.2, // below 0.5 — only JTMS label makes it pass
+        epistemic_status: EpistemicStatus::Hypothetical,
+        jtms_label: JtmsLabel::In,
+        ..Default::default()
+    };
+    let rec = MemoryRecord::new(
+        MemoryType::Belief, "agent".into(), "observe".into(), "x".into(),
+        serde_json::to_value(&bp).unwrap(),
+    );
+    store.add(rec).unwrap();
+
+    let report = build_report(&store, "agent");
+    assert!(
+        report.valid_assumptions.iter().any(|b| b.proposition == "jtms_in_belief is valid"),
+        "JtmsLabel::In belief must appear in valid_assumptions even with confidence < 0.5"
+    );
+}
+
+#[test]
+fn ac_jtms_out_belief_excluded_from_valid_assumptions() {
+    use hipcortex::cognitive_report::build_report;
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+    use hipcortex::payloads::{BeliefPayload, EpistemicStatus, JtmsLabel};
+    use hipcortex::memory_store::MemoryStore;
+
+    let mut store = MemoryStore::new_in_memory();
+    let bp = BeliefPayload {
+        proposition: "jtms_out_belief is retracted".into(),
+        confidence: 0.9, // high conf, but JTMS Out overrides
+        epistemic_status: EpistemicStatus::Observed,
+        jtms_label: JtmsLabel::Out,
+        ..Default::default()
+    };
+    let rec = MemoryRecord::new(
+        MemoryType::Belief, "agent".into(), "observe".into(), "x".into(),
+        serde_json::to_value(&bp).unwrap(),
+    );
+    store.add(rec).unwrap();
+
+    let report = build_report(&store, "agent");
+    assert!(
+        !report.valid_assumptions.iter().any(|b| b.proposition == "jtms_out_belief is retracted"),
+        "JtmsLabel::Out belief must be excluded from valid_assumptions even with confidence=0.9"
+    );
+}

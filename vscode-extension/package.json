@@ -1,8 +1,8 @@
 {
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
-    "description": "HipCortex v1.6.3 — Dual-mode ReactEngine: StepByStep advances one ReAct iteration per daemon tick (goal persists InProgress, CriticGate veto structurally achievable at iter ≥ 1); FullCycle (default) exhausts loop in one tick. v1.6.2: WM-policy gates react_loop/credit_assign, semantic dedup normalizes action fingerprints, verifier annotates uncertain entities. 652 tests. Bundled multi-OS server.",
-    "version": "1.6.3",
+    "description": "HipCortex v1.7.0 — Epistemic Closure: ClarifyEngine self-prompts (max 3 rounds) before escalating to user; SelfModel health steers dynamic CriticGate threshold (low→0.50/Escalate, high→0.15/Autonomous); veto is a CreditAssign revision event (not skipped tick); JTMS IN/OUT is report truth for valid_assumptions. 1027 tests. Bundled multi-OS server.",
+    "version": "1.7.0",
     "publisher": "farmountain",
     "repository": {
         "type": "git",

@@ -19,6 +19,7 @@ pub mod wm_updater;
 #[path = "modules/aureus_bridge.rs"]
 pub mod aureus_bridge;
 pub mod cognitive_gc;
+pub mod clarify_engine;
 pub mod cognitive_state;
 pub mod continuous_dynamics;
 pub mod digital_twin;

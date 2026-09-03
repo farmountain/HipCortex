@@ -105,27 +105,36 @@ pub fn build_report<B: MemoryBackend>(
         })
         .collect();
 
-    // Q2 — learned beliefs (conf > 0.3)
-    let all_beliefs: Vec<BeliefSummary> = store
+    // Q2 — collect raw beliefs retaining JTMS label for Q3 filter (P0-E).
+    let all_belief_pairs: Vec<(crate::payloads::JtmsLabel, BeliefSummary)> = store
         .all_by_type(MemoryType::Belief)
         .into_iter()
         .filter_map(|r| {
             let p: BeliefPayload = serde_json::from_value(r.metadata.clone()).ok()?;
-            Some(BeliefSummary {
+            let label = p.jtms_label.clone();
+            Some((label, BeliefSummary {
                 id: r.id,
                 proposition: p.proposition,
                 confidence: p.confidence,
                 epistemic_status: format!("{:?}", p.epistemic_status),
-            })
+            }))
         })
         .collect();
 
+    let all_beliefs: Vec<BeliefSummary> =
+        all_belief_pairs.iter().map(|(_, b)| b.clone()).collect();
     let learned_beliefs: Vec<BeliefSummary> =
         all_beliefs.iter().filter(|b| b.confidence > 0.3).cloned().collect();
 
-    // Q3 — valid assumptions (conf >= 0.5)
-    let valid_assumptions: Vec<BeliefSummary> =
-        all_beliefs.iter().filter(|b| b.confidence >= 0.5).cloned().collect();
+    // Q3 — valid assumptions: JTMS IN authoritative; Unknown falls back to conf >= 0.5.
+    let valid_assumptions: Vec<BeliefSummary> = all_belief_pairs
+        .iter()
+        .filter(|(label, b)| {
+            matches!(label, crate::payloads::JtmsLabel::In)
+                || (matches!(label, crate::payloads::JtmsLabel::Unknown) && b.confidence >= 0.5)
+        })
+        .map(|(_, b)| b.clone())
+        .collect();
 
     // Q4+Q5 — recent decisions (last 10)
     let recent_decisions: Vec<DecisionSummary> = store

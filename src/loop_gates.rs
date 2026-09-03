@@ -25,21 +25,26 @@ pub enum CriticDecision {
 pub struct CriticGate;
 
 impl CriticGate {
-    /// Evaluate whether the current goal progress justifies executing the next action.
-    /// `iteration` — 0-based ReAct iteration index; iteration 0 always passes.
-    pub fn evaluate(goal: &GoalPayload, proposed_action: &str, iteration: u32) -> CriticDecision {
+    /// Evaluate with an explicit veto threshold (from `SelfModel::recommend_loop_config`).
+    /// Iteration 0 always passes regardless of threshold.
+    pub fn evaluate_with_threshold(
+        goal: &GoalPayload,
+        proposed_action: &str,
+        iteration: u32,
+        veto_threshold: f32,
+    ) -> CriticDecision {
         if iteration == 0 {
             return CriticDecision::Approved { confidence: 1.0 };
         }
         let total = goal.success_factors.len().max(1);
         let satisfied = goal.success_factors.iter().filter(|f| f.satisfied).count();
         let fraction = satisfied as f32 / total as f32;
-        if fraction < CRITIC_VETO_THRESHOLD {
+        if fraction < veto_threshold {
             CriticDecision::Rejected {
                 rationale: vec![
                     format!(
-                        "{}/{} success_factors satisfied — below veto threshold {}",
-                        satisfied, total, CRITIC_VETO_THRESHOLD
+                        "{}/{} success_factors satisfied — below veto threshold {:.2}",
+                        satisfied, total, veto_threshold
                     ),
                     format!(
                         "action '{}' vetoed at iteration {} — no meaningful progress",
@@ -50,6 +55,11 @@ impl CriticGate {
         } else {
             CriticDecision::Approved { confidence: fraction }
         }
+    }
+
+    /// Evaluate with the default static threshold. Backward-compatible wrapper.
+    pub fn evaluate(goal: &GoalPayload, proposed_action: &str, iteration: u32) -> CriticDecision {
+        Self::evaluate_with_threshold(goal, proposed_action, iteration, CRITIC_VETO_THRESHOLD)
     }
 }
 

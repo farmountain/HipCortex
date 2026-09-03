@@ -383,6 +383,34 @@ impl SelfModel {
     pub fn most_drifted_node_with_weight(&self) -> Option<(String, f64)> {
         self.prediction_monitor.lock().ok()?.most_drifted_node_with_weight()
     }
+
+    /// Derive per-tick loop config from current health.
+    /// health < 0.3 → (0.50, Escalate); health > 0.8 → (0.15, Autonomous); else → (0.25, Balanced).
+    pub fn recommend_loop_config(&self) -> LoopConfig {
+        let health = self.get_health().map(|h| h.overall as f32).unwrap_or(0.5);
+        if health < 0.3 {
+            LoopConfig { effective_veto_threshold: 0.50, synthesis_mode: SynthesisMode::Escalate }
+        } else if health > 0.8 {
+            LoopConfig { effective_veto_threshold: 0.15, synthesis_mode: SynthesisMode::Autonomous }
+        } else {
+            LoopConfig { effective_veto_threshold: 0.25, synthesis_mode: SynthesisMode::Balanced }
+        }
+    }
+}
+
+// ─── Daemon loop config ────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SynthesisMode {
+    Autonomous,
+    Balanced,
+    Escalate,
+}
+
+#[derive(Debug, Clone)]
+pub struct LoopConfig {
+    pub effective_veto_threshold: f32,
+    pub synthesis_mode: SynthesisMode,
 }
 
 impl Default for SelfModel {

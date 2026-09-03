@@ -110,6 +110,7 @@ impl SubstrateDaemon {
             .name(format!("substrate-{}", &id.to_string()[..8]))
             .spawn(move || {
                 let mut loop_iter = 0u32;
+                let mut consecutive_veto_count = 0u32;
                 loop {
                     // Stage 0: Observe — purge expired records, take snapshot
                     if let Ok(mut ms) = cognitive.memory.lock() {
@@ -117,6 +118,9 @@ impl SubstrateDaemon {
                     }
                     let snapshot = cognitive.snapshot(&actor_clone);
                     if let Ok(mut sc) = sc_clone.lock() { sc[0] += 1; }
+                    // SelfModel steers loop config: health → effective_veto_threshold + synthesis_mode.
+                    let loop_cfg = cognitive.self_model.recommend_loop_config();
+                    let _ = &consecutive_veto_count; // suppress unused-variable warning when no goal active
 
                     // Stage 1: Reflect — assess pressure; find highest-priority InProgress goal (Gap 1)
                     let pressure = snapshot
@@ -194,6 +198,24 @@ impl SubstrateDaemon {
                     } else {
                         active_goal
                     };
+                    // Stage 1 clarify: run ClarifyEngine on any unclarified InProgress goal (P0-A).
+                    if let Ok(mut ms) = cognitive.memory.lock() {
+                        let unclarified: Vec<uuid::Uuid> = ms
+                            .search_by_goal_status(&actor_clone, "InProgress")
+                            .into_iter()
+                            .filter_map(|rec| {
+                                let p: crate::payloads::GoalPayload =
+                                    serde_json::from_value(rec.metadata.clone()).unwrap_or_default();
+                                if p.success_factors.is_empty() { Some(rec.id) } else { None }
+                            })
+                            .collect();
+                        for gid in unclarified {
+                            let _ = crate::clarify_engine::ClarifyEngine::run(
+                                &mut ms, gid, &actor_clone,
+                                crate::clarify_engine::ClarifyTrigger::EmptyAC,
+                            );
+                        }
+                    }
                     if let Ok(mut sc) = sc_clone.lock() { sc[1] += 1; }
 
                     // Stage 2: Plan — determine required actions
@@ -203,9 +225,9 @@ impl SubstrateDaemon {
                     // Stage 3: CriticVeto — only against real active goals.
                     // Idle daemon (no goal) must not veto maintenance: dummy-goal always passes.
                     // When vetoed, writes Decision{rejected, rationale_chain} to memory.
-                    let vetoed = if let Some((_, ref goal_payload)) = active_goal {
+                    let vetoed = if let Some((ref goal_id_s3, ref goal_payload)) = active_goal {
                         use crate::loop_gates::{CriticDecision, CriticGate};
-                        match CriticGate::evaluate(goal_payload, "daemon_step", loop_iter) {
+                        match CriticGate::evaluate_with_threshold(goal_payload, "daemon_step", loop_iter, loop_cfg.effective_veto_threshold) {
                             CriticDecision::Rejected { rationale } => {
                                 use crate::memory_record::{MemoryRecord, MemoryType};
                                 use crate::payloads::DecisionPayload;
@@ -228,9 +250,33 @@ impl SubstrateDaemon {
                                     );
                                     let _ = ms.add(rec);
                                 }
+                                consecutive_veto_count += 1;
+                                // Veto is a revision event: CreditAssign the failure (P0-C).
+                                let _ = cognitive.transact(
+                                    crate::cognitive_state::CognitiveDelta::CreditAssign(
+                                        crate::world_model_enhanced::causal::FailureSignal::ExplicitFail(
+                                            format!("critic_veto iter={loop_iter}"),
+                                        ),
+                                    ),
+                                    &actor_clone,
+                                );
+                                // After ≥3 consecutive vetoes, run ClarifyEngine to self-resolve (P0-A).
+                                if consecutive_veto_count >= 3 {
+                                    if let Ok(mut ms) = cognitive.memory.lock() {
+                                        let _ = crate::clarify_engine::ClarifyEngine::run(
+                                            &mut ms, *goal_id_s3, &actor_clone,
+                                            crate::clarify_engine::ClarifyTrigger::RepeatedVeto {
+                                                veto_count: consecutive_veto_count,
+                                            },
+                                        );
+                                    }
+                                }
                                 true
                             }
-                            CriticDecision::Approved { .. } => false,
+                            CriticDecision::Approved { .. } => {
+                                consecutive_veto_count = 0;
+                                false
+                            }
                         }
                     } else {
                         false // idle daemon — no goal to veto against, maintenance always runs

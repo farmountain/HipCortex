@@ -30,6 +30,20 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 ---
 
+## What's new in v1.7.0 — Epistemic Closure
+
+Closes the four remaining epistemic gaps in the cognitive loop:
+
+- **ClarifyEngine (P0-A)**: Self-prompting clarity loop (max 3 rounds) triggered on empty success_factors, ≥3 consecutive vetoes, or pre-success. Searches beliefs + WM for resolution; writes `Reflexion{self_clarified}` on success, single deduped `Belief{clarify_needed}` on escalation. Only unresolvable ambiguities reach the user.
+- **Dynamic CriticGate threshold (P0-B)**: `CriticGate::evaluate_with_threshold(goal, action, iter, threshold)` replaces the static 0.25 constant. `evaluate()` is now a backward-compat wrapper.
+- **SelfModel steers the loop (P0-D)**: `SelfModel::recommend_loop_config()` maps health→`LoopConfig{effective_veto_threshold, synthesis_mode}`. health < 0.3 → (0.50, Escalate); health > 0.8 → (0.15, Autonomous); else → (0.25, Balanced). Daemon Stage 0 reads this every tick.
+- **Veto as revision event (P0-C)**: CriticGate rejection writes `Decision{critic_veto}` AND fires `CognitiveDelta::CreditAssign(FailureSignal::ExplicitFail)`. Veto is a learning signal, not a skipped tick.
+- **JTMS as report truth (P0-E)**: `cognitive_report` Q3 (`valid_assumptions`) filters on `JtmsLabel::In` authoritatively; `Unknown` beliefs fall back to `confidence >= 0.5`. `JtmsLabel::Out` beliefs are excluded even at high confidence.
+
+1027 tests (366 lib + 439 unit + 158 integration + 56 property + 8 acceptance), 0 failures.
+
+---
+
 ## What's new in v1.6.3 — Dual-mode ReactEngine (StepByStep + FullCycle)
 
 Closes the structural limit where CriticGate veto at iter ≥ 1 could never fire.
