@@ -92,7 +92,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|e| eprintln!("[TxLog] open error: {e}"))
         .ok();
     let coherence = Arc::new(CoherenceChecker::new());
-    coherence.set_consistency_topo(hipcortex::causal_topo::CausalTopoGraph::new());
+    coherence.set_consistency_topo(hipcortex::topological_memory::CausalTopoGraph::new());
     let calibration = Arc::new(CalibrationTracker::new());
     let cognitive = Arc::new(hipcortex::cognitive_state::CognitiveHandle::new(
         Arc::clone(&memory_store),
@@ -119,6 +119,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         cognitive,
         forks: Arc::new(Mutex::new(std::collections::HashMap::new())),
         twins: Arc::new(Mutex::new(std::collections::HashMap::new())),
+        daemon: Arc::new(Mutex::new(hipcortex::substrate_daemon::SubstrateDaemon::new())),
+        workspace_registry: Arc::new(Mutex::new(hipcortex::workspace::WorkspaceRegistry::new())),
     };
 
     // ── Periodic WorldModel flush every 5 minutes ────────────────────────────

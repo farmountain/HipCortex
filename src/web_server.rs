@@ -3395,6 +3395,17 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
     let self_model: Arc<SelfModel> = Arc::new(SelfModel::new());
     let workspace_registry: Arc<Mutex<WorkspaceRegistry>> =
         Arc::new(Mutex::new(WorkspaceRegistry::new()));
+    let topo_arc = Arc::new(Mutex::new(crate::topological_memory::CausalTopoGraph::new()));
+    let daemon = Arc::new(Mutex::new(crate::substrate_daemon::SubstrateDaemon::new()));
+    let cognitive = Arc::new(crate::cognitive_state::CognitiveHandle::new(
+        memory_store.clone(),
+        Arc::new(std::sync::RwLock::new(WorldModelEnhanced::new())),
+        Arc::new(SelfModel::new()),
+        None,
+        Arc::new(crate::coherence::CoherenceChecker::new()),
+        calibration.clone(),
+        Arc::new(crate::cognitive_gc::CognitiveGC::new()),
+    ));
 
     // Symbolic store routes
     let graph_route = {
