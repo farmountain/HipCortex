@@ -625,11 +625,27 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
                     }
                 }
 
+                // EpistemicAuthority gate: clamp Belief confidence if insufficient evidence.
+                let record_to_store = if record.record_type == MemoryType::Belief {
+                    if let Ok(mut bp) = serde_json::from_value::<BeliefPayload>(record.metadata.clone()) {
+                        let clamped = crate::epistemic_authority::EpistemicAuthority::gate_belief_write(
+                            bp.confidence, record.evidence.len()
+                        );
+                        if clamped < bp.confidence - f32::EPSILON {
+                            bp.confidence = clamped;
+                            let mut r = record.clone();
+                            r.confidence = clamped;
+                            r.metadata = serde_json::to_value(&bp).unwrap_or(r.metadata);
+                            r
+                        } else { record.clone() }
+                    } else { record.clone() }
+                } else { record.clone() };
+
                 // Memory write
                 self.memory
                     .lock()
                     .map_err(|_| CognitiveError::LockError)?
-                    .add(record.clone())
+                    .add(record_to_store)
                     .map_err(|e| CognitiveError::StoreError(e.to_string()))?;
 
                 // G1a: update world model; G2a: calibrate from transition entropy
@@ -675,12 +691,26 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             }
 
             CognitiveDelta::UpdateBelief { id, payload } => {
-                let new_meta = serde_json::to_value(payload)
+                // EpistemicAuthority gate: clamp confidence by evidence count on existing record.
+                let evidence_count = self.memory.lock().ok()
+                    .and_then(|s| s.find_by_id(*id).map(|r| r.evidence.len()))
+                    .unwrap_or(0);
+                let clamped = crate::epistemic_authority::EpistemicAuthority::gate_belief_write(
+                    payload.confidence, evidence_count
+                );
+                let gated = if clamped < payload.confidence - f32::EPSILON {
+                    let mut p = payload.clone();
+                    p.confidence = clamped;
+                    p
+                } else {
+                    payload.clone()
+                };
+                let new_meta = serde_json::to_value(&gated)
                     .map_err(|e| CognitiveError::StoreError(e.to_string()))?;
                 self.memory
                     .lock()
                     .map_err(|_| CognitiveError::LockError)?
-                    .update_record(*id, None, None, Some(payload.confidence), None, Some(new_meta))
+                    .update_record(*id, None, None, Some(gated.confidence), None, Some(new_meta))
                     .map_err(|e| CognitiveError::StoreError(e.to_string()))?;
                 Ok(vec![*id])
             }

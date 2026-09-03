@@ -30,6 +30,20 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 ---
 
+## What's new in v2.0.0 — Epistemic Write-Path
+
+Closes the three axes of epistemic integrity: who is allowed to change truth, how abstractions form, and how the epistemic state survives process death.
+
+| Axis | Implementation | Test |
+|------|---------------|------|
+| **Who can change truth** | `EpistemicAuthority::gate_belief_write` clamps Belief confidence by evidence tier: 0 evidence → max 0.50, 1-2 → 0.65, 3-6 → 0.80, 7+ → uncapped. Gated in `AddMemory` + `UpdateBelief` CognitiveDelta handlers. | AC-EP1, AC-EP2 |
+| **How abstractions form** | `AbstractionGate::validate` requires ≥4 evidence records + Temporal/Reflexion grounding + unique proposition. `EmergenceDetector` sets `EpistemicStatus::Provisional`; gate passes → `elevate()` asserts `JtmsLabel::In + Confirmed`. | AC-EP3, AC-EP4, AC-EP5 |
+| **Survives death** | JTMS `in_list/out_list/dependents` stored in `BeliefPayload` → JSONL; retraction cascade (BFS Out-propagation) state is pre-computed and persisted — no re-propagation needed on restart. | epistemic_write_path_sit (JTMS cascade) |
+
+460 unit + 169 integration + 5 v2.0.0 acceptance + 10 v1.1.0 acceptance + 7 v1.9.0 acceptance, 0 failures.
+
+---
+
 ## What's new in v1.9.0 — 3-Month Agent Coherence
 
 Proves the long-running agent claim across three axes: restart survivability, targeted OOD isolation, and abstraction persistence.
@@ -117,7 +131,7 @@ npm install hipcortex
 Package from repo (`vscode-extension`) or latest GitHub Release VSIX. Mac/Linux auto-`chmod` bundled bins.
 
 ```bash
-code --install-extension hipcortex-memory-1.8.0.vsix
+code --install-extension hipcortex-memory-2.0.0.vsix
 ```
 
 Honest support matrix (what's native vs docs-only): **[docs/channels.md](docs/channels.md)** · CLI: `hipcortex channels`
@@ -206,4 +220,4 @@ Engine internals are not reviewed here. See [DUAL_REPO.md](DUAL_REPO.md).
 | [DEPLOY.md](DEPLOY.md) | Self-host / Fly / Docker |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Historical in-tree build notes |
 
-**License:** [Apache-2.0](LICENSE) for this public repository · **Version:** `1.5.0` · VSIX `1.5.0`
+**License:** [Apache-2.0](LICENSE) for this public repository · **Version:** `2.0.0` · VSIX `2.0.0`

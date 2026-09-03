@@ -435,6 +435,20 @@ pub fn mine_and_consolidate<B: MemoryBackend>(
             }
         }
 
+        // AbstractionGate: require min evidence + temporal grounding before inducing.
+        {
+            use std::collections::HashSet;
+            let gate = crate::abstraction_gate::AbstractionGate::validate(
+                &motif.member_ids,
+                "",
+                &HashSet::new(),
+                store,
+            );
+            if !gate.valid {
+                continue;
+            }
+        }
+
         let skill = induce_skill_record(motif, actor);
         let skill_id = skill.id;
         store.add(skill).map_err(|e| format!("skill add: {e}"))?;

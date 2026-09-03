@@ -70,3 +70,5 @@ mod substrate_daemon_tests;
 mod clarify_gate_tests;
 mod action_registry_tests;
 mod cognitive_loop_tests;
+mod epistemic_authority_tests;
+mod abstraction_gate_tests;

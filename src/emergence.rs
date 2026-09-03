@@ -5,7 +5,7 @@
 //! Uses SafetyGuardrail (via store.add) — no raw writes.
 
 use crate::memory_record::{MemoryRecord, MemoryType};
-use crate::payloads::BeliefPayload;
+use crate::payloads::{BeliefPayload, EpistemicStatus};
 use crate::persistence::MemoryBackend;
 use uuid::Uuid;
 
@@ -103,14 +103,18 @@ impl EmergenceDetector {
             }
 
             let confidence = (evidence_ids.len() as f64 / DENSITY as f64).min(1.0) as f32;
+            let gated_confidence = crate::epistemic_authority::EpistemicAuthority::gate_belief_write(
+                confidence, evidence_ids.len()
+            );
             let payload = BeliefPayload {
                 proposition: proposition.clone(),
                 justification: format!(
                     "Emerged from {} Temporal records (EmergenceDetector)",
                     evidence_ids.len()
                 ),
-                confidence,
+                confidence: gated_confidence,
                 causal_source_ids: evidence_ids.clone(),
+                epistemic_status: EpistemicStatus::Provisional,
                 ..Default::default()
             };
 
@@ -121,11 +125,21 @@ impl EmergenceDetector {
                 proposition.clone(),
                 serde_json::to_value(&payload).unwrap_or_default(),
             );
-            belief.evidence = evidence_ids;
+            belief.evidence = evidence_ids.clone();
 
             let id = belief.id;
             if store.add(belief).is_ok() {
                 created.push(id);
+                // AbstractionGate: validate evidence cluster; elevate to In+Confirmed if valid.
+                let gate_result = crate::abstraction_gate::AbstractionGate::validate(
+                    &evidence_ids,
+                    &proposition,
+                    &existing,
+                    store,
+                );
+                if gate_result.valid {
+                    let _ = crate::abstraction_gate::AbstractionGate::elevate(store, id);
+                }
             }
         }
 

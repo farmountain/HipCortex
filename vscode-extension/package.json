@@ -1,8 +1,8 @@
 {
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
-    "description": "HipCortex v1.9.0 — 3-Month Agent Coherence: restart-survivable snapshot (JSONL+WM+JTMS persist across kill); OOD entity anomaly (Mahalanobis > threshold) fires targeted CreditAssign per entity, leaving unrelated beliefs intact; Skill abstractions survive reload. 445 unit + 163 integration + 7 acceptance (v1.9.0) + 8 acceptance (v1.1.0). Bundled multi-OS server.",
-    "version": "1.9.0",
+    "description": "HipCortex v2.0.0 — Epistemic Write-Path: authority-gated belief writes (confidence clamped by evidence tier), AbstractionGate (Provisional→Confirmed elevation), JTMS cascade persistence. 460 unit + 169 integration + 5 v2.0.0 acceptance + 10/10 v1.1.0 + 7/7 v1.9.0.",
+    "version": "2.0.0",
     "publisher": "farmountain",
     "repository": {
         "type": "git",

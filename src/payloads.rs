@@ -116,6 +116,10 @@ pub enum EpistemicStatus {
     Deduced,
     #[default]
     Hypothetical,
+    /// Emerged from evidence but not yet validated by AbstractionGate.
+    Provisional,
+    /// Passed AbstractionGate validation; JtmsLabel::In asserted.
+    Confirmed,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
