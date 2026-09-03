@@ -1,13 +1,25 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v1.6.3`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v1.7.0`)
 
-[![Version](https://img.shields.io/badge/version-v1.6.3-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v1.7.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
 **Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, and topological graph tools.**
 
-VSIX **1.6.3** (Dual-mode ReactEngine) · server/pip/npm **1.6.3**. 652 tests pass (430 unit + 56 property + 158 integration + 8 acceptance). See [docs/channels.md](../docs/channels.md).
+VSIX **1.7.0** (Epistemic Closure) · server/pip/npm **1.7.0**. 1027 tests pass (439 unit + 56 property + 158 integration + 8 acceptance + 366 lib). See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v1.7.0 — Epistemic Closure
+
+| Change | Details |
+|--------|---------|
+| **ClarifyEngine** | Self-prompting loop (max 3 rounds) — triggered on empty success_factors or ≥3 consecutive vetoes. Searches beliefs + WM; writes `Reflexion{self_clarified}` on success, deduped `Belief{clarify_needed}` on escalation. Only unresolvable questions reach the user. |
+| **Dynamic CriticGate threshold** | `evaluate_with_threshold(goal, action, iter, threshold)` — SelfModel health drives the threshold: low health → 0.50 (strict), high health → 0.15 (autonomous), balanced → 0.25 |
+| **Veto as revision event** | CriticGate rejection fires `CognitiveDelta::CreditAssign(ExplicitFail)` in addition to writing `Decision{critic_veto}`. Veto is a learning signal, not a skipped tick. |
+| **SelfModel steers loop** | `recommend_loop_config()` returns `{effective_veto_threshold, SynthesisMode}` per tick. health < 0.3 → Escalate; health > 0.8 → Autonomous; else → Balanced. |
+| **JTMS as report truth** | `cognitive_report` Q3 (`valid_assumptions`) filters on `JtmsLabel::In`; `Unknown` falls back to confidence ≥ 0.5; `Out` excluded at any confidence. |
 
 ---
 
