@@ -1,8 +1,8 @@
 {
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
-    "description": "HipCortex v1.7.0 — Epistemic Closure: ClarifyEngine self-prompts (max 3 rounds) before escalating to user; SelfModel health steers dynamic CriticGate threshold (low→0.50/Escalate, high→0.15/Autonomous); veto is CreditAssign revision event (not skipped tick); JTMS IN/OUT is report truth for valid_assumptions. 1027 tests. Bundled multi-OS server.",
-    "version": "1.7.0",
+    "description": "HipCortex v1.8.0 — Cognitive Report Closure: verifier mismatch fires CreditAssign (same path as critic veto); Q3 Unknown+0.5 beliefs marked Provisional; Q6 includes CreditAssign reflexions; Q7 includes Skill records + derived beliefs; Q9 uses real SelfModel health; Q10 wired to SynthesisMode + ClarifyEngine pending. 445 unit + 158 integration + 8 acceptance tests. Bundled multi-OS server.",
+    "version": "1.8.0",
     "publisher": "farmountain",
     "repository": {
         "type": "git",

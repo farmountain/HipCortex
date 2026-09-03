@@ -84,6 +84,7 @@ pub struct CognitiveStateReport {
 pub fn build_report<B: MemoryBackend>(
     store: &crate::memory_store::MemoryStore<B>,
     actor: &str,
+    health: f32,
 ) -> CognitiveStateReport {
     // Q1 — active goals
     let active_goals: Vec<GoalSummary> = store
@@ -126,14 +127,23 @@ pub fn build_report<B: MemoryBackend>(
     let learned_beliefs: Vec<BeliefSummary> =
         all_beliefs.iter().filter(|b| b.confidence > 0.3).cloned().collect();
 
-    // Q3 — valid assumptions: JTMS IN authoritative; Unknown falls back to conf >= 0.5.
+    // Q3 — valid assumptions: JTMS In authoritative; Unknown+0.5 included but marked Provisional.
     let valid_assumptions: Vec<BeliefSummary> = all_belief_pairs
         .iter()
         .filter(|(label, b)| {
             matches!(label, crate::payloads::JtmsLabel::In)
                 || (matches!(label, crate::payloads::JtmsLabel::Unknown) && b.confidence >= 0.5)
         })
-        .map(|(_, b)| b.clone())
+        .map(|(label, b)| {
+            if matches!(label, crate::payloads::JtmsLabel::Unknown) {
+                BeliefSummary {
+                    epistemic_status: format!("Provisional({})", b.epistemic_status),
+                    ..b.clone()
+                }
+            } else {
+                b.clone()
+            }
+        })
         .collect();
 
     // Q4+Q5 — recent decisions (last 10)
@@ -154,8 +164,8 @@ pub fn build_report<B: MemoryBackend>(
         })
         .collect();
 
-    // Q6 — failures (last 10)
-    let recent_failures: Vec<FailureSummary> = store
+    // Q6 — failures: failed goals + CreditAssign reflexions (broken structural equations).
+    let mut recent_failures: Vec<FailureSummary> = store
         .all_by_type(MemoryType::Goal)
         .into_iter()
         .filter(|r| r.actor == actor)
@@ -171,11 +181,26 @@ pub fn build_report<B: MemoryBackend>(
             })
         })
         .rev()
-        .take(10)
+        .take(7)
         .collect::<Vec<_>>();
+    // Add CreditAssign Reflexion records as structural failure signals.
+    let credit_failures: Vec<FailureSummary> = store
+        .all_by_type(MemoryType::Reflexion)
+        .into_iter()
+        .filter(|r| r.actor == actor && r.action == "credit_assign")
+        .rev()
+        .take(3)
+        .map(|r| FailureSummary {
+            id: r.id,
+            target_state: format!("credit_assign:{}", r.target),
+            iterations_run: 0,
+        })
+        .collect();
+    recent_failures.extend(credit_failures);
+    recent_failures.truncate(10);
 
-    // Q7 — emergent abstractions (Beliefs written by EmergenceDetector)
-    let emergent_abstractions: Vec<BeliefSummary> = store
+    // Q7 — emergent abstractions: emerge-sensor beliefs + Skill records + high-conf derived beliefs.
+    let mut emergent_abstractions: Vec<BeliefSummary> = store
         .all_by_type(MemoryType::Belief)
         .into_iter()
         .filter(|r| r.action == "emerge")
@@ -189,6 +214,29 @@ pub fn build_report<B: MemoryBackend>(
             })
         })
         .collect();
+    // Skill records are reusable procedure abstractions learned from causal motifs.
+    let skill_abstractions: Vec<BeliefSummary> = store
+        .all_by_type(MemoryType::Skill)
+        .into_iter()
+        .filter_map(|r| {
+            let p: crate::payloads::SkillPayload = serde_json::from_value(r.metadata.clone()).ok()?;
+            Some(BeliefSummary {
+                id: r.id,
+                proposition: format!("skill:{}", p.procedure),
+                confidence: r.confidence,
+                epistemic_status: "Skill".to_string(),
+            })
+        })
+        .collect();
+    emergent_abstractions.extend(skill_abstractions);
+    // High-confidence beliefs with derived_from set are law-like derived abstractions.
+    let derived_abstractions: Vec<BeliefSummary> = all_belief_pairs
+        .iter()
+        .filter(|(_, b)| b.confidence >= 0.7)
+        .filter(|(_, b)| store.find_by_id(b.id).map(|r| r.derived_from.is_some()).unwrap_or(false))
+        .map(|(_, b)| b.clone())
+        .collect();
+    emergent_abstractions.extend(derived_abstractions);
 
     // Q8 — uncertainties
     let uncertain_beliefs: Vec<BeliefSummary> =
@@ -198,14 +246,43 @@ pub fn build_report<B: MemoryBackend>(
         .len();
     let open_uncertainties = UncertaintySummary { uncertain_beliefs, invalidated_count };
 
-    // Q9 — authorized actions filtered by current goal + health context
+    // Q9 — authorized actions filtered by current goal + real health from SelfModel.
     let active_goal_id = active_goals.first().map(|g| g.id);
     let authorized_actions =
-        crate::action_registry::list_authorized_contextual(active_goal_id, actor, false, 1.0);
+        crate::action_registry::list_authorized_contextual(active_goal_id, actor, false, health);
 
-    // Q10 — next recommendation
+    // Q10 — next recommendation wired to SynthesisMode + ClarifyEngine status.
+    let synthesis_mode = if health < 0.3 {
+        "Escalate"
+    } else if health > 0.8 {
+        "Autonomous"
+    } else {
+        "Balanced"
+    };
+    // Check if ClarifyEngine has a pending clarify_needed for the active goal.
+    let clarify_pending = active_goal_id
+        .map(|gid| {
+            store.all_by_type(MemoryType::Belief).into_iter().any(|r| {
+                r.actor == actor && r.action == "clarify_needed" && r.derived_from == Some(gid)
+            })
+        })
+        .unwrap_or(false);
     let next_goal = crate::goal_scheduler::GoalScheduler::next(store, actor);
-    let next_recommendation = if let Some(gid) = next_goal {
+    let next_recommendation = if clarify_pending {
+        NextAction {
+            goal_id: active_goal_id,
+            goal_target: active_goals.first().map(|g| g.target_state.clone()),
+            recommended_op: "clarify_goal".to_string(),
+            rationale: format!("ClarifyEngine: goal requires clarification (mode={synthesis_mode})"),
+        }
+    } else if synthesis_mode == "Escalate" {
+        NextAction {
+            goal_id: active_goal_id,
+            goal_target: active_goals.first().map(|g| g.target_state.clone()),
+            recommended_op: "escalate_to_user".to_string(),
+            rationale: format!("health={health:.2} — system health critical, escalate before proceeding"),
+        }
+    } else if let Some(gid) = next_goal {
         let target = store
             .find_by_id(gid)
             .and_then(|r| serde_json::from_value::<GoalPayload>(r.metadata.clone()).ok())
@@ -215,14 +292,14 @@ pub fn build_report<B: MemoryBackend>(
             goal_id: Some(gid),
             goal_target: Some(target),
             recommended_op: "react_loop".to_string(),
-            rationale: "highest urgency/cost ratio among active goals".to_string(),
+            rationale: format!("mode={synthesis_mode} — highest urgency/cost ratio among active goals"),
         }
     } else {
         NextAction {
             goal_id: None,
             goal_target: None,
             recommended_op: "query_memory".to_string(),
-            rationale: "no active goals — review state".to_string(),
+            rationale: format!("mode={synthesis_mode} — no active goals, review state"),
         }
     };
 

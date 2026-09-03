@@ -1,4 +1,4 @@
-# Claude Agent Harness — HipCortex v1.4.0
+# Claude Agent Harness — HipCortex v1.8.0
 
 HipCortex turns Claude Code (or any MCP-capable LLM) into a **substrate-first autonomous agent**: the cognitive state (memories, beliefs, world model, coherence) is the primary durable mind; the LLM is a thin language surface used only for final output or high-entropy creative hypotheses.
 
@@ -97,17 +97,16 @@ All MCP tools + REST equivalents. Key primitives:
 
 ## Clarify Gate
 
-**Every GoalPayload must pass through the clarify gate before the ReAct loop starts.**
+**ClarifyEngine (`src/clarify_engine.rs`) runs standing inside the daemon loop — no host call required.**
 
-`POST /goal/:id/clarify` checks whether the goal's `acceptance_criteria` are empty. If so, it returns a `GoalNotClarified` error with the clarifying questions that must be answered first. This prevents the engine from iterating against underspecified goals.
+Triggers (all daemon-owned, max 3 rounds per goal):
+- `EmptyAC` — goal has no acceptance criteria at create time
+- `ConsecutiveVeto` — CriticGate rejects ≥ 3 times in a row
+- `PreSuccess` — all success factors satisfied but verifier still detects mismatch
 
-```bash
-curl -X POST http://localhost:3030/goal/<goal-id>/clarify
-# 400 if criteria are empty → answer returned questions, update goal, retry
-# 200 {"ok": true} → proceed to ReAct loop
-```
+Each round searches existing beliefs + world model for answers. If resolved: writes a `Belief{action="clarify_resolved"}`. If unresolved after 3 rounds: writes `Belief{action="clarify_needed", derived_from=goal_id}` and the cognitive report's `next_recommendation.recommended_op` becomes `"clarify_goal"` — only then escalate to the user.
 
-Clarification questions are self-prompted from the goal `target_state`. Only call the user when the substrate cannot resolve the ambiguity itself.
+**Do not call `POST /goal/:id/clarify` from the host.** That endpoint is deprecated in v1.8.0; the daemon handles it.
 
 ## CriticVeto and VerifierGate
 
@@ -115,18 +114,28 @@ Clarification questions are self-prompted from the goal `target_state`. Only cal
 
 ### CriticGate (pre-action veto)
 
-Evaluates the proposed action before it is executed. Decision rules:
+Evaluates the proposed action before it is executed. Threshold is **dynamic** — set by `SelfModel::recommend_loop_config()` each iteration:
+
+| Health | Threshold | SynthesisMode |
+|--------|-----------|---------------|
+| < 0.3  | 0.50      | Escalate      |
+| > 0.8  | 0.15      | Autonomous    |
+| else   | 0.25      | Balanced      |
+
 - **Iteration 0**: always passes — no history to score against.
-- **Iteration N > 0**: scores prior observations; if success fraction < 0.25, returns `Rejected { rationale }`.
-  - A `Decision{action="rejected"}` record is written and the iteration is skipped (no act, no observation stored).
+- **Iteration N > 0**: scores prior observations; if success fraction < threshold, returns `Rejected { rationale }`.
+  - Writes `Decision{action="critic_veto"}` **and** fires `CognitiveDelta::CreditAssign(ExplicitFail)` — veto is a learning event, not a skipped tick.
+  - ≥ 3 consecutive vetoes triggers `ClarifyEngine{ConsecutiveVeto}`.
 
 ### VerifierGate (post-observe, pre-commit)
 
-Compares the world-model's predicted next state against the actual observation target:
-- `None` prediction (no WM data yet) → `Consistent` — observation is committed normally.
-- Mismatch → `Mismatch { predicted, observed }` — a `Belief{action="verifier_mismatch"}` is written and the iteration is skipped.
+Compares goal-advancing signal against world-model prediction (same revision path as critic veto):
+- `None` prediction (no WM data yet) → `Consistent` — observation committed normally.
+- Mismatch → `Mismatch { predicted, observed }` → fires `CognitiveDelta::CreditAssign(ExplicitFail("verifier_mismatch …"))`.
+  - If all success factors already satisfied: also triggers `ClarifyEngine{PreSuccess}`.
+  - Does **not** skip the tick silently — mismatch is a structural failure signal like critic veto.
 
-The WM prediction is updated after each successful observation commit so the next iteration has fresh context.
+The WM prediction updates after each successful observation commit so the next iteration has fresh context.
 
 ## Cognitive Daemon — 8-Stage Loop
 
@@ -137,11 +146,11 @@ The WM prediction is updated after each successful observation commit so the nex
 | # | Stage | What happens |
 |---|-------|-------------|
 | 0 | **Observe** | `purge_expired()` removes decayed records; snapshot taken |
-| 1 | **Reflect** | Consolidation pressure computed from `SelfModel` |
+| 1 | **Reflect** | Consolidation pressure computed from `SelfModel`; health read → SynthesisMode |
 | 2 | **Plan** | Decide: consolidate if `pressure > pressure_threshold` |
-| 3 | **CriticVeto** | `CriticGate::evaluate("daemon_step", iter)` — iter 0 always passes |
+| 3 | **CriticVeto** | `CriticGate::evaluate` with dynamic threshold from SelfModel; veto → `CreditAssign` + possibly `ClarifyEngine{ConsecutiveVeto}` |
 | 4 | **Predict** | `WorldModelEnhanced::predict_next_state(actor, "daemon_step")` |
-| 5 | **Act** | If not vetoed + pressure high: `AutoConsolidate { min_frequency }` |
+| 5 | **Act** | If not vetoed: consolidate if pressure high; then `VerifierGate::check(predicted, observed)` — mismatch → `CreditAssign` + possibly `ClarifyEngine{PreSuccess}` |
 | 6 | **Update** | Write `Temporal{action="daemon_step", metadata={vetoed, consolidated}}` |
 | 7 | **ExitCheck** | Increment counter; check stop signal and `max_iterations`; sleep |
 

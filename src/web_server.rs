@@ -1321,8 +1321,9 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
             get(move |axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>| async move {
                 let cog = cog.clone();
                 let actor = params.get("actor").cloned().unwrap_or_else(|| "default".to_string());
+                let health = cog.self_model.get_health().map(|h| h.overall as f32).unwrap_or(1.0);
                 let store = cog.memory.lock().unwrap();
-                let report = crate::cognitive_report::build_report(&*store, &actor);
+                let report = crate::cognitive_report::build_report(&*store, &actor, health);
                 drop(store);
                 axum::Json(serde_json::to_value(report).unwrap_or_default())
             })

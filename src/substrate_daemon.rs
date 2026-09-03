@@ -283,8 +283,8 @@ impl SubstrateDaemon {
                     };
                     if let Ok(mut sc) = sc_clone.lock() { sc[3] += 1; }
 
-                    // Stage 4: Predict — WM prediction for next state
-                    let _prediction = cognitive
+                    // Stage 4: Predict — WM prediction for next state (saved for verifier).
+                    let prediction = cognitive
                         .world
                         .read()
                         .ok()
@@ -320,6 +320,73 @@ impl SubstrateDaemon {
                                 }
                             }
                         }
+                        // Stage 5→6: VerifierGate — if WM had a prediction but goal made no
+                        // progress this tick, treat as verifier mismatch and fire CreditAssign.
+                        // This makes prediction/observation discrepancy a revision event (not skipped tick).
+                        if loop_iter > 0 {
+                            if let (Some(ref predicted_state), Some((ref goal_id_v, ref pre_payload))) =
+                                (&prediction, &active_goal)
+                            {
+                                let pre_satisfied =
+                                    pre_payload.success_factors.iter().filter(|f| f.satisfied).count();
+                                let post_satisfied = cognitive
+                                    .memory
+                                    .lock()
+                                    .ok()
+                                    .and_then(|ms| ms.find_by_id(*goal_id_v).cloned())
+                                    .and_then(|r| {
+                                        serde_json::from_value::<crate::payloads::GoalPayload>(
+                                            r.metadata.clone(),
+                                        )
+                                        .ok()
+                                    })
+                                    .map(|p| p.success_factors.iter().filter(|f| f.satisfied).count())
+                                    .unwrap_or(pre_satisfied);
+                                // Mismatch: WM predicted something but no new factors satisfied.
+                                let observed = if post_satisfied > pre_satisfied {
+                                    "goal_advancing"
+                                } else {
+                                    "goal_stalling"
+                                };
+                                use crate::loop_gates::{VerifierGate, VerifierResult};
+                                if let VerifierResult::Mismatch { predicted, observed: obs } =
+                                    VerifierGate::check(Some("goal_advancing"), observed)
+                                {
+                                    let wm_top = predicted_state
+                                        .probabilities
+                                        .iter()
+                                        .max_by(|a, b| {
+                                            a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal)
+                                        })
+                                        .map(|(s, _)| s.as_str())
+                                        .unwrap_or("unknown");
+                                    let _ = cognitive.transact(
+                                        crate::cognitive_state::CognitiveDelta::CreditAssign(
+                                            crate::world_model_enhanced::causal::FailureSignal::ExplicitFail(
+                                                format!(
+                                                    "verifier_mismatch predicted={predicted} observed={obs} wm_top={wm_top}",
+                                                ),
+                                            ),
+                                        ),
+                                        &actor_clone,
+                                    );
+                                    // If all success_factors already satisfied (pre-success): clarify.
+                                    if pre_satisfied == pre_payload.success_factors.len()
+                                        && !pre_payload.success_factors.is_empty()
+                                    {
+                                        if let Ok(mut ms) = cognitive.memory.lock() {
+                                            let _ = crate::clarify_engine::ClarifyEngine::run(
+                                                &mut ms,
+                                                *goal_id_v,
+                                                &actor_clone,
+                                                crate::clarify_engine::ClarifyTrigger::PreSuccess,
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         // Gap C: OLS-weight SCM rewrite — use computed coefficient, not placeholder.
                         if let Some((drifted_node, ols_weight)) =
                             cognitive.self_model.most_drifted_node_with_weight()

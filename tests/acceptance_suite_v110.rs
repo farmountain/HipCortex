@@ -64,7 +64,7 @@ fn main() {
             MemoryType::Goal, "agent".into(), "pursue".into(), "server healthy".into(),
             serde_json::to_value(&gp).unwrap(),
         )).unwrap();
-        let report = build_report(&store, "agent");
+        let report = build_report(&store, "agent", 1.0);
         assert!(!report.active_goals.is_empty(), "Q1 active_goals empty");
         assert!(!report.authorized_actions.is_empty(), "Q9 authorized_actions empty");
         assert!(report.next_recommendation.goal_id.is_some(), "Q10 goal_id is None");
@@ -212,7 +212,7 @@ fn main() {
             status: GoalStatus::InProgress, ..Default::default()
         };
         store.add(MemoryRecord::new(MemoryType::Goal, "agent".into(), "p".into(), "ac10_goal".into(), serde_json::to_value(&gp).unwrap())).unwrap();
-        let report = build_report(&store, "agent");
+        let report = build_report(&store, "agent", 1.0);
         assert!(report.next_recommendation.goal_id.is_some(), "next_recommendation.goal_id must be Some");
         assert_eq!(report.next_recommendation.recommended_op, "react_loop");
         assert!(!report.next_recommendation.rationale.is_empty(), "rationale must not be empty");

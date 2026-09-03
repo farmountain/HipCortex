@@ -1262,7 +1262,7 @@ fn ac_jtms_in_belief_appears_in_valid_assumptions() {
     );
     store.add(rec).unwrap();
 
-    let report = build_report(&store, "agent");
+    let report = build_report(&store, "agent", 1.0);
     assert!(
         report.valid_assumptions.iter().any(|b| b.proposition == "jtms_in_belief is valid"),
         "JtmsLabel::In belief must appear in valid_assumptions even with confidence < 0.5"
@@ -1290,9 +1290,144 @@ fn ac_jtms_out_belief_excluded_from_valid_assumptions() {
     );
     store.add(rec).unwrap();
 
-    let report = build_report(&store, "agent");
+    let report = build_report(&store, "agent", 1.0);
     assert!(
         !report.valid_assumptions.iter().any(|b| b.proposition == "jtms_out_belief is retracted"),
         "JtmsLabel::Out belief must be excluded from valid_assumptions even with confidence=0.9"
+    );
+}
+
+#[test]
+fn q3_unknown_belief_marked_provisional() {
+    use hipcortex::cognitive_report::build_report;
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+    use hipcortex::memory_store::MemoryStore;
+    use hipcortex::payloads::{BeliefPayload, JtmsLabel};
+    let mut store = MemoryStore::new_in_memory();
+    let bp = BeliefPayload {
+        proposition: "unknown_but_confident".to_string(),
+        confidence: 0.7,
+        jtms_label: JtmsLabel::Unknown,
+        ..Default::default()
+    };
+    let mut rec = MemoryRecord::new(
+        MemoryType::Belief, "agent".into(), "believe".into(), "x".into(),
+        serde_json::to_value(&bp).unwrap(),
+    );
+    rec.actor = "agent".into();
+    store.add(rec).unwrap();
+    let report = build_report(&store, "agent", 1.0);
+    let found = report.valid_assumptions.iter().find(|b| b.proposition == "unknown_but_confident");
+    assert!(found.is_some(), "Unknown+0.5 belief must be in valid_assumptions");
+    assert!(
+        found.unwrap().epistemic_status.starts_with("Provisional"),
+        "Unknown belief must be tagged Provisional, got: {:?}", found.unwrap().epistemic_status
+    );
+}
+
+#[test]
+fn q6_includes_credit_assign_reflexions() {
+    use hipcortex::cognitive_report::build_report;
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+    use hipcortex::memory_store::MemoryStore;
+    let mut store = MemoryStore::new_in_memory();
+    let rec = MemoryRecord::new(
+        MemoryType::Reflexion, "agent".into(), "credit_assign".into(), "broken_eq_x".into(),
+        serde_json::json!({"broken_equation": "broken_eq_x", "confidence": 0.4}),
+    );
+    store.add(rec).unwrap();
+    let report = build_report(&store, "agent", 1.0);
+    let found = report.recent_failures.iter().any(|f| f.target_state.contains("credit_assign"));
+    assert!(found, "credit_assign Reflexion must appear in Q6 recent_failures");
+}
+
+#[test]
+fn q7_includes_skill_records() {
+    use hipcortex::cognitive_report::build_report;
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+    use hipcortex::memory_store::MemoryStore;
+    use hipcortex::payloads::SkillPayload;
+    let mut store = MemoryStore::new_in_memory();
+    let sp = SkillPayload {
+        procedure: "retry_with_backoff".to_string(),
+        preconditions: vec!["failure_detected".to_string()],
+        expected_outcomes: vec!["success".to_string()],
+    };
+    let rec = MemoryRecord::new(
+        MemoryType::Skill, "agent".into(), "learn".into(), "retry_skill".into(),
+        serde_json::to_value(&sp).unwrap(),
+    );
+    store.add(rec).unwrap();
+    let report = build_report(&store, "agent", 1.0);
+    let found = report.emergent_abstractions.iter().any(|b| b.proposition.contains("retry_with_backoff"));
+    assert!(found, "Skill record must appear in Q7 emergent_abstractions");
+}
+
+#[test]
+fn q9_low_health_filters_restricted_ops() {
+    use hipcortex::cognitive_report::build_report;
+    use hipcortex::memory_store::MemoryStore;
+    let store = MemoryStore::new_in_memory();
+    // health < 0.4 should exclude archive_record and memory_diff
+    let report = build_report(&store, "agent", 0.3);
+    assert!(
+        !report.authorized_actions.contains(&"archive_record".to_string()),
+        "archive_record must be filtered when health < 0.4"
+    );
+    assert!(
+        !report.authorized_actions.contains(&"memory_diff".to_string()),
+        "memory_diff must be filtered when health < 0.4"
+    );
+}
+
+#[test]
+fn q10_escalate_mode_when_health_critical() {
+    use hipcortex::cognitive_report::build_report;
+    use hipcortex::memory_store::MemoryStore;
+    let store = MemoryStore::new_in_memory();
+    // health < 0.3 → Escalate mode → escalate_to_user
+    let report = build_report(&store, "agent", 0.2);
+    assert_eq!(
+        report.next_recommendation.recommended_op, "escalate_to_user",
+        "health < 0.3 must recommend escalate_to_user, got: {}",
+        report.next_recommendation.recommended_op
+    );
+    assert!(report.next_recommendation.rationale.contains("health=0.20"), "rationale must include health value");
+}
+
+#[test]
+fn q10_clarify_pending_trumps_react_loop() {
+    use hipcortex::cognitive_report::build_report;
+    use hipcortex::memory_record::{MemoryRecord, MemoryType};
+    use hipcortex::memory_store::MemoryStore;
+    use hipcortex::payloads::{BeliefPayload, GoalPayload, GoalStatus, SuccessFactor};
+    use uuid::Uuid;
+    let mut store = MemoryStore::new_in_memory();
+    // Add an active InProgress goal
+    let goal_id = Uuid::new_v4();
+    let gp = GoalPayload {
+        target_state: "clarify_target".to_string(),
+        status: GoalStatus::InProgress,
+        success_factors: vec![SuccessFactor { name: "f1".into(), weight: 1.0, satisfied: false }],
+        ..Default::default()
+    };
+    let mut goal_rec = MemoryRecord::new(
+        MemoryType::Goal, "agent".into(), "pursue".into(), "clarify_target".into(),
+        serde_json::to_value(&gp).unwrap(),
+    );
+    goal_rec.id = goal_id;
+    store.add(goal_rec).unwrap();
+    // Add clarify_needed Belief derived_from the goal
+    let bp = BeliefPayload { proposition: "goal needs clarification".into(), confidence: 0.1, ..Default::default() };
+    let mut clarify_rec = MemoryRecord::new(
+        MemoryType::Belief, "agent".into(), "clarify_needed".into(), goal_id.to_string(),
+        serde_json::to_value(&bp).unwrap(),
+    );
+    clarify_rec.derived_from = Some(goal_id);
+    store.add(clarify_rec).unwrap();
+    let report = build_report(&store, "agent", 0.9);
+    assert_eq!(
+        report.next_recommendation.recommended_op, "clarify_goal",
+        "clarify_needed belief must override react_loop recommendation"
     );
 }
