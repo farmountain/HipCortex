@@ -10,6 +10,8 @@
 ⭐ **If that solves a pain you feel, [star the repo](https://github.com/farmountain/HipCortex)** — it helps others find it.  
 💬 **Tried it?** [Open an issue](https://github.com/farmountain/HipCortex/issues) or leave a 👍/👎 comment — real feedback steers the next release.
 
+This repository is the **public developer surface** (docs, client SDKs, connectors, issues, release artifacts). New engine development lives in private [`hipcortex-core`](https://github.com/farmountain/hipcortex-core). Details: [DUAL_REPO.md](DUAL_REPO.md) · [NOTICE](NOTICE).
+
 ---
 
 ## Why it exists
@@ -39,155 +41,6 @@ Closes the structural limit where CriticGate veto at iter ≥ 1 could never fire
 | **`ReactEngine::run_one_step()`** | Writes 1 Temporal + 1 Reflexion per call; increments `current_iteration`; returns `InProgress` until exhausted or all success_factors satisfied |
 | **CriticGate veto now structurally achievable at iter ≥ 1** | With StepByStep, `CriticGate::evaluate(goal, "daemon_step", loop_iter=1)` fires against a live goal; proven by test writing 2 `Decision{critic_veto}` while `current_iteration` stays locked at 1 |
 | | **652 tests, 0 failures** | 430 unit · 158 integration · 56 property · 8 acceptance |
-
----
-
-## What's new in v1.6.2 — Cognitive Gap Closure (Gaps 1–5)
-
-Five production gaps in the cognitive loop closed and test-covered.
-
-| Gap | Capability | Details |
-|-----|-----------|---------|
-| **1+3 — Idle daemon no veto** | Idle maintenance never blocked | When no clarified InProgress goal exists, `vetoed=false` — AutoConsolidate and OLS rewrites always run; no spurious `Decision{critic_veto}` for idle ticks |
-| **2 — Semantic dedup** | Normalized action fingerprint | `AutoConsolidate` fingerprint = `(actor, lowercase+alphanumeric(action), target, type)` — "CleanUp", "clean_up", "cleanup" all deduplicate to one record |
-| **4 — Verifier uncertain entity** | Entity uncertainty annotation | Daemon Stage 6 writes `Belief{action=entity_state_uncertain}` for the entity with highest Kalman covariance trace (> 1.0); world model tracks which entities need better data |
-| **5 — WM-policy auth** | `react_loop` + `credit_assign` WM gates | `WM_CONSTRAINTS` declares both ops with `requires_wm=true`; `react_loop` blocked until `transition_count > 0`; `credit_assign` blocked until `causal_node_count > 0 \|\| transition_count > 0` |
-| **CriticGate iter-0 invariant** | Iter 0 always approves | `CriticGate::evaluate` at `loop_iter=0` is always `Approved` — daemon first tick never vetoes its own first act |
-| | **640 tests, 0 failures** | 426 unit · 158 integration · 56 property |
-
----
-
-## What's new in v1.6.1 — Daemon Loop Ownership + Critic Executive Veto
-
-Daemon now fully owns the cognitive loop and critic is executive (not advisory).
-
-| Change | Details |
-|--------|---------|
-| **Daemon owns ReactEngine** | Stage 5 calls `ReactEngine::run()` on the active InProgress goal each tick — no host `POST /goal/:id/react` needed; close the laptop, the mind keeps running |
-| **Critic executive veto** | `CriticGate` rejection now gates ALL Stage 5 acts (AutoConsolidate, ReactEngine, OLS rewrite); writes `Decision{action=critic_veto, option_chosen=rejected, rationale_chain}` to memory |
-| **OLS weight correction** | SCM rewrite uses computed coefficient `|Σ(x·y)/Σ(x²)|` instead of hardcoded `vec![1.0]` placeholder |
-| **Workspace TTL confirmed** | `Workspace::open()` sets `lease_until: None` — workspaces never expire by TTL (month-scale by construction) |
-| | **633 tests, 0 failures** | 419 unit · 158 integration · 56 property |
-
----
-
-## What's new in v1.6.0 — Production Hardening (Gaps A, B, C, E)
-
-Four remaining production gaps closed — structural deduplication, WM-belief-bound auth, SCM drift auto-rewrite, and autonomous goal synthesis.
-
-| Gap | Capability | Details |
-|-----|-----------|---------|
-| **A — Structural abstraction** | Homomorphic deduplication | `AutoConsolidate` now groups records by `(actor, action, target, type)` fingerprint and archives all but the newest in each group — bounds month-3 context growth structurally, not heuristically |
-| **B — WM-belief-bound auth** | Dirichlet confidence gate | `list_authorized_world_model` gates rollout on `max_transition_confidence() ≥ 0.5` — Laplace-smoothed posterior; sparse uniform beliefs (5 outcomes, each seen once → 0.2) are blocked; dominant beliefs (4 same-pair obs → 1.0) pass |
-| **C — SCM drift auto-rewrite** | OLS trigger → RewriteStructuralEquation | Daemon Stage 5 calls `most_drifted_node_with_weight()`; when OLS weight > 0.3, fires `CognitiveDelta::RewriteStructuralEquation{node_id, new_weights:[1.0]}` — closes the observe-name-rewrite loop |
-| **E — Daemon novel goals** | Autonomous goal synthesis | Daemon Stage 1, when no clarified InProgress goal exists, calls `most_uncertain_entity()` (Kalman covariance trace > 1.0); synthesizes `Goal{success_factors:[entity_uncertainty_below_threshold]}` — daemon generates its own next objective |
-| | **629 tests, 0 failures** | 415 unit · 158 integration · 56 property |
-
----
-
-## What's new in v1.5.0 — Gap Closure (Gaps 1, 5, 6, 7, 8)
-
-Five production gaps from the autonomous cognitive OS assessment — all closed and test-covered.
-
-| Gap | Capability | Details |
-|-----|-----------|---------|
-| **7 — GoalClarify gate** | ReactEngine pre-flight check | `run()` returns `Err` when `success_factors` is empty — forces `/goal/:id/clarify` before loop starts; no silent no-op runs |
-| **5 — Named drift isolation** | Per-node OLS drift tracking | `PredictionMonitor::observe_named(node, error, x, y)` tracks (x,y) pairs per named node; `most_drifted_node()` returns the node with highest OLS weight; exposed via `SelfModel::most_drifted_node()` |
-| **6 — WM-state auth gate** | Live WM data guards ops | `list_authorized_world_model(sm, wm)` now gates per WM state: rollout requires `transition_count() > 0`, counterfactual requires `causal_node_count() > 0`, intervene requires `causal_edge_count() > 0`; REST `GET /v1/actions/authorized-wm` passes live WM |
-| **1 — Daemon real goals** | Daemon dequeues InProgress goals | Stage 1 finds highest-priority InProgress goal for actor via `search_by_goal_status`; Stage 3 CriticVeto uses real goal's `success_factors`; ExitCheck marks goal `Succeeded` when all factors satisfied |
-| **8 — Continuous dynamics bridge** | WM entity snapshots per tick | Daemon Stage 6 iterates `entity_mean_vectors()` and writes `Temporal{action="wm_state_snapshot", target=entity_name}` per entity per iteration |
-| | **620 tests, 0 failures** | 406 unit · 158 integration · 56 property |
-
----
-
-## What's new in v1.4.0 — Depth & Ownership (Phases 1–5)
-
-Six architectural mechanisms that give the agent true executive control over its own reasoning loop.
-
-| Phase | Capability | Details |
-|-------|-----------|---------|
-| **1 — Clarify gate** | GoalNotClarified guard | `CognitiveDelta::AddMemory(Goal{InProgress, empty factors})` → `GoalNotClarified` error; `POST /goal/:id/clarify` returns clarifying questions; self-prompting resolves ambiguity before loop starts |
-| **2 — CriticGate + VerifierGate** | Pre-action veto + post-observe check | `CriticGate`: iter 0 always passes; iter N with success fraction < 0.25 → `Decision{action="rejected"}` + iteration skipped. `VerifierGate`: WM prediction vs actual target — mismatch → `Belief{action="verifier_mismatch"}` + skip |
-| **3a — Workspace lease** | TTL-bounded workspaces | `lease_until: Option<SystemTime>` on `Workspace`; `POST /v1/workspace/:id/renew` extends lease; backward compatible (`None` = no expiry) |
-| **3b — OLS drift isolation** | Coordinate-wise drift weights | `PredictionMonitor::feed_with_obs(error, x, y)` accumulates feature/target pairs; `fit_ols()` returns per-dimension weights identifying which inputs drive drift |
-| **3c — WM authorization table** | Static op constraints | `WM_CONSTRAINTS` table (rollout ≤ depth 10/iter 200, counterfactual ≤ 5/50, intervene ≤ 3/10); `GET /v1/actions/authorized-wm` filters by `SelfModel` health |
-| **3d — Motif contraction** | Cycle guard + archive-before-delete | `has_derived_from_cycle()` skips motifs with corrupted provenance; causal validity check via WM; source records appended to `ArchiveStore` before hot-store deletion |
-| **4 — 8-stage daemon** | Owned cognitive loop | `SubstrateDaemon` runs Observe→Reflect→Plan→CriticVeto→Predict→Act→Update→ExitCheck per tick; `CognitiveLoopConfig` controls timing + consolidation threshold; `POST /v1/loop/stop/:handle` |
-| **5 — harness.md rewrite** | Accurate docs | `docs/harness.md` fully rewritten to match v1.4.0 — daemon-owned loop, all new endpoints, veto semantics, clarify gate, self-prompting lifecycle |
-| | **608 tests, 0 failures** | 395 unit · 157 integration · 56 property |
-
----
-
-## What's new in v1.3.0 — Cognitive Loop Closure (Phases A–H)
-
-Nine structural gaps in the cognitive architecture closed. Every gap has a dedicated test.
-
-| Gap | Capability | Details |
-|-----|-----------|---------|
-| **G-WHY** | Decision rationale chain | `DecisionPayload.rationale_chain: Vec<String>` — human-readable decision trace alongside UUID evidence links; persisted per ReactEngine act-phase |
-| **G-AUTH** | Contextual action authorization | `list_authorized_contextual(goal_id, actor, has_workspace, health_score)` — Q9 of `CognitiveStateReport` now filters live actions by active goal + health, not a static list |
-| **G-REV** | JTMS-routed belief retraction | `BeliefInvalidator::process` is now read-only; returns `Vec<Uuid>` to retract — callers route through `CognitiveHandle::retract_belief` → JTMS cascade |
-| **G-ABS** | Causal motif mining | `mine_and_consolidate` induces `Skill` + `Belief` records from recurring `derived_from` chains; REST `POST /v1/memory/consolidate?strategy=motif` |
-| **G-WS** | Durable workspaces | `Workspace.save(dir)` / `load(path)` / `load_all(dir)` JSONL persistence; OR-Set CRDT merge survives restart |
-| **G-SHIFT** | Kalman prediction monitor | `PredictionMonitor` rolling-window drift detector — 5 consecutive errors > 0.3 emits `CognitiveDelta::RewriteStructuralEquation` |
-| **G-LOOP** | SubstrateDaemon background worker | Per-actor maintenance threads (GC + AutoConsolidate every 30 s); REST `POST /v1/loop/subscribe` + `GET /v1/loop/status/:handle` |
-| **G-CRIT/VER** | Critic + Verifier in ReactEngine | Critic writes `Belief{action="critic_score"}` per iteration (fraction of success_factors satisfied); Verifier writes `Belief{action="verifier_report"}` on exit; `GET /goal/:id/verify` |
-| **G-EXPORT** | Versioned state export schema | `EXPORT_SCHEMA_VERSION = env!("CARGO_PKG_VERSION")` — compile-time single source of truth; `StateExportSchema::current()` stamped on every `GET /v1/state/export` |
-| | **583 tests, 0 failures** | 371 unit · 148 integration · 8 acceptance · 56 property |
-
----
-
-## What's new in v1.2.2 — Calibration Fidelity
-
-| Fix | Details |
-|-----|---------|
-| **G2a calibration signal unattenuated** | `calibrate_after_tx` no longer calls `record_prediction_error(0.0)` after every transaction — the Dirichlet entropy set by G2a in `apply_delta` is now the sole prediction-error signal, not silently damped by 0.9× |
-| **README version stamps corrected** | All `1.2.0` / `1.1.0` stale references in README and VSIX description updated |
-
----
-
-## What's new in v1.2.1 — Cognitive Substrate Closure
-
-| Capability | Details |
-|-----------|---------|
-| **WMUpdater auto-wired** | Every `AddMemory(Temporal)` now fires `update_from_temporal` → world model stays live without ReactEngine |
-| **BeliefInvalidator auto-wired** | Temporal/Reflexion writes automatically invalidate contradicting Symbolic beliefs via `apply_delta` |
-| **EmergenceDetector auto-wired** | Every 10th Temporal write triggers emergence scan; synthesised Beliefs written to Hot Store |
-| **Live calibration** | G2a: Dirichlet entropy from real WM transitions replaces hardcoded 0.0 signal in `CalibrationTracker` |
-| **Causal topo wired at startup** | `CoherenceChecker.set_consistency_topo()` called in webserver + MCP server; causal violations now detected |
-| **`POST /v1/loop/omega`** | REST endpoint exposes `LoopEngine.run_omega_loop()` — coverage gap detection, rollout sim, belief mutation |
-| **`run_omega_loop` MCP tool** | 20th MCP tool; agents can trigger one omega iteration from Claude Code / Cursor |
-| **550+ tests, 0 failures** | 358 unit + 53 property + 140 integration. All prior tests green. |
-
----
-
-## What's new in v1.2.0 — Causal SCM Continuous Substrate
-
-| Capability | Details |
-|-----------|---------|
-| **Structural Equations** | Every causal node carries `f_i(PA_i, U_i)` via `StructuralEquation` trait. `LinearSE` is evaluable + invertible. |
-| **do-calculus** | `apply_intervention(var, val)` mutates shared graph in-place (persistent). `do_operator` clones for rollout simulation. |
-| **Counterfactual Credit Assignment** | Full AAP triad: Abduction → Action → Prediction. `CreditAssign` returns the single broken structural equation. OOD invariance: stable equations never blamed. |
-| **Continuous substrate as primary** | `DigitalTwin.step()` clamps RK4 output to pinned intervention vars — causal impulses override ODE dynamics. |
-| **ExperienceStore provenance** | `rollout_hybrid` with `causal_nodes` writes a `causal_provenance` record to the fork store. |
-| **Transactional gate** | All 4 SCM operators (`Intervene`, `Counterfactual`, `CreditAssign`, `RewriteStructuralEquation`) through `CognitiveDelta` with Reflexion audit records. |
-| **542 tests** | 353 unit + 53 property + 138 integration. 0 regressions. |
-
----
-
-## What's new in v1.1.0 — Cognitive Loop Closure
-
-| Capability | Details |
-|-----------|---------|
-| **GoalScheduler** | Ranks Pending/InProgress Goals by `urgency / estimated_cost` — always returns highest-priority next goal |
-| **EmergenceDetector** | Scans last 50 Temporal records every 10 writes; tokens in ≥5 records auto-synthesize into a new Belief with evidence pointers |
-| **BeliefInvalidator** | Contradiction detection; decays confidence by `score × 0.3`; writes `belief_invalidated` marker at conf < 0.2 |
-| **DecisionPayload** | New `MemoryType::Decision` per ReactEngine act-phase — captures `option_chosen`, `alternatives`, `rationale`, `confidence`, `outcome` |
-| **CognitiveStateReport** | Single call answers all 10 cognitive questions: goals, beliefs, assumptions, decisions, failures, authorized actions, next recommendation |
-| **WorldModelUpdater** | Closes feedback loop: ReactEngine feeds each observation into the Dirichlet-Multinomial world model |
-| **45 MCP tools / 7 resources** | New: `cognitive_report`, `list_authorized_actions`, `get_provenance` |
-| **4 new REST endpoints** | `GET /v1/cognitive/report`, `GET /v1/goals`, `GET /v1/actions/authorized`, `GET /v1/memory/:id/provenance` |
-| **parse_record_type_alias fix** | Goal/Skill/Belief/Decision now correctly stored via REST — no more silent Temporal fallback |
 
 ---
 
@@ -223,6 +76,8 @@ code --install-extension hipcortex-memory-1.3.0.vsix
 ```
 
 Honest support matrix (what's native vs docs-only): **[docs/channels.md](docs/channels.md)** · CLI: `hipcortex channels`
+
+Release notes for v1.1.0–v1.6.2 remain in git history on this file; the latest user-facing notes are v1.6.3 above.
 
 ---
 
@@ -265,7 +120,7 @@ curl https://hipcortex.fly.dev/health
 | **Cursor / VS Code / Windsurf / Grok / …** | MCP config via wizard |
 | **Python agents** | `pip install hipcortex` + LangChain / CrewAI / AutoGen adapters |
 | **Node agents** | `npm install hipcortex` |
-| **Rust core** | Local `webserver` binary from [Releases](https://github.com/farmountain/HipCortex/releases) |
+| **Runtime** | Prebuilt `webserver` / image from [Releases](https://github.com/farmountain/HipCortex/releases) |
 
 Deep host notes: [docs/hosts/README.md](docs/hosts/README.md)
 
@@ -289,7 +144,9 @@ We ship faster when users tell us what broke or what you love.
 1. **Star** the repo if you want this to exist  
 2. **Install** and run `hipcortex doctor`  
 3. **Report** bugs / "I expected X" in [Issues](https://github.com/farmountain/HipCortex/issues)  
-4. **PRs** welcome — [docs/contributing.md](docs/contributing.md)
+4. **PRs** welcome on this public surface — [CONTRIBUTING.md](CONTRIBUTING.md)
+
+Engine internals are not reviewed here. See [DUAL_REPO.md](DUAL_REPO.md).
 
 ---
 
@@ -297,10 +154,11 @@ We ship faster when users tell us what broke or what you love.
 
 | Doc | For |
 |-----|-----|
+| [DUAL_REPO.md](DUAL_REPO.md) | Public surface vs private engine |
 | [docs/usage.md](docs/usage.md) | CLI, harness, day-to-day use |
-| [docs/architecture.md](docs/architecture.md) | How the engine is built |
+| [docs/architecture.md](docs/architecture.md) | How to *use* the substrate (black-box) |
 | [docs/channels.md](docs/channels.md) | Channel honesty matrix |
 | [DEPLOY.md](DEPLOY.md) | Self-host / Fly / Docker |
-| [DEVELOPMENT.md](DEVELOPMENT.md) | Build from source |
+| [DEVELOPMENT.md](DEVELOPMENT.md) | Historical in-tree build notes |
 
-**License:** [Apache-2.0](LICENSE) · **Version:** `1.5.0` · VSIX `1.5.0`
+**License:** [Apache-2.0](LICENSE) for this public repository · **Version:** `1.5.0` · VSIX `1.5.0`
