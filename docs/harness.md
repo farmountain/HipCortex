@@ -411,6 +411,63 @@ Self-prompting occurs at **every stage** — not just task start:
 - `src/modules/self_model/prediction_monitor.rs` — OLS drift
 - `src/web_server.rs` — REST endpoints including `/intent/open`, `/intent/receipt`
 - `sdk/python/hipcortex/install/SKILL.md` — proactive skill template
+- `sdk/python/hipcortex/install/RUNNER_SKILL.md` — Claude Code runner skill
+- `sdk/python/hipcortex/runner.py` — headless `IntentRunner` class
 - `sdk/mcp/server.py` — MCP tools including `open_intent`, `accept_receipt`
 - `docs/usage.md` — CLI and API reference
 - `docs/integration.md` — LangChain, CrewAI, AutoGen integration
+
+## Headless Runner (3-Month Autonomy)
+
+When the IDE is closed, the SubstrateDaemon continues emitting Probe intents.
+Without a runner, those intents expire and the daemon writes `host_silence`
+CreditAssigns forever. The headless runner prevents this.
+
+### Option A — Python CLI (no IDE required)
+
+```bash
+# Install SDK
+pip install hipcortex
+
+# Start runner (blocks, poll every 30 s)
+hipcortex runner --actor hipcortex-runner --url http://localhost:3030
+
+# Options
+hipcortex runner --actor myagent --interval 60 --dry-run
+```
+
+The runner polls `GET /intent/open?actor=<actor>`, dispatches each probe, and
+posts `POST /intent/receipt`. Dispatch table:
+
+| `sensor_path`  | Action                                   |
+|----------------|------------------------------------------|
+| `filesystem`   | `os.stat(target_entity)`                 |
+| `http`         | `requests.get(target_entity)`            |
+| `shell:ping`   | `ping -c 1 <target>` (allowlisted)       |
+| `default`      | Return `{"reachable": true}` immediately |
+
+Expired intents (current time > `deadline_ms`) are skipped, not posted.
+
+### Option B — Claude Code as IDE runner
+
+When the IDE is open, Claude Code can act as runner by following
+`sdk/python/hipcortex/install/RUNNER_SKILL.md`. After each tool call:
+
+1. `GET /intent/open?actor=claude-code` — check for pending Probes.
+2. For each intent: execute probe using Read/WebFetch/Bash tools.
+3. `POST /intent/receipt` (or `mcp__hipcortex__accept_receipt`) — never `add_memory`.
+
+### Deployment note
+
+Run the headless runner as a background process or system service:
+
+```bash
+# systemd / launchd
+hipcortex runner --actor hipcortex-runner &
+
+# Docker / cron
+hipcortex runner --actor hipcortex-runner --interval 60
+```
+
+The runner is stateless and crash-safe — it re-polls on restart with no
+lost receipts (intents stay open until deadline or receipt arrives).

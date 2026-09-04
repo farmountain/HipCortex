@@ -1614,6 +1614,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="Filter by status (native|mcp|framework|guide|claimed|none)",
     )
 
+    # runner (headless intent poller)
+    p_runner = sub.add_parser(
+        "runner",
+        help="Headless intent runner — polls /intent/open and posts receipts (3-month autonomy)",
+    )
+    p_runner.add_argument(
+        "--actor",
+        default="hipcortex-runner",
+        help="Actor label used to filter intents (default: hipcortex-runner)",
+    )
+    p_runner.add_argument(
+        "--interval",
+        type=float,
+        default=30.0,
+        metavar="SECS",
+        help="Poll interval in seconds (default: 30)",
+    )
+    p_runner.add_argument(
+        "--url",
+        help=f"Server URL (default: {DEFAULT_URL})",
+    )
+    p_runner.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Log actions but do not POST receipts",
+    )
+
     return parser
 
 
@@ -1643,9 +1670,29 @@ def main() -> None:
         cmd_index(args)
     elif args.command == "channels":
         cmd_channels(args)
+    elif args.command == "runner":
+        cmd_runner(args)
     else:
         parser.print_help()
         sys.exit(1)
+
+
+def cmd_runner(args: argparse.Namespace) -> None:
+    from hipcortex.runner import IntentRunner
+    import logging
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+    base_url = getattr(args, "url", None) or DEFAULT_URL
+    runner = IntentRunner(
+        actor=getattr(args, "actor", "hipcortex-runner"),
+        base_url=base_url,
+        interval_secs=getattr(args, "interval", 30.0),
+        dry_run=getattr(args, "dry_run", False),
+    )
+    runner.run_forever()
 
 
 if __name__ == "__main__":

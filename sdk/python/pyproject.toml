@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hipcortex"
-version = "2.3.0"
+version = "2.4.0"
 description = "Persistent causal memory for AI agents -- LangChain, LlamaIndex, AutoGen, CrewAI"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -44,7 +44,7 @@ where = ["."]
 include = ["hipcortex*"]
 
 [tool.setuptools.package-data]
-"hipcortex.install" = ["SKILL.md", "templates/*.tmpl", "mcp_server.py"]
+"hipcortex.install" = ["SKILL.md", "RUNNER_SKILL.md", "templates/*.tmpl", "mcp_server.py"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

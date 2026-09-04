@@ -256,6 +256,34 @@ async function killKnownHipcortexPid(_port: number, log?: (msg: string) => void)
     } catch {
         /* ignore */
     }
+    // Wait for the OS to release the socket before the caller spawns a new server.
+    // On Windows, TIME_WAIT / handle release can lag 200-500 ms after taskkill.
+    const PORT_FREE_POLL_MS = 200;
+    const PORT_FREE_MAX_MS = 2000;
+    const portNum = _port;
+    if (portNum > 0) {
+        const deadline = Date.now() + PORT_FREE_MAX_MS;
+        while (Date.now() < deadline) {
+            const isFree = await new Promise<boolean>(resolve => {
+                if (os.platform() === 'win32') {
+                    cp.exec(
+                        `netstat -ano | findstr ":${portNum} "`,
+                        (_err, stdout) => resolve(!stdout.trim())
+                    );
+                } else {
+                    cp.exec(
+                        `lsof -iTCP:${portNum} -sTCP:LISTEN -t`,
+                        (_err, stdout) => resolve(!stdout.trim())
+                    );
+                }
+            });
+            if (isFree) {
+                log?.(`Port ${portNum} is free after kill — proceeding`);
+                break;
+            }
+            await new Promise(resolve => setTimeout(resolve, PORT_FREE_POLL_MS));
+        }
+    }
 }
 
 const MIN_BINARY_BYTES = 1_000_000;
@@ -428,7 +456,7 @@ interface QueryMemoryResponse {
  * Crate / bundled server binary version (CARGO_PKG_VERSION), NOT vscode package.json.
  * Keep in sync with Cargo.toml [package].version and published hipcortex-* assets.
  */
-export const EXPECTED_SERVER_VERSION = '2.3.0';
+export const EXPECTED_SERVER_VERSION = '2.4.0';
 
 /** Parse listen port from hipcortex.apiUrl / HipCortexAPI.baseUrl. */
 export function extractPortFromBaseUrl(baseUrl: string): { port: number; portStr: string } {
@@ -1031,7 +1059,7 @@ class HipCortexChatParticipant {
         request: vscode.ChatRequest,
         context: vscode.ChatContext,
         stream: vscode.ChatResponseStream,
-        token: vscode.CancellationToken
+        _token: vscode.CancellationToken
     ): Promise<void> {
         // FORCE our extension to respond - this should NEVER be intercepted
         console.log('🚀 HipCortex Extension: OFFICIAL RESPONSE for prompt:', request.prompt);
@@ -1999,7 +2027,8 @@ export function activate(context: vscode.ExtensionContext) {
         const onTerminalData = windowAny.onDidWriteTerminalData(async (e: any) => {
             const passiveCaptureTerminal = vscode.workspace.getConfiguration('hipcortex').get<boolean>('passiveCapture', true);
             if (!passiveCaptureTerminal) { return; }
-            const data = (e.data as string).replace(/\x1b\[[0-9;]*[mGKH]/g, '').trim();
+            const ansiEscape = new RegExp(String.fromCharCode(27) + '\\[[0-9;]*[mGKH]', 'g');
+            const data = (e.data as string).replace(ansiEscape, '').trim();
             if (!data || data.length < 10) { return; }
             const snippet = data.slice(0, 200);
             try {
@@ -2024,7 +2053,7 @@ export function activate(context: vscode.ExtensionContext) {
         const participant = vscode.chat.createChatParticipant('hipcortex', chatParticipant.provideResponse.bind(chatParticipant));
         participant.iconPath = vscode.Uri.file(context.asAbsolutePath('icon.png'));
         participant.followupProvider = {
-            provideFollowups: async (result, context, token) => {
+            provideFollowups: async (_result, _context, _token) => {
                 return [
                     { prompt: 'health', label: '🔍 Check System Health', command: 'health' },
                     { prompt: 'help', label: '❓ Show Help', command: 'help' },
@@ -2159,7 +2188,7 @@ export function activate(context: vscode.ExtensionContext) {
     const cognitiveSnapshotCommand = vscode.commands.registerCommand('hipcortex.cognitiveSnapshot', async () => {
         try {
             const api = new HipCortexAPI();
-            const snapshot = await api.cognitiveTransact({ type: 'AddMemory' } as any, 'vscode');
+            void api.cognitiveTransact({ type: 'AddMemory' } as any, 'vscode');
             const panel = vscode.window.createWebviewPanel('hipcortexSnapshot', 'Cognitive Snapshot', vscode.ViewColumn.Beside, {});
             const snap = await (await import('axios')).default.get(`${(api as any).baseUrl}/v1/cognitive/snapshot`);
             panel.webview.html = `<pre>${JSON.stringify(snap.data, null, 2)}</pre>`;
