@@ -630,6 +630,7 @@ fn ac_veto_b_critic_veto_gates_ols_rewrite() {
     cog.observe_prediction_drift("veto_node", 0.9, 1.0, 2.0);
     cog.observe_prediction_drift("veto_node", 0.9, 1.0, 2.0);
 
+    cog.seed_entity_grounded("veto_ols_target");
     // 2 iterations: iter 0 → approved → rewrite fires; iter 1 → vetoed (real goal) → blocked
     let mut daemon = SubstrateDaemon::new();
     let id = daemon.subscribe_with_config("veto-ols-agent".into(), cog.clone(), fast_config(2));
@@ -726,6 +727,7 @@ fn ac_react_daemon_drives_react_goal_to_terminal() {
     );
     let goal_id = goal_rec.id;
     cog.transact(CognitiveDelta::AddMemory(goal_rec), "react-daemon-agent").unwrap();
+    cog.seed_entity_grounded("daemon_react_target");
 
     // 1 iteration: iter 0 → not vetoed → ReactEngine runs
     let mut daemon = SubstrateDaemon::new();
@@ -942,6 +944,7 @@ fn ac_step_one_step_advances_iteration() {
     );
     let goal_id = goal_rec.id;
     { let mut ms = cog.memory.lock().unwrap(); ms.add(goal_rec).unwrap(); }
+    cog.seed_entity_grounded("step_target");
 
     let mut daemon = SubstrateDaemon::new();
     let id = daemon.subscribe_with_config("step-agent".into(), cog.clone(), fast_config(1));
@@ -989,6 +992,7 @@ fn ac_step_goal_advances_across_multiple_ticks() {
     );
     let goal_id = goal_rec.id;
     { let mut ms = cog.memory.lock().unwrap(); ms.add(goal_rec).unwrap(); }
+    cog.seed_entity_grounded("multi_step_target");
 
     let mut daemon = SubstrateDaemon::new();
     let id = daemon.subscribe_with_config("step-multi-agent".into(), cog.clone(), fast_config(3));
@@ -1034,6 +1038,7 @@ fn ac_step_veto_at_tick1_blocks_step_writes_decision() {
     );
     let goal_id = goal_rec.id;
     { let mut ms = cog.memory.lock().unwrap(); ms.add(goal_rec).unwrap(); }
+    cog.seed_entity_grounded("veto_target");
 
     let mut daemon = SubstrateDaemon::new();
     let id = daemon.subscribe_with_config("step-veto-agent".into(), cog.clone(), fast_config(3));

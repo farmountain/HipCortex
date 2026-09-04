@@ -368,6 +368,17 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         self.world.read().ok()?.entity_contact(name)
     }
 
+    /// Seed N observations for an entity so GroundingGate exits before daemon starts.
+    /// Intended for test setup; safe to call in production (idempotent after MAPPED_OBS_THRESHOLD).
+    pub fn seed_entity_grounded(&self, entity: &str) {
+        use crate::action_intent::{ContactKind, MAPPED_OBS_THRESHOLD};
+        if let Ok(wm) = self.world.read() {
+            for _ in 0..MAPPED_OBS_THRESHOLD {
+                wm.update_entity_contact(entity, ContactKind::Observed);
+            }
+        }
+    }
+
     // ── Intent / Receipt helpers ──────────────────────────────────────────────
 
     fn open_intent_impl(
