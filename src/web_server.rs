@@ -1305,6 +1305,73 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
                 }
             })
         })
+        // ── v2.3.0: Intent/Receipt seam — the only valid env API ────────────────
+        .route("/intent/open", {
+            let cog_post = cognitive.clone();
+            let cog_get  = cognitive.clone();
+            let post_handler = post(move |Json(req): Json<serde_json::Value>| async move {
+                let cog = cog_post.clone();
+                let actor = req.get("actor").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                if actor.is_empty() {
+                    return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "actor required"})));
+                }
+                let target_entity = match req.get("target_entity").and_then(|v| v.as_str()) {
+                    Some(e) => e.to_string(),
+                    None => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "target_entity required"}))),
+                };
+                let deadline_ms = req.get("deadline_ms").and_then(|v| v.as_u64()).unwrap_or(30_000);
+                let goal_id: Option<uuid::Uuid> = req.get("goal_id")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| uuid::Uuid::parse_str(s).ok());
+                let intent = crate::action_intent::ActionIntent::new_probe(actor.clone(), target_entity, goal_id, deadline_ms);
+                let intent_id = intent.id;
+                match cog.transact(crate::cognitive_state::CognitiveDelta::OpenIntent(intent), &actor) {
+                    Ok(_) => (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"ok": true, "intent_id": intent_id.to_string()}))),
+                    Err(e) => (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
+                }
+            });
+            let get_handler = axum::routing::get(move |axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>| async move {
+                let cog = cog_get.clone();
+                let actor_filter = params.get("actor").cloned().unwrap_or_default();
+                let intents = cog.open_intents.lock()
+                    .map(|g| g.iter()
+                        .filter(|i| actor_filter.is_empty() || i.actor == actor_filter)
+                        .cloned()
+                        .collect::<Vec<_>>())
+                    .unwrap_or_default();
+                let count = intents.len();
+                axum::Json(serde_json::json!({"ok": true, "intents": intents, "count": count}))
+            });
+            post_handler.merge(get_handler)
+        })
+        .route("/intent/receipt", {
+            let cog = cognitive.clone();
+            post(move |Json(req): Json<serde_json::Value>| async move {
+                let cog = cog.clone();
+                let actor = req.get("actor").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                if actor.is_empty() {
+                    return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "actor required"})));
+                }
+                let intent_id = match req.get("intent_id").and_then(|v| v.as_str()).and_then(|s| uuid::Uuid::parse_str(s).ok()) {
+                    Some(id) => id,
+                    None => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "intent_id (uuid) required"}))),
+                };
+                let ok_flag = req.get("ok").and_then(|v| v.as_bool()).unwrap_or(true);
+                let observation = req.get("observation").cloned().unwrap_or(serde_json::json!({}));
+                let sensor_path = req.get("sensor_path").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
+                let receipt = crate::action_intent::ActionReceipt {
+                    intent_id,
+                    ok: ok_flag,
+                    observation,
+                    sensor_path,
+                    ts: chrono::Utc::now(),
+                };
+                match cog.transact(crate::cognitive_state::CognitiveDelta::AcceptReceipt(receipt), &actor) {
+                    Ok(_) => (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"ok": true}))),
+                    Err(e) => (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
+                }
+            })
+        })
         .route("/v1/mat", axum::routing::get(|| async {
             axum::Json(serde_json::json!({ "attributions": [], "note": "MAT is per-agent session" }))
         }))
@@ -4118,6 +4185,62 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         .route("/v1/loop/subscribe", v1_loop_subscribe_route)
         .route("/v1/loop/status/:handle", v1_loop_status_route)
         .route("/v1/loop/stop/:handle", v1_loop_stop_route)
+        // ── v2.3.0: Intent/Receipt seam ──────────────────────────────────────
+        .route("/intent/open", {
+            let cog_post = cognitive.clone();
+            let cog_get  = cognitive.clone();
+            let ph = post(move |Json(req): Json<serde_json::Value>| async move {
+                let cog = cog_post.clone();
+                let actor = req.get("actor").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                if actor.is_empty() {
+                    return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "actor required"})));
+                }
+                let target_entity = match req.get("target_entity").and_then(|v| v.as_str()) {
+                    Some(e) => e.to_string(),
+                    None => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "target_entity required"}))),
+                };
+                let deadline_ms = req.get("deadline_ms").and_then(|v| v.as_u64()).unwrap_or(30_000);
+                let goal_id: Option<uuid::Uuid> = req.get("goal_id").and_then(|v| v.as_str()).and_then(|s| uuid::Uuid::parse_str(s).ok());
+                let intent = crate::action_intent::ActionIntent::new_probe(actor.clone(), target_entity, goal_id, deadline_ms);
+                let intent_id = intent.id;
+                match cog.transact(crate::cognitive_state::CognitiveDelta::OpenIntent(intent), &actor) {
+                    Ok(_) => (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"ok": true, "intent_id": intent_id.to_string()}))),
+                    Err(e) => (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
+                }
+            });
+            let gh = axum::routing::get(move |axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>| async move {
+                let cog = cog_get.clone();
+                let af = params.get("actor").cloned().unwrap_or_default();
+                let intents = cog.open_intents.lock()
+                    .map(|g| g.iter().filter(|i| af.is_empty() || i.actor == af).cloned().collect::<Vec<_>>())
+                    .unwrap_or_default();
+                let count = intents.len();
+                axum::Json(serde_json::json!({"ok": true, "intents": intents, "count": count}))
+            });
+            ph.merge(gh)
+        })
+        .route("/intent/receipt", {
+            let cog = cognitive.clone();
+            post(move |Json(req): Json<serde_json::Value>| async move {
+                let cog = cog.clone();
+                let actor = req.get("actor").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                if actor.is_empty() {
+                    return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "actor required"})));
+                }
+                let intent_id = match req.get("intent_id").and_then(|v| v.as_str()).and_then(|s| uuid::Uuid::parse_str(s).ok()) {
+                    Some(id) => id,
+                    None => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "intent_id (uuid) required"}))),
+                };
+                let ok_flag = req.get("ok").and_then(|v| v.as_bool()).unwrap_or(true);
+                let observation = req.get("observation").cloned().unwrap_or(serde_json::json!({}));
+                let sensor_path = req.get("sensor_path").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
+                let receipt = crate::action_intent::ActionReceipt { intent_id, ok: ok_flag, observation, sensor_path, ts: chrono::Utc::now() };
+                match cog.transact(crate::cognitive_state::CognitiveDelta::AcceptReceipt(receipt), &actor) {
+                    Ok(_) => (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"ok": true}))),
+                    Err(e) => (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
+                }
+            })
+        })
         .layer(middleware::from_fn(api_key_middleware));
 
     axum::Server::bind(&addr)

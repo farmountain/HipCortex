@@ -431,6 +431,35 @@ TOOLS = [
         },
     },
     {
+        "name": "open_intent",
+        "description": "POST /intent/open — issue a Probe ActionIntent. GroundingGate blocks instrumental planning until the env entity has ≥4 Observed contacts. Use this to probe an entity; await accept_receipt to close it.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "actor": {"type": "string", "description": "Actor issuing the intent"},
+                "target_entity": {"type": "string", "description": "Entity to probe (e.g. 'filesystem', 'api_gateway')"},
+                "deadline_ms": {"type": "integer", "description": "Expiry timeout in ms (default 30000)"},
+                "goal_id": {"type": "string", "description": "Optional goal UUID this probe serves"},
+            },
+            "required": ["actor", "target_entity"],
+        },
+    },
+    {
+        "name": "accept_receipt",
+        "description": "POST /intent/receipt — submit host observation as ActionReceipt, the only valid path for env observations. Atomically writes Temporal{receipt_observation} and updates WM entity_contacts. Do NOT use add_memory for env observations.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "actor": {"type": "string", "description": "Actor submitting the receipt"},
+                "intent_id": {"type": "string", "description": "UUID of the open ActionIntent this receipt closes"},
+                "ok": {"type": "boolean", "description": "Whether the probe/action succeeded"},
+                "observation": {"type": "object", "description": "Raw payload received from the env sensor"},
+                "sensor_path": {"type": "string", "description": "Which MCP/skill produced this (e.g. 'mcp:filesystem')"},
+            },
+            "required": ["actor", "intent_id", "observation", "sensor_path"],
+        },
+    },
+    {
         "name": "cognitive_diff",
         "description": "Get causal StateDiff between two tx-log cursors.",
         "inputSchema": {
@@ -1109,6 +1138,23 @@ def handle_cognitive_transact(args: dict) -> str:
     result = _post("/v1/cognitive/transact", {"delta": args["delta"], "actor": args.get("actor", "mcp")})
     return json.dumps(result)
 
+def handle_open_intent(args: dict) -> str:
+    return json.dumps(_post("/intent/open", {
+        "actor": args.get("actor", "mcp"),
+        "target_entity": args["target_entity"],
+        "deadline_ms": args.get("deadline_ms", 30000),
+        "goal_id": args.get("goal_id"),
+    }))
+
+def handle_accept_receipt(args: dict) -> str:
+    return json.dumps(_post("/intent/receipt", {
+        "actor": args.get("actor", "mcp"),
+        "intent_id": args["intent_id"],
+        "ok": args.get("ok", True),
+        "observation": args.get("observation", {}),
+        "sensor_path": args.get("sensor_path", "unknown"),
+    }))
+
 def handle_cognitive_diff(args: dict) -> str:
     params = f"from_tx={args['from_tx']}&to_tx={args['to_tx']}"
     resp = requests.get(f"{HIPCORTEX_URL}/v1/cognitive/diff?{params}", headers=_headers(), timeout=TIMEOUT)
@@ -1531,6 +1577,8 @@ def dispatch_tool(name: str, args: dict) -> str:
         "simulate_rollout":     handle_simulate_rollout,
         "get_system_health":    handle_get_system_health,
         "cognitive_transact":   handle_cognitive_transact,
+        "open_intent":          handle_open_intent,
+        "accept_receipt":       handle_accept_receipt,
         "cognitive_diff":       handle_cognitive_diff,
         "self_health":          handle_self_health,
         "cognitive_snapshot":   handle_cognitive_snapshot,

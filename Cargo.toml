@@ -137,6 +137,11 @@ name = "acceptance_suite_v230"
 path = "tests/acceptance_suite_v230.rs"
 harness = false
 
+[[test]]
+name = "acceptance_suite_v231"
+path = "tests/acceptance_suite_v231.rs"
+harness = false
+
 [[bench]]
 name = "temporal_state_diff_bench"
 harness = false

@@ -1,4 +1,4 @@
-# Claude Agent Harness — HipCortex v1.9.0
+# Claude Agent Harness — HipCortex v2.3.0
 
 HipCortex turns Claude Code (or any MCP-capable LLM) into a **substrate-first autonomous agent**: the cognitive state (memories, beliefs, world model, coherence) is the primary durable mind; the LLM is a thin language surface used only for final output or high-entropy creative hypotheses.
 
@@ -6,31 +6,70 @@ HipCortex turns Claude Code (or any MCP-capable LLM) into a **substrate-first au
 
 ```
 User instruction
-       │
-       ▼
-Claude Code (LLM) — language surface only
-       │
-       ├─ MUST: get_live_beliefs() ──────────┐
-       │                                      │
-       ├─ ReAct loop (goal-driven):           │
-       │   observe → add_memory(Temporal)     │
-       │   reflect → POST /memory/reflect     │
-       │   act → tools + file writes          │ HipCortex Substrate
-       │   check success_factors              │ (primary cognitive mind)
-       │          │                           │
-       │   LoopEngine.run_omega_loop() ───────┤
-       │   (on surprise/gap)                  │
-       │                                      │
-       └─ minimal LLM output ◄────────────────┘
+     │
+     ▼
+Claude Code (LLM)  — language surface only
+     │
+     ├─ MUST: get_live_beliefs() ──────────────┐
+     │                                          │
+     ├─ GroundingGate check (Stage 1c):         │
+     │    if entity ungrounded:                 │
+     │      open_intent(Probe) ──────────────── │──► Host runner
+     │      await accept_receipt ◄─────────────│─── Host runner
+     │    else: ReAct loop (instrumental)       │
+     │                                          │
+     ├─ ReAct loop (goal-driven):               │  HipCortex Substrate
+     │    observe → get_live_beliefs            │  (primary cognitive mind)
+     │    reflect → POST /memory/reflect        │
+     │    act → tools + file writes             │
+     │    [env obs ONLY via accept_receipt]      │
+     │    success_factors check                 │
+     │                                          │
+     │    LoopEngine.run_omega_loop() ──────────┤
+     │    (on surprise/gap)                     │
+     │                                          │
+     └─ minimal LLM output ◄───────────────────┘
 
 Background (SubstrateDaemon):
-  Observe → Reflect → Plan → CriticVeto → Predict → Act → Update → ExitCheck
-  (runs every interval_secs; independent of LLM turns)
+Observe → Reflect → Plan → GroundingGate → CriticVeto → Predict
+         → Act (Probe intent or ReAct) → Update → ExitCheck
+         (runs interval_secs; independent of LLM turns)
 ```
 
-## Tool Discovery (start here for complex tasks)
+## Grounding Seam (v2.3.0) — THE env API
 
-Before starting any complex multi-step task, call `recommend_tools` to get the right MCP servers, skills, and setup commands for your use case:
+**HipCortex never observes the environment directly. It issues intents. The host executes and returns receipts.**
+
+```
+HipCortex                     Host Runner
+    │                              │
+    │── POST /intent/open ────────►│  ActionIntent{kind=Probe, target_entity, deadline_ms}
+    │                              │  (host polls GET /intent/open?actor=<actor>)
+    │                              │  host executes the probe (MCP call, filesystem, API)
+    │◄── POST /intent/receipt ─────│  ActionReceipt{intent_id, ok, observation, sensor_path}
+    │                              │
+    │  AcceptReceipt atomically:   │
+    │   • writes Temporal{receipt_observation}
+    │   • updates WM entity_contacts (n_observations++)
+    │   • marks intent Received
+    │   • if n_obs ≥ 4 → GroundingGate exits
+```
+
+### GroundingGate rules
+
+| Condition | Effect |
+|-----------|--------|
+| `coverage(Ê; goal predicates) < τ_c = 0.6` | Gate active → only Probe intents legal |
+| `max_epistemic > τ_e = 0.5` (n < 4 observations) | Gate active → only Probe intents legal |
+| Open/InFlight intents exist | Q10 = `probe_entity:<id>` / `ground_workspace` |
+| Intent expires (host silence) | Intent marked Expired → Q10 = `escalate_to_user` |
+| All goal entities have n_obs ≥ 4 AND coverage ≥ τ_c | Gate exits → instrumental planning allowed |
+
+**`POST /memory/add` must NOT be used to record env observations.** It is only for LLM-authored beliefs, goals, and skills. Env observations must come through `accept_receipt`.
+
+## Tool Discovery (start of task)
+
+For any complex multi-step task, call `recommend_tools` to get the right MCP servers, skills, and setup commands for your use case:
 
 ```bash
 # Via MCP tool (preferred)
@@ -43,6 +82,7 @@ curl -X POST http://localhost:3030/agent/recommend-tools \
 ```
 
 Returns:
+
 ```json
 {
   "task_category": "web_research",
@@ -55,9 +95,7 @@ Returns:
 }
 ```
 
-Use `react_goal_template` as the starting `GoalPayload` for the ReAct loop. Install the `mcp_servers` before starting work.
-
-**Supported categories:** `web_research` · `full_stack_dev` · `data_analysis` · `devops` · `code_review` · `agent_orchestration` · `content_creation` · `general`
+Use `react_goal_template` as the starting `GoalPayload` for the ReAct loop. Install `mcp_servers` before starting work.
 
 ## Harness Installation
 
@@ -65,7 +103,7 @@ Use `react_goal_template` as the starting `GoalPayload` for the ReAct loop. Inst
 # Standard (conservative) — explicit invocation
 hipcortex install
 
-# Proactive (substrate-first) — strongly recommends substrate before every response
+# Proactive (substrate-first) — strongly recommends substrate before each response
 hipcortex install --mode proactive
 
 # Per-actor (multi-agent) — scoped actor namespace
@@ -76,13 +114,16 @@ Sets `HIPCORTEX_HARNESS_SOFT` mode and installs the proactive SKILL template int
 
 ## Action Space
 
-All MCP tools + REST equivalents. Key primitives:
+All MCP tools and REST equivalents. Key primitives:
 
 | Action | MCP Tool | REST |
 |--------|----------|------|
 | Observe substrate state | `get_live_beliefs` | `GET /memory/live_beliefs` |
-| Store decision/observation | `add_memory` | `POST /memory/add` |
+| Probe env entity (grounding) | `open_intent` | `POST /intent/open` |
+| Submit host observation | `accept_receipt` | `POST /intent/receipt` |
+| List open intents (host polling) | — | `GET /intent/open?actor=<actor>` |
 | Substrate chain-of-thought | `reflect` | `POST /memory/reflect` |
+| Store LLM belief/goal/skill | `add_memory` | `POST /memory/add` |
 | World-model prediction | `predict` | `POST /worldmodel/predict` |
 | Goal-driven ReAct loop | `cognitive_transact` | `POST /v1/cognitive/transact` |
 | Omega gap + attribution cycle | `run_omega_loop` | `POST /v1/loop/omega` |
@@ -95,224 +136,141 @@ All MCP tools + REST equivalents. Key primitives:
 | Authorized WM ops | `list_authorized_actions` | `GET /v1/actions/authorized-wm` |
 | Clarify goal requirements | — | `POST /goal/:id/clarify` |
 
-## Clarify Gate
+> **Note:** `add_memory` / `POST /memory/add` is for LLM-authored records (Belief, Goal, Skill, Reflexion).
+> **Never** use it to inject env observations — use `accept_receipt` instead.
 
-**ClarifyEngine (`src/clarify_engine.rs`) runs standing inside the daemon loop — no host call required.**
+## Cognitive Daemon — 9-Stage Loop
 
-Triggers (all daemon-owned, max 3 rounds per goal):
-- `EmptyAC` — goal has no acceptance criteria at create time
-- `ConsecutiveVeto` — CriticGate rejects ≥ 3 times in a row
-- `PreSuccess` — all success factors satisfied but verifier still detects mismatch
-
-Each round searches existing beliefs + world model for answers. If resolved: writes a `Belief{action="clarify_resolved"}`. If unresolved after 3 rounds: writes `Belief{action="clarify_needed", derived_from=goal_id}` and the cognitive report's `next_recommendation.recommended_op` becomes `"clarify_goal"` — only then escalate to the user.
-
-**Do not call `POST /goal/:id/clarify` from the host.** That endpoint is deprecated in v1.8.0; the daemon handles it.
-
-## CriticVeto and VerifierGate
-
-`src/loop_gates.rs` implements two pre-action gates that run inside `ReactEngine::run()` on every iteration:
-
-### CriticGate (pre-action veto)
-
-Evaluates the proposed action before it is executed. Threshold is **dynamic** — set by `SelfModel::recommend_loop_config()` each iteration:
-
-| Health | Threshold | SynthesisMode |
-|--------|-----------|---------------|
-| < 0.3  | 0.50      | Escalate      |
-| > 0.8  | 0.15      | Autonomous    |
-| else   | 0.25      | Balanced      |
-
-- **Iteration 0**: always passes — no history to score against.
-- **Iteration N > 0**: scores prior observations; if success fraction < threshold, returns `Rejected { rationale }`.
-  - Writes `Decision{action="critic_veto"}` **and** fires `CognitiveDelta::CreditAssign(ExplicitFail)` — veto is a learning event, not a skipped tick.
-  - ≥ 3 consecutive vetoes triggers `ClarifyEngine{ConsecutiveVeto}`.
-
-### VerifierGate (post-observe, pre-commit)
-
-Compares goal-advancing signal against world-model prediction (same revision path as critic veto):
-- `None` prediction (no WM data yet) → `Consistent` — observation committed normally.
-- Mismatch → `Mismatch { predicted, observed }` → fires `CognitiveDelta::CreditAssign(ExplicitFail("verifier_mismatch …"))`.
-  - If all success factors already satisfied: also triggers `ClarifyEngine{PreSuccess}`.
-  - Does **not** skip the tick silently — mismatch is a structural failure signal like critic veto.
-
-The WM prediction updates after each successful observation commit so the next iteration has fresh context.
-
-## Cognitive Daemon — 8-Stage Loop
-
-`SubstrateDaemon::subscribe_with_config(actor, cognitive, config)` spawns a background thread that runs indefinitely (or until `max_iterations` is reached for testing).
-
-**Stage sequence per iteration:**
+`SubstrateDaemon::subscribe_with_config(actor, cognitive, config)` spawns a background thread that runs until `max_iterations` is reached.
 
 | # | Stage | What happens |
 |---|-------|-------------|
 | 0 | **Observe** | `purge_expired()` removes decayed records; snapshot taken |
-| 1 | **Reflect** | Consolidation pressure computed from `SelfModel`; health read → SynthesisMode; autonomous goal synthesis from `most_uncertain_entity` if no InProgress goal |
-| 1b | **OOD Detect** | `get_entity_anomalies(most_uncertain_entity)` — if `severity > threshold`: `CreditAssign("ood_shift:entity_id")`. Targeted: only anomalous entity blamed; unrelated beliefs stay `In`. One CreditAssign per tick. |
-| 2 | **Plan** | Decide: consolidate if `pressure > pressure_threshold` |
-| 3 | **CriticVeto** | `CriticGate::evaluate` with dynamic threshold from SelfModel; veto → `CreditAssign` + possibly `ClarifyEngine{ConsecutiveVeto}` |
-| 4 | **Predict** | `WorldModelEnhanced::predict_next_state(actor, "daemon_step")` |
-| 5 | **Act** | If not vetoed: consolidate if pressure high; then `VerifierGate::check(predicted, observed)` — mismatch → `CreditAssign` + possibly `ClarifyEngine{PreSuccess}` |
-| 6 | **Update** | Write `Temporal{action="daemon_step", metadata={vetoed, consolidated}}` |
-| 7 | **ExitCheck** | Increment counter; check stop signal and `max_iterations`; sleep |
-
-**Configuration** (`CognitiveLoopConfig`):
-
-| Field | Default | Effect |
-|-------|---------|--------|
-| `interval_secs` | 30 | Sleep between iterations |
-| `pressure_threshold` | 0.7 | Act stage consolidation threshold |
-| `min_consolidation_frequency` | 3 | AutoConsolidate motif minimum |
-| `max_iterations` | None | Iteration cap (use in tests) |
-
-**REST API:**
+| 1 | **Reflect** | Consolidation pressure from `SelfModel`; health → SynthesisMode; autonomous goal synthesis from `most_uncertain_entity` if no InProgress goal |
+| 1b | **OOD Detect** | `get_entity_anomalies(most_uncertain_entity)` — if severity > threshold: `CreditAssign("ood_shift:entity_id")`. One CreditAssign per tick |
+| 1c | **GroundingGate** | Builds `entity_contact_snap` from WM. If coverage < τ_c=0.6 or max_epistemic > τ_e=0.5: `grounding_active=true`, selects `probe_target` |
+| 2 | **Critic** | `CriticGate::evaluate` against SelfModel; `CreditAssign` on failure; triggers `ClarifyEngine{ConsecutiveVeto}` after 3 consecutive vetoes |
+| 3 | **Predict** | `WorldModelEnhanced::predict_next_state` — outputs labelled `PredictedOnly` |
+| 4 | **VerifierGate** | Compares prediction vs observation; mismatch → `CreditAssign`; `ClarifyEngine{PreSuccess}` if all factors satisfied but verifier still fires |
+| 5 | **Act** | If `grounding_active`: emit `OpenIntent(Probe, probe_target)`. Else if active goal: run `ReactEngine` (instrumental). Else: consolidate |
+| 6 | **Update** | If `AcceptReceipt` arrived: ingest → Temporal + WM update. If Open intent expired: mark Expired + `CreditAssign("host_silence:intent=<id>")` |
+| 7 | **ExitCheck** | Evaluate `CognitiveLoopConfig` exit conditions |
 
 ```bash
-# Spawn daemon (config is optional — defaults apply)
+# Spawn daemon (config optional — defaults apply)
 curl -X POST http://localhost:3030/v1/loop/subscribe \
   -d '{"actor": "my-agent", "config": {"interval_secs": 60, "pressure_threshold": 0.8}}'
 # → {"ok": true, "handle_id": "<uuid>"}
 
 # Stop daemon
 curl -X POST http://localhost:3030/v1/loop/stop/<handle_id>
-# → {"ok": true, "stopped": true}
 
 # Check status
 curl http://localhost:3030/v1/loop/status/<handle_id>
 # → {"id": "...", "actor": "...", "iterations": 12, "status": "Running", "stage_counts": [12,12,...]}
 ```
 
-`stage_counts` is a `Vec<u32>` of length 8. After N iterations each entry equals N.
+## Clarify Gate
 
-## Workspace Lease
+**ClarifyEngine (`src/clarify_engine.rs`) runs inside the daemon loop — no host call required.**
 
-`Workspace::open()` returns a workspace with `lease_until: Option<SystemTime>`. By default no lease is set and the workspace never expires. To bound a workspace's TTL:
+Triggers (all daemon-owned, max 3 rounds per goal):
+- `EmptyAC` — goal has no acceptance criteria at create time
+- `ConsecutiveVeto` — CriticGate rejects ≥ 3 times in a row
+- `PreSuccess` — all success factors satisfied but verifier still detects mismatch
+
+`next_recommendation.recommended_op` = `POST /goal/:id/clarify` (added v1.8.0).
+
+## Host Runner Protocol (v2.3.0)
+
+The host runner is responsible for executing intents and returning receipts. **It does not write memories directly.**
 
 ```bash
-# Renew for 3600 seconds from now
-curl -X POST http://localhost:3030/v1/workspace/<id>/renew \
-  -d '{"secs": 3600}'
+# 1. Poll for open intents (or subscribe to push on SSE when available)
+curl "http://localhost:3030/intent/open?actor=my-agent"
+# → {"ok": true, "intents": [...], "count": 1}
+
+# 2. Execute the probe (e.g. via Playwright, filesystem, API)
+#    The host uses its own tools — HipCortex does not execute
+
+# 3. Return receipt
+curl -X POST http://localhost:3030/intent/receipt \
+  -H "Content-Type: application/json" \
+  -d '{
+    "actor": "my-agent",
+    "intent_id": "<uuid from step 1>",
+    "ok": true,
+    "observation": {"disk_free_gb": 42.5, "status": "healthy"},
+    "sensor_path": "mcp:filesystem"
+  }'
 # → {"ok": true}
 ```
 
-`is_expired()` returns `false` if `lease_until` is `None` (backward compatible). Expired workspaces are pruned in the daemon's Observe stage.
+Or via MCP tools:
 
-## WM Authorization Table
-
-Not all world-model operations are permitted unconditionally. `GET /v1/actions/authorized-wm` returns the subset allowed given current `SelfModel` health:
-
-```json
-[
-  {"op": "world_model_rollout", "requires_wm": true, "max_depth": 10, "max_iterations": 200, "authorized": true},
-  {"op": "counterfactual",       "requires_wm": true, "max_depth": 5,  "max_iterations": 50,  "authorized": true},
-  {"op": "intervene",            "requires_wm": true, "max_depth": 3,  "max_iterations": 10,  "authorized": false}
-]
+```python
+# In Claude Code / MCP host
+intent_resp = open_intent(actor="my-agent", target_entity="filesystem", deadline_ms=30000)
+# ... host executes ...
+accept_receipt(
+    actor="my-agent",
+    intent_id=intent_resp["intent_id"],
+    ok=True,
+    observation={"disk_free_gb": 42.5},
+    sensor_path="mcp:filesystem",
+)
 ```
 
-`authorized: false` means `can_execute` would veto that op. Check before calling rollout/counterfactual endpoints.
-
-## OLS Drift Isolation
-
-`PredictionMonitor::feed_with_obs(error, x, y)` accumulates feature/target pairs. `fit_ols()` returns coordinate-wise OLS weights that identify which input dimensions drive prediction error drift. Use `SelfModel::prediction_drift_weights()` to retrieve these weights; high-magnitude entries indicate drifting sensors or stale beliefs.
-
-## Motif Contraction
-
-`mine_and_consolidate(store, archive, wm, log, min_frequency, actor)` consolidates recurring `derived_from` chains into `Skill` and `Belief` records. v1.4.0 additions:
-
-- **Cycle guard**: motifs whose member IDs form a `derived_from` cycle are skipped (prevents corrupted provenance chains from compacting into skills).
-- **Causal validity**: if a WM is provided, the motif's first action is validated against the WM transition model; causally implausible motifs are skipped.
-- **Archive before delete**: source records are appended to `ArchiveStore` before removal from the hot store, preserving cold-store audit trail.
-
-## Observations (Substrate Outputs)
-
-`GET /memory/live_beliefs?actor=<actor>&limit=<n>` returns a merged surface:
-
-```json
-{
-  "symbolic_facts": { "nodes": [...], "edges": [...] },
-  "code_facts": [...],
-  "current_hypotheses": [...],
-  "world_state": { "entities": [...], "transitions_sample": [...] },
-  "intel": {
-    "self_health": { "calibration_score": 0.87, "health_score": 0.92 },
-    "coherence": { "invariants_ok": true, "last_check_ms": 12 },
-    "pinned_memories": [...]
-  }
-}
-```
-
-Use this as the **first call** before any task. It replaces fetching context, beliefs, predictions, and health separately.
-
-## Substrate Chain-of-Thought (trigger_reflexion)
-
-`POST /memory/reflect` invokes `AureusBridge.trigger_reflexion` — runs a hypothesis update with:
-- World-model prior on the current state
-- HypothesesGraph weighted by evidence
-- Coherence checker invariants
-
-Use this instead of asking the LLM to reason over raw context. Substrate reasoning is faster and cheaper.
-
-```bash
-curl -X POST http://localhost:3030/memory/reflect \
-  -H "Content-Type: application/json" \
-  -d '{"actor": "my-agent", "query": "Which approach satisfies the auth requirement?"}'
-```
-
-Returns: ranked hypotheses with confidence scores. LLM uses the top result as its reasoning basis.
-
-## Lifecycle Self-Prompting
-
-Self-prompting occurs at **every stage** — not just task start. Each phase has a dedicated substrate call:
-
-| Phase | Tool | When |
-|-------|------|------|
-| 1. Tool discovery | `recommend_tools(task)` | Before anything |
-| 2. Goal clarification | `POST /goal/:id/clarify` | Before creating GoalPayload |
-| 3. Validation planning | `plan_validation(success_factors)` | Before loop starts |
-| 4. Per-iteration observe | `get_live_beliefs()` | Start of every iteration |
-| 5. Per-iteration reflect | `POST /memory/reflect` | When state is ambiguous |
-| 6. Per-iteration progress | `check_progress(factors, obs, iter, max)` | End of every iteration |
-| 7. Per-iteration exit | `should_exit(iter, max, progress, surprise)` | End of every iteration |
-
-## Memory-Centric ReAct Loop (with exit gate)
+## Memory-Centric ReAct Loop (with grounding + exit gate)
 
 ```
-# ── Setup (once) ──────────────────────────────────────────
-recommend_tools(task)              → install MCP servers + skills
+# ── Setup (once) ────────────────────────────────────────────────────
+recommend_tools(task)
+install MCP servers + skills
 goal = POST /v1/cognitive/transact (GoalPayload)
-POST /goal/:id/clarify             → 400 if criteria empty; answer + retry
-plan = plan_validation(goal.success_factors) → test plan per factor
+POST /goal/:id/clarify → 400 if criteria empty; answer + retry
+plan_validation(goal.success_factors) → test plan per factor
 
-# ── Loop (iterate until should_exit ≠ continue) ───────────
+# ── Grounding Phase (before instrumental loop) ───────────────────────
+while GroundingGate active:
+    PROBE:   open_intent(actor, target_entity, deadline_ms=30000)
+    WAIT:    host executes and calls accept_receipt
+    CHECK:   GET /intent/open?actor= → empty means all received
+    EXIT:    GroundingGate exits when n_obs ≥ 4 for all goal entities
+    TIMEOUT: expired intent → Q10 = escalate_to_user → ask human
+
+# ── Instrumental Loop (iterate until should_exit ≠ continue) ─────────
 for iteration in 1..max_iterations:
-    OBSERVE:   live_beliefs = GET /memory/live_beliefs
-    REFLECT:   POST /memory/reflect          # substrate CoT
-    CRITIC:    CriticGate checked internally by ReactEngine
-               → iter 0: always passes
-               → iter N: score < 0.25 → Decision{rejected} written, iteration skipped
-    ACT:       execute tool / write file / call API
-    VERIFY:    VerifierGate: WM prediction vs actual target
-               → mismatch → Belief{verifier_mismatch} written, iteration skipped
-    STORE:     POST /memory/add (Temporal)
-               → auto-fires: WMUpdater, BeliefInvalidator, EmergenceDetector
-    GATE:      POST /worldmodel/can-execute  # before irreversible actions
-    PROGRESS:  check = check_progress(success_factors, observations, iteration, max)
-               if check.uncertainty_detected:
-                   POST /memory/reflect
-                   POST /v1/loop/omega       # attribution + sparse mutation
-    EXIT:      decision = should_exit(iteration, max, check.progress_ratio, surprise)
-               if decision.action == "succeed":  store Reflexion summary; break
-               if decision.action == "fail":     store partial; report pending; break
-               if decision.action == "escalate": omega + ask user; break
-               # else: continue
+    OBSERVE: get_live_beliefs GET /memory/live_beliefs
+    REFLECT: POST /memory/reflect  # substrate CoT
+    CRITIC:  CriticGate (internal to ReactEngine)
+             → iter 0: always passes
+             → iter N: score < 0.25 → Decision{rejected} written, skip
+    ACT:     execute tool / write file / call API
+    VERIFY:  VerifierGate: WM prediction vs actual target
+             → mismatch → CreditAssign written, iteration skipped
+    STORE:   LLM-authored observations → POST /memory/add (Temporal)
+             Env observations → accept_receipt ONLY (never add_memory)
+    GATE:    POST /worldmodel/can-execute before irreversible actions
+    PROGRESS: check_progress(success_factors, observations, iteration, max)
+              if check.uncertainty_detected:
+                POST /memory/reflect
+                POST /v1/loop/omega  # attribution + sparse mutation
+    EXIT:    should_exit(iteration, max, check.progress_ratio, surprise)
+             succeed → store Reflexion summary; break
+             fail → store partial; report pending; break
+             escalate → omega + ask user; break
+             # else: continue
 ```
 
 ### Exit hard rules — never bypass
+
 - `should_exit` called every iteration, no exceptions
 - `max_iterations` is an absolute cap — no silent extension
-- Zero progress after 25% budget → `fail` + call `POST /goal/:id/clarify` to reframe
+- Zero progress at 25% budget → `fail` + `POST /goal/:id/clarify` to reframe
 - High surprise (>0.8) + >50% budget + <50% progress → `escalate`, not `continue`
 
-`src/agent_guidance.rs:should_exit` implements the 5-rule decision tree. `src/modules/loop_engine.rs:ReactEngine::run` implements the Rust-side loop including CriticVeto and VerifierGate.
+`src/agent_guidance.rs:should_exit` implements the 5-rule decision tree.
 
 ## Goal-Driven Acceptance Criteria
 
@@ -327,7 +285,7 @@ goal = {
         "deployment manifests present",
     ],
     "success_factors": [
-        {"name": "auth_system_tested",         "weight": 1.0, "satisfied": false},
+        {"name": "auth_system_tested",          "weight": 1.0, "satisfied": false},
         {"name": "news_feed_working",           "weight": 1.0, "satisfied": false},
         {"name": "user_profiles_working",       "weight": 1.0, "satisfied": false},
         {"name": "deployment_manifests_written","weight": 1.0, "satisfied": false},
@@ -336,13 +294,20 @@ goal = {
 }
 ```
 
-`ReactEngine` terminates when all `success_factors` have `satisfied: true`, or when `max_react_iterations` is exhausted. Status: `Pending → InProgress → Succeeded | Failed`.
+`ReactEngine` terminates when all `success_factors` are `satisfied: true`, or when `max_react_iterations` is exhausted. Status: `Pending → InProgress → Succeeded | Failed`.
 
 **Note:** `acceptance_criteria` must be non-empty or `POST /goal/:id/clarify` will block the loop.
 
-## Multi-Agent Actor Scoping
+## Cognitive Report — Q3/Q8/Q10 truth (v2.3.0)
 
-Each agent gets its own actor namespace in the shared substrate:
+| Q | What it reports |
+|---|----------------|
+| **Q3** valid assumptions | JTMS `In` **and** `contact_kind ≠ PredictedOnly`. Kalman fill-ins are NOT valid assumptions |
+| **Q8** uncertain | Virgin/Stale entities + high Σ + never-probed actuators + **expired intents** (host silence = knowledge hole) |
+| **Q9** authorized | ∩ actuator reachable ∩ **not grounding-blocked** for that op class |
+| **Q10** next | `probe_entity:<id>` / `ground_workspace` → `escalate_to_user` on silence → `react_loop` only when grounded |
+
+## Multi-Agent Actor Scoping
 
 ```bash
 hipcortex install --actor frontend-agent   # Claude working on UI
@@ -351,45 +316,101 @@ hipcortex install --actor orchestrator     # Top-level planner
 ```
 
 Actor scoping in queries:
+
 ```
-GET /memory/live_beliefs?actor=frontend-agent   → only frontend context
-GET /memory/search?query=auth&actor=backend-agent
-DELETE /memory/forget/frontend-agent            → GDPR wipe per agent
+GET  /memory/live_beliefs?actor=frontend-agent   → only frontend context
+GET  /memory/search?query=auth&actor=backend-agent
+GET  /intent/open?actor=backend-agent            → intents for backend only
+DELETE /memory/forget/frontend-agent             → GDPR wipe per agent
 ```
 
-All agents share the global symbolic graph (SymbolicStore) and world model (WorldModelEnhanced), but Temporal observations and Goals are actor-scoped.
+All agents share the global SymbolicStore and WorldModelEnhanced, but Temporal observations, Goals, and Intents are actor-scoped.
+
+## Workspace Lease
+
+`Workspace::open()` returns a workspace with `lease_until: Option<SystemTime>`. By default no lease is set.
+
+```bash
+curl -X POST http://localhost:3030/v1/workspace/<id>/renew \
+  -d '{"secs": 3600}'
+# → {"ok": true}
+```
+
+Expired workspaces are pruned in the daemon's Observe stage.
+
+## WM Authorization Table
+
+```bash
+curl http://localhost:3030/v1/actions/authorized-wm
+```
+
+```json
+[
+  {"op": "world_model_rollout", "requires_wm": true, "max_depth": 10, "max_iterations": 200, "authorized": true},
+  {"op": "counterfactual",      "requires_wm": true, "max_depth":  5, "max_iterations":  50, "authorized": true},
+  {"op": "intervene",           "requires_wm": true, "max_depth":  3, "max_iterations":  10, "authorized": false}
+]
+```
+
+`authorized: false` means `can_execute` would veto this op. Check before calling rollout/counterfactual endpoints.
+
+## OLS Drift Isolation
+
+`PredictionMonitor::feed_with_obs(error, x, y)` accumulates feature/target pairs. `fit_ols()` returns coordinate-wise OLS weights to identify input dimensions driving prediction error drift. Use `SelfModel::prediction_drift_weights()` to retrieve; high-magnitude entries indicate drifting sensors or stale beliefs.
+
+## Motif Contraction
+
+`mine_and_consolidate(store, archive, wm, log, min_frequency, actor)` consolidates recurring `derived_from` chains into `Skill` or `Belief` records.
+
+- **Cycle guard**: motifs with cyclic member IDs are skipped (prevents corrupted provenance chains).
+- **Causal validity**: if WM provided, motif's first action is validated against the WM transition model.
+- **Archive before delete**: source records are appended to `ArchiveStore` before removal from the hot store.
+
+## Lifecycle Self-Prompting
+
+Self-prompting occurs at **every stage** — not just task start:
+
+| Phase | Tool | When |
+|-------|------|------|
+| 1. Tool discovery | `recommend_tools(task)` | Before anything |
+| 2. Goal clarification | `POST /goal/:id/clarify` | Before creating GoalPayload |
+| 3. Grounding check | `GET /intent/open?actor=` | Before instrumental planning |
+| 4. Validation planning | `plan_validation(success_factors)` | Before loop starts |
+| 5. Per-iteration observe | `get_live_beliefs()` | Start every iteration |
+| 6. Per-iteration reflect | `POST /memory/reflect` | When state is ambiguous |
+| 7. Per-iteration progress | `check_progress(factors, obs, iter, max)` | End every iteration |
+| 8. Per-iteration exit | `should_exit(iter, max, progress, surprise)` | End every iteration |
 
 ## Harness Compliance Targets
 
 | Mode | Expected substrate calls/turn | LLM token reduction |
-|------|-----------------------------|---------------------|
+|------|-------------------------------|---------------------|
 | Conservative | 1-2 (explicit only) | 30-50% |
 | Proactive | 3-6 (get_live_beliefs + reflect + predict) | 70-99% |
 | Proactive + omega | 6-10 (+ loop on surprise) | 80-99% |
-
-Token reduction source: substrate carries state/beliefs/predictions so LLM prompt needs only the question + substrate answer, not full conversation history.
 
 ## Configuration
 
 | Env var | Default | Effect |
 |---------|---------|--------|
-| `HIPCORTEX_AGENT_DEFAULTS` | off | Wire PerceptionSession for all AgentMessage paths; enable auto-ingest |
+| `HIPCORTEX_AGENT_DEFAULTS` | off | Wire PerceptionSession to all AgentMessage paths; enable auto-ingest |
 | `HIPCORTEX_HARNESS_SOFT` | on | MCP warns on non-substrate-first calls; does not hard-block |
 | `HIPCORTEX_ACTOR` | `mcp-session` | Default actor for MCP server session |
 | `HIPCORTEX_URL` | `http://localhost:3030` | Server URL |
 
 ## Related
 
-- `src/modules/loop_engine.rs` — `ReactEngine` + `LoopEngine.run_omega_loop()`
-- `src/loop_gates.rs` — `CriticGate` + `VerifierGate` (pre-action veto + post-observe gate)
-- `src/substrate_daemon.rs` — `SubstrateDaemon` + `CognitiveLoopConfig` (8-stage background loop)
-- `src/workspace.rs` — `Workspace` with `lease_until` and `WorkspaceRegistry::renew()`
-- `src/action_registry.rs` — `WM_CONSTRAINTS` + `list_authorized_world_model()`
+- `src/action_intent.rs` — `ActionIntent`, `ActionReceipt`, `ContactKind`, `GroundingStatus`, `ActuatorRegistry`
+- `src/grounding_gate.rs` — `GroundingGate` (τ_c=0.6, τ_e=0.5), `expire_stale`
+- `src/modules/loop_engine.rs` — `ReactEngine`, `LoopEngine.run_omega_loop()`
+- `src/loop_gates.rs` — `CriticGate`, `VerifierGate`
+- `src/substrate_daemon.rs` — `SubstrateDaemon`, `CognitiveLoopConfig` (9-stage loop)
+- `src/workspace.rs` — `Workspace`, `WorkspaceRegistry::renew()`
+- `src/action_registry.rs` — `WM_CONSTRAINTS`, `list_authorized_world_model()`
 - `src/consolidation.rs` — `mine_and_consolidate` with cycle guard + archive-before-delete
-- `src/modules/self_model/prediction_monitor.rs` — OLS drift weights
-- `src/web_server.rs:handle_memory_live_beliefs` — unified beliefs surface
-- `src/modules/integration_layer.rs:trigger_reflexion` — substrate CoT
-- `sdk/python/hipcortex/install/SKILL.md` — installed harness policy
-- `sdk/mcp/server.py` — MCP tool surface
+- `src/modules/self_model/prediction_monitor.rs` — OLS drift
+- `src/web_server.rs` — REST endpoints including `/intent/open`, `/intent/receipt`
+- `sdk/python/hipcortex/install/SKILL.md` — proactive skill template
+- `sdk/mcp/server.py` — MCP tools including `open_intent`, `accept_receipt`
 - `docs/usage.md` — CLI and API reference
-- `docs/integration.md` — framework adapters (LangChain, CrewAI, AutoGen)
+- `docs/integration.md` — LangChain, CrewAI, AutoGen integration
