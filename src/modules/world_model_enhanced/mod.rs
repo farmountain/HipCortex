@@ -114,6 +114,8 @@ pub struct WorldModelEnhanced {
     /// Topological substrate (hybrid nodes: symbolic_id + [f32;128] embedding + props) to replace dummies in record_perceived_action
     /// (Task 7 integration; coexists with custom CausalGraph for semantics)
     topo_graph: Arc<RwLock<CausalTopoGraph>>,
+    /// Per-entity contact records — grounding status, staleness, n_observations.
+    entity_contacts: Arc<RwLock<HashMap<String, crate::action_intent::EntityContactRecord>>>,
 }
 
 impl WorldModelEnhanced {
@@ -126,6 +128,28 @@ impl WorldModelEnhanced {
             predictors: Arc::new(RwLock::new(Vec::new())),
             uncertainty: Arc::new(RwLock::new(UncertaintyEstimator::new())),
             topo_graph: Arc::new(RwLock::new(CausalTopoGraph::new())),
+            entity_contacts: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    pub fn entity_ids(&self) -> Vec<String> {
+        self.entity_contacts.read().map(|m| m.keys().cloned().collect()).unwrap_or_default()
+    }
+
+    pub fn entity_contact(&self, name: &str) -> Option<crate::action_intent::EntityContactRecord> {
+        self.entity_contacts.read().ok()?.get(name).cloned()
+    }
+
+    pub fn update_entity_contact(&self, name: &str, kind: crate::action_intent::ContactKind) {
+        if let Ok(mut contacts) = self.entity_contacts.write() {
+            let entry = contacts.entry(name.to_string()).or_default();
+            match kind {
+                crate::action_intent::ContactKind::Observed => entry.apply_observation(),
+                crate::action_intent::ContactKind::ProbeFailed => entry.apply_probe_failed(),
+                crate::action_intent::ContactKind::PredictedOnly => {
+                    entry.last_contact_kind = crate::action_intent::ContactKind::PredictedOnly;
+                }
+            }
         }
     }
 

@@ -545,7 +545,9 @@ impl CoherenceChecker {
             CognitiveDelta::Intervene { .. }
             | CognitiveDelta::Counterfactual { .. }
             | CognitiveDelta::CreditAssign(_)
-            | CognitiveDelta::RewriteStructuralEquation { .. } => {}
+            | CognitiveDelta::RewriteStructuralEquation { .. }
+            | CognitiveDelta::OpenIntent(_)
+            | CognitiveDelta::AcceptReceipt(_) => {}
         }
         Ok(warnings)
     }

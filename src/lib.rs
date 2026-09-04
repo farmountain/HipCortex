@@ -2,6 +2,8 @@
 //! Export all modules for easy external use.
 
 pub mod a2a_protocol;
+pub mod action_intent;
+pub mod grounding_gate;
 pub mod action_registry;
 pub mod agent_guidance;
 pub mod task_discovery;

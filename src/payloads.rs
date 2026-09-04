@@ -156,6 +156,10 @@ pub struct BeliefPayload {
     /// Belief IDs that depend on THIS belief (back-pointers for cascade).
     #[serde(default)]
     pub dependents: Vec<Uuid>,
+    /// Grounding: distinguishes Observed (host receipt) vs PredictedOnly (Kalman fill-in).
+    /// None = legacy/unspecified — included in Q3 by default (backward compat).
+    #[serde(default)]
+    pub contact_kind: Option<crate::action_intent::ContactKind>,
 }
 
 fn default_belief_confidence() -> f32 {

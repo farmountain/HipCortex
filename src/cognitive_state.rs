@@ -97,6 +97,8 @@ pub enum CognitiveDelta {
     },
     CreditAssign(crate::world_model_enhanced::causal::FailureSignal),
     RewriteStructuralEquation { node_id: String, new_weights: Vec<f64> },
+    OpenIntent(crate::action_intent::ActionIntent),
+    AcceptReceipt(crate::action_intent::ActionReceipt),
 }
 
 impl CognitiveDelta {
@@ -118,6 +120,8 @@ impl CognitiveDelta {
             Self::Counterfactual { .. } => "Counterfactual",
             Self::CreditAssign(_) => "CreditAssign",
             Self::RewriteStructuralEquation { .. } => "RewriteStructuralEquation",
+            Self::OpenIntent(_) => "OpenIntent",
+            Self::AcceptReceipt(_) => "AcceptReceipt",
         }
     }
 }
@@ -214,6 +218,10 @@ pub struct CognitiveHandle<B: MemoryBackend + Send + Sync + 'static> {
     pub(crate) archive_store: Option<Arc<Mutex<ArchiveStore>>>,
     /// Phase 4: multi-agent workspace registry.
     pub workspace_registry: Arc<Mutex<WorkspaceRegistry>>,
+    /// Pending intents (Open + InFlight) waiting for host receipts.
+    pub open_intents: Arc<Mutex<Vec<crate::action_intent::ActionIntent>>>,
+    /// Registered actuators and their health.
+    pub actuator_registry: Arc<Mutex<crate::action_intent::ActuatorRegistry>>,
 }
 
 /// Mean binary entropy over a slice of confidence values in [0,1].
@@ -247,6 +255,8 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             emergence: Arc::new(Mutex::new(crate::emergence::EmergenceDetector::new())),
             archive_store: None,
             workspace_registry: Arc::new(Mutex::new(WorkspaceRegistry::new())),
+            open_intents: Arc::new(Mutex::new(Vec::new())),
+            actuator_registry: Arc::new(Mutex::new(crate::action_intent::ActuatorRegistry::default())),
         }
     }
 
@@ -312,6 +322,14 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
                 let tx_cursor = self.merge_workspaces(from.clone(), into.clone(), actor)?;
                 return Ok(TransactResult { tx_cursor, records_deleted: None });
             }
+            CognitiveDelta::OpenIntent(intent) => {
+                let tx_cursor = self.open_intent_impl(intent.clone(), actor)?;
+                return Ok(TransactResult { tx_cursor, records_deleted: None });
+            }
+            CognitiveDelta::AcceptReceipt(receipt) => {
+                let tx_cursor = self.accept_receipt_impl(receipt.clone(), actor)?;
+                return Ok(TransactResult { tx_cursor, records_deleted: None });
+            }
             _ => {}
         }
 
@@ -340,6 +358,105 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         self.calibrate_after_tx(tx_cursor);
 
         Ok(TransactResult { tx_cursor, records_deleted: None })
+    }
+
+    /// Public accessor: entity contact from WM (for tests and REST handlers).
+    pub fn wm_entity_contact(
+        &self,
+        name: &str,
+    ) -> Option<crate::action_intent::EntityContactRecord> {
+        self.world.read().ok()?.entity_contact(name)
+    }
+
+    // ── Intent / Receipt helpers ──────────────────────────────────────────────
+
+    fn open_intent_impl(
+        &self,
+        intent: crate::action_intent::ActionIntent,
+        actor: &str,
+    ) -> Result<u64, CognitiveError> {
+        let rec = MemoryRecord::new(
+            MemoryType::Intent,
+            actor.to_string(),
+            "open_intent".to_string(),
+            intent.op.clone(),
+            serde_json::to_value(&intent).unwrap_or_default(),
+        );
+        let ids = vec![rec.id];
+        {
+            let mut ms = self.memory.lock().map_err(|_| CognitiveError::LockError)?;
+            ms.add(rec).map_err(|e| CognitiveError::StoreError(e.to_string()))?;
+        }
+        if let Ok(mut intents) = self.open_intents.lock() {
+            intents.push(intent);
+        }
+        let cursor = if let Some(tx) = &self.tx_log {
+            tx.append(TxKind::MemoryAdd, ids, actor)
+        } else {
+            0
+        };
+        Ok(cursor)
+    }
+
+    fn accept_receipt_impl(
+        &self,
+        receipt: crate::action_intent::ActionReceipt,
+        actor: &str,
+    ) -> Result<u64, CognitiveError> {
+        // 1. Actuator heartbeat
+        if let Ok(mut reg) = self.actuator_registry.lock() {
+            reg.apply_receipt(&receipt.sensor_path, receipt.ts, receipt.ok);
+        }
+        // 2. Mark matching intent Received; update WM contact
+        let target_entity = if let Ok(mut intents) = self.open_intents.lock() {
+            let found = intents.iter_mut().find(|i| i.id == receipt.intent_id);
+            if let Some(intent) = found {
+                intent.status = crate::action_intent::IntentStatus::Received;
+                intent.target_entity.clone()
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        if let Some(entity) = &target_entity {
+            if let Ok(wm) = self.world.read() {
+                let kind = if receipt.ok {
+                    crate::action_intent::ContactKind::Observed
+                } else {
+                    crate::action_intent::ContactKind::ProbeFailed
+                };
+                wm.update_entity_contact(entity, kind);
+            }
+        }
+        // 3. Temporal observation record
+        let obs_rec = MemoryRecord::new(
+            MemoryType::Temporal,
+            actor.to_string(),
+            "receipt_observation".to_string(),
+            receipt.sensor_path.clone(),
+            receipt.observation.clone(),
+        );
+        // 4. Receipt record
+        let receipt_rec = MemoryRecord::new(
+            MemoryType::Receipt,
+            actor.to_string(),
+            "accept_receipt".to_string(),
+            receipt.intent_id.to_string(),
+            serde_json::to_value(&receipt).unwrap_or_default(),
+        );
+        let ids = vec![obs_rec.id, receipt_rec.id];
+        {
+            let mut ms = self.memory.lock().map_err(|_| CognitiveError::LockError)?;
+            ms.add(obs_rec).map_err(|e| CognitiveError::StoreError(e.to_string()))?;
+            ms.add(receipt_rec).map_err(|e| CognitiveError::StoreError(e.to_string()))?;
+        }
+        let cursor = if let Some(tx) = &self.tx_log {
+            tx.append(TxKind::MemoryAdd, ids, actor)
+        } else {
+            0
+        };
+        Ok(cursor)
     }
 
     // ── Phase-4 private helpers ────────────────────────────────────────────────

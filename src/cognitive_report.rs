@@ -134,11 +134,25 @@ pub fn build_report<B: MemoryBackend>(
             .collect();
 
     // Q3 — valid assumptions: JTMS In authoritative; Unknown+0.5 included but marked Provisional.
+    // Exclude beliefs whose contact_kind == PredictedOnly (Kalman fill-in ≠ valid assumption).
+    let predicted_only_ids: std::collections::HashSet<uuid::Uuid> = store
+        .all_by_type(MemoryType::Belief)
+        .into_iter()
+        .filter_map(|r| {
+            let p: BeliefPayload = serde_json::from_value(r.metadata.clone()).ok()?;
+            if matches!(p.contact_kind, Some(crate::action_intent::ContactKind::PredictedOnly)) {
+                Some(r.id)
+            } else {
+                None
+            }
+        })
+        .collect();
     let valid_assumptions: Vec<BeliefSummary> = all_belief_pairs
         .iter()
         .filter(|(label, b)| {
-            matches!(label, crate::payloads::JtmsLabel::In)
-                || (matches!(label, crate::payloads::JtmsLabel::Unknown) && b.confidence >= 0.5)
+            !predicted_only_ids.contains(&b.id)
+                && (matches!(label, crate::payloads::JtmsLabel::In)
+                    || (matches!(label, crate::payloads::JtmsLabel::Unknown) && b.confidence >= 0.5))
         })
         .map(|(label, b)| {
             if matches!(label, crate::payloads::JtmsLabel::Unknown) {
@@ -255,7 +269,18 @@ pub fn build_report<B: MemoryBackend>(
     let invalidated_count = store
         .find_by_action("belief_invalidated")
         .len();
-    let open_uncertainties = UncertaintySummary { uncertain_beliefs, invalidated_count };
+    // Expired intents = host silence — first-class uncertainty holes.
+    let expired_intent_count = store
+        .all_by_type(MemoryType::Intent)
+        .iter()
+        .filter(|r| {
+            r.metadata.get("status").and_then(|s| s.as_str()) == Some("Expired")
+        })
+        .count();
+    let open_uncertainties = UncertaintySummary {
+        uncertain_beliefs,
+        invalidated_count: invalidated_count + expired_intent_count,
+    };
 
     // Q9 — authorized actions filtered by current goal + real health from SelfModel.
     let active_goal_id = active_goals.first().map(|g| g.id);
@@ -279,6 +304,21 @@ pub fn build_report<B: MemoryBackend>(
         })
         .unwrap_or(false);
     let next_goal = crate::goal_scheduler::GoalScheduler::next(store, actor);
+    // Q10 — check grounding before react_loop: probe-first if open intents are pending.
+    let open_intent_recs = store.all_by_type(MemoryType::Intent);
+    let has_open_intents = open_intent_recs.iter().any(|r| {
+        matches!(
+            r.metadata.get("status").and_then(|s| s.as_str()),
+            Some("Open") | Some("InFlight")
+        )
+    });
+    let has_expired_intents = open_intent_recs.iter().any(|r| {
+        r.metadata.get("status").and_then(|s| s.as_str()) == Some("Expired")
+    });
+    let top_probe_entity: Option<String> = open_intent_recs.iter()
+        .filter(|r| matches!(r.metadata.get("status").and_then(|s| s.as_str()), Some("Open") | Some("InFlight")))
+        .find_map(|r| r.metadata.get("target_entity").and_then(|v| v.as_str()).map(|s| s.to_string()));
+
     let next_recommendation = if clarify_pending {
         NextAction {
             goal_id: active_goal_id,
@@ -292,6 +332,22 @@ pub fn build_report<B: MemoryBackend>(
             goal_target: active_goals.first().map(|g| g.target_state.clone()),
             recommended_op: "escalate_to_user".to_string(),
             rationale: format!("health={health:.2} — system health critical, escalate before proceeding"),
+        }
+    } else if has_open_intents {
+        NextAction {
+            goal_id: active_goal_id,
+            goal_target: active_goals.first().map(|g| g.target_state.clone()),
+            recommended_op: top_probe_entity
+                .map(|e| format!("probe_entity:{e}"))
+                .unwrap_or_else(|| "ground_workspace".to_string()),
+            rationale: format!("mode={synthesis_mode} — open probe intents pending, await host receipts before planning"),
+        }
+    } else if has_expired_intents {
+        NextAction {
+            goal_id: active_goal_id,
+            goal_target: active_goals.first().map(|g| g.target_state.clone()),
+            recommended_op: "escalate_to_user".to_string(),
+            rationale: format!("mode={synthesis_mode} — host silence (expired intents), human is last sensor"),
         }
     } else if let Some(gid) = next_goal {
         let target = store

@@ -245,6 +245,33 @@ impl SubstrateDaemon {
                         }
                     }
 
+                    // Stage 1c: GroundingGate — block instrumental planning when env is ungrounded.
+                    let goal_entity_names: Vec<String> = active_goal.as_ref()
+                        .map(|(_, gp)| vec![gp.target_state.clone()])
+                        .unwrap_or_default();
+                    let entity_contact_snap: std::collections::HashMap<String, crate::action_intent::EntityContactRecord> =
+                        cognitive.world.read()
+                            .map(|wm| {
+                                goal_entity_names.iter()
+                                    .filter_map(|e| wm.entity_contact(e).map(|c| (e.clone(), c)))
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+                    let entity_refs_owned: Vec<String> = goal_entity_names.clone();
+                    let entity_refs: Vec<&str> = entity_refs_owned.iter().map(|s| s.as_str()).collect();
+                    let grounding_active = crate::grounding_gate::GroundingGate::is_active(
+                        &entity_refs,
+                        |name| entity_contact_snap.get(name).cloned(),
+                    );
+                    let probe_target = if grounding_active {
+                        crate::grounding_gate::GroundingGate::top_probe_target(
+                            &entity_refs,
+                            |name| entity_contact_snap.get(name).cloned(),
+                        )
+                    } else {
+                        None
+                    };
+
                     // Stage 2: Plan — determine required actions
                     let should_consolidate = pressure > config.pressure_threshold;
                     if let Ok(mut sc) = sc_clone.lock() { sc[2] += 1; }
@@ -330,10 +357,23 @@ impl SubstrateDaemon {
                                 &actor_clone,
                             );
                         }
-                        // Drive active goal: FullCycle exhausts loop in one tick; StepByStep
-                        // advances one ReAct iteration per tick, keeping goal InProgress across
-                        // daemon ticks so CriticGate can veto at iter ≥ 1.
-                        if let Some((goal_id, goal_payload)) = &active_goal {
+                        // Drive active goal — probe first when grounding is active.
+                        if grounding_active {
+                            if let Some((goal_id, _)) = &active_goal {
+                                if let Some(ref target) = probe_target {
+                                    let intent = crate::action_intent::ActionIntent::new_probe(
+                                        actor_clone.clone(),
+                                        target.clone(),
+                                        Some(*goal_id),
+                                        30_000,
+                                    );
+                                    let _ = cognitive.transact(
+                                        crate::cognitive_state::CognitiveDelta::OpenIntent(intent),
+                                        &actor_clone,
+                                    );
+                                }
+                            }
+                        } else if let Some((goal_id, goal_payload)) = &active_goal {
                             use crate::loop_engine::ReactEngine;
                             use crate::payloads::GoalExecutionMode;
                             let mut engine = ReactEngine::new();
@@ -490,6 +530,25 @@ impl SubstrateDaemon {
                         }
                     }
                     if let Ok(mut sc) = sc_clone.lock() { sc[6] += 1; }
+
+                    // Stage 6b: Expire stale intents — host silence is a measurable fact.
+                    {
+                        let expired_ids = if let Ok(mut intents) = cognitive.open_intents.lock() {
+                            crate::grounding_gate::GroundingGate::expire_stale(&mut intents)
+                        } else {
+                            vec![]
+                        };
+                        for eid in expired_ids {
+                            let _ = cognitive.transact(
+                                crate::cognitive_state::CognitiveDelta::CreditAssign(
+                                    crate::world_model_enhanced::causal::FailureSignal::ExplicitFail(
+                                        format!("host_silence:intent={eid}"),
+                                    ),
+                                ),
+                                &actor_clone,
+                            );
+                        }
+                    }
 
                     // Stage 7: ExitCheck — if active goal fully satisfied, mark Succeeded (Gap 1)
                     if let Some((goal_id, _)) = &active_goal {

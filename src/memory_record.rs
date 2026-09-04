@@ -14,6 +14,8 @@ pub enum MemoryType {
     Skill,
     Belief,
     Decision,
+    Intent,
+    Receipt,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
