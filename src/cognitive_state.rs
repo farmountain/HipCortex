@@ -439,6 +439,28 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
                 };
                 wm.update_entity_contact(entity, kind);
             }
+            // G5b: feed receipt outcome into WM transition model (spine feedback loop)
+            if let Ok(mut wm) = self.world.write() {
+                crate::wm_updater::update_from_receipt(entity, receipt.ok, &mut wm);
+            }
+            // G5c: reinforce supporting beliefs when probe succeeds (positive evidence path)
+            if receipt.ok {
+                if let Ok(mut ms) = self.memory.lock() {
+                    let belief_ids: Vec<uuid::Uuid> = ms
+                        .all_by_type(MemoryType::Belief)
+                        .into_iter()
+                        .filter(|b| {
+                            serde_json::from_value::<crate::payloads::BeliefPayload>(b.metadata.clone())
+                                .map(|p| p.proposition.to_lowercase().contains(&entity.to_lowercase()))
+                                .unwrap_or(false)
+                        })
+                        .map(|b| b.id)
+                        .collect();
+                    for id in belief_ids {
+                        crate::belief_executive::BeliefExecutive::reinforce(&mut ms, id, 0.05);
+                    }
+                }
+            }
         }
         // 3. Temporal observation record
         let obs_rec = MemoryRecord::new(

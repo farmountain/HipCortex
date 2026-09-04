@@ -2,7 +2,7 @@
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
     "description": "HipCortex v2.5.0 — IG Probe Ranking + add_memory Adapter: directional information-gain probe selection (epistemic × deficit × probe_penalty), add_memory(intent_id) auto-routes to AcceptReceipt seam. 473 unit + 173 integration + 10 v2.5.0 + 5 v2.4.0 + 7 v2.3.0 + 6 v2.2.0 + 3 v2.1.0 + 5 v2.0.0 acceptance, 0 failures.",
-    "version": "2.5.0",
+    "version": "2.6.0",
     "publisher": "farmountain",
     "repository": {
         "type": "git",

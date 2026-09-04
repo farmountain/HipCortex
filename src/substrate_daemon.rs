@@ -14,7 +14,7 @@ use std::time::SystemTime;
 use uuid::Uuid;
 
 /// Configuration for the cognitive maintenance loop.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct CognitiveLoopConfig {
     /// Seconds to sleep between iterations (0 for tests).
     pub interval_secs: u64,
@@ -24,6 +24,21 @@ pub struct CognitiveLoopConfig {
     pub min_consolidation_frequency: usize,
     /// Iteration cap; None = run indefinitely.
     pub max_iterations: Option<u32>,
+    /// Optional pre-flight gate evaluated before every ReactEngine step (G5d).
+    #[serde(skip)]
+    pub execution_gate: Option<Arc<Mutex<dyn crate::execution_gate::ExecutionGate + Send + Sync>>>,
+}
+
+impl std::fmt::Debug for CognitiveLoopConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CognitiveLoopConfig")
+            .field("interval_secs", &self.interval_secs)
+            .field("pressure_threshold", &self.pressure_threshold)
+            .field("min_consolidation_frequency", &self.min_consolidation_frequency)
+            .field("max_iterations", &self.max_iterations)
+            .field("execution_gate", &self.execution_gate.as_ref().map(|_| "<gate>"))
+            .finish()
+    }
 }
 
 impl Default for CognitiveLoopConfig {
@@ -33,6 +48,7 @@ impl Default for CognitiveLoopConfig {
             pressure_threshold: 0.7,
             min_consolidation_frequency: 3,
             max_iterations: None,
+            execution_gate: None,
         }
     }
 }
@@ -376,14 +392,48 @@ impl SubstrateDaemon {
                         } else if let Some((goal_id, goal_payload)) = &active_goal {
                             use crate::loop_engine::ReactEngine;
                             use crate::payloads::GoalExecutionMode;
-                            let mut engine = ReactEngine::new();
-                            if let Ok(mut ms) = cognitive.memory.lock() {
-                                match goal_payload.execution_mode {
-                                    GoalExecutionMode::StepByStep => {
-                                        let _ = engine.run_one_step(&mut ms, *goal_id, 0u32);
-                                    }
-                                    GoalExecutionMode::FullCycle => {
-                                        let _ = engine.run(&mut ms, *goal_id, 0u32);
+                            // G5d: ExecutionGate pre-flight — blocks react step if gate rejects.
+                            let gate_ok = if let Some(ref gate) = config.execution_gate {
+                                let ctx = crate::self_model::DecisionContext {
+                                    priority: 0.5,
+                                    deadline: None,
+                                    user_facing: false,
+                                    cascading_impact: false,
+                                };
+                                let res = crate::self_model::ResourceUsage {
+                                    cpu_percent: 0.0,
+                                    memory_mb: 0.0,
+                                    disk_io_mbps: 0.0,
+                                    network_io_mbps: 0.0,
+                                    timestamp: std::time::Instant::now(),
+                                };
+                                gate.lock()
+                                    .map(|mut g| g.evaluate("react_step", &ctx, 1.0, &res, 1.0).should_execute)
+                                    .unwrap_or(true)
+                            } else {
+                                true
+                            };
+                            if !gate_ok {
+                                if let Ok(mut ms) = cognitive.memory.lock() {
+                                    let veto = crate::memory_record::MemoryRecord::new(
+                                        crate::memory_record::MemoryType::Temporal,
+                                        actor_clone.clone(),
+                                        "gate_veto".into(),
+                                        goal_id.to_string(),
+                                        serde_json::json!({ "reason": "execution_gate_rejected", "goal_id": goal_id }),
+                                    );
+                                    let _ = ms.add(veto);
+                                }
+                            } else {
+                                let mut engine = ReactEngine::new();
+                                if let Ok(mut ms) = cognitive.memory.lock() {
+                                    match goal_payload.execution_mode {
+                                        GoalExecutionMode::StepByStep => {
+                                            let _ = engine.run_one_step(&mut ms, *goal_id, 0u32);
+                                        }
+                                        GoalExecutionMode::FullCycle => {
+                                            let _ = engine.run(&mut ms, *goal_id, 0u32);
+                                        }
                                     }
                                 }
                             }

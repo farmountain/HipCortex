@@ -45,4 +45,14 @@ impl BeliefExecutive {
         let _ = store.update_record(id, None, None, Some(0.0), None, None);
         crate::jtms::propagate_retraction(store, id, tx, actor)
     }
+
+    /// Reinforce a Belief's confidence by `boost` (additive, clamped to 1.0).
+    /// Positive evidence path — call when new observations support the belief.
+    /// Does not cascade JTMS; the label is stable when confidence is already In.
+    pub fn reinforce<B: MemoryBackend>(store: &mut MemoryStore<B>, id: Uuid, boost: f32) {
+        if let Some(current) = store.find_by_id(id) {
+            let new_conf = (current.confidence + boost).min(1.0);
+            let _ = store.update_record(id, None, None, Some(new_conf), None, None);
+        }
+    }
 }
