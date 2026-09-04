@@ -30,6 +30,22 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 ---
 
+## What's new in v2.3.0 — Grounding Obligation + Intent/Receipt Seam
+
+Teaches the substrate to refuse planning when the world model has not been grounded by real observations, and to speak to the host exclusively through intents and receipts.
+
+| Change | Problem | Fix |
+|--------|---------|-----|
+| **GroundingGate** | Agents entered unfamiliar workspaces and immediately ran instrumental planning against Kalman-predicted entity states — never touching the real env | `GroundingGate::is_active()` blocks `react_loop` when `coverage(Ê; goal predicates) < τ_c=0.6` OR any goal-relevant entity has `epistemic > τ_e=0.5` (n < 4 observations). Stage 5 emits Probe intents instead |
+| **Intent/Receipt seam** | No formal channel between HipCortex and the host runner — observations were self-asserted or came from a second `add_memory` call the host was expected to make | `ActionIntent` (Probe\|Instrumental\|ClarifySense) + `ActionReceipt` are the only env API. `AcceptReceipt` atomically writes `Temporal{receipt_observation}` + updates `WorldModelEnhanced.entity_contacts`. No second `add_memory` needed or accepted |
+| **Q3 PredictedOnly filter** | Kalman fill-ins (`ContactKind::PredictedOnly`) appeared in Q3 valid assumptions — agent treated predictions as facts | Q3 now excludes beliefs with `contact_kind = Some(PredictedOnly)`. Legacy beliefs (`contact_kind = None`) remain included for backward compat |
+| **Q8 expired intents** | Host silence after a deadline was invisible — expired intents didn't inflate `invalidated_count` | `expired_intent_count` added to `invalidated_count`; Q8 lists expired intents as knowledge holes |
+| **Q10 probe-first** | Q10 jumped to `react_loop` even in an ungrounded workspace | Q10 now: `probe_entity:<id>` / `ground_workspace` while Open/InFlight intents exist → `escalate_to_user` on expired silence → `react_loop` only when grounded |
+
+473 unit + 173 integration + 56 property + 7 AC-G1..G7 (v2.3.0) + 6 v2.2.0 + 3 v2.1.0 + 5 v2.0.0 + 10 v1.1.0 + 7 v1.9.0 + 8 v1.0.0 acceptance, 0 failures.
+
+---
+
 ## What's new in v2.2.0 — Epistemic Filter Closure
 
 Closes three gaps where the cognitive report used raw confidence cutoffs instead of JTMS authority, and where verifier mismatch was invisible to Q2.

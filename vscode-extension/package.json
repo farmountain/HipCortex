@@ -1,8 +1,8 @@
 {
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
-    "description": "HipCortex v2.0.0 — Epistemic Write-Path: authority-gated belief writes (confidence clamped by evidence tier), AbstractionGate (Provisional→Confirmed elevation), JTMS cascade persistence. 460 unit + 169 integration + 5 v2.0.0 acceptance + 10/10 v1.1.0 + 7/7 v1.9.0.",
-    "version": "2.1.0",
+    "description": "HipCortex v2.3.0 — Grounding Obligation + Intent/Receipt Seam: GroundingGate blocks instrumental planning until env entities are observed (τ_c=0.6, τ_e=0.5), ActionIntent/ActionReceipt as the only env API, Q3/Q8/Q10 report truth. 473 unit + 173 integration + 7 v2.3.0 + 6 v2.2.0 + 3 v2.1.0 + 5 v2.0.0 + 10 v1.1.0 + 7 v1.9.0 acceptance, 0 failures.",
+    "version": "2.3.0",
     "publisher": "farmountain",
     "repository": {
         "type": "git",
