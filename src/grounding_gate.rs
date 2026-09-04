@@ -69,16 +69,31 @@ impl GroundingGate {
         max_epistemic > TAU_E
     }
 
-    /// Pick the highest-priority probe target: entity with worst epistemic (1/sqrt(n+1)).
+    /// Pick the highest-priority probe target using information-gain ranking.
+    /// Score = epistemic × deficit × probe_penalty (see EntityContactRecord::ig_score).
+    /// Grounded entities (n_observations ≥ MAPPED_OBS_THRESHOLD) score 0.0 and are never returned.
+    /// Returns None when all goal entities are already grounded.
+    pub fn ig_probe_target(
+        goal_entities: &[&str],
+        contact_fn: impl Fn(&str) -> Option<EntityContactRecord>,
+    ) -> Option<String> {
+        let best = goal_entities.iter().max_by(|&&a, &&b| {
+            let sa = contact_fn(a).map(|c| c.ig_score()).unwrap_or(1.0);
+            let sb = contact_fn(b).map(|c| c.ig_score()).unwrap_or(1.0);
+            sa.partial_cmp(&sb).unwrap_or(std::cmp::Ordering::Equal)
+        });
+        best.and_then(|&s| {
+            let score = contact_fn(s).map(|c| c.ig_score()).unwrap_or(1.0);
+            if score > 0.0 { Some(s.to_string()) } else { None }
+        })
+    }
+
+    /// Alias kept for call-site compatibility. Delegates to ig_probe_target.
     pub fn top_probe_target(
         goal_entities: &[&str],
         contact_fn: impl Fn(&str) -> Option<EntityContactRecord>,
     ) -> Option<String> {
-        goal_entities.iter().max_by(|&&a, &&b| {
-            let ea = contact_fn(a).map(|c| c.epistemic()).unwrap_or(1.0);
-            let eb = contact_fn(b).map(|c| c.epistemic()).unwrap_or(1.0);
-            ea.partial_cmp(&eb).unwrap_or(std::cmp::Ordering::Equal)
-        }).map(|&s| s.to_string())
+        Self::ig_probe_target(goal_entities, contact_fn)
     }
 
     /// Expire Open/InFlight intents past their deadline. Returns list of expired intent ids.

@@ -66,6 +66,18 @@ impl EntityContactRecord {
         1.0 / (self.n_observations as f32 + 1.0).sqrt()
     }
 
+    /// Information-gain probe score: epistemic × deficit × probe_penalty.
+    /// Entities at or above MAPPED_OBS_THRESHOLD return 0.0 — already grounded, skip.
+    /// Higher score = higher priority probe target (directional toward coverage).
+    pub fn ig_score(&self) -> f32 {
+        let deficit = (1.0 - self.n_observations as f32 / MAPPED_OBS_THRESHOLD as f32).max(0.0);
+        if deficit == 0.0 {
+            return 0.0;
+        }
+        let probe_penalty = 1.0 / (1.0 + self.probe_count as f32 * 0.2);
+        self.epistemic() * deficit * probe_penalty
+    }
+
     /// Apply a new observation receipt, updating status fields.
     pub fn apply_observation(&mut self) {
         self.last_contact_tx = Some(Utc::now());

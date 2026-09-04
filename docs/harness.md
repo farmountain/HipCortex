@@ -249,8 +249,10 @@ for iteration in 1..max_iterations:
     ACT:     execute tool / write file / call API
     VERIFY:  VerifierGate: WM prediction vs actual target
              → mismatch → CreditAssign written, iteration skipped
-    STORE:   LLM-authored observations → POST /memory/add (Temporal)
-             Env observations → accept_receipt ONLY (never add_memory)
+    STORE:   LLM CoT / Reflexion → POST /memory/add (record_type=Temporal, no intent_id)
+             Env observation (from ACT step, intent_id present) → POST /intent/receipt ONLY
+             SDK/MCP: add_memory(intent_id=X) auto-routes to /intent/receipt
+             REST:    POST /memory/add + intent_id returns 400 → use /intent/receipt
     GATE:    POST /worldmodel/can-execute before irreversible actions
     PROGRESS: check_progress(success_factors, observations, iteration, max)
               if check.uncertainty_detected:

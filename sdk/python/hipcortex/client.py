@@ -43,11 +43,29 @@ class HipCortexClient:
         metadata: Optional[Dict[str, Any]] = None,
         tags: Optional[List[str]] = None,
         priority: str = "normal",  # "pinned"|"high"|"normal"|"low"
+        intent_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Store a memory record.
 
         Returns the server response dict with ``success`` and ``record_id``.
+
+        If ``intent_id`` is given on a Temporal record, the call is routed to
+        POST /intent/receipt (AcceptReceipt seam) instead of /memory/add.
+        Env observations must always go through AcceptReceipt.
         """
+        if intent_id and record_type.lower() in ("temporal", "t"):
+            receipt_payload = {
+                "actor": actor,
+                "intent_id": intent_id,
+                "ok": True,
+                "observation": {"action": action, "target": target, **(metadata or {})},
+                "sensor_path": "add_memory_adapter",
+            }
+            resp = self._session.post(
+                f"{self.base_url}/intent/receipt", json=receipt_payload, timeout=self.timeout
+            )
+            resp.raise_for_status()
+            return resp.json()
         payload = {
             "actor": actor,
             "action": action,

@@ -436,6 +436,10 @@ pub struct AddMemoryRequest {
     /// Priority: "pinned"|"high"|"normal"|"low". Pinned bypass decay in search. Default "normal".
     #[serde(default = "default_priority_str")]
     priority: String,
+    /// Adapter field: if set on a Temporal record, the request is rejected with a redirect
+    /// to POST /intent/receipt (AcceptReceipt seam). Env observations must NOT use /memory/add.
+    #[serde(default)]
+    intent_id: Option<String>,
 }
 
 #[cfg(feature = "web-server")]
@@ -4809,6 +4813,29 @@ async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
     }
 
     let record_type = parse_record_type_alias(req.record_type.as_deref());
+
+    // AcceptReceipt adapter: env Temporal observations must use POST /intent/receipt.
+    // Returning 400 with redirect advice enforces the seam at the API boundary.
+    if matches!(record_type, crate::memory_record::MemoryType::Temporal) {
+        if let Some(ref iid) = req.intent_id {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(AddMemoryResponse {
+                    success: false,
+                    record_id: None,
+                    error: Some(format!(
+                        "Env observations must use POST /intent/receipt (intent_id={iid} detected). \
+                         See docs/harness.md#grounding-seam."
+                    )),
+                    warning: Some(serde_json::json!({
+                        "redirect": "/intent/receipt",
+                        "intent_id": iid,
+                        "reason": "AcceptReceipt is the only valid path for env Temporal records"
+                    })),
+                }),
+            ));
+        }
+    }
 
     let actor_name = req.actor.clone();
     let mut record = MemoryRecord::new(

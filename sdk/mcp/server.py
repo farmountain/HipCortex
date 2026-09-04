@@ -925,6 +925,16 @@ RESOURCES = [
 # ---------------------------------------------------------------------------
 
 def handle_add_memory(args: dict) -> str:
+    # Adapter: if intent_id present on a Temporal record, route through AcceptReceipt seam.
+    record_type = args.get("record_type", "Temporal")
+    if args.get("intent_id") and record_type.lower() in ("temporal", "t"):
+        return handle_accept_receipt({
+            "actor": args["actor"],
+            "intent_id": args["intent_id"],
+            "ok": True,
+            "observation": {"action": args["action"], "target": args["target"]},
+            "sensor_path": "add_memory_adapter",
+        })
     body = {"actor": args["actor"], "action": args["action"], "target": args["target"]}
     if "record_type" in args:
         body["record_type"] = args["record_type"]
@@ -1740,7 +1750,7 @@ def main() -> None:
             respond(id_, {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}, "resources": {}},
-                "serverInfo": {"name": "hipcortex", "version": "2.4.0"},
+                "serverInfo": {"name": "hipcortex", "version": "2.5.0"},
             })
         elif method == "initialized":
             pass  # notification — no response
