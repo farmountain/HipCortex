@@ -213,6 +213,7 @@ impl SubstrateDaemon {
                             let _ = crate::clarify_engine::ClarifyEngine::run(
                                 &mut ms, gid, &actor_clone,
                                 crate::clarify_engine::ClarifyTrigger::EmptyAC,
+                                None,
                             );
                         }
                     }
@@ -294,6 +295,7 @@ impl SubstrateDaemon {
                                             crate::clarify_engine::ClarifyTrigger::RepeatedVeto {
                                                 veto_count: consecutive_veto_count,
                                             },
+                                            None,
                                         );
                                     }
                                 }
@@ -406,6 +408,7 @@ impl SubstrateDaemon {
                                                 *goal_id_v,
                                                 &actor_clone,
                                                 crate::clarify_engine::ClarifyTrigger::PreSuccess,
+                                                None,
                                             );
                                         }
                                     }

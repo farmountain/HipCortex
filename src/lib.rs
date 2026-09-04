@@ -12,6 +12,7 @@ pub mod substrate_daemon;
 pub mod async_memory_store;
 pub mod audit_log;
 pub mod belief_invalidator;
+pub mod belief_executive;
 pub mod epistemic_authority;
 pub mod abstraction_gate;
 pub mod cognitive_report;

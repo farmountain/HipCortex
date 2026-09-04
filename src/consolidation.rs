@@ -363,13 +363,48 @@ pub fn mine_causal_motifs<B: MemoryBackend>(
 }
 
 /// Induce a `Skill` record from a causal motif.
-pub fn induce_skill_record(motif: &CausalMotif, actor: &str) -> MemoryRecord {
+/// Reads the first and last member records from `store` to populate real
+/// preconditions (what was observed at chain start) and expected_outcomes
+/// (what the chain produced at its end) rather than leaving them empty.
+pub fn induce_skill_record<B: MemoryBackend>(
+    motif: &CausalMotif,
+    actor: &str,
+    store: &MemoryStore<B>,
+) -> MemoryRecord {
     let procedure = motif.action_sequence.join(" → ");
-    let payload = SkillPayload {
-        procedure: procedure.clone(),
-        preconditions: vec![],
-        expected_outcomes: vec![format!("pattern repeats {} times", motif.frequency)],
-    };
+
+    let preconditions = motif
+        .member_ids
+        .first()
+        .and_then(|id| store.find_by_id(*id))
+        .map(|r| vec![format!("requires: {} → {}", r.action, r.target)])
+        .unwrap_or_else(|| {
+            motif
+                .action_sequence
+                .first()
+                .map(|a| vec![format!("requires: {}", a)])
+                .unwrap_or_default()
+        });
+
+    let expected_outcomes = motif
+        .member_ids
+        .last()
+        .and_then(|id| store.find_by_id(*id))
+        .map(|r| {
+            vec![format!(
+                "produces: {} → {} (×{} observed)",
+                r.action, r.target, motif.frequency
+            )]
+        })
+        .unwrap_or_else(|| {
+            motif
+                .action_sequence
+                .last()
+                .map(|a| vec![format!("produces: {} ×{}", a, motif.frequency)])
+                .unwrap_or_default()
+        });
+
+    let payload = SkillPayload { procedure: procedure.clone(), preconditions, expected_outcomes };
     let meta = serde_json::to_value(&payload).unwrap_or_default();
     let mut rec = MemoryRecord::new(MemoryType::Skill, actor.into(), "induced".into(), procedure, meta);
     rec.evidence = motif.member_ids.clone();
@@ -449,7 +484,7 @@ pub fn mine_and_consolidate<B: MemoryBackend>(
             }
         }
 
-        let skill = induce_skill_record(motif, actor);
+        let skill = induce_skill_record(motif, actor, store);
         let skill_id = skill.id;
         store.add(skill).map_err(|e| format!("skill add: {e}"))?;
         if let Some(tx) = log {

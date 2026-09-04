@@ -30,6 +30,20 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 ---
 
+## What's new in v2.1.0 — Cognitive Substrate Coherence
+
+Closes three structural gaps where the cognitive report showed correct outputs but the underlying mechanisms were incoherent.
+
+| Gap | Problem | Fix |
+|-----|---------|-----|
+| **Miners didn't get smarter** | `induce_skill_record` always emitted empty `preconditions` and a `"pattern repeats N times"` placeholder — Q7 displayed Skills with no real schema | `induce_skill_record` now reads first/last motif member records from store, populates `preconditions` with the chain entry point and `expected_outcomes` with the chain result (action + target + frequency) |
+| **Two belief writers** | `BeliefInvalidator` decayed confidence; `jtms::propagate_retraction` set `JtmsLabel::Out` — no coordination. A belief at `conf=0.05, label=In` was counted as a valid assumption in Q3 | `BeliefExecutive` is now the single mutation authority: `decay()` atomically applies confidence + cascades JTMS Out when below threshold; `retract()` clamps confidence to 0 before BFS propagation |
+| **Clarify searched; didn't restate** | `ClarifyEngine` ran 3 belief-search rounds but had no WorldModel or env awareness — month-2 env changes (server offline, region changed) left stale `success_factors` in place | `restate_if_env_changed()` scans recent Temporal records for failure signals overlapping each unsatisfied factor; if blocked → renames factor to `{name}_when_available`, writes `Reflexion{goal_restated}`, and `run()` returns `ClarifiedBySubstrate` before belief search |
+
+473 unit + 173 integration + 3 AC-SC + 5 AC-EP + 10 AC-v1.1.0 + 7 AC-v1.9.0 + 8 AC-original, 0 failures.
+
+---
+
 ## What's new in v2.0.0 — Epistemic Write-Path
 
 Closes the three axes of epistemic integrity: who is allowed to change truth, how abstractions form, and how the epistemic state survives process death.

@@ -85,7 +85,7 @@ fn induce_records_have_correct_types() {
     }
     let motifs = mine_causal_motifs(&store, 3, 2, 5);
     assert!(!motifs.is_empty());
-    let skill = induce_skill_record(&motifs[0], "test-agent");
+    let skill = induce_skill_record(&motifs[0], "test-agent", &store);
     assert_eq!(skill.record_type, MemoryType::Skill);
     let belief = induce_belief_record(&motifs[0], skill.id, "test-agent");
     assert_eq!(belief.record_type, MemoryType::Belief);

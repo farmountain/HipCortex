@@ -1167,7 +1167,7 @@ fn ac_clarify_self_resolves_from_belief() {
     );
     store.add(belief_rec).unwrap();
 
-    let outcome = ClarifyEngine::run(&mut store, goal_id, "agent", ClarifyTrigger::EmptyAC);
+    let outcome = ClarifyEngine::run(&mut store, goal_id, "agent", ClarifyTrigger::EmptyAC, None);
     assert_eq!(outcome, ClarifyOutcome::ClarifiedBySubstrate,
         "matching belief must self-resolve as ClarifiedBySubstrate");
 
@@ -1198,7 +1198,7 @@ fn ac_clarify_escalates_after_max_rounds() {
     let goal_id = goal_rec.id;
     store.add(goal_rec).unwrap();
 
-    let outcome = ClarifyEngine::run(&mut store, goal_id, "agent", ClarifyTrigger::EmptyAC);
+    let outcome = ClarifyEngine::run(&mut store, goal_id, "agent", ClarifyTrigger::EmptyAC, None);
     assert_eq!(outcome, ClarifyOutcome::NeedsUserClarification,
         "no matching belief must escalate to NeedsUserClarification");
 
@@ -1231,8 +1231,8 @@ fn ac_clarify_deduplicates_clarify_needed() {
     store.add(goal_rec).unwrap();
 
     // Run twice — must only write one Belief{clarify_needed}
-    let _ = ClarifyEngine::run(&mut store, goal_id, "agent", ClarifyTrigger::EmptyAC);
-    let _ = ClarifyEngine::run(&mut store, goal_id, "agent", ClarifyTrigger::EmptyAC);
+    let _ = ClarifyEngine::run(&mut store, goal_id, "agent", ClarifyTrigger::EmptyAC, None);
+    let _ = ClarifyEngine::run(&mut store, goal_id, "agent", ClarifyTrigger::EmptyAC, None);
 
     let clarify_beliefs = store.all_by_type(MemoryType::Belief).into_iter()
         .filter(|r| r.action == "clarify_needed" && r.derived_from == Some(goal_id))

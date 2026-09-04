@@ -70,8 +70,9 @@ impl BeliefInvalidator {
             let new_conf = ((current_conf as f64) - contradiction_score * DECAY_FACTOR)
                 .max(0.0) as f32;
 
-            // Decay confidence directly in the store.
-            let _ = store.update_record(belief_id, None, None, Some(new_conf), None, None);
+            // Route through BeliefExecutive: atomically decays confidence and propagates
+            // JTMS Out-cascade when below threshold — single authority, no split state.
+            let _ = crate::belief_executive::BeliefExecutive::decay(store, belief_id, new_conf);
 
             if new_conf < ARCHIVE_THRESHOLD {
                 // Write invalidation marker so callers and cognitive_report can surface it.
