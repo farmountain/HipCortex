@@ -388,6 +388,18 @@ impl SubstrateDaemon {
                                         })
                                         .map(|(s, _)| s.as_str())
                                         .unwrap_or("unknown");
+                                    // Write Temporal so cognitive_report Q2 sees this mismatch.
+                                    if let Ok(mut ms) = cognitive.memory.lock() {
+                                        let mut t = crate::memory_record::MemoryRecord::new(
+                                            crate::memory_record::MemoryType::Temporal,
+                                            actor_clone.clone(),
+                                            "verifier_mismatch_observed".to_string(),
+                                            obs.to_string(),
+                                            serde_json::json!({ "predicted": &predicted, "wm_top": wm_top }),
+                                        );
+                                        t.derived_from = Some(*goal_id_v);
+                                        let _ = ms.add(t);
+                                    }
                                     let _ = cognitive.transact(
                                         crate::cognitive_state::CognitiveDelta::CreditAssign(
                                             crate::world_model_enhanced::causal::FailureSignal::ExplicitFail(

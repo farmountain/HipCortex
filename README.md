@@ -30,6 +30,20 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 ---
 
+## What's new in v2.2.0 — Epistemic Filter Closure
+
+Closes three gaps where the cognitive report used raw confidence cutoffs instead of JTMS authority, and where verifier mismatch was invisible to Q2.
+
+| Gap | Problem | Fix |
+|-----|---------|-----|
+| **Q2 raw cutoff** | `learned_beliefs` filtered only on `confidence > 0.3` — a `JtmsLabel::Out` belief at conf=0.85 was counted as learned | Q2 now requires `JtmsLabel::In AND confidence > 0.3`; Out beliefs excluded regardless of confidence |
+| **Q8 raw cutoff** | `uncertain_beliefs` filtered only on `confidence < 0.6` — a `JtmsLabel::Unknown` belief at conf=0.72 was invisible to Q8 | Q8 now includes `JtmsLabel::Unknown` beliefs as first-class uncertain regardless of confidence |
+| **Verifier Temporal gap** | `VerifierGate::check()` was pure — on mismatch the daemon wrote `Belief{verifier_mismatch}` + `Reflexion{credit_assign}` but NO `Temporal`, making the mismatch invisible to Q2's recent-observation query | `VerifierGate::check_and_record()` atomically writes `Temporal{verifier_mismatch_observed}` on mismatch; both `loop_engine` and the substrate daemon updated to use it |
+
+477 unit + 173 integration + 4 AC-Q2/Q8/VM + 3 AC-SC + 5 AC-EP + 10 AC-v1.1.0 + 7 AC-v1.9.0 + 8 AC-original, 0 failures.
+
+---
+
 ## What's new in v2.1.0 — Cognitive Substrate Coherence
 
 Closes three structural gaps where the cognitive report showed correct outputs but the underlying mechanisms were incoherent.
@@ -234,4 +248,4 @@ Engine internals are not reviewed here. See [DUAL_REPO.md](DUAL_REPO.md).
 | [DEPLOY.md](DEPLOY.md) | Self-host / Fly / Docker |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Historical in-tree build notes |
 
-**License:** [Apache-2.0](LICENSE) for this public repository · **Version:** `2.0.0` · VSIX `2.0.0`
+**License:** [Apache-2.0](LICENSE) for this public repository · **Version:** `2.2.0` · VSIX `2.0.0`

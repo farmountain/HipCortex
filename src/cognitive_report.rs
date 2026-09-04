@@ -124,8 +124,14 @@ pub fn build_report<B: MemoryBackend>(
 
     let all_beliefs: Vec<BeliefSummary> =
         all_belief_pairs.iter().map(|(_, b)| b.clone()).collect();
+    // Q2: JTMS-gated — only In-labelled beliefs above 0.3 qualify as "learned".
+    // Out beliefs excluded even at high confidence (split state prevention).
     let learned_beliefs: Vec<BeliefSummary> =
-        all_beliefs.iter().filter(|b| b.confidence > 0.3).cloned().collect();
+        all_belief_pairs
+            .iter()
+            .filter(|(label, b)| matches!(label, crate::payloads::JtmsLabel::In) && b.confidence > 0.3)
+            .map(|(_, b)| b.clone())
+            .collect();
 
     // Q3 — valid assumptions: JTMS In authoritative; Unknown+0.5 included but marked Provisional.
     let valid_assumptions: Vec<BeliefSummary> = all_belief_pairs
@@ -238,9 +244,14 @@ pub fn build_report<B: MemoryBackend>(
         .collect();
     emergent_abstractions.extend(derived_abstractions);
 
-    // Q8 — uncertainties
+    // Q8 — uncertainties: Unknown-labelled beliefs are uncertain regardless of confidence;
+    // low-confidence In/Out beliefs also qualify.
     let uncertain_beliefs: Vec<BeliefSummary> =
-        all_beliefs.iter().filter(|b| b.confidence < 0.6).cloned().collect();
+        all_belief_pairs
+            .iter()
+            .filter(|(label, b)| matches!(label, crate::payloads::JtmsLabel::Unknown) || b.confidence < 0.6)
+            .map(|(_, b)| b.clone())
+            .collect();
     let invalidated_count = store
         .find_by_action("belief_invalidated")
         .len();

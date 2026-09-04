@@ -10,7 +10,11 @@
 //!     If WM predicts a next state and it disagrees with the observation → Mismatch.
 //!     Mismatch → caller writes Belief{action="verifier_mismatch"}, skips Temporal write.
 
+use crate::memory_record::{MemoryRecord, MemoryType};
+use crate::memory_store::MemoryStore;
 use crate::payloads::GoalPayload;
+use crate::persistence::MemoryBackend;
+use uuid::Uuid;
 
 pub const CRITIC_VETO_THRESHOLD: f32 = 0.25;
 
@@ -85,6 +89,30 @@ impl VerifierGate {
             },
             _ => VerifierResult::Consistent,
         }
+    }
+
+    /// Atomic variant: writes Temporal{verifier_mismatch_observed} on mismatch so
+    /// cognitive_report Q2 (recent Temporal observations) can see the discrepancy.
+    pub fn check_and_record<B: MemoryBackend>(
+        store: &mut MemoryStore<B>,
+        predicted: Option<&str>,
+        observed: &str,
+        actor: &str,
+        goal_id: Option<Uuid>,
+    ) -> VerifierResult {
+        let result = Self::check(predicted, observed);
+        if let VerifierResult::Mismatch { ref predicted, .. } = result {
+            let mut temporal = MemoryRecord::new(
+                MemoryType::Temporal,
+                actor.to_string(),
+                "verifier_mismatch_observed".to_string(),
+                observed.to_string(),
+                serde_json::json!({ "predicted": predicted }),
+            );
+            temporal.derived_from = goal_id;
+            let _ = store.add(temporal);
+        }
+        result
     }
 }
 

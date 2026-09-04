@@ -674,7 +674,7 @@ impl ReactEngine {
             {
                 use crate::loop_gates::{VerifierGate, VerifierResult};
                 if let VerifierResult::Mismatch { predicted, observed } =
-                    VerifierGate::check(prev_wm_prediction.as_deref(), &obs_snapshot.target)
+                    VerifierGate::check_and_record(store, prev_wm_prediction.as_deref(), &obs_snapshot.target, "react_engine", Some(goal_id))
                 {
                     let mut mm_rec = MemoryRecord::new(
                         MemoryType::Belief,
