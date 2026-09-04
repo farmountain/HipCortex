@@ -1,10 +1,13 @@
 //! Acceptance suite v2.2.0 — Epistemic Filter Closure
-//! AC-Q2: Q2 (learned_beliefs) requires JtmsLabel::In AND confidence > 0.3; Out excluded.
-//! AC-Q8: Q8 (uncertain_beliefs) includes JtmsLabel::Unknown regardless of confidence.
-//! AC-VM1: VerifierGate::check_and_record writes Temporal on mismatch (Q2-visible).
-//! AC-VM2: VerifierGate::check_and_record Consistent → no Temporal written.
+//! AC-Q2:    Q2 (learned_beliefs) requires JtmsLabel::In AND confidence > 0.3; Out excluded.
+//! AC-Q8:    Q8 (uncertain_beliefs) includes JtmsLabel::Unknown regardless of confidence.
+//! AC-VM1:   VerifierGate::check_and_record writes Temporal on mismatch (Q2-visible).
+//! AC-VM2:   VerifierGate::check_and_record Consistent → no Temporal written.
+//! AC-3M-SBS: StepByStep InProgress goal survives JSONL restart (execution_mode preserved).
+//! AC-3M-Q2:  Q2 JTMS filter correct after JSONL reload — Out excluded, In included.
 
 use std::process;
+use tempfile::TempDir;
 
 macro_rules! ac {
     ($label:expr, $body:block) => {{
@@ -24,6 +27,10 @@ macro_rules! ac {
             }
         }
     }};
+}
+
+fn temp_path(dir: &TempDir, name: &str) -> String {
+    dir.path().join(name).to_string_lossy().into_owned()
 }
 
 fn main() {
@@ -179,5 +186,98 @@ fn main() {
         );
     });
 
-    println!("\n=== Acceptance v2.2.0 (Epistemic Filter Closure): 4/4 passed ===");
+    // ── AC-3M-SBS ────────────────────────────────────────────────────────────
+    ac!("AC-3M-SBS StepByStep InProgress goal survives JSONL restart (execution_mode preserved)", {
+        use hipcortex::payloads::{GoalExecutionMode, GoalStatus, GoalPayload, SuccessFactor};
+
+        let dir = TempDir::new().unwrap();
+        let path = temp_path(&dir, "sbs_mem.jsonl");
+
+        let gp = GoalPayload {
+            target_state: "deploy_v2".to_string(),
+            status: GoalStatus::InProgress,
+            execution_mode: GoalExecutionMode::StepByStep,
+            current_iteration: 2,
+            success_factors: vec![
+                SuccessFactor { name: "tests_pass".to_string(), weight: 1.0, satisfied: true },
+                SuccessFactor { name: "deployed".to_string(), weight: 1.0, satisfied: false },
+            ],
+            ..Default::default()
+        };
+        {
+            let mut s = MemoryStore::new(&path).unwrap();
+            s.add(MemoryRecord::new(
+                MemoryType::Goal, "agent".into(), "pursue".into(),
+                "deploy_v2".into(), serde_json::to_value(&gp).unwrap(),
+            )).unwrap();
+        }
+
+        let s = MemoryStore::new(&path).unwrap();
+        let goals = s.search_by_goal_status("agent", "InProgress");
+        assert!(!goals.is_empty(), "StepByStep goal must survive JSONL restart");
+
+        let reloaded_gp: GoalPayload =
+            serde_json::from_value(goals[0].metadata.clone()).unwrap();
+        assert_eq!(reloaded_gp.execution_mode, GoalExecutionMode::StepByStep,
+            "execution_mode must be StepByStep after reload");
+        assert_eq!(reloaded_gp.current_iteration, 2,
+            "current_iteration must survive reload");
+        assert_eq!(reloaded_gp.success_factors.iter().filter(|f| f.satisfied).count(), 1,
+            "satisfied factor count must survive reload");
+    });
+
+    // ── AC-3M-Q2 ─────────────────────────────────────────────────────────────
+    ac!("AC-3M-Q2 Q2 JTMS filter correct after JSONL reload (Out excluded, In included)", {
+        use hipcortex::payloads::EpistemicStatus;
+
+        let dir = TempDir::new().unwrap();
+        let path = temp_path(&dir, "q2_mem.jsonl");
+
+        // Write: Out belief at high conf + In belief at moderate conf
+        {
+            let mut s = MemoryStore::new(&path).unwrap();
+
+            let bp_out = BeliefPayload {
+                proposition: "legacy_system_active".into(),
+                confidence: 0.88,
+                jtms_label: JtmsLabel::Out,
+                epistemic_status: EpistemicStatus::Observed,
+                ..Default::default()
+            };
+            s.add(MemoryRecord::new(
+                MemoryType::Belief, "agent".into(), "assert".into(),
+                "legacy_system_active".into(), serde_json::to_value(&bp_out).unwrap(),
+            )).unwrap();
+
+            let bp_in = BeliefPayload {
+                proposition: "new_system_ready".into(),
+                confidence: 0.65,
+                jtms_label: JtmsLabel::In,
+                epistemic_status: EpistemicStatus::Observed,
+                ..Default::default()
+            };
+            s.add(MemoryRecord::new(
+                MemoryType::Belief, "agent".into(), "assert".into(),
+                "new_system_ready".into(), serde_json::to_value(&bp_in).unwrap(),
+            )).unwrap();
+        }
+
+        // Reload and run cognitive_report
+        let s = MemoryStore::new(&path).unwrap();
+        let report = build_report(&s, "agent", 1.0);
+
+        let in_in_q2 = report.learned_beliefs.iter()
+            .any(|b| b.proposition == "new_system_ready");
+        let out_in_q2 = report.learned_beliefs.iter()
+            .any(|b| b.proposition == "legacy_system_active");
+
+        assert!(in_in_q2,
+            "Q2 must include In+conf>0.3 belief after JSONL reload; got: {:?}",
+            report.learned_beliefs.iter().map(|b| b.proposition.clone()).collect::<Vec<_>>());
+        assert!(!out_in_q2,
+            "Q2 must exclude Out belief (conf=0.88) after JSONL reload; got: {:?}",
+            report.learned_beliefs.iter().map(|b| b.proposition.clone()).collect::<Vec<_>>());
+    });
+
+    println!("\n=== Acceptance v2.2.0 (Epistemic Filter Closure): 6/6 passed ===");
 }
