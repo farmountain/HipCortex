@@ -28,13 +28,29 @@ pub fn update_from_temporal(obs: &MemoryRecord, wm: &mut WorldModelEnhanced) {
 }
 
 /// Feed an AcceptReceipt outcome into the WM transition model.
-/// from_state=entity, action="probe", to_state="{entity}_ok" or "{entity}_failed".
-/// This lets the WM learn probe success rates per entity over time.
-pub fn update_from_receipt(entity: &str, ok: bool, wm: &mut WorldModelEnhanced) {
-    let to_state = if ok {
-        format!("{}_ok", entity)
-    } else {
-        format!("{}_failed", entity)
-    };
-    let _ = wm.observe_transition(entity.to_string(), "probe".to_string(), to_state);
+/// Writes two transitions when ok=true:
+///   (1) meta-probe: entity → probe → entity_{ok|failed}   (success-rate counter)
+///   (2) domain:     entity → observe → entity:<obs_state>  (real P(s'|s,a) for the work)
+/// The domain transition uses receipt.observation JSON to derive the actual observed state,
+/// making this a genuine world-model update rather than a binary counter.
+pub fn update_from_receipt(entity: &str, ok: bool, observation: &serde_json::Value, wm: &mut WorldModelEnhanced) {
+    // (1) meta-probe transition — always written
+    let probe_to = if ok { format!("{}_ok", entity) } else { format!("{}_failed", entity) };
+    let _ = wm.observe_transition(entity.to_string(), "probe".to_string(), probe_to);
+
+    // (2) domain transition — only on success with a usable observation
+    if ok {
+        let obs_state = observation
+            .as_str()
+            .map(|s| {
+                let s = s.trim();
+                if s.len() > 40 { format!("{}_observed", entity) } else { format!("{}:{}", entity, s) }
+            })
+            .or_else(|| {
+                observation.get("status").and_then(|v| v.as_str())
+                    .map(|s| format!("{}:{}", entity, s))
+            })
+            .unwrap_or_else(|| format!("{}_observed", entity));
+        let _ = wm.observe_transition(entity.to_string(), "observe".to_string(), obs_state);
+    }
 }

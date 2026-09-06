@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hipcortex"
-version = "2.6.0"
+version = "2.7.0"
 description = "Cognitive state substrate for AI agents — goal scheduling, belief revision, world-model feedback. LangChain, AutoGen, CrewAI, MCP"
 readme = "README.md"
 license = {text = "Apache-2.0"}

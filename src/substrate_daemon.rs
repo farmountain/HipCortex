@@ -107,11 +107,17 @@ impl SubstrateDaemon {
         &mut self,
         actor: String,
         cognitive: Arc<crate::cognitive_state::CognitiveHandle<B>>,
-        config: CognitiveLoopConfig,
+        mut config: CognitiveLoopConfig,
     ) -> Uuid
     where
         B: crate::persistence::MemoryBackend + Send + Sync + 'static,
     {
+        // G7c: always-gated in production — install DecisionEngine when no gate injected
+        if config.execution_gate.is_none() {
+            config.execution_gate = Some(Arc::new(Mutex::new(
+                crate::self_model::DecisionEngine::new(),
+            )));
+        }
         let id = Uuid::new_v4();
         let iterations = Arc::new(AtomicU32::new(0));
         let stopped = Arc::new(std::sync::atomic::AtomicBool::new(false));

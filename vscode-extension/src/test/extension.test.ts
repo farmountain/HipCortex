@@ -699,7 +699,8 @@ describe('memory display formatters', () => {
     });
 
     test('QuickPick label omits brackets when tags undefined', () => {
-        const { tags, ...rest } = baseRecord;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { tags: _tags, ...rest } = baseRecord;
         const item = formatMemoryQuickPickItem(rest as any);
         expect(item.label).toBe('vscode-user → edited');
     });

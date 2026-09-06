@@ -2,7 +2,7 @@
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
     "description": "HipCortex v2.6.0 — Closed Spine: ExecutionGate wired in daemon Stage 5, WM receipt feedback (update_from_receipt), BeliefExecutive::reinforce positive-evidence path. IG probe ranking (v2.5.0) + add_memory AcceptReceipt adapter + headless IntentRunner (v2.4.0). 473 unit + 173 integration + 9 v2.6.0 + 10 v2.5.0 + 5 v2.4.0 + 7 v2.3.0 acceptance, 0 failures.",
-    "version": "2.6.0",
+    "version": "2.7.0",
     "publisher": "farmountain",
     "repository": {
         "type": "git",

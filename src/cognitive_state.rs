@@ -439,25 +439,34 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
                 };
                 wm.update_entity_contact(entity, kind);
             }
-            // G5b: feed receipt outcome into WM transition model (spine feedback loop)
+            // G7a: observation-aware WM domain transition (not just binary probe counter)
             if let Ok(mut wm) = self.world.write() {
-                crate::wm_updater::update_from_receipt(entity, receipt.ok, &mut wm);
+                crate::wm_updater::update_from_receipt(entity, receipt.ok, &receipt.observation, &mut wm);
             }
-            // G5c: reinforce supporting beliefs when probe succeeds (positive evidence path)
+            // G7b: reinforce via provenance (derived_from / evidence), not substring
             if receipt.ok {
                 if let Ok(mut ms) = self.memory.lock() {
-                    let belief_ids: Vec<uuid::Uuid> = ms
-                        .all_by_type(MemoryType::Belief)
+                    // Temporal record IDs where target == entity — causal anchors
+                    let temporal_ids: std::collections::HashSet<uuid::Uuid> = ms
+                        .all_by_type(MemoryType::Temporal)
                         .into_iter()
-                        .filter(|b| {
-                            serde_json::from_value::<crate::payloads::BeliefPayload>(b.metadata.clone())
-                                .map(|p| p.proposition.to_lowercase().contains(&entity.to_lowercase()))
-                                .unwrap_or(false)
-                        })
-                        .map(|b| b.id)
+                        .filter(|r| r.target.eq_ignore_ascii_case(entity))
+                        .map(|r| r.id)
                         .collect();
-                    for id in belief_ids {
-                        crate::belief_executive::BeliefExecutive::reinforce(&mut ms, id, 0.05);
+                    if !temporal_ids.is_empty() {
+                        // Beliefs linked via derived_from or evidence — structural causal link
+                        let belief_ids: Vec<uuid::Uuid> = ms
+                            .all_by_type(MemoryType::Belief)
+                            .into_iter()
+                            .filter(|b| {
+                                b.derived_from.map(|p| temporal_ids.contains(&p)).unwrap_or(false)
+                                    || b.evidence.iter().any(|e| temporal_ids.contains(e))
+                            })
+                            .map(|b| b.id)
+                            .collect();
+                        for id in belief_ids {
+                            crate::belief_executive::BeliefExecutive::reinforce(&mut ms, id, 0.05);
+                        }
                     }
                 }
             }

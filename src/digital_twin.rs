@@ -27,6 +27,9 @@ pub struct DigitalTwin<B: MemoryBackend + Send + Sync + 'static> {
     pub dynamics: ContinuousDynamics,
     pub sync_policy: SyncPolicy,
     pub created_at_tx: u64,
+    /// G7a: when true, step_with_wm refuses to advance if WM has no grounded transitions
+    /// (MAP probability = 0.0), enforcing PredictedOnly-as-law across the twin.
+    pub predicted_only_barrier: bool,
     trajectory: Vec<Vec<f64>>,
     t: f64,
     interventions: std::collections::HashMap<String, f64>,
@@ -47,6 +50,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> DigitalTwin<B> {
             dynamics,
             sync_policy,
             created_at_tx,
+            predicted_only_barrier: false,
             trajectory: Vec::new(),
             t: 0.0,
             interventions: std::collections::HashMap::new(),
@@ -82,6 +86,48 @@ impl<B: MemoryBackend + Send + Sync + 'static> DigitalTwin<B> {
                 if idx < next.len() {
                     next[idx] = val;
                 }
+            }
+        }
+        self.t += self.dynamics.dt;
+        self.trajectory.push(next.clone());
+        Ok(next)
+    }
+
+    /// Advance twin by one action, coupling WM Dirichlet transitions into DynamicsContext.
+    /// Uses `wm.predict_next_state(entity, action)` to derive MAP probability as entity signal,
+    /// making twin steps informed by learned P(s'|s,a) rather than always-empty entity_states.
+    /// When `predicted_only_barrier=true`, refuses step if WM has no grounded transitions (MAP=0).
+    pub fn step_with_wm(
+        &mut self,
+        action: &str,
+        entity: &str,
+        wm: &crate::world_model_enhanced::WorldModelEnhanced,
+    ) -> Result<Vec<f64>, CognitiveError> {
+        // MAP probability from Dirichlet-Multinomial over successor states
+        let map_prob = wm.predict_next_state(entity, action)
+            .map(|pred| pred.probabilities.values().cloned().fold(0.0_f64, f64::max))
+            .unwrap_or(0.0);
+
+        if self.predicted_only_barrier && map_prob == 0.0 {
+            return Err(CognitiveError::StoreError(
+                format!("PredictedOnly barrier: WM has no grounded transitions for entity='{}' action='{}'", entity, action)
+            ));
+        }
+
+        self.fork.step(action)?;
+        let prev = self.trajectory.last().cloned().unwrap_or_else(|| vec![0.0; self.dynamics.dim()]);
+        let entity_signal_vec = vec![map_prob];
+        let entity_signals: [(Uuid, Vec<f64>); 1] = [(self.id, entity_signal_vec)];
+        let ctx = DynamicsContext {
+            entity_states: &entity_signals,
+            resource_vec: &[],
+            tx_cursor: 0,
+        };
+        let mut next = self.dynamics.step(self.t, &prev, &ctx)
+            .map_err(|e| CognitiveError::StoreError(e))?;
+        for (var, &val) in &self.interventions {
+            if let Some(&idx) = self.var_to_dim.get(var) {
+                if idx < next.len() { next[idx] = val; }
             }
         }
         self.t += self.dynamics.dt;

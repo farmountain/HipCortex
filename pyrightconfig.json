@@ -1,7 +1,7 @@
 {
     "pythonVersion": "3.11",
     "pythonPlatform": "Windows",
-    "venvPath": "C:/Users/user/AppData/Roaming/uv/python",
+    "pythonPath": "C:/Users/user/AppData/Roaming/uv/python/cpython-3.11.15-windows-x86_64-none/python.exe",
     "extraPaths": [
         ".",
         "sdk/python",
