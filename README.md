@@ -28,9 +28,41 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 | Decisions leave no trace | DecisionPayload + provenance chain per act-phase |
 | Agent doesn't know what it's allowed to do | ActionRegistry + ExecutionGate answer that in one call |
 | Probe target selection is blind | IG-ranked probes (epistemic × deficit × probe_penalty) select highest-information entity first; grounded → never re-probed |
-| Probe outcomes don't update the world model | `update_from_receipt` feeds every receipt into WM Dirichlet-Multinomial transitions |
-| Successful probes leave beliefs unchanged | `BeliefExecutive::reinforce` provides the positive-evidence path |
+| Probe outcomes don't update the world model | `update_from_receipt` writes dual transitions (meta-probe + domain `P(s′\|s,a)`) into WM |
+| Successful probes leave beliefs unchanged | `BeliefExecutive::reinforce` via `derived_from`/`evidence` provenance — not substring |
 | IDE exit breaks autonomy | Headless `IntentRunner` polls and dispatches intents without the IDE open |
+| Action ordering within a goal is arbitrary | `GoalScheduler::plan_action_sequence` orders success_factors by WM MAP probability — grounded first |
+| Tool recommendation ignores actuator liveness | `filter_liveness` removes probe-failed/stale MCP servers using WM `entity_contact` heartbeats |
+| 3-month claim backed only by unit suites | `soak_sit.rs`: 500-iter temporal decay + WM convergence + bounded-growth proof |
+| No public differentiation metric vs Mem0/Zep/Letta | 10-question substrate scorecard with code refs + `GET /substrate/scorecard` |
+
+---
+
+## What's new in v2.8.0 — Competent Planner + Market Scorecard
+
+Closes the planner/tools/soak/differentiation gaps: action ordering is now WM-grounded, tool recommendations are liveness-aware, the 3-month claim has a time-compressed soak proof, and the substrate is publicly scoreable vs agent-memory competitors.
+
+| Change | Problem | Fix |
+|--------|---------|-----|
+| **WM-coupled planner** | `GoalScheduler` was a scalar `urgency/cost` queue — action ordering inside goals was arbitrary | `plan_action_sequence(payload, wm)` orders unsatisfied `success_factors` by WM MAP probability descending (most grounded first); `wm_ranked` breaks goal-selection ties by WM coverage fraction |
+| **Liveness-aware tools** | `recommend_tools` returned a static string-matched catalog unaware of gate vetoes or actuator heartbeats | `filter_liveness(rec, wm)` removes MCP servers whose `entity_contact` shows `ProbeFailed` < 60 s or `staleness_s() > 300 s`; handler upgraded with `world_model` arc |
+| **Soak proof** | The 3-month autonomy claim was a composition of unit suites — no time-compressed loop test existed | `tests/integration/soak_sit.rs`: AC-S1 (purge_expired cleans hot store), AC-S2 (500-iter WM convergence), AC-S3 (bounded growth ≤ 50 persistent beliefs) |
+| **Substrate scorecard** | No public metric differentiating substrate from agent memory layer (Mem0/Zep/Letta) | `docs/substrate_scorecard.md`: 10 verifiable Q+code-refs; `GET /substrate/scorecard` JSON endpoint |
+
+366 unit + 173 integration + 56 property + 8 AC-P/T/M (v2.8.0) + 3 soak (v2.8.0) + 7 AC-A/B/C (v2.7.0) + 9 AC-E/W/B (v2.6.0) + 10 v2.5.0 + 5 v2.4.0 + 7 v2.3.0 + 6 v2.2.0 + 3 v2.1.0 + 5 v2.0.0 + 10 v1.1.0 + 7 v1.9.0 + 8 v1.0.0 acceptance, 0 failures.
+
+---
+
+## What's new in v2.7.0 — Competent WM + Provenance Credit + Always-Gated Spine
+
+Closes three architectural gaps in the cognitive spine: world model now learns real P(s′|s,a), credit assignment follows causal provenance, and Stage 5 is always gated in production.
+
+| Change | Problem | Fix |
+|--------|---------|-----|
+| **WM dual transitions** | `update_from_receipt` wrote a binary counter (`entity→probe→entity_ok\|failed`) — not a genuine P(s′\|s,a) model | Now writes two transitions: meta-probe (success rate) + domain observe (`entity→observe→entity:<obs_state>`) derived from `receipt.observation` JSON |
+| **Provenance credit** | `accept_receipt_impl` used `proposition.contains(entity)` substring — wrong beliefs boosted, `derived_from` links ignored | Traverses `derived_from` and `evidence` links to find causally connected beliefs; only structurally linked beliefs receive `reinforce(0.05)` |
+| **Always-gated spine** | `CognitiveLoopConfig.execution_gate` defaulted to `None` — Stage 5 was un-gated when no gate injected | `subscribe_with_config` installs `DecisionEngine::new()` when `execution_gate.is_none()` (G7c); explicit gates never overwritten |
+| **WM-coupled DigitalTwin** | `DigitalTwin::step` always passed empty `entity_states` — twin dynamics blind to WM | `step_with_wm(action, entity, wm)` couples WM MAP probability into `DynamicsContext.entity_states`; `predicted_only_barrier` enforces PredictedOnly-as-law |
 
 ---
 

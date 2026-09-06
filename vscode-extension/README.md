@@ -1,13 +1,39 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v2.6.0`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v2.8.0`)
 
-[![Version](https://img.shields.io/badge/version-v2.6.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v2.8.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
 **Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, grounded probe planning, and topological graph tools.**
 
-VSIX **2.6.0** (Closed Spine) · server/pip/npm **2.6.0**. 473 unit + 173 integration + 56 property + 9 AC-E1..E3/W1..W3/B1..B3 (v2.6.0) + 10 v2.5.0 + 5 v2.4.0 + 7 v2.3.0 + 6 v2.2.0 + 3 v2.1.0 + 5 v2.0.0 acceptance, **0 failures**. See [docs/channels.md](../docs/channels.md).
+VSIX **2.8.0** (Competent Planner + Market Scorecard) · server/pip/npm **2.8.0**. 366 unit + 173 integration + 56 property + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + 9 AC-E/W/B (v2.6.0) + 10 v2.5.0 + 5 v2.4.0 + 7 v2.3.0 acceptance, **0 failures**. See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v2.8.0 — Competent Planner + Market Scorecard
+
+WM-grounded action ordering, liveness-aware tool recommendations, 500-iteration soak proof, and a public 10-question substrate scorecard vs Mem0/Zep/Letta.
+
+| Change | Details |
+|--------|---------|
+| **WM-coupled planner** | `GoalScheduler::plan_action_sequence(payload, wm)` orders unsatisfied success_factors by WM MAP probability descending — most grounded action first; `wm_ranked` boosts goal priority by WM coverage fraction |
+| **Liveness-aware tools** | `filter_liveness(rec, wm)` removes MCP servers whose `entity_contact` shows `ProbeFailed` < 60 s or `staleness_s() > 300 s`; `recommend_tools` handler upgraded with `world_model` arc |
+| **Soak proof** | `tests/integration/soak_sit.rs`: AC-S1 (purge_expired cleans hot store), AC-S2 (500-iter WM convergence), AC-S3 (bounded growth ≤ 50 persistent beliefs) |
+| **Substrate scorecard** | `docs/substrate_scorecard.md`: 10 verifiable Q+code-refs differentiating substrate from agent memory layers; `GET /substrate/scorecard` JSON endpoint |
+
+---
+
+## What's new in v2.7.0 — Competent WM + Provenance Credit + Always-Gated Spine
+
+WM learns real P(s′|s,a), credit assignment follows causal provenance, Stage 5 always gated in production.
+
+| Change | Details |
+|--------|---------|
+| **WM dual transitions** | `update_from_receipt` writes two transitions per receipt: meta-probe (success rate) + domain observe (`entity→observe→entity:<obs_state>`) derived from `receipt.observation` JSON |
+| **Provenance credit** | `accept_receipt_impl` traverses `derived_from` and `evidence` links — only structurally linked beliefs receive `reinforce(0.05)`; substring match removed |
+| **Always-gated spine** | `subscribe_with_config` installs `DecisionEngine::new()` when `execution_gate.is_none()` (G7c); explicit gates never overwritten |
+| **WM-coupled DigitalTwin** | `step_with_wm(action, entity, wm)` couples WM MAP probability into `DynamicsContext.entity_states`; `predicted_only_barrier` enforces PredictedOnly-as-law |
 
 ---
 
@@ -85,7 +111,7 @@ Install from Marketplace / Open VSX / GitHub release VSIX. Extension **starts a 
 - **Passive capture**: saves code edits and terminal output automatically when `hipcortex.passiveCapture` is `true`
 
 ```bash
-code --install-extension hipcortex-memory-2.6.0.vsix
+code --install-extension hipcortex-memory-2.8.0.vsix
 ```
 
 ---
@@ -242,7 +268,7 @@ npm test
 npx @vscode/vsce package --no-dependencies
 ```
 
-Produces `hipcortex-memory-2.6.0.vsix` (version from `package.json`).
+Produces `hipcortex-memory-2.8.0.vsix` (version from `package.json`).
 
 ---
 
