@@ -33,24 +33,42 @@ pub fn update_from_temporal(obs: &MemoryRecord, wm: &mut WorldModelEnhanced) {
 ///   (2) domain:     entity → observe → entity:<obs_state>  (real P(s'|s,a) for the work)
 /// The domain transition uses receipt.observation JSON to derive the actual observed state,
 /// making this a genuine world-model update rather than a binary counter.
-pub fn update_from_receipt(entity: &str, ok: bool, observation: &serde_json::Value, wm: &mut WorldModelEnhanced) {
+/// Returns `true` if the observation was surprising (diverged from WM MAP prediction).
+/// Callers use this to flag DiscrepancyDetected on the entity and write uncertainty signals.
+pub fn update_from_receipt(entity: &str, ok: bool, observation: &serde_json::Value, wm: &mut WorldModelEnhanced) -> bool {
     // (1) meta-probe transition — always written
     let probe_to = if ok { format!("{}_ok", entity) } else { format!("{}_failed", entity) };
     let _ = wm.observe_transition(entity.to_string(), "probe".to_string(), probe_to);
 
     // (2) domain transition — only on success with a usable observation
     if ok {
-        let obs_state = observation
-            .as_str()
-            .map(|s| {
-                let s = s.trim();
-                if s.len() > 40 { format!("{}_observed", entity) } else { format!("{}:{}", entity, s) }
+        let obs_state = derive_obs_state(entity, observation);
+        // Surprise check: if WM had a dominant MAP prediction, compare to actual obs_state.
+        let was_surprising = wm.predict_next_state(entity, "observe")
+            .ok()
+            .and_then(|pred| {
+                pred.probabilities.iter()
+                    .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
+                    .map(|(map_state, _)| map_state != &obs_state)
             })
-            .or_else(|| {
-                observation.get("status").and_then(|v| v.as_str())
-                    .map(|s| format!("{}:{}", entity, s))
-            })
-            .unwrap_or_else(|| format!("{}_observed", entity));
+            .unwrap_or(false); // no prior transitions = first observation, not surprising
         let _ = wm.observe_transition(entity.to_string(), "observe".to_string(), obs_state);
+        was_surprising
+    } else {
+        false
     }
+}
+
+fn derive_obs_state(entity: &str, observation: &serde_json::Value) -> String {
+    observation
+        .as_str()
+        .map(|s| {
+            let s = s.trim();
+            if s.len() > 40 { format!("{}_observed", entity) } else { format!("{}:{}", entity, s) }
+        })
+        .or_else(|| {
+            observation.get("status").and_then(|v| v.as_str())
+                .map(|s| format!("{}:{}", entity, s))
+        })
+        .unwrap_or_else(|| format!("{}_observed", entity))
 }

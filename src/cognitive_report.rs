@@ -270,11 +270,20 @@ pub fn build_report<B: MemoryBackend>(
         .find_by_action("belief_invalidated")
         .len();
     // Expired intents = host silence — first-class uncertainty holes.
+    // Also count Open/InFlight intents whose deadline_ms is already past (C6: runner silence).
+    let now_ms = chrono::Utc::now().timestamp_millis();
     let expired_intent_count = store
         .all_by_type(MemoryType::Intent)
         .iter()
         .filter(|r| {
-            r.metadata.get("status").and_then(|s| s.as_str()) == Some("Expired")
+            let status = r.metadata.get("status").and_then(|s| s.as_str());
+            status == Some("Expired") || {
+                matches!(status, Some("Open") | Some("InFlight"))
+                    && r.metadata.get("deadline_ms")
+                        .and_then(|v| v.as_i64())
+                        .map(|d| d < now_ms)
+                        .unwrap_or(false)
+            }
         })
         .count();
     let open_uncertainties = UncertaintySummary {
@@ -295,12 +304,18 @@ pub fn build_report<B: MemoryBackend>(
     } else {
         "Balanced"
     };
-    // Check if ClarifyEngine has a pending clarify_needed for the active goal.
+    // clarify_pending: explicit Belief{clarify_needed} OR goal with empty success_factors (C2).
     let clarify_pending = active_goal_id
         .map(|gid| {
-            store.all_by_type(MemoryType::Belief).into_iter().any(|r| {
+            let has_belief = store.all_by_type(MemoryType::Belief).into_iter().any(|r| {
                 r.actor == actor && r.action == "clarify_needed" && r.derived_from == Some(gid)
-            })
+            });
+            let empty_factors = store
+                .find_by_id(gid)
+                .and_then(|r| serde_json::from_value::<GoalPayload>(r.metadata.clone()).ok())
+                .map(|p| p.success_factors.is_empty())
+                .unwrap_or(false);
+            has_belief || empty_factors
         })
         .unwrap_or(false);
     let next_goal = crate::goal_scheduler::GoalScheduler::next(store, actor);
@@ -360,6 +375,23 @@ pub fn build_report<B: MemoryBackend>(
             goal_target: Some(target),
             recommended_op: "react_loop".to_string(),
             rationale: format!("mode={synthesis_mode} — highest urgency/cost ratio among active goals"),
+        }
+    } else if store
+        .all_by_type(MemoryType::Goal)
+        .into_iter()
+        .filter(|r| r.actor == actor)
+        .any(|r| {
+            serde_json::from_value::<GoalPayload>(r.metadata.clone())
+                .map(|p| matches!(p.status, GoalStatus::Succeeded))
+                .unwrap_or(false)
+        })
+    {
+        // C7: recently-succeeded goal — honest task_complete recommendation (not query_memory).
+        NextAction {
+            goal_id: None,
+            goal_target: None,
+            recommended_op: "task_complete".to_string(),
+            rationale: format!("mode={synthesis_mode} — all success_factors satisfied, goal succeeded"),
         }
     } else {
         NextAction {

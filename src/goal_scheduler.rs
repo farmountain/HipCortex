@@ -111,3 +111,37 @@ impl GoalScheduler {
         scored.into_iter().map(|(id, _)| id).collect()
     }
 }
+
+/// Completion status of a goal independent of open intents (C7).
+#[derive(Debug, Clone, PartialEq)]
+pub enum CompletionStatus {
+    Complete,
+    Partial { satisfied: usize, total: usize },
+    Pending,
+}
+
+/// Assess goal completion directly from success_factors.satisfied — no open-intent dependency.
+/// Returns `Complete` when every success_factor is satisfied; `Partial` or `Pending` otherwise.
+pub fn assess_completion<B: MemoryBackend>(
+    goal_id: Uuid,
+    store: &crate::memory_store::MemoryStore<B>,
+) -> CompletionStatus {
+    let rec = match store.find_by_id(goal_id) {
+        Some(r) => r,
+        None => return CompletionStatus::Pending,
+    };
+    let payload: GoalPayload = match serde_json::from_value(rec.metadata.clone()) {
+        Ok(p) => p,
+        Err(_) => return CompletionStatus::Pending,
+    };
+    if payload.success_factors.is_empty() {
+        return CompletionStatus::Pending;
+    }
+    let total = payload.success_factors.len();
+    let satisfied = payload.success_factors.iter().filter(|f| f.satisfied).count();
+    if satisfied == total {
+        CompletionStatus::Complete
+    } else {
+        CompletionStatus::Partial { satisfied, total }
+    }
+}

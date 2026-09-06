@@ -440,13 +440,18 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
                 wm.update_entity_contact(entity, kind);
             }
             // G7a: observation-aware WM domain transition (not just binary probe counter)
-            if let Ok(mut wm) = self.world.write() {
-                crate::wm_updater::update_from_receipt(entity, receipt.ok, &receipt.observation, &mut wm);
-            }
-            // G7b: reinforce via provenance (derived_from / evidence), not substring
-            if receipt.ok {
-                if let Ok(mut ms) = self.memory.lock() {
-                    // Temporal record IDs where target == entity — causal anchors
+            // Capture was_surprising: true when obs_state diverged from WM MAP prediction.
+            let was_surprising = if let Ok(mut wm) = self.world.write() {
+                let surprising = crate::wm_updater::update_from_receipt(entity, receipt.ok, &receipt.observation, &mut wm);
+                if surprising {
+                    wm.flag_discrepancy(entity);
+                }
+                surprising
+            } else { false };
+            // G7b + discrepancy belief — single memory lock for both operations.
+            if let Ok(mut ms) = self.memory.lock() {
+                // G7b: reinforce via provenance (derived_from / evidence), not substring
+                if receipt.ok {
                     let temporal_ids: std::collections::HashSet<uuid::Uuid> = ms
                         .all_by_type(MemoryType::Temporal)
                         .into_iter()
@@ -454,7 +459,6 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
                         .map(|r| r.id)
                         .collect();
                     if !temporal_ids.is_empty() {
-                        // Beliefs linked via derived_from or evidence — structural causal link
                         let belief_ids: Vec<uuid::Uuid> = ms
                             .all_by_type(MemoryType::Belief)
                             .into_iter()
@@ -469,8 +473,24 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
                         }
                     }
                 }
+                // 3a: Discrepancy belief — confidence=0.3 → Q8 uncertain_beliefs (< 0.6).
+                if was_surprising {
+                    let mut disc = MemoryRecord::new(
+                        MemoryType::Belief,
+                        actor.to_string(),
+                        "discrepancy_detected".to_string(),
+                        entity.clone(),
+                        serde_json::json!({
+                            "reason": "observation_diverged_from_wm_prediction",
+                            "entity": entity,
+                        }),
+                    );
+                    disc.confidence = 0.3;
+                    let _ = ms.add(disc);
+                }
             }
         }
+
         // 3. Temporal observation record
         let obs_rec = MemoryRecord::new(
             MemoryType::Temporal,

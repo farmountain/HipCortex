@@ -140,6 +140,16 @@ impl WorldModelEnhanced {
         self.entity_contacts.read().ok()?.get(name).cloned()
     }
 
+    /// Mark entity as discrepancy-detected: observation contradicted WM MAP prediction.
+    pub fn flag_discrepancy(&self, name: &str) {
+        self.update_entity_contact(name, crate::action_intent::ContactKind::DiscrepancyDetected);
+    }
+
+    /// Mark entity as silence-timeout: open intent past deadline_ms with no receipt.
+    pub fn register_silence(&self, name: &str) {
+        self.update_entity_contact(name, crate::action_intent::ContactKind::SilenceTimeout);
+    }
+
     pub fn update_entity_contact(&self, name: &str, kind: crate::action_intent::ContactKind) {
         if let Ok(mut contacts) = self.entity_contacts.write() {
             let entry = contacts.entry(name.to_string()).or_default();
@@ -148,6 +158,12 @@ impl WorldModelEnhanced {
                 crate::action_intent::ContactKind::ProbeFailed => entry.apply_probe_failed(),
                 crate::action_intent::ContactKind::PredictedOnly => {
                     entry.last_contact_kind = crate::action_intent::ContactKind::PredictedOnly;
+                }
+                crate::action_intent::ContactKind::SilenceTimeout => {
+                    entry.last_contact_kind = crate::action_intent::ContactKind::SilenceTimeout;
+                }
+                crate::action_intent::ContactKind::DiscrepancyDetected => {
+                    entry.last_contact_kind = crate::action_intent::ContactKind::DiscrepancyDetected;
                 }
             }
         }

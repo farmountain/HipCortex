@@ -38,6 +38,22 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 ---
 
+## What's new in v2.9.0 — Cognitive Loop Closure + ClarifyEngine Lifecycle
+
+Closes 4 PARTIAL criteria from the 7-point grounding rubric: schema-mismatch clarification (C2), discrepancy-spike on surprising observations (C4), runner-silence uncertainty (C6), and honest goal-completion signalling (C7). ClarifyEngine bounded self-prompt lifecycle wired throughout the full HipCortex stack.
+
+| Change | Problem | Fix |
+|--------|---------|-----|
+| **ClarifyEngine lifecycle (C2)** | Schema-mismatch payload silently fell through to `query_memory` instead of redirecting to clarify | `POST /goal/:id/react` uses `.unwrap_or_default()` + gates on `success_factors.is_empty()` → 422 with `/clarify` hint; Q10 `clarify_pending` also triggers on empty `success_factors` |
+| **Discrepancy spike (C4)** | WM uncertainty didn't rise when observed entity state diverged from WM MAP prediction | `update_from_receipt` returns `was_surprising: bool` (pre-update MAP comparison); `flag_discrepancy()` stamps `ContactKind::DiscrepancyDetected`; discrepancy `Belief{confidence=0.3}` written → Q8 `uncertain_beliefs` picks it up |
+| **Runner silence (C6)** | Past-deadline Open/InFlight intents not counted in Q8 `invalidated_count` | Q8 scans all `Intent` records at read-time; past-deadline Open/InFlight folded into `invalidated_count` without mutating state |
+| **Goal completion (C7)** | Q10 said `query_memory` even after goal reached `GoalStatus::Succeeded` | New `task_complete` branch in Q10 checks `GoalStatus::Succeeded` on actor's goals; `assess_completion(goal_id, store) -> CompletionStatus` provides clean programmatic API |
+| **ClarifyEngine wiring** | `ReactEngine::run` returned `Err` bluntly on empty `success_factors` | Now calls `ClarifyEngine::run(EmptyAC)` → `ClarifiedBySubstrate` reloads payload and retries; bounded by `MAX_CLARIFY_ROUNDS=3` |
+
+366 unit + 173 integration + 56 property + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak (v2.8.0) + 7 AC-A/B/C (v2.7.0) + 9 AC-E/W/B (v2.6.0) + 10 v2.5.0 + 5 v2.4.0 + 7 v2.3.0 + 6 v2.2.0 + 3 v2.1.0 + 5 v2.0.0 + 10 v1.1.0 + 7 v1.9.0 + 8 v1.0.0 acceptance, 0 failures.
+
+---
+
 ## What's new in v2.8.0 — Competent Planner + Market Scorecard
 
 Closes the planner/tools/soak/differentiation gaps: action ordering is now WM-grounded, tool recommendations are liveness-aware, the 3-month claim has a time-compressed soak proof, and the substrate is publicly scoreable vs agent-memory competitors.

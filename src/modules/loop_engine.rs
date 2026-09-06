@@ -581,10 +581,31 @@ impl ReactEngine {
             .map_err(|e| format!("Goal metadata parse error: {}", e))?;
 
         if goal_payload.success_factors.is_empty() {
-            return Err(format!(
-                "Goal {} has no success_factors — call /goal/{}/clarify before running",
-                goal_id, goal_id
-            ));
+            // Self-prompt first (ClarifyEngine, max 3 cycles). If unresolvable,
+            // write Belief{clarify_needed} and return Pending — do not run react loop.
+            let actor = goal_record.actor.as_str();
+            let outcome = crate::clarify_engine::ClarifyEngine::run(
+                store,
+                goal_id,
+                actor,
+                crate::clarify_engine::ClarifyTrigger::EmptyAC,
+                Some(&self.wm),
+            );
+            match outcome {
+                crate::clarify_engine::ClarifyOutcome::ClarifiedBySubstrate => {
+                    // Reload payload — env restatement may have added factors.
+                    goal_payload = serde_json::from_value(
+                        store.find_by_id(goal_id)
+                            .ok_or_else(|| format!("Goal not found: {}", goal_id))?
+                            .metadata.clone(),
+                    ).map_err(|e| format!("Goal metadata re-parse error: {}", e))?;
+                    if goal_payload.success_factors.is_empty() {
+                        return Ok(GoalStatus::Pending);
+                    }
+                    // success_factors populated by restatement — continue run.
+                }
+                _ => return Ok(GoalStatus::Pending), // NeedsUserClarification or AlreadyClear
+            }
         }
 
         let max_iter = self

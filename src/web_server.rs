@@ -3731,20 +3731,21 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
                 Ok(u) => u,
                 Err(_) => return (StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"error": "invalid uuid"}))),
             };
-            // Clarify gate: reject if goal has no success_factors
+            // Clarify gate: reject if goal has no success_factors.
+            // unwrap_or_default() ensures schema mismatch → empty GoalPayload → caught here (C2).
             {
                 let s = store.lock().unwrap();
                 if let Some(rec) = s.find_by_id(goal_id) {
-                    if let Ok(payload) = serde_json::from_value::<crate::payloads::GoalPayload>(rec.metadata.clone()) {
-                        if payload.success_factors.is_empty() {
-                            return (
-                                StatusCode::UNPROCESSABLE_ENTITY,
-                                axum::Json(serde_json::json!({
-                                    "error": "goal must be clarified before react: POST /goal/{id}/clarify",
-                                    "goal_id": goal_id.to_string()
-                                })),
-                            );
-                        }
+                    let payload = serde_json::from_value::<crate::payloads::GoalPayload>(rec.metadata.clone())
+                        .unwrap_or_default();
+                    if payload.success_factors.is_empty() {
+                        return (
+                            StatusCode::UNPROCESSABLE_ENTITY,
+                            axum::Json(serde_json::json!({
+                                "error": "goal must be clarified before react: POST /goal/{id}/clarify",
+                                "goal_id": goal_id.to_string()
+                            })),
+                        );
                     }
                 }
             }

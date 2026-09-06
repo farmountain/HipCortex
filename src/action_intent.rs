@@ -21,6 +21,10 @@ pub enum ContactKind {
     Observed,
     /// Host attempted probe but reported ok=false.
     ProbeFailed,
+    /// Open/InFlight intent past deadline_ms with no receipt — runner silence.
+    SilenceTimeout,
+    /// Receipt observation diverged from WM MAP prediction — reality contradicts model.
+    DiscrepancyDetected,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
