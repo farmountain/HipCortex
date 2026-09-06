@@ -221,6 +221,34 @@ fn build_recommendation(category: &str) -> ToolRecommendation {
     }
 }
 
+/// Remove MCP server entries from `rec` that are known-stale or recently probe-failed.
+///
+/// Rules (v2.8.0 — Gap 5):
+///   - WM entity_contact for the server name AND last_contact_kind == ProbeFailed
+///     within the last 60 s → vetoed (remove).
+///   - WM entity_contact staleness > 300 s → stale heartbeat (remove).
+///   - Unknown entities (no WM record) are kept — benefit of the doubt.
+pub fn filter_liveness(
+    rec: &mut ToolRecommendation,
+    wm: &crate::world_model_enhanced::WorldModelEnhanced,
+) {
+    use chrono::Utc;
+    rec.mcp_servers.retain(|s| {
+        let Some(contact) = wm.entity_contact(&s.name) else { return true };
+        if matches!(contact.last_contact_kind, crate::action_intent::ContactKind::ProbeFailed) {
+            if let Some(ts) = contact.last_contact_tx {
+                if (Utc::now() - ts).num_seconds() < 60 {
+                    return false;
+                }
+            }
+        }
+        if contact.staleness_s().unwrap_or(0) > 300 {
+            return false;
+        }
+        true
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

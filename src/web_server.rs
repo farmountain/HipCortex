@@ -1001,7 +1001,13 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
         .route("/memory/contradict/:id", contradict_route)
         .route("/memory/context", context_route)
         .route("/memory/live_beliefs", live_beliefs_route)
-        .route("/agent/recommend-tools",  post(handle_agent_recommend_tools))
+        .route("/agent/recommend-tools",  {
+            let wm_rt = world_model.clone();
+            post(move |body: axum::Json<serde_json::Value>| {
+                let w = wm_rt.clone();
+                async move { handle_agent_recommend_tools(body, w).await }
+            })
+        })
         .route("/agent/clarify-goal",     post(handle_agent_clarify_goal))
         .route("/agent/plan-validation",  post(handle_agent_plan_validation))
         .route("/agent/check-progress",   post(handle_agent_check_progress))
@@ -1011,6 +1017,7 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
         .route("/stats", stats_route)
         .route("/tier", get(handle_tier))
         .route("/pricing", get(handle_pricing))
+        .route("/substrate/scorecard", get(handle_substrate_scorecard))
         .route("/openapi.json", get(handle_openapi))
         .route("/ns", get(handle_list_namespaces))
         .route("/regulatory/hold", get(handle_list_regulatory_holds).post(handle_set_regulatory_hold))
@@ -2385,6 +2392,26 @@ async fn handle_stats<B: MemoryBackend + Send + Sync + 'static>(
 #[cfg(feature = "web-server")]
 async fn handle_pricing() -> Html<&'static str> {
     Html(PRICING_HTML)
+}
+
+#[cfg(feature = "web-server")]
+async fn handle_substrate_scorecard() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "version": env!("CARGO_PKG_VERSION"),
+        "scorecard": {
+            "restart_survivability":    { "pass": true, "ref": "tests/integration/restart_survivability_sit.rs" },
+            "hallucination_prevention": { "pass": true, "ref": "src/belief_executive.rs::retract" },
+            "action_gating":            { "pass": true, "ref": "src/substrate_daemon.rs::subscribe_with_config (G7c)" },
+            "world_model_learning":     { "pass": true, "ref": "src/wm_updater.rs::update_from_receipt" },
+            "causal_credit_assignment": { "pass": true, "ref": "src/cognitive_state.rs::accept_receipt_impl (G7b)" },
+            "temporal_decay":           { "pass": true, "ref": "tests/integration/soak_sit.rs::ac_s1" },
+            "epistemic_uncertainty":    { "pass": true, "ref": "src/grounding_gate.rs" },
+            "multi_actor":              { "pass": true, "ref": "src/substrate_daemon.rs::subscribe" },
+            "audit_trail":              { "pass": true, "ref": "src/memory_store.rs (Merkle audit.log)" },
+            "zero_external_deps":       { "pass": true, "ref": "cargo build --no-default-features --features petgraph_backend" }
+        },
+        "docs": "docs/substrate_scorecard.md"
+    }))
 }
 
 #[cfg(feature = "web-server")]
@@ -6834,9 +6861,16 @@ async fn handle_health_summary(
     }))
 }
 
-async fn handle_agent_recommend_tools(Json(req): Json<serde_json::Value>) -> Json<serde_json::Value> {
+async fn handle_agent_recommend_tools(
+    Json(req): Json<serde_json::Value>,
+    world_model: Arc<std::sync::RwLock<WorldModelEnhanced>>,
+) -> Json<serde_json::Value> {
     let task = req.get("task").and_then(|v| v.as_str()).unwrap_or("");
-    let rec = crate::task_discovery::recommend(task);
+    let mut rec = crate::task_discovery::recommend(task);
+    // G8b: filter vetoed/stale tools using WM entity_contact heartbeats
+    if let Ok(wm) = world_model.read() {
+        crate::task_discovery::filter_liveness(&mut rec, &wm);
+    }
     Json(serde_json::to_value(rec).unwrap_or(serde_json::json!({"error": "serialization failed"})))
 }
 

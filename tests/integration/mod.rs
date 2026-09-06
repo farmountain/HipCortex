@@ -69,5 +69,6 @@ mod critic_verifier_sit;
 mod loop_gates_sit;
 mod motif_contraction_sit;
 mod restart_survivability_sit;
+mod soak_sit;
 mod epistemic_write_path_sit;
 mod cognitive_coherence_sit;
