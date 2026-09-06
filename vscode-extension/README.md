@@ -1,13 +1,64 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v1.7.0`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v2.6.0`)
 
-[![Version](https://img.shields.io/badge/version-v1.7.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v2.6.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
-**Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, and topological graph tools.**
+**Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, grounded probe planning, and topological graph tools.**
 
-VSIX **1.7.0** (Epistemic Closure) · server/pip/npm **1.7.0**. 1027 tests pass (439 unit + 56 property + 158 integration + 8 acceptance + 366 lib). See [docs/channels.md](../docs/channels.md).
+VSIX **2.6.0** (Closed Spine) · server/pip/npm **2.6.0**. 473 unit + 173 integration + 56 property + 9 AC-E1..E3/W1..W3/B1..B3 (v2.6.0) + 10 v2.5.0 + 5 v2.4.0 + 7 v2.3.0 + 6 v2.2.0 + 3 v2.1.0 + 5 v2.0.0 acceptance, **0 failures**. See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v2.6.0 — Closed Spine
+
+Wires the cognitive spine end-to-end: probe receipts feed back into the world model and reinforce supporting beliefs; every ReactEngine step is pre-flighted by an injectable `ExecutionGate`.
+
+| Change | Details |
+|--------|---------|
+| **ExecutionGate in daemon** | `CognitiveLoopConfig` gains `#[serde(skip)] execution_gate` slot; Stage 5 evaluates gate before every `ReactEngine` step; rejection writes `Temporal{gate_veto}` and skips the step |
+| **WM receipt feedback** | `accept_receipt_impl` calls `update_from_receipt(entity, ok, wm)` in a separate write lock; WM learns `entity → probe → entity_{ok\|failed}` Dirichlet-Multinomial transition rates |
+| **Belief reinforcement** | `BeliefExecutive::reinforce(store, id, 0.05)` — positive-evidence path; called for every belief whose proposition contains the probed entity when `receipt.ok=true` |
+
+---
+
+## What's new in v2.5.0 — IG Probe Ranking + add_memory Adapter
+
+| Change | Details |
+|--------|---------|
+| **IG probe ranking** | `ig_score = epistemic(n) × deficit(n) × probe_penalty(probe_count)`; grounded entities (n ≥ 4) score 0.0 and are never re-probed; `ig_probe_target()` returns `None` when all entities grounded — daemon exits probe loop |
+| **add_memory adapter** | Three-layer enforcement: Rust `POST /memory/add` returns HTTP 400 + redirect when `intent_id` + Temporal; MCP `add_memory` routes to `handle_accept_receipt`; Python SDK routes to `POST /intent/receipt` |
+
+---
+
+## What's new in v2.4.0 — Published Runner
+
+| Change | Details |
+|--------|---------|
+| **Headless IntentRunner** | `sdk/python/hipcortex/runner.py` — polls `GET /intent/open`, dispatches by `sensor_path` (filesystem / http / shell allowlist / default), posts `POST /intent/receipt`; `hipcortex runner` CLI subcommand; `RUNNER_SKILL.md` wires Claude Code as IDE runner |
+| **Expiry guard** | `deadline_ms` check skips expired intents before dispatch — probe loop never stalls on silence |
+
+---
+
+## What's new in v2.3.0 — Grounding Obligation + Intent/Receipt Seam
+
+| Change | Details |
+|--------|---------|
+| **GroundingGate** | Blocks `react_loop` when `coverage < τ_c=0.6` OR any goal-relevant entity has `epistemic > τ_e=0.5` (n < 4 observations). Stage 5 emits Probe intents instead |
+| **Intent/Receipt seam** | `ActionIntent` (Probe\|Instrumental\|ClarifySense) + `ActionReceipt` are the only env API. `AcceptReceipt` atomically writes `Temporal{receipt_observation}` + updates `WorldModelEnhanced.entity_contacts` |
+| **Q3 PredictedOnly filter** | Q3 now excludes beliefs with `contact_kind = Some(PredictedOnly)` — Kalman fill-ins no longer treated as facts |
+| **Q10 probe-first** | Q10: `probe_entity` / `ground_workspace` while intents open → `escalate_to_user` on expired silence → `react_loop` only when grounded |
+
+---
+
+## What's new in v2.2.0 — Epistemic Filter Closure
+
+| Change | Details |
+|--------|---------|
+| **Q2 JTMS filter** | `learned_beliefs` now requires `JtmsLabel::In AND confidence > 0.3`; Out beliefs excluded regardless of confidence |
+| **Q8 Unknown beliefs** | `uncertain_beliefs` includes `JtmsLabel::Unknown` regardless of confidence |
+| **Verifier Temporal** | `VerifierGate::check_and_record()` atomically writes `Temporal{verifier_mismatch_observed}` on mismatch |
 
 ---
 
@@ -15,21 +66,11 @@ VSIX **1.7.0** (Epistemic Closure) · server/pip/npm **1.7.0**. 1027 tests pass 
 
 | Change | Details |
 |--------|---------|
-| **ClarifyEngine** | Self-prompting loop (max 3 rounds) — triggered on empty success_factors or ≥3 consecutive vetoes. Searches beliefs + WM; writes `Reflexion{self_clarified}` on success, deduped `Belief{clarify_needed}` on escalation. Only unresolvable questions reach the user. |
-| **Dynamic CriticGate threshold** | `evaluate_with_threshold(goal, action, iter, threshold)` — SelfModel health drives the threshold: low health → 0.50 (strict), high health → 0.15 (autonomous), balanced → 0.25 |
-| **Veto as revision event** | CriticGate rejection fires `CognitiveDelta::CreditAssign(ExplicitFail)` in addition to writing `Decision{critic_veto}`. Veto is a learning signal, not a skipped tick. |
-| **SelfModel steers loop** | `recommend_loop_config()` returns `{effective_veto_threshold, SynthesisMode}` per tick. health < 0.3 → Escalate; health > 0.8 → Autonomous; else → Balanced. |
-| **JTMS as report truth** | `cognitive_report` Q3 (`valid_assumptions`) filters on `JtmsLabel::In`; `Unknown` falls back to confidence ≥ 0.5; `Out` excluded at any confidence. |
-
----
-
-## What's new in v1.6.3 — Dual-mode ReactEngine
-
-| Change | Details |
-|--------|---------|
-| **GoalExecutionMode::StepByStep** | One ReAct iteration per daemon tick — goal persists `InProgress` across ticks, CriticGate veto structurally achievable at iter ≥ 1 |
-| **GoalExecutionMode::FullCycle** | Default — `ReactEngine::run()` exhausts all iterations in one tick (backward-compatible) |
-| **`ReactEngine::run_one_step()`** | Writes Temporal + Reflexion per step; increments `current_iteration`; leaves `InProgress` until done |
+| **ClarifyEngine** | Self-prompting loop (max 3 rounds) — triggered on empty `success_factors` or ≥3 consecutive vetoes. Writes `Reflexion{self_clarified}` on success, deduped `Belief{clarify_needed}` on escalation |
+| **Dynamic CriticGate threshold** | SelfModel health drives threshold: low health → 0.50 (strict), high health → 0.15 (autonomous), balanced → 0.25 |
+| **Veto as revision event** | CriticGate rejection fires `CognitiveDelta::CreditAssign(ExplicitFail)` — veto is a learning signal, not a skipped tick |
+| **SelfModel steers loop** | `recommend_loop_config()` returns `{effective_veto_threshold, SynthesisMode}` per tick |
+| **JTMS as report truth** | `cognitive_report` Q3 filters on `JtmsLabel::In`; `Unknown` fallback to confidence ≥ 0.5; `Out` excluded at any confidence |
 
 ---
 
@@ -44,14 +85,12 @@ Install from Marketplace / Open VSX / GitHub release VSIX. Extension **starts a 
 - **Passive capture**: saves code edits and terminal output automatically when `hipcortex.passiveCapture` is `true`
 
 ```bash
-code --install-extension hipcortex-memory-1.2.1.vsix
+code --install-extension hipcortex-memory-2.6.0.vsix
 ```
 
 ---
 
 ## What's new in v1.3.0 — Autonomous Agent Harness
-
-v1.3.0 completes the agent-substrate-autonomy milestone. HipCortex is now a full autonomous agent harness: proactive substrate-first mode, unified live_beliefs surface, AgentMessage auto-ingest, and ReAct goal loop — all wired end-to-end.
 
 | Capability | Details |
 |-----------|---------|
@@ -61,40 +100,10 @@ v1.3.0 completes the agent-substrate-autonomy milestone. HipCortex is now a full
 | **Multi-agent `--actor`** | `hipcortex install --actor <name>` — per-actor SKILL install; shared substrate, no cross-actor contamination |
 | **ReAct goal loop** | `ReactEngine` + `LoopEngine.run_omega_loop()` — goal-driven iterations with causal attribution on surprise |
 | **`/memory/reflect`** | `POST /memory/reflect` — substrate chain-of-thought via AureusBridge (world prior + coherence before LLM output) |
-| **G2a calibration fidelity** | `calibrate_after_tx` no longer zeroes entropy — CalibrationTracker gets unattenuated Dirichlet signal |
-| **`docs/harness.md`** | Full agent harness reference with worked examples (Facebook replica, Kyoto trip) |
-
----
-
-## What's new in v1.2.2 — Calibration Fidelity
-
-| Fix | Details |
-|-----|---------|
-| **G2a calibration signal unattenuated** | `calibrate_after_tx` no longer calls `record_prediction_error(0.0)` — Dirichlet transition entropy from G2a is now the sole, unattenuated signal feeding `CalibrationTracker` |
-| **Version stamp corrections** | Stale `1.2.0`/`1.1.0` references in README and VSIX packaging example updated |
-
----
-
-## What's new in v1.2.1 — Cognitive Substrate Closure
-
-v1.2.1 closes 7 remaining cognitive architecture gaps: every `AddMemory(Temporal)` write now automatically fires the WorldModel updater, BeliefInvalidator, EmergenceDetector, and live calibration — not just inside ReactEngine but on every direct `add_memory` call. The causal topology is wired at startup. A new REST endpoint and MCP tool expose the Omega substrate loop.
-
-| Capability | Details |
-|-----------|---------|
-| **WMUpdater auto-wired (G1a)** | `apply_delta` AddMemory arm feeds every Temporal record into `WorldModelEnhanced` via `update_from_temporal` |
-| **BeliefInvalidator auto-wired (G1b)** | Temporal/Reflexion writes automatically invalidate contradicting Symbolic beliefs |
-| **EmergenceDetector auto-wired (G1c)** | Every 10th Temporal write triggers emergence scan; recurring patterns → new Beliefs |
-| **Live calibration signal (G2a)** | Dirichlet transition entropy replaces hardcoded 0.0 — `CalibrationTracker` now reflects real WM uncertainty |
-| **Causal topo wired at startup (G2c)** | `CoherenceChecker.set_consistency_topo()` called in server init; causal cycle violations now detected |
-| **`POST /v1/loop/omega`** | REST endpoint runs `LoopEngine.run_omega_loop()` — coverage gap detection, rollout, credit assignment |
-| **`run_omega_loop` MCP tool** | 20th MCP tool; agents invoke one omega iteration from Claude Code / Cursor |
-| **551 tests, 0 failures** | 358 unit + 53 property + 140 integration. All prior tests green. |
 
 ---
 
 ## What's new in v1.2.0 — Causal SCM Continuous Substrate
-
-v1.2.0 elevates the causal graph to the **primary executive layer**: structural equations, do-calculus interventions, counterfactual credit assignment, DigitalTwin RK4 clamping, and ExperienceStore causal provenance.
 
 | Capability | Details |
 |-----------|---------|
@@ -102,15 +111,11 @@ v1.2.0 elevates the causal graph to the **primary executive layer**: structural 
 | **Interventions** | `CognitiveDelta::Intervene` mutates shared graph, writes Reflexion audit |
 | **Credit Assignment** | AAP triad (Abduction→Action→Prediction) isolates broken structural equation |
 | **DigitalTwin clamping** | `step()` clamps RK4 output to pinned vars — causal impulses override ODE |
-| **ExperienceStore provenance** | `rollout_hybrid` persists `causal_provenance` record to fork store |
-| **OOD invariance** | Perturbed nodes isolated; stable equations never blamed |
 | **MCP tools** | `causal_intervene`, `causal_counterfactual`, `causal_credit_assign`, `causal_rewrite_equation` |
 
 ---
 
 ## What's new in v1.1.0 — Cognitive Loop Closure
-
-v1.1.0 closes all 9 gaps in the cognitive architecture loop and adds 3 MCP tools.
 
 | Capability | What it does |
 |-----------|-------------|
@@ -121,86 +126,10 @@ v1.1.0 closes all 9 gaps in the cognitive architecture loop and adds 3 MCP tools
 | **CognitiveStateReport** | Single call answers all 10 cognitive questions: goals, beliefs, assumptions, decisions, failures, authorized actions, next recommendation |
 | **WorldModelUpdater** | Closes feedback loop: ReactEngine feeds each observation into Dirichlet-Multinomial world model |
 | **ActionRegistry** | `ALL_OPS` + `list_authorized(self_model)` — agent always knows what it's allowed to do |
-| **`search_by_goal_status`** | Filter Goal records by `pending/inprogress/failed/succeeded` |
-| **Provenance chain** | BFS traversal of `derived_from` + `evidence` links, depth 20 |
-| **parse_record_type_alias fix** | Goal/Skill/Belief/Decision now correctly routed via REST — no more silent Temporal fallback |
 
-New REST endpoints: `GET /v1/cognitive/report`, `GET /v1/goals`, `GET /v1/actions/authorized`, `GET /v1/memory/:id/provenance`
+New REST: `GET /v1/cognitive/report`, `GET /v1/goals`, `GET /v1/actions/authorized`, `GET /v1/memory/:id/provenance`
 
 New MCP tools: `cognitive_report`, `list_authorized_actions`, `get_provenance`
-
----
-
-## What's new in v0.9.1 — Stability patch
-
-| Fix | Details |
-|-----|---------|
-| **Mac server-start** | Removes `com.apple.quarantine` xattr on bundled binary — was silently blocking network connections after `bind()` succeeded, causing the 30-second timeout on all Mac installs |
-| **Command registration** | `vscode.chat.createChatParticipant` now null-guarded — was crashing `activate()` on Antigravity IDE and VS Code builds without the chat API, leaving all commands (Query Memory, Add Memory, etc.) unregistered |
-| **Server version policy** | `EXPECTED_SERVER_VERSION` corrected from `0.5.2` → `0.9.0` — was rejecting the healthy running server and triggering an unnecessary kill-and-restart loop on every activation |
-
----
-
-## What's new in v0.9.0 — Continuous Substrate
-
-v0.9.0 adds a **continuous dynamical simulation layer** on top of the v0.8.0 Cognitive OS substrate.
-
-### DigitalTwin (RK4 + HybridRollout)
-- `POST /v1/twin` — create a DigitalTwin fork with configurable state dimension, `dt`, and max covariance
-- `POST /v1/twin/:id/step` — advance one step via RK4 integrator; returns continuous state vector
-- `POST /v1/twin/:id/rollout` — multi-action HybridRollout; returns `continuous_trajectory` + `continuous_sigma_norm`
-- `GET /v1/twin/:id` — inspect trajectory depth and record count
-- VS Code commands: **Create DigitalTwin**, **DigitalTwin: Step**, **DigitalTwin: Rollout**, **DigitalTwin: Show State**
-
-### ExperienceStore (3-tier pyramid)
-- **Raw** tier — unprocessed `Temporal` records
-- **Episode** tier — `Skill`/`Belief` records with evidence links
-- **Abstract** tier — consolidated Temporal records (`action="consolidated"`)
-- `AutoConsolidate` achieves ≥ 90% hot-set reduction while preserving full provenance
-- `GET /v1/experience/:actor/tiers` — tier counts + compression ratio + raw pressure flag
-- `POST /v1/experience/:actor/search` — semantic search across all tiers
-- VS Code command: **Show Experience Tier Stats**
-
-### Python SDK: `HipCortexSubstrate`
-```python
-from hipcortex import HipCortexSubstrate
-sub = HipCortexSubstrate("http://localhost:3030")
-twin_id = sub.create_twin(dim=4, dt=0.1)
-state   = sub.twin_step(twin_id, "move_forward")
-tiers   = sub.experience_tiers("my-agent")
-```
-
-### MCP: 5 new tools + 4 new resources (42 total / 7 resources)
-- `twin_create`, `twin_step`, `twin_rollout`, `twin_get`, `experience_tiers`
-- Resource: `hipcortex://experience/tiers` auto-injected at session start
-
----
-
-## What's new in v0.8.0 — Cognitive OS Substrate
-
-v0.8.0 reframes HipCortex from a memory store into a **closed dynamical cognitive substrate**. All state evolution flows through a single transactional operator family (`CognitiveDelta`).
-
-### Transactional Core
-- `POST /v1/cognitive/transact` — atomic delta application with CoherenceChecker + TxLog
-- `GET /v1/cognitive/snapshot` — typed snapshot with `tx_cursor`, beliefs, goals
-- `POST /v1/state/diff` — causal `ΔS` between any two tx indices
-
-### JTMS Belief Revision
-- Doyle-style justification-based truth maintenance
-- `RetractBelief` / `AssertJustification` — cascade retraction through dependency graph
-- No belief stays IN without a valid justification
-
-### Causal Motif Compactor
-- Frequent causal path mining → `SkillPayload` + high-confidence `Belief` induction
-- `AutoConsolidate { min_frequency }` — sub-linear memory growth on long trajectories
-
-### Multi-Agent Workspaces
-- `WorkspaceOpen { mode: Private | Shared }` + `WorkspaceMerge` deltas
-- OR-Set CRDT merge for concurrent mutations; no silent contamination
-
-### Rollout + Drift Alarms
-- Multi-step Kalman covariance expansion (discrete Lyapunov recursion)
-- Continuous goal-distance drift alarm on `POST /v1/fork/:id/rollout`
 
 ---
 
@@ -246,31 +175,13 @@ Extension registers **10** tools with `vscode.lm` (requires host LM tool API):
 | `hipcortex.stateDiff` | Causal state diff (tx range) |
 | `hipcortex.cognitiveHealth` | Cognitive health status |
 | `hipcortex.cognitiveSnapshot` | Cognitive snapshot |
-| `hipcortex.twinCreate` | **NEW** Create DigitalTwin |
-| `hipcortex.twinStep` | **NEW** DigitalTwin: Step |
-| `hipcortex.twinRollout` | **NEW** DigitalTwin: Rollout |
-| `hipcortex.twinGet` | **NEW** DigitalTwin: Show State |
-| `hipcortex.experienceTiers` | **NEW** Show Experience Tier Stats |
+| `hipcortex.twinCreate` | Create DigitalTwin |
+| `hipcortex.twinStep` | DigitalTwin: Step |
+| `hipcortex.twinRollout` | DigitalTwin: Rollout |
+| `hipcortex.twinGet` | DigitalTwin: Show State |
+| `hipcortex.experienceTiers` | Show Experience Tier Stats |
 | `hipcortex.restartServer` | Restart server |
 | `hipcortex.testExtension` | Test extension |
-
----
-
-## Phase-5 Operator Methods (8)
-
-Available as `HipCortexClient` TypeScript methods and wired to VS Code commands:
-
-| Method | REST endpoint |
-|--------|--------------|
-| `cognitiveTransact` | `POST /v1/cognitive/transact` |
-| `computeStateDiff` | `POST /v1/state/diff` |
-| `simulateRollout` | `POST /v1/fork/:id/rollout` |
-| `workspaceOpen` | transact `WorkspaceOpen` delta |
-| `workspaceMerge` | transact `WorkspaceMerge` delta |
-| `retractBelief` | transact `RetractBelief` delta |
-| `triggerConsolidation` | transact `AutoConsolidate` delta (MCP: `consolidate_memory`) |
-| `getLiveBeliefs` | `GET /v1/beliefs/live` |
-| `getStateExport` | `GET /v1/state/export` — versioned `schema_version=0.9.0` snapshot (MCP: `get_state_export`) |
 
 ---
 
@@ -282,7 +193,7 @@ MCP hosts (Claude Code, Cursor, Windsurf, …) use the Python MCP server via `hi
 - `hipcortex://context/relevant` — top-k semantically relevant memories
 - `hipcortex://beliefs/current` — active belief records
 - `hipcortex://context/conversation` — recent temporal traces
-- `hipcortex://experience/tiers` — **NEW** ExperienceStore tier stats for current actor
+- `hipcortex://experience/tiers` — ExperienceStore tier stats for current actor
 
 Register in `.mcp.json`:
 ```json
@@ -331,7 +242,7 @@ npm test
 npx @vscode/vsce package --no-dependencies
 ```
 
-Produces `hipcortex-memory-1.2.1.vsix` (version from `package.json`).
+Produces `hipcortex-memory-2.6.0.vsix` (version from `package.json`).
 
 ---
 
