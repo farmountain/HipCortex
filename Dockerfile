@@ -17,10 +17,8 @@ COPY migrations/ migrations/
 COPY proto/ proto/
 COPY schemas/ schemas/
 
-# Create empty benchmark files to satisfy Cargo.toml
-RUN mkdir -p benches && \
-    echo 'fn main() {}' > benches/temporal_indexer_bench.rs && \
-    echo 'fn main() {}' > benches/symbolic_store_bench.rs
+# Copy benches so Cargo.toml [[bench]] targets parse (bin-only build does not compile them)
+COPY benches/ benches/
 
 # Build with web-server feature (petgraph_backend is default, no external deps)
 RUN cargo build --release --bin webserver --no-default-features --features "web-server,petgraph_backend"
