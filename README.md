@@ -27,6 +27,50 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 | Actions never update world model | WorldModelUpdater closes the feedback loop |
 | Decisions leave no trace | DecisionPayload + provenance chain per act-phase |
 | Agent doesn't know what it's allowed to do | ActionRegistry + ExecutionGate answer that in one call |
+| Probe target selection is blind | IG-ranked probes (epistemic × deficit × probe_penalty) select highest-information entity first; grounded → never re-probed |
+| Probe outcomes don't update the world model | `update_from_receipt` feeds every receipt into WM Dirichlet-Multinomial transitions |
+| Successful probes leave beliefs unchanged | `BeliefExecutive::reinforce` provides the positive-evidence path |
+| IDE exit breaks autonomy | Headless `IntentRunner` polls and dispatches intents without the IDE open |
+
+---
+
+## What's new in v2.6.0 — Closed Spine
+
+Wires the cognitive spine end-to-end: probe receipts now feed back into the world model and reinforce supporting beliefs; every ReactEngine step is pre-flighted by an injectable `ExecutionGate`.
+
+| Change | Problem | Fix |
+|--------|---------|-----|
+| **ExecutionGate in daemon** | `execution_gate.rs` existed but was never called in daemon Stage 5 — gate was dead code | `CognitiveLoopConfig` gains `#[serde(skip)] execution_gate` slot; Stage 5 evaluates gate before every `ReactEngine` step; rejection writes `Temporal{gate_veto}` and skips the step |
+| **WM receipt feedback** | `wm_updater.rs` was never called from `accept_receipt_impl` — probe outcomes never updated the Dirichlet-Multinomial transition model | `accept_receipt_impl` calls `update_from_receipt(entity, ok, wm)` in a separate write lock; WM learns `entity → probe → entity_{ok\|failed}` transition rates |
+| **Belief reinforcement** | `BeliefExecutive` had `decay()` and `retract()` but no positive-evidence path — successful probes had no upward belief pressure | `BeliefExecutive::reinforce(store, id, 0.05)` added; `accept_receipt_impl` calls it for every belief whose proposition contains the probed entity when `receipt.ok=true` |
+
+473 unit + 173 integration + 56 property + 9 AC-E1..E3/W1..W3/B1..B3 (v2.6.0) + 10 v2.5.0 + 5 v2.4.0 + 7 v2.3.0 + 6 v2.2.0 + 3 v2.1.0 + 5 v2.0.0 + 10 v1.1.0 + 7 v1.9.0 + 8 v1.0.0 acceptance, 0 failures.
+
+---
+
+## What's new in v2.5.0 — IG Probe Ranking + add_memory Adapter
+
+Replaces blind probe selection with directional information-gain scoring, and enforces the AcceptReceipt seam across all three integration layers.
+
+| Change | Problem | Fix |
+|--------|---------|-----|
+| **IG probe ranking** | `top_probe_target` used UCB1 `1/√(n+1)` — all ungrounded entities scored equally regardless of knowledge value | `ig_score = epistemic(n) × deficit(n) × probe_penalty(probe_count)`; grounded entities (n ≥ 4) score 0.0 and are never re-probed; `ig_probe_target()` returns `None` when all entities grounded — daemon exits probe loop |
+| **add_memory adapter** | `add_memory` was still called for env Temporal observations in the wild — bypassing the AcceptReceipt seam | Three-layer enforcement: Rust `POST /memory/add` returns HTTP 400 + redirect when `intent_id` + Temporal; MCP `add_memory` routes to `handle_accept_receipt`; Python SDK routes to `POST /intent/receipt` |
+
+10/10 AC-P1..P5/A1..A5, 0 failures.
+
+---
+
+## What's new in v2.4.0 — Published Runner
+
+Closes the 3-month autonomy gap: a headless `IntentRunner` process polls and dispatches probes without the IDE open.
+
+| Change | Problem | Fix |
+|--------|---------|-----|
+| **Headless IntentRunner** | ActuatorRegistry was in-process; no headless job — Claude Code / Codex could be runners but weren't wired as one | `sdk/python/hipcortex/runner.py` — `IntentRunner` polls `GET /intent/open`, dispatches by `sensor_path` (filesystem / http / shell allowlist / default), posts `POST /intent/receipt`; `hipcortex runner` CLI subcommand; `RUNNER_SKILL.md` wires Claude Code as IDE runner |
+| **Expiry guard** | Expired intents silently blocked the probe loop | `deadline_ms` check skips expired intents before dispatch |
+
+5/5 AC-R1..R5, 0 failures.
 
 ---
 
@@ -171,11 +215,11 @@ hipcortex install --url https://hipcortex.fly.dev   # optional managed endpoint
 npm install hipcortex
 ```
 
-**VS Code / Antigravity VSIX** (multi-OS server binaries bundled; extension **1.8.0**):  
+**VS Code / Antigravity VSIX** (multi-OS server binaries bundled; extension **2.6.0**):  
 Package from repo (`vscode-extension`) or latest GitHub Release VSIX. Mac/Linux auto-`chmod` bundled bins.
 
 ```bash
-code --install-extension hipcortex-memory-2.0.0.vsix
+code --install-extension hipcortex-memory-2.6.0.vsix
 ```
 
 Honest support matrix (what's native vs docs-only): **[docs/channels.md](docs/channels.md)** · CLI: `hipcortex channels`
@@ -264,4 +308,4 @@ Engine internals are not reviewed here. See [DUAL_REPO.md](DUAL_REPO.md).
 | [DEPLOY.md](DEPLOY.md) | Self-host / Fly / Docker |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Historical in-tree build notes |
 
-**License:** [Apache-2.0](LICENSE) for this public repository · **Version:** `2.2.0` · VSIX `2.0.0`
+**License:** [Apache-2.0](LICENSE) for this public repository · **Version:** `2.6.0` · VSIX `2.6.0`

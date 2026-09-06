@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "hipcortex"
 version = "2.6.0"
-description = "Persistent causal memory for AI agents -- LangChain, LlamaIndex, AutoGen, CrewAI"
+description = "Cognitive state substrate for AI agents — goal scheduling, belief revision, world-model feedback. LangChain, AutoGen, CrewAI, MCP"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.9"

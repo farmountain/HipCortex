@@ -2,7 +2,7 @@
 name = "hipcortex"
 version = "2.6.0"
 edition = "2021"
-description = "A modular, agentic AI memory engine for reasoning, edge, and multi-agent workflows"
+description = "Cognitive state substrate for AI agents: goal scheduling, belief revision, world-model feedback, and decision provenance over MCP + REST"
 repository = "https://github.com/farmountain/HipCortex"
 license = "Apache-2.0"
 readme = "README.md"
