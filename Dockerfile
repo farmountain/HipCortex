@@ -31,6 +31,7 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
     curl \
+    passwd \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user
@@ -50,7 +51,7 @@ COPY --chown=hipcortex:hipcortex schemas/ schemas/
 RUN mkdir -p /app/data && chown hipcortex:hipcortex /app/data
 
 # Switch to app user
-USER hipcortex
+# USER dropped in docker-entrypoint.sh after chown of DATA_DIR
 
 # Expose port
 EXPOSE 3030
@@ -65,4 +66,7 @@ ENV API_PORT=3030
 ENV DATA_DIR=/app/data
 
 # Run the application
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["webserver"]
