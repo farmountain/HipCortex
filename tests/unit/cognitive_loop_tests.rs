@@ -38,6 +38,7 @@ fn fast_config(max_iterations: u32) -> CognitiveLoopConfig {
         pressure_threshold: 0.7,
         min_consolidation_frequency: 3,
         max_iterations: Some(max_iterations),
+        ..Default::default()
     }
 }
 
@@ -837,6 +838,7 @@ fn ac_abs_semantic_dedup_normalizes_action_variation() {
         pressure_threshold: 0.0,
         min_consolidation_frequency: 3,
         max_iterations: Some(1),
+        ..Default::default()
     };
     let mut daemon = SubstrateDaemon::new();
     let id = daemon.subscribe_with_config("dedup-agent".into(), cog.clone(), config);

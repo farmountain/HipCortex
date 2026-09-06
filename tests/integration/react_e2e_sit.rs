@@ -193,26 +193,41 @@ mod tests {
         );
     }
 
-    /// E2E-Gap7: ReactEngine::run() returns Err when goal has no success_factors.
+    /// E2E-Gap7: ReactEngine::run() defers to ClarifyEngine when goal has no success_factors.
+    /// ClarifyEngine exhausts MAX_CLARIFY_ROUNDS (no substrate resolution) → Ok(Pending) +
+    /// exactly one Belief{clarify_needed} written (C2 cohesion).
     #[test]
     fn test_react_loop_rejects_goal_with_no_success_factors() {
+        use hipcortex::memory_record::MemoryType;
         let mut store = MemoryStore::new_in_memory();
         let goal = make_goal(vec![], vec![], 3); // empty success_factors
         let goal_id = goal.id;
+        let actor_id = goal.actor.clone();
         store.add(goal).unwrap();
 
         let mut engine = ReactEngine::new();
         let result = engine.run(&mut store, goal_id, 1);
         assert!(
-            result.is_err(),
-            "E2E-Gap7: run() must return Err when success_factors is empty"
+            result.is_ok(),
+            "E2E-Gap7: run() must return Ok(Pending) via ClarifyEngine, not Err; got: {:?}",
+            result
         );
-        let msg = result.unwrap_err();
-        assert!(
-            msg.contains("success_factors"),
-            "E2E-Gap7: error must mention 'success_factors', got: {}",
-            msg
+        assert_eq!(
+            result.unwrap(),
+            hipcortex::payloads::GoalStatus::Pending,
+            "E2E-Gap7: status must be Pending when ClarifyEngine exhausts rounds without resolution"
         );
+        let clarify_beliefs: Vec<_> = store
+            .all_by_type(MemoryType::Belief)
+            .into_iter()
+            .filter(|r| r.action == "clarify_needed" && r.derived_from == Some(goal_id))
+            .collect();
+        assert_eq!(
+            clarify_beliefs.len(), 1,
+            "E2E-Gap7: ClarifyEngine must write exactly 1 Belief{{clarify_needed}} for goal; got {}",
+            clarify_beliefs.len()
+        );
+        let _ = actor_id; // actor stored in belief record, assertion above suffices
     }
 
     /// E2E-5: CognitiveGC — referenced obs gets Archive; unreferenced gets Delete.
