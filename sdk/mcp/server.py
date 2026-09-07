@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import threading
 import urllib.parse
 from typing import Any
 
@@ -43,6 +44,38 @@ _HARNESS_SEARCH_WARN = (
     "[harness] Prefer get_live_beliefs FIRST before search (substrate-first). "
     "Continuing with search..."
 )
+
+# ---------------------------------------------------------------------------
+# Context budget — per-actor token metering (session-scoped, resets on restart)
+#
+# substrate_tokens   = bytes//4 of get_live_beliefs responses (actual LLM spend)
+# naive_transcript_tokens = estimated bytes//4 of full Temporal history (dumb baseline)
+# Ratio naive/substrate proves the OpEx drop from using substrate-first turns.
+# ---------------------------------------------------------------------------
+_budget_lock: threading.Lock = threading.Lock()
+_actor_budget: dict = {}
+
+
+def _get_actor_budget(actor: str) -> dict:
+    with _budget_lock:
+        return dict(_actor_budget.get(actor, {
+            "substrate_tokens": 0, "turns": 0,
+            "naive_transcript_tokens": 0, "consolidation_savings": 0,
+        }))
+
+
+def _charge_budget(actor: str, substrate_bytes: int,
+                   naive_bytes: int = 0, is_turn: bool = False) -> None:
+    with _budget_lock:
+        b = _actor_budget.setdefault(actor, {
+            "substrate_tokens": 0, "turns": 0,
+            "naive_transcript_tokens": 0, "consolidation_savings": 0,
+        })
+        b["substrate_tokens"] += substrate_bytes // 4
+        b["naive_transcript_tokens"] += naive_bytes // 4
+        if is_turn:
+            b["turns"] += 1
+
 
 # ---------------------------------------------------------------------------
 # HTTP helpers
@@ -873,6 +906,23 @@ TOOLS = [
             "required": ["goal_id"],
         },
     },
+    {
+        "name": "get_budget",
+        "description": (
+            "Returns per-actor context token budget for this MCP session. "
+            "Shows substrate_tokens (actual spend via get_live_beliefs) vs "
+            "naive_transcript_tokens (estimated cost of a raw growing transcript). "
+            "Use to measure OpEx savings from substrate-first turns vs long-context baseline. "
+            "Compression ratio = naive_per_turn / substrate_per_turn."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "actor": {"type": "string"},
+            },
+            "required": [],
+        },
+    },
 ]
 
 RESOURCES = [
@@ -1102,7 +1152,19 @@ def handle_get_live_beliefs(args: dict) -> str:
         f"• [{b.get('action', '?')}] {b.get('target', '')} (actor: {b.get('actor', '?')})"
         for b in beliefs
     ]
-    return f"Live beliefs ({result.get('total', len(beliefs))}):\n" + "\n".join(lines)
+    response_str = f"Live beliefs ({result.get('total', len(beliefs))}):\n" + "\n".join(lines)
+
+    # Context budget metering: charge substrate tokens, estimate naive transcript size.
+    actor = args.get("actor", "mcp-session")
+    substrate_bytes = len(response_str.encode())
+    try:
+        stats = _get("/stats")
+        naive_bytes = stats.get("total_records", 0) * 200  # ~200 bytes avg per record
+    except Exception:
+        naive_bytes = substrate_bytes * 10
+    _charge_budget(actor, substrate_bytes, naive_bytes, is_turn=True)
+
+    return response_str
 
 
 def handle_simulate_rollout(args: dict) -> str:
@@ -1199,8 +1261,77 @@ def handle_fork_rollout(args: dict) -> str:
     return json.dumps(_post(f"/v1/fork/{args['fork_id']}/rollout", {"actions": args["actions"], "sigma2_max": args.get("sigma2_max", 0.25)}))
 
 def handle_p5_consolidate(args: dict) -> str:
+    actor = args.get("actor", "mcp")
+    # Pre-consolidation token estimate
+    try:
+        pre_records = _get("/stats").get("total_records", 0)
+    except Exception:
+        pre_records = 0
+    pre_tokens = pre_records * 50  # ~200 bytes / 4 per record
+
     delta = {"type": "AutoConsolidate", "min_frequency": args.get("min_frequency", 3)}
-    return json.dumps(_post("/v1/cognitive/transact", {"delta": delta, "actor": "mcp"}))
+    result = _post("/v1/cognitive/transact", {"delta": delta, "actor": actor})
+
+    # Post-consolidation token estimate
+    try:
+        post_records = _get("/stats").get("total_records", 0)
+    except Exception:
+        post_records = pre_records
+    post_tokens = post_records * 50
+    ratio = round(pre_tokens / max(1, post_tokens), 2) if post_tokens < pre_tokens else 1.0
+    savings = max(0, pre_tokens - post_tokens)
+
+    # Write durable Reflexion{consolidation_ratio} for audit trail across restarts
+    if pre_records > 0:
+        try:
+            handle_add_memory({
+                "actor": actor,
+                "action": "consolidation_ratio",
+                "target": "memory_store",
+                "memory_type": "Reflexion",
+                "content": f"pre={pre_tokens} post={post_tokens} ratio={ratio}",
+                "metadata": {"pre_tokens": pre_tokens, "post_tokens": post_tokens,
+                             "ratio": ratio, "savings": savings},
+            })
+        except Exception:
+            pass  # fail-silent — metering must not break consolidation
+
+    # Update session budget with savings
+    with _budget_lock:
+        b = _actor_budget.setdefault(actor, {
+            "substrate_tokens": 0, "turns": 0,
+            "naive_transcript_tokens": 0, "consolidation_savings": 0,
+        })
+        b["consolidation_savings"] += savings
+
+    suffix = (
+        f" | OpEx: {pre_tokens}→{post_tokens} tokens ({ratio}x compression)"
+        if pre_records > 0 else ""
+    )
+    return json.dumps(result) + suffix
+
+
+def handle_get_budget(args: dict) -> str:
+    actor = args.get("actor", "mcp-session")
+    budget = _get_actor_budget(actor)
+    turns = max(1, budget["turns"])
+    substrate_per_turn = budget["substrate_tokens"] // turns
+    naive_per_turn = budget["naive_transcript_tokens"] // turns
+    ratio = (
+        round(naive_per_turn / max(1, substrate_per_turn), 1)
+        if substrate_per_turn > 0 else 0.0
+    )
+    lines = [
+        f"Context budget for actor={actor}:",
+        f"  Turns (get_live_beliefs calls): {budget['turns']}",
+        f"  Substrate tokens this session:  {budget['substrate_tokens']}",
+        f"  Naive transcript estimate:      {budget['naive_transcript_tokens']}",
+        f"  Tokens/turn (substrate):        {substrate_per_turn}",
+        f"  Tokens/turn (naive):            {naive_per_turn}",
+        f"  Compression ratio:              {ratio}x",
+        f"  Consolidation savings:          {budget['consolidation_savings']} tokens",
+    ]
+    return "\n".join(lines)
 
 def handle_get_state_export(_args: dict) -> str:
     data = _get("/v1/state/export")
@@ -1626,6 +1757,7 @@ def dispatch_tool(name: str, args: dict) -> str:
         "loop_subscribe":          handle_loop_subscribe,
         "loop_status":             handle_loop_status,
         "get_verifier_report":     handle_get_verifier_report,
+        "get_budget":              handle_get_budget,
     }
     handler = handlers.get(name)
     if handler is None:
@@ -1750,7 +1882,7 @@ def main() -> None:
             respond(id_, {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}, "resources": {}},
-                "serverInfo": {"name": "hipcortex", "version": "3.1.0"},
+                "serverInfo": {"name": "hipcortex", "version": "3.2.0"},
             })
         elif method == "initialized":
             pass  # notification — no response

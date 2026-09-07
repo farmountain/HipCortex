@@ -1053,6 +1053,35 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
                 }
             })
         })
+        .route("/substrate/budget", {
+            let ms = memory_store.clone();
+            get(move |Query(params): Query<std::collections::HashMap<String, String>>| {
+                let ms = ms.clone();
+                async move {
+                    use crate::memory_record::MemoryType;
+                    let actor = params.get("actor").cloned().unwrap_or_else(|| "default".to_string());
+                    let history = ms.lock().ok().map(|store| {
+                        store.all_by_type(MemoryType::Reflexion)
+                            .into_iter()
+                            .filter(|r| r.action == "consolidation_ratio" && r.actor == actor)
+                            .map(|r| serde_json::json!({
+                                "recorded_at": r.timestamp,
+                                "pre_tokens":  r.metadata.get("pre_tokens"),
+                                "post_tokens": r.metadata.get("post_tokens"),
+                                "ratio":       r.metadata.get("ratio"),
+                                "savings":     r.metadata.get("savings"),
+                            }))
+                            .collect::<Vec<_>>()
+                    }).unwrap_or_default();
+                    axum::Json(serde_json::json!({
+                        "actor": actor,
+                        "consolidation_history": history,
+                        "note": "session budget (substrate_tokens/turns) via MCP get_budget tool",
+                        "version": env!("CARGO_PKG_VERSION"),
+                    }))
+                }
+            })
+        })
         .route("/openapi.json", get(handle_openapi))
         .route("/ns", get(handle_list_namespaces))
         .route("/regulatory/hold", get(handle_list_regulatory_holds).post(handle_set_regulatory_hold))
