@@ -55,6 +55,11 @@ _HARNESS_SEARCH_WARN = (
 _budget_lock: threading.Lock = threading.Lock()
 _actor_budget: dict = {}
 
+# Wall guard — substrate output budget per turn.  Measures MCP output only.
+# Host context (conversation history, tool dumps, KV cache) is NOT measured here.
+WALL_TOKEN_BUDGET: int = int(os.getenv("WALL_TOKEN_BUDGET", "8000"))
+_wall_exceeded_actors: set = set()  # per-session dedup: write Reflexion once per actor
+
 
 def _get_actor_budget(actor: str) -> dict:
     with _budget_lock:
@@ -1164,6 +1169,23 @@ def handle_get_live_beliefs(args: dict) -> str:
         naive_bytes = substrate_bytes * 10
     _charge_budget(actor, substrate_bytes, naive_bytes, is_turn=True)
 
+    # Wall guard: write one Reflexion per actor when substrate output exceeds budget.
+    budget_check = _get_actor_budget(actor)
+    turns_check = max(1, budget_check["turns"])
+    s_per_turn = budget_check["substrate_tokens"] // turns_check
+    if s_per_turn > WALL_TOKEN_BUDGET and actor not in _wall_exceeded_actors:
+        _wall_exceeded_actors.add(actor)
+        try:
+            handle_add_memory({
+                "actor": actor, "action": "wall_exceeded",
+                "target": "substrate_budget", "memory_type": "Reflexion",
+                "content": f"substrate_per_turn={s_per_turn} > wall={WALL_TOKEN_BUDGET}",
+                "metadata": {"substrate_per_turn": s_per_turn,
+                             "wall_token_budget": WALL_TOKEN_BUDGET},
+            })
+        except Exception:
+            pass
+
     return response_str
 
 
@@ -1321,6 +1343,12 @@ def handle_get_budget(args: dict) -> str:
         round(naive_per_turn / max(1, substrate_per_turn), 1)
         if substrate_per_turn > 0 else 0.0
     )
+    wall_status = "bounded"
+    if substrate_per_turn > WALL_TOKEN_BUDGET:
+        wall_status = "exceeded"
+    elif substrate_per_turn > int(WALL_TOKEN_BUDGET * 0.8):
+        wall_status = "at_risk"
+
     lines = [
         f"Context budget for actor={actor}:",
         f"  Turns (get_live_beliefs calls): {budget['turns']}",
@@ -1330,6 +1358,11 @@ def handle_get_budget(args: dict) -> str:
         f"  Tokens/turn (naive):            {naive_per_turn}",
         f"  Compression ratio:              {ratio}x",
         f"  Consolidation savings:          {budget['consolidation_savings']} tokens",
+        f"  Wall token budget:              {WALL_TOKEN_BUDGET} tokens/turn",
+        f"  Wall status:                    {wall_status}",
+        f"  [honest] wall_status measures substrate output only.",
+        f"  [honest] Host context (conversation, tool dumps, KV cache) is NOT measured.",
+        f"  [honest] Substrate discipline = only get_live_beliefs + one intent per turn.",
     ]
     return "\n".join(lines)
 
@@ -1882,7 +1915,7 @@ def main() -> None:
             respond(id_, {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}, "resources": {}},
-                "serverInfo": {"name": "hipcortex", "version": "3.2.0"},
+                "serverInfo": {"name": "hipcortex", "version": "3.3.0"},
             })
         elif method == "initialized":
             pass  # notification — no response
