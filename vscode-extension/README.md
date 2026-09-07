@@ -1,13 +1,41 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v2.8.0`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.0.0`)
 
-[![Version](https://img.shields.io/badge/version-v2.8.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v3.0.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
 **Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, grounded probe planning, and topological graph tools.**
 
-VSIX **2.8.0** (Competent Planner + Market Scorecard) · server/pip/npm **2.8.0**. 366 unit + 173 integration + 56 property + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + 9 AC-E/W/B (v2.6.0) + 10 v2.5.0 + 5 v2.4.0 + 7 v2.3.0 acceptance, **0 failures**. See [docs/channels.md](../docs/channels.md).
+VSIX **3.0.0** (Operational: Content Probes + Live Scorecard) · server/pip/npm **3.0.0**. 366 lib + 473 unit + 176 integration + 56 property + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v3.0.0 — Operational: Content Probes + Restate Evidence + Live Scorecard
+
+GitHub Releases v2.7–v3.0 published. Runner probes file content (SHA-256). WM state content-anchored. Scorecard returns live data.
+
+| Change | Details |
+|--------|---------|
+| **GitHub Releases** | Tags + Releases for v2.7.0–v3.0.0 created; users on release page now run current crate |
+| **Runner content probe** | `_probe_filesystem` computes SHA-256 (64 KB chunks) → `sha256_hex` in observation payload |
+| **Content-anchored WM** | `derive_obs_state` hash-first: `entity:<hash8>` when `sha256_hex` present — WM detects content changes not just mtime |
+| **Restate evidence** | AC-C1/C2 prove `restate_if_env_changed` renames env-blocked `success_factor` to `{name}_when_available` + writes `Reflexion{goal_restated}`; idempotent |
+| **Live scorecard** | `GET /substrate/scorecard?actor=X` calls `build_report` → returns live `uncertain_count`, `invalidated_count`, `recommended_op`, `goal_target` |
+
+---
+
+## What's new in v2.9.0 — Cognitive Loop Closure (4 PARTIAL → PASS)
+
+ClarifyEngine wired into ReactEngine. Q10 can stop because goal succeeded. Q8 spikes on surprising observations and runner silence.
+
+| Change | Details |
+|--------|---------|
+| **Schema-mismatch clarify** | `POST /goal/:id/react` uses `.unwrap_or_default()` + gates on `success_factors.is_empty()` → 422 with `/clarify` redirect; Q10 `clarify_pending` also fires on empty `success_factors` |
+| **Discrepancy spike** | `update_from_receipt` returns `was_surprising`; `flag_discrepancy()` stamps `ContactKind::DiscrepancyDetected`; discrepancy `Belief{confidence=0.3}` → Q8 `uncertain_beliefs` |
+| **Runner silence** | Q8 scans all `Intent` records at read-time; past-deadline Open/InFlight folded into `invalidated_count` |
+| **Goal completion** | Q10 `task_complete` branch for `GoalStatus::Succeeded`; `assess_completion(goal_id, store)` API |
+| **ClarifyEngine in loop** | `ReactEngine::run` calls `ClarifyEngine(EmptyAC)` on empty success_factors — bounded by `MAX_CLARIFY_ROUNDS=3` |
 
 ---
 
