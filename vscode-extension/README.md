@@ -1,13 +1,35 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.0.0`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.2.0`)
 
-[![Version](https://img.shields.io/badge/version-v3.0.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v3.2.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
-**Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, grounded probe planning, and topological graph tools.**
+**Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, grounded probe planning, OpEx budget metering, and topological graph tools.**
 
-VSIX **3.0.0** (Operational: Content Probes + Live Scorecard) · server/pip/npm **3.0.0**. 366 lib + 473 unit + 176 integration + 56 property + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+VSIX **3.2.0** (OpEx Metering + Field Grounding) · server/pip/npm **3.2.0**. 366 lib + 473 unit + 180 integration + 56 property + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v3.2.0 — OpEx Metering: Context Budget Tracker + Consolidation Ratio Proof
+
+| Change | Details |
+|--------|---------|
+| **Session budget tracker** | `_actor_budget` in MCP server tracks `substrate_tokens` (bytes//4) + `naive_transcript_tokens` (records × 50); charged on every `get_live_beliefs` turn |
+| **`get_budget` MCP tool** | Reports turns, substrate_tokens, naive_transcript_tokens, tokens-per-turn, and compression ratio per actor |
+| **Durable consolidation ratio** | `handle_p5_consolidate` writes `Reflexion{consolidation_ratio}` to Rust store — survives restarts; ratio = `pre_tokens / post_tokens` |
+| **`GET /substrate/budget`** | Rust route reads `Reflexion{consolidation_ratio}` records → returns `consolidation_history` array for any actor |
+
+---
+
+## What's new in v3.1.0 — Field Grounding: Probe Honesty + Restate Depth + Soak Proof
+
+| Change | Details |
+|--------|---------|
+| **Probe honesty** | Unknown sensor → `{reachable:False, ok:False, error:"unknown_sensor:<sensor>"}` — WM never receives fake `ok=True` |
+| **Restate depth** | `blocked_factors` + `Temporal{probe_required}` written per blocked factor with `derived_from=goal_id` |
+| **Content-change soak** | `content_change_soak_sit.rs`: sha256 proof — different bytes → different `entity:<hash8>` WM label |
+| **Scorecard live note** | `docs/substrate_scorecard.md` now points to `GET /substrate/scorecard?actor=X` live endpoint |
 
 ---
 

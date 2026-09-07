@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "hipcortex"
 version = "3.2.0"
-description = "Cognitive state substrate for AI agents — goal scheduling, belief revision, content-anchored world-model, ClarifyEngine lifecycle. LangChain, AutoGen, CrewAI, MCP"
+description = "Cognitive state substrate for AI agents — grounded probes, belief revision, OpEx budget metering (get_budget MCP tool), ClarifyEngine lifecycle. LangChain, AutoGen, CrewAI, MCP"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.9"

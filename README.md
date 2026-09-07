@@ -35,6 +35,39 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 | Tool recommendation ignores actuator liveness | `filter_liveness` removes probe-failed/stale MCP servers using WM `entity_contact` heartbeats |
 | 3-month claim backed only by unit suites | `soak_sit.rs`: 500-iter temporal decay + WM convergence + bounded-growth proof |
 | No public differentiation metric vs Mem0/Zep/Letta | 10-question substrate scorecard with code refs + `GET /substrate/scorecard` |
+| Unknown sensor probe returns fake `ok=True` | Honest grounding: unknown sensor → `{reachable:False, error:"unknown_sensor:<id>"}` — WM never poisoned (v3.1.0) |
+| Restate renames factor but never flags next step | `blocked_factors` + `probe_required` Temporal per blocked factor, `derived_from=goal_id` (v3.1.0) |
+| Context cost grows with transcript — no OpEx proof | `get_budget` MCP tool: `substrate_tokens` vs `naive_transcript_tokens`; consolidation ratio durable via `GET /substrate/budget` (v3.2.0) |
+
+---
+
+## What's new in v3.2.0 — OpEx Metering: Context Budget Tracker + Consolidation Ratio Proof
+
+Closes Bottleneck 1 (KV-cache / long-context wall): HipCortex now meters and proves the context cost reduction it claims.
+
+| Change | Gap | Fix |
+|--------|-----|-----|
+| **Session budget tracker** | No benchmark proving token-per-step cost vs long-context baseline | `_actor_budget` dict in MCP server tracks `substrate_tokens` (bytes//4) and `naive_transcript_tokens` (total_records × 50) per actor; charged on every `get_live_beliefs` turn |
+| **`get_budget` MCP tool** | No tool exposing compression ratio to the agent | `handle_get_budget` reports `turns`, `substrate_tokens`, `naive_transcript_tokens`, tokens-per-turn, and compression ratio (`naive/substrate`) per actor |
+| **Durable consolidation ratio** | Compression claim not persisted across server restarts | `handle_p5_consolidate` computes `pre_tokens / post_tokens` ratio + writes `Reflexion{action="consolidation_ratio"}` to Rust store; survives restarts |
+| **`GET /substrate/budget`** | No REST route exposing historical consolidation proof | Rust `GET /substrate/budget?actor=X` reads `MemoryType::Reflexion` records with `action=consolidation_ratio` → returns `consolidation_history` array |
+
+366 lib + 473 unit + 180 integration + 56 property + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + earlier suites, 0 failures.
+
+---
+
+## What's new in v3.1.0 — Field Grounding: Probe Honesty + Restate Depth + Soak Proof
+
+Closes 4 operational gaps: unknown sensors no longer fake reachability, `restate_if_env_changed` emits actionable next steps, content-change detection is soaked via sha256-based SIT, and the scorecard doc points to the live endpoint.
+
+| Change | Gap | Fix |
+|--------|-----|-----|
+| **Probe honesty** (Gap 2) | `execute_probe` for unknown sensors returned `{reachable:True}` — WM received fake `ok=True` | Early return: unknown sensor → `{reachable:False, ok:False, error:"unknown_sensor:<sensor>"}` — `ok=True` only reached for filesystem/http/shell |
+| **Restate depth** (Gap 3) | `restate_if_env_changed` renamed blocked factor but never emitted actionable next step | `blocked_factors` collects original names before rename; writes `Temporal{action="probe_required", target=<factor>}` per blocked factor, `derived_from=goal_id` |
+| **Content-change soak** (Gap 1) | No SIT proving content-change detection chain end-to-end | `tests/integration/content_change_soak_sit.rs`: sha256 proof — different bytes → different `entity:<hash8>` WM state label (mathematical, no server needed) |
+| **Scorecard live note** (Gap 4) | `docs/substrate_scorecard.md` marked all 10 criteria static — no pointer to live endpoint | Added live-truth block: `GET /substrate/scorecard?actor=<actor>` returns live `build_report` data |
+
+366 lib + 473 unit + 176 integration + 56 property + 4 AC-P/R/S (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + previous suites, 0 failures.
 
 ---
 

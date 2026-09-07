@@ -1,7 +1,7 @@
 {
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
-    "description": "HipCortex v3.0.0 — Operational Cognitive Substrate: SHA-256 content-anchored WM probes, live /substrate/scorecard?actor=X via build_report, ClarifyEngine(EmptyAC) in ReactEngine loop, 4 closed grounding criteria (v2.9.0), WM-coupled planner + always-gated spine. 366 lib + 473 unit + 176 integration + 56 property + 16 AC (v3.0+v2.9), 0 failures.",
+    "description": "HipCortex v3.2.0 — OpEx Metering + Field Grounding: honest probe grounding, restate depth proof, context budget tracker (get_budget MCP tool), consolidation ratio via GET /substrate/budget, ClarifyEngine lifecycle. 366 lib + 473 unit + 180 integration + 56 property + 6 AC-B (v3.2) + 4 AC (v3.1) + 6 AC (v3.0) + 10 AC (v2.9), 0 failures.",
     "version": "3.2.0",
     "publisher": "farmountain",
     "repository": {
