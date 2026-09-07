@@ -71,6 +71,7 @@ impl ClarifyEngine {
             .collect();
 
         let mut any_restated = false;
+        let mut blocked_factors: Vec<String> = Vec::new();
         for factor in &mut goal.success_factors {
             if factor.satisfied {
                 continue;
@@ -94,6 +95,7 @@ impl ClarifyEngine {
             });
 
             if env_blocked {
+                blocked_factors.push(factor.name.clone());
                 factor.name = format!("{}_when_available", factor.name);
                 any_restated = true;
             }
@@ -113,6 +115,20 @@ impl ClarifyEngine {
             );
             rec.derived_from = Some(goal_id);
             let _ = store.add(rec);
+
+            // Write probe_required Temporal per blocked factor so the next react
+            // iteration knows to probe rather than retry the same react step.
+            for blocked in &blocked_factors {
+                let mut probe_rec = MemoryRecord::new(
+                    MemoryType::Temporal,
+                    actor.to_string(),
+                    "probe_required".to_string(),
+                    blocked.clone(),
+                    serde_json::json!({ "reason": "env_blocked_ac" }),
+                );
+                probe_rec.derived_from = Some(goal_id);
+                let _ = store.add(probe_rec);
+            }
         }
 
         any_restated

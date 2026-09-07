@@ -97,7 +97,14 @@ class IntentRunner:
             elif sensor.startswith("shell:"):
                 obs = _probe_shell(sensor[6:], target)
             else:
-                obs = {"reachable": True, "sensor": "default"}
+                obs = {"reachable": False, "ok": False, "error": f"unknown_sensor:{sensor}"}
+                ok = False
+                return {
+                    "intent_id": intent_id,
+                    "ok": False,
+                    "observation": obs,
+                    "sensor_path": sensor_path,
+                }
             ok = True
         except Exception as exc:  # noqa: BLE001
             obs = {"error": str(exc)}

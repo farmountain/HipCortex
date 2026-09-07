@@ -4,6 +4,8 @@
 
 Each answer includes a code or test reference that can be independently verified.
 
+> **Live truth (v3.0.0+):** `GET /substrate/scorecard?actor=<actor>` returns live cognitive state: `uncertain_count`, `invalidated_count`, `recommended_op`, `goal_target`. The static answers below are reference documentation; the JSON endpoint is authoritative. The static answers reflect *capability claims* — the live endpoint reflects *current state* for a specific actor.
+
 ---
 
 ## Q1 — Does it survive process restart without data loss?
