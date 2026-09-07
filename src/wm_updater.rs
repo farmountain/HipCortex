@@ -60,6 +60,12 @@ pub fn update_from_receipt(entity: &str, ok: bool, observation: &serde_json::Val
 }
 
 fn derive_obs_state(entity: &str, observation: &serde_json::Value) -> String {
+    // Hash-first: content-anchored state so WM can detect file-content changes
+    // (not just mtime changes). First 8 hex chars = 32-bit collision resistance.
+    if let Some(hash) = observation.get("sha256_hex").and_then(|v| v.as_str()) {
+        let prefix = &hash[..hash.len().min(8)];
+        return format!("{}:{}", entity, prefix);
+    }
     observation
         .as_str()
         .map(|s| {

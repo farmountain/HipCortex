@@ -1017,7 +1017,42 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
         .route("/stats", stats_route)
         .route("/tier", get(handle_tier))
         .route("/pricing", get(handle_pricing))
-        .route("/substrate/scorecard", get(handle_substrate_scorecard))
+        .route("/substrate/scorecard", {
+            let ms = memory_store.clone();
+            get(move |Query(params): Query<std::collections::HashMap<String, String>>| {
+                let ms = ms.clone();
+                async move {
+                    let actor = params.get("actor").cloned().unwrap_or_else(|| "default".to_string());
+                    let live = ms.lock().ok().map(|store| {
+                        let report = crate::cognitive_report::build_report(&*store, &actor, 0.8);
+                        serde_json::json!({
+                            "actor": actor,
+                            "uncertain_count": report.open_uncertainties.uncertain_beliefs.len(),
+                            "invalidated_count": report.open_uncertainties.invalidated_count,
+                            "recommended_op": report.next_recommendation.recommended_op,
+                            "goal_target": report.next_recommendation.goal_target,
+                        })
+                    });
+                    axum::Json(serde_json::json!({
+                        "version": env!("CARGO_PKG_VERSION"),
+                        "live": live,
+                        "scorecard": {
+                            "restart_survivability":    { "pass": true, "ref": "tests/integration/restart_survivability_sit.rs" },
+                            "hallucination_prevention": { "pass": true, "ref": "src/belief_executive.rs::retract" },
+                            "action_gating":            { "pass": true, "ref": "src/substrate_daemon.rs::subscribe_with_config (G7c)" },
+                            "world_model_learning":     { "pass": true, "ref": "src/wm_updater.rs::update_from_receipt" },
+                            "causal_credit_assignment": { "pass": true, "ref": "src/cognitive_state.rs::accept_receipt_impl (G7b)" },
+                            "temporal_decay":           { "pass": true, "ref": "tests/integration/soak_sit.rs::ac_s1" },
+                            "epistemic_uncertainty":    { "pass": true, "ref": "src/grounding_gate.rs" },
+                            "multi_actor":              { "pass": true, "ref": "src/substrate_daemon.rs::subscribe" },
+                            "audit_trail":              { "pass": true, "ref": "src/memory_store.rs (Merkle audit.log)" },
+                            "zero_external_deps":       { "pass": true, "ref": "cargo build --no-default-features --features petgraph_backend" }
+                        },
+                        "docs": "docs/substrate_scorecard.md"
+                    }))
+                }
+            })
+        })
         .route("/openapi.json", get(handle_openapi))
         .route("/ns", get(handle_list_namespaces))
         .route("/regulatory/hold", get(handle_list_regulatory_holds).post(handle_set_regulatory_hold))
@@ -2392,26 +2427,6 @@ async fn handle_stats<B: MemoryBackend + Send + Sync + 'static>(
 #[cfg(feature = "web-server")]
 async fn handle_pricing() -> Html<&'static str> {
     Html(PRICING_HTML)
-}
-
-#[cfg(feature = "web-server")]
-async fn handle_substrate_scorecard() -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "version": env!("CARGO_PKG_VERSION"),
-        "scorecard": {
-            "restart_survivability":    { "pass": true, "ref": "tests/integration/restart_survivability_sit.rs" },
-            "hallucination_prevention": { "pass": true, "ref": "src/belief_executive.rs::retract" },
-            "action_gating":            { "pass": true, "ref": "src/substrate_daemon.rs::subscribe_with_config (G7c)" },
-            "world_model_learning":     { "pass": true, "ref": "src/wm_updater.rs::update_from_receipt" },
-            "causal_credit_assignment": { "pass": true, "ref": "src/cognitive_state.rs::accept_receipt_impl (G7b)" },
-            "temporal_decay":           { "pass": true, "ref": "tests/integration/soak_sit.rs::ac_s1" },
-            "epistemic_uncertainty":    { "pass": true, "ref": "src/grounding_gate.rs" },
-            "multi_actor":              { "pass": true, "ref": "src/substrate_daemon.rs::subscribe" },
-            "audit_trail":              { "pass": true, "ref": "src/memory_store.rs (Merkle audit.log)" },
-            "zero_external_deps":       { "pass": true, "ref": "cargo build --no-default-features --features petgraph_backend" }
-        },
-        "docs": "docs/substrate_scorecard.md"
-    }))
 }
 
 #[cfg(feature = "web-server")]

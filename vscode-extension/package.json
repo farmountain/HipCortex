@@ -2,7 +2,7 @@
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
     "description": "HipCortex v2.8.0 — Competent Planner + Market Scorecard: WM-grounded GoalScheduler::plan_action_sequence, liveness-aware filter_liveness for tool recommendations, 500-iter soak proof, 10-question substrate scorecard. Always-gated spine (DecisionEngine::new() default) + provenance credit + WM dual transitions (v2.7.0). 366 unit + 173 integration + 56 property + 8+3+7+9 AC (v2.8.0/soak/v2.7.0/v2.6.0), 0 failures.",
-    "version": "2.9.0",
+    "version": "3.0.0",
     "publisher": "farmountain",
     "repository": {
         "type": "git",

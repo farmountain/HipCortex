@@ -38,6 +38,22 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 ---
 
+## What's new in v3.0.0 — Operational Release: Distribution + Content Probes + Live Scorecard
+
+Closes the distribution and soak gaps: all versions now tagged and released on GitHub, runner probes file content not just reachability, WM state is content-anchored via SHA-256, ClarifyEngine restate is proven by AC, and `/substrate/scorecard` returns live `build_report` data for any actor.
+
+| Change | Gap | Fix |
+|--------|-----|-----|
+| **GitHub Releases** (Gap 1) | v2.7–v2.9 existed only as commits; anyone on release page was ≥3 versions behind | Created annotated tags + GitHub Releases for v2.7.0, v2.8.0, v2.9.0, v3.0.0 |
+| **Runner content probe** (Gap 2) | `_probe_filesystem` returned `{mtime}` only — WM state couldn't distinguish same-mtime rewrites | Now reads SHA-256 of file content (64 KB chunks); adds `sha256_hex` to observation |
+| **Content-anchored WM state** (Gap 3) | `derive_obs_state` produced label from mtime/status — Day 2 twin couldn't detect content changes | Hash-first branch: `entity:<hash8>` when `sha256_hex` present; other probes unchanged |
+| **Restate evidence** (Gap 5) | `restate_if_env_changed` existed but had no AC proving it worked | AC-C1/C2 prove: Temporal failure → factor renamed `{name}_when_available` + `Reflexion{goal_restated}` written; idempotent |
+| **Live scorecard** (Gap 6) | `GET /substrate/scorecard` returned static code refs | Now accepts `?actor=X`, calls `build_report`, returns live `uncertain_count`, `invalidated_count`, `recommended_op`, `goal_target` |
+
+366 unit + 473 unit-suite + 176 integration + 56 property + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + previous suites, 0 failures.
+
+---
+
 ## What's new in v2.9.0 — Cognitive Loop Closure + ClarifyEngine Lifecycle
 
 Closes 4 PARTIAL criteria from the 7-point grounding rubric: schema-mismatch clarification (C2), discrepancy-spike on surprising observations (C4), runner-silence uncertainty (C6), and honest goal-completion signalling (C7). ClarifyEngine bounded self-prompt lifecycle wired throughout the full HipCortex stack.

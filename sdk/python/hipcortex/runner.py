@@ -142,13 +142,23 @@ class IntentRunner:
 # ── probe implementations ─────────────────────────────────────────────────────
 
 def _probe_filesystem(target: str) -> Dict[str, Any]:
+    import hashlib
     stat = os.stat(target)
-    return {
+    result: Dict[str, Any] = {
         "exists": True,
         "size": stat.st_size,
         "mtime": stat.st_mtime,
         "sensor": "filesystem",
     }
+    try:
+        h = hashlib.sha256()
+        with open(target, "rb") as fh:
+            for chunk in iter(lambda: fh.read(65536), b""):
+                h.update(chunk)
+        result["sha256_hex"] = h.hexdigest()
+    except OSError:
+        pass  # unreadable — hash omitted, WM state falls back to mtime
+    return result
 
 
 def _probe_http(target: str) -> Dict[str, Any]:
