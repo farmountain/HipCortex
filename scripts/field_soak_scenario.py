@@ -37,20 +37,24 @@ def _url(base: str, path: str) -> str:
 
 
 def _add_memory(base: str, actor: str, action: str, target: str,
-                memory_type: str = "Temporal", content: str = "") -> dict:
-    r = requests.post(_url(base, "/memory"), json={
+                record_type: str = "Temporal", content: str = "") -> dict:
+    r = requests.post(_url(base, "/memory/add"), json={
         "actor": actor, "action": action, "target": target,
-        "memory_type": memory_type, "content": content,
+        "record_type": record_type,
+        "metadata": {"content": content} if content else None,
     }, timeout=10)
     r.raise_for_status()
     return r.json()
 
 
-def _scorecard(base: str, actor: str) -> dict:
-    r = requests.get(_url(base, "/substrate/scorecard"),
-                     params={"actor": actor}, timeout=10)
+def _count_records(base: str, actor: str) -> dict:
+    """Return {actor, record_count} using /memory/query total field."""
+    r = requests.get(_url(base, "/memory/query"),
+                     params={"actor": actor, "limit": "100"}, timeout=10)
     r.raise_for_status()
-    return r.json()
+    data = r.json()
+    # total = len(returned records); server caps limit at 100 so this is accurate up to 100 records
+    return {"actor": actor, "record_count": data.get("total", 0)}
 
 
 def _wait_healthy(base: str, retries: int = 30, delay: float = 1.0) -> bool:
@@ -105,7 +109,7 @@ def run_scenario(base_url: str, start_server: bool,
                         content=f"initial probe {i}")
 
         # Phase 2: BEFORE scorecard
-        before = _scorecard(base_url, ACTOR)
+        before = _count_records(base_url, ACTOR)
         print(f"[field-soak] BEFORE: record_count={before.get('record_count', '?')}", flush=True)
 
         # Phase 3: create + probe a temp file
@@ -116,7 +120,7 @@ def run_scenario(base_url: str, start_server: bool,
 
         probe_v1 = Path(target_path).read_text()
         _add_memory(base_url, ACTOR, "probed", target_path,
-                    memory_type="Temporal", content=probe_v1)
+                    record_type="Temporal", content=probe_v1)
 
         # Edit file (sed-equivalent) — content change must land in WM
         with open(target_path, "a") as f:
@@ -124,10 +128,10 @@ def run_scenario(base_url: str, start_server: bool,
 
         probe_v2 = Path(target_path).read_text()
         _add_memory(base_url, ACTOR, "probed_after_edit", target_path,
-                    memory_type="Temporal", content=probe_v2)
+                    record_type="Temporal", content=probe_v2)
 
         # Phase 4: AFTER_EDIT scorecard
-        after_edit = _scorecard(base_url, ACTOR)
+        after_edit = _count_records(base_url, ACTOR)
         print(f"[field-soak] AFTER_EDIT: record_count={after_edit.get('record_count', '?')}",
               flush=True)
 
@@ -150,7 +154,7 @@ def run_scenario(base_url: str, start_server: bool,
                   "stop+start manually to verify WAL survival)", flush=True)
 
         # Phase 6: AFTER_RESTART scorecard — memories must survive
-        after_restart = _scorecard(base_url, ACTOR)
+        after_restart = _count_records(base_url, ACTOR)
         print(f"[field-soak] AFTER_RESTART: record_count={after_restart.get('record_count', '?')}",
               flush=True)
 

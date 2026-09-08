@@ -32,6 +32,14 @@ fn ac_fs2_field_soak_script_two_process() {
         src.contains("_start_server"),
         "script must define _start_server helper"
     );
+    assert!(
+        src.contains("/memory/add"),
+        "script must POST to /memory/add (correct REST endpoint)"
+    );
+    assert!(
+        src.contains("record_type"),
+        "script must use record_type field (not memory_type)"
+    );
 }
 
 #[test]
