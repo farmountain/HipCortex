@@ -2,7 +2,7 @@
 name = "hipcortex"
 version = "3.4.0"
 edition = "2021"
-description = "Cognitive state substrate for AI agents: grounded goal scheduling, belief revision, content-anchored world-model, OpEx budget metering, ClarifyEngine lifecycle, and decision provenance — MCP + REST"
+description = "Cognitive state substrate for AI agents: goal scheduling, belief revision, content-anchored world-model, OpEx budget metering, field-proven two-process WAL persistence (live diary), and decision provenance — MCP + REST"
 repository = "https://github.com/farmountain/HipCortex"
 license = "Apache-2.0"
 readme = "README.md"

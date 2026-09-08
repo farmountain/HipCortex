@@ -38,6 +38,36 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 | Unknown sensor probe returns fake `ok=True` | Honest grounding: unknown sensor → `{reachable:False, error:"unknown_sensor:<id>"}` — WM never poisoned (v3.1.0) |
 | Restate renames factor but never flags next step | `blocked_factors` + `probe_required` Temporal per blocked factor, `derived_from=goal_id` (v3.1.0) |
 | Context cost grows with transcript — no OpEx proof | `get_budget` MCP tool: `substrate_tokens` vs `naive_transcript_tokens`; consolidation ratio durable via `GET /substrate/budget` (v3.2.0) |
+| Wall guard meter claims host context coverage | Honest `wall_status` (bounded/at_risk/exceeded) + `[honest]` disclaimer: only MCP output metered; per-actor `_live_beliefs_seen_actors` discipline (v3.3.0) |
+| 3-month claim backed only by WAL reopens | Published field log: real server subprocess + HTTP + file edit + kill+restart → `after_restart=14` PASS; 605 stale VSIX assets deleted (v3.4.0) |
+
+---
+
+## What's new in v3.4.0 — Field Soak: Published Two-Process Proof + Per-Actor Wall Discipline
+
+Closes Gap 1 (diary ≠ two live processes), Gap 2 (wall discipline global → per-actor), Gap 5 (marketplace noise).
+
+| Change | Gap | Fix |
+|--------|-----|-----|
+| **Published field log** | `field_soak_diary_sit.rs` reopened stores but never ran a real server subprocess | `scripts/field_soak_scenario.py --start-server`: starts `webserver` subprocess, submits intents via `POST /memory/add`, edits file, kills+restarts; `before=12→after_edit=14→after_restart=14`, result=PASS; committed to `docs/field_soak_example.json` |
+| **Per-actor wall discipline** | `_live_beliefs_seen` global bool — any actor's `get_live_beliefs` cleared all actors' discipline | `_live_beliefs_seen_actors: set` — per-actor tracking; `search_memory` warns only if that specific actor hasn't called `get_live_beliefs` this session |
+| **Marketplace cleanup** | Each GitHub release accumulated all previous VSIX files (38–40 per release) | 605 stale VSIX assets deleted; every release now has exactly one matching VSIX |
+
+366 lib + 473 unit + 180+ integration + 56 property + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + earlier suites, 0 failures.
+
+---
+
+## What's new in v3.3.0 — Honest Claims: Wall Guard + Two-Process Diary + Probe Audit
+
+Closes 3 honest-claim gaps: wall guard admits what it can't measure, diary proves WAL persistence across 30 real `MemoryStore` reopens, probe audit asserts runtime behavior not just structure.
+
+| Change | Gap | Fix |
+|--------|-----|-----|
+| **Wall guard** | `substrate_tokens` claimed to cap host context — it only meters MCP output | `WALL_TOKEN_BUDGET` (env, default 8 000); `wall_status` (bounded/at_risk/exceeded); `[honest]` disclaimers in `get_budget` stating host context (transcript, KV cache) NOT measured; one `Reflexion{wall_exceeded}` per actor per session when exceeded |
+| **Two-process diary** | 30-cycle field soak added 7 records per cycle but never reopened `MemoryStore` from disk | `field_soak_diary_sit.rs`: each of 30 cycles opens NEW `MemoryStore::new(&path)`, writes 7 records, drops, reopens — verifies prior records still present |
+| **Probe audit** | `execute_probe` unknown-sensor behavior tested only structurally | `sdk/python/tests/test_probe_honesty_runtime.py`: 7 runtime assertions — opaque URI/empty/`ftp://`/numeric → `ok=False`, `reachable=False`, `error="unknown_sensor:…"` |
+
+366 lib + 473 unit + 182 integration + 56 property + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + earlier suites, 0 failures.
 
 ---
 

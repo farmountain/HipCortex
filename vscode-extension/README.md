@@ -1,13 +1,33 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.2.0`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.4.0`)
 
-[![Version](https://img.shields.io/badge/version-v3.2.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v3.4.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
-**Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, grounded probe planning, OpEx budget metering, and topological graph tools.**
+**Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, grounded probe planning, OpEx budget metering, field-proven two-process WAL persistence, and topological graph tools.**
 
-VSIX **3.2.0** (OpEx Metering + Field Grounding) · server/pip/npm **3.2.0**. 366 lib + 473 unit + 180 integration + 56 property + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+VSIX **3.4.0** (Field Soak + Per-Actor Wall Discipline) · server/pip/npm **3.4.0**. 366 lib + 473 unit + 180+ integration + 56 property + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v3.4.0 — Field Soak: Published Two-Process Proof + Per-Actor Wall Discipline
+
+| Change | Details |
+|--------|---------|
+| **Published field log** | `scripts/field_soak_scenario.py --start-server`: starts `webserver` subprocess, submits intents via `POST /memory/add`, edits file, kills+restarts; `before=12→after_edit=14→after_restart=14`, result=PASS |
+| **Per-actor wall discipline** | `_live_beliefs_seen_actors: set` — per-actor tracking; `search_memory` warns only if that actor hasn't called `get_live_beliefs` this session |
+| **Marketplace cleanup** | 605 stale VSIX assets deleted; every release now has exactly one matching VSIX |
+
+---
+
+## What's new in v3.3.0 — Honest Claims: Wall Guard + Two-Process Diary + Probe Audit
+
+| Change | Details |
+|--------|---------|
+| **Wall guard** | `WALL_TOKEN_BUDGET` (env, default 8 000); `wall_status` (bounded/at_risk/exceeded); `[honest]` disclaimers: only MCP output metered — host context not measured |
+| **Two-process diary** | `field_soak_diary_sit.rs`: each of 30 cycles opens NEW `MemoryStore::new(&path)`, writes 7 records, drops, reopens — verifies prior records still present |
+| **Probe audit** | `test_probe_honesty_runtime.py`: 7 runtime assertions — opaque URI/empty/`ftp://`/numeric → `ok=False`, `reachable=False`, `error="unknown_sensor:…"` |
 
 ---
 
