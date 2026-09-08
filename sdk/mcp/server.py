@@ -38,7 +38,7 @@ TIMEOUT       = int(os.getenv("HIPCORTEX_TIMEOUT", "10"))
 # Session harness state (one MCP process lifetime). Soft substrate-first nudge:
 # prefer get_live_beliefs / reflect before search_memory. Never hard-blocks.
 # Disable: HIPCORTEX_HARNESS_SOFT=0
-_live_beliefs_seen = False
+_live_beliefs_seen_actors: set = set()  # per-actor discipline: tracks who called get_live_beliefs
 
 _HARNESS_SEARCH_WARN = (
     "[harness] Prefer get_live_beliefs FIRST before search (substrate-first). "
@@ -1727,7 +1727,7 @@ def handle_get_verifier_report(args: dict) -> str:
     return json.dumps(r)
 
 def dispatch_tool(name: str, args: dict) -> str:
-    global _live_beliefs_seen
+    actor = args.get("actor", "_global")
     handlers = {
         "add_memory":       handle_add_memory,
         "search_memory":    handle_search_memory,
@@ -1797,10 +1797,10 @@ def dispatch_tool(name: str, args: dict) -> str:
         raise ValueError(f"Unknown tool: {name}")
     result = handler(args)
     if name in ("get_live_beliefs", "reflect"):
-        _live_beliefs_seen = True
+        _live_beliefs_seen_actors.add(actor)
     elif name == "search_memory":
         soft_on = os.getenv("HIPCORTEX_HARNESS_SOFT", "1") != "0"
-        if soft_on and not _live_beliefs_seen:
+        if soft_on and actor not in _live_beliefs_seen_actors:
             result = _HARNESS_SEARCH_WARN + "\n" + result
     return result
 
@@ -1915,7 +1915,7 @@ def main() -> None:
             respond(id_, {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}, "resources": {}},
-                "serverInfo": {"name": "hipcortex", "version": "3.3.0"},
+                "serverInfo": {"name": "hipcortex", "version": "3.4.0"},
             })
         elif method == "initialized":
             pass  # notification — no response

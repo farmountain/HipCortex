@@ -1,8 +1,8 @@
 {
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
-    "description": "HipCortex v3.3.0 — Honest Claims: wall guard (WALL_TOKEN_BUDGET + wall_status), two-process persistence diary (30-cycle WAL proof), probe audit runtime tests. 366 lib + 473 unit + 180+ integration + 56 property + 11 AC-W/D/PA (v3.3) + 6 AC-B (v3.2) + 4 AC (v3.1) + 6 AC (v3.0) + 10 AC (v2.9), 0 failures.",
-    "version": "3.3.0",
+    "description": "HipCortex v3.4.0 — Field Soak: real two-process afternoon proof (server subprocess + HTTP + WAL restart), per-actor wall discipline, field_soak_scenario.py. 366 lib + 473 unit + 180+ integration + 56 property + 6 AC-FS/WD (v3.4) + 10 AC-W/D/PA (v3.3) + 6 AC-B (v3.2) + 4 AC (v3.1) + 6 AC (v3.0), 0 failures.",
+    "version": "3.4.0",
     "publisher": "farmountain",
     "repository": {
         "type": "git",

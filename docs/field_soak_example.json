@@ -1,0 +1,33 @@
+{
+  "scenario": "field_soak_two_process_v340",
+  "note": "Sample output — run `python scripts/field_soak_scenario.py --start-server` to replace with live results.",
+  "actor": "soak-1",
+  "before": {
+    "actor": "soak-1",
+    "record_count": 5,
+    "substrate_tokens": 0,
+    "naive_transcript_tokens": 250,
+    "compression_ratio": null
+  },
+  "after_edit": {
+    "actor": "soak-1",
+    "record_count": 7,
+    "substrate_tokens": 0,
+    "naive_transcript_tokens": 350,
+    "compression_ratio": null
+  },
+  "after_restart": {
+    "actor": "soak-1",
+    "record_count": 7,
+    "substrate_tokens": 0,
+    "naive_transcript_tokens": 350,
+    "compression_ratio": null,
+    "loaded_from_wal": true
+  },
+  "assertions": {
+    "after_edit_gt_before": true,
+    "after_restart_ge_after_edit": true,
+    "records_survive_restart": true
+  },
+  "result": "PASS"
+}
