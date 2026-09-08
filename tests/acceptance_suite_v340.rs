@@ -1,8 +1,8 @@
 /// v3.4.0 — Field Soak + Per-Actor Wall Discipline
 ///
 /// AC-FS1: scripts/field_soak_scenario.py exists
-/// AC-FS2: script uses subprocess (real two-process proof, not in-memory)
-/// AC-FS3: script captures after_restart state in diary
+/// AC-FS2: script uses intent/open + sha256_hex + intent/receipt seam (v3.5.0 rewrite)
+/// AC-FS3: script captures after_restart epistemic state in diary
 /// AC-FS4: docs/field_soak_example.json exists (sample or live run output)
 /// AC-WD1: server.py uses per-actor set _live_beliefs_seen_actors (not global bool)
 /// AC-WD2: dispatch_tool checks actor not in _live_beliefs_seen_actors
@@ -33,12 +33,16 @@ fn ac_fs2_field_soak_script_two_process() {
         "script must define _start_server helper"
     );
     assert!(
-        src.contains("/memory/add"),
-        "script must POST to /memory/add (correct REST endpoint)"
+        src.contains("/intent/open"),
+        "script must call /intent/open (receipt seam — not /memory/add for edit events)"
     );
     assert!(
-        src.contains("record_type"),
-        "script must use record_type field (not memory_type)"
+        src.contains("sha256_hex"),
+        "script must compute and pass sha256_hex in observation"
+    );
+    assert!(
+        src.contains("/intent/receipt"),
+        "script must call /intent/receipt to close the probe"
     );
 }
 
@@ -50,8 +54,8 @@ fn ac_fs3_field_soak_captures_restart() {
         "diary must capture post-restart scorecard state"
     );
     assert!(
-        src.contains("records_survive_restart"),
-        "diary assertions must include records_survive_restart"
+        src.contains("epistemic_state_survived_restart"),
+        "diary assertions must include epistemic_state_survived_restart (v3.5.0 seam proof)"
     );
 }
 

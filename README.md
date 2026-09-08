@@ -40,6 +40,21 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 | Context cost grows with transcript — no OpEx proof | `get_budget` MCP tool: `substrate_tokens` vs `naive_transcript_tokens`; consolidation ratio durable via `GET /substrate/budget` (v3.2.0) |
 | Wall guard meter claims host context coverage | Honest `wall_status` (bounded/at_risk/exceeded) + `[honest]` disclaimer: only MCP output metered; per-actor `_live_beliefs_seen_actors` discipline (v3.3.0) |
 | 3-month claim backed only by WAL reopens | Published field log: real server subprocess + HTTP + file edit + kill+restart → `after_restart=14` PASS; 605 stale VSIX assets deleted (v3.4.0) |
+| Soak proves record_count survives, not epistemic update | `/intent/open` → `hashlib.sha256` → `/intent/receipt` → `was_surprising=True` → `Belief{confidence=0.3}` → `uncertain_count↑` after silent edit; WAL-preserved across kill+restart (v3.5.0) |
+
+---
+
+## What's new in v3.5.0 — Epistemic Seam Proof: The Agent Noticed the World Changed
+
+Closes the "process death ≠ epistemic update" gap identified after v3.4.0: the soak now runs the full intent/receipt seam — no `/memory/add` for the edit event. The server itself detects the content change.
+
+| Change | Gap | Fix |
+|--------|-----|-----|
+| **Epistemic field soak** | `field_soak_scenario.py` used `/memory/add` to record the edit — human annotation, not autonomous detection | Rewritten: `/intent/open` → `hashlib.sha256` → `/intent/receipt` with `sha256_hex`; server `update_from_receipt` detects `was_surprising=True` → writes `Belief{confidence=0.3}` → `uncertain_count` increases WITHOUT any `/memory/add` |
+| **Before/after scorecard diary** | `docs/field_soak_example.json` only had `record_count` (bookkeeping, not cognition) | `docs/epistemic_soak_example.json`: full scorecard fields — `uncertain_count_before`, `uncertain_count_after`, `recommended_op`, `sha256_hex` hashes; `uncertain_count_increased=true`, `epistemic_state_survived_restart=true` |
+| **Strong acceptance criteria** | AC-FS2 checked "script contains `/memory/add`" — passing for the wrong reason | `acceptance_suite_v350.rs`: 8 ACs including JSON field assertions; `acceptance_suite_v340.rs` AC-FS2/3 updated to check `/intent/open` + `sha256_hex` + `epistemic_state_survived_restart` |
+
+366 lib + 473 unit + 180+ integration + 56 property + 8 AC-ES (v3.5.0) + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + earlier suites, 0 failures.
 
 ---
 

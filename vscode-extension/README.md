@@ -1,13 +1,23 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.4.0`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.5.0`)
 
-[![Version](https://img.shields.io/badge/version-v3.4.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v3.5.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
 **Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, grounded probe planning, OpEx budget metering, field-proven two-process WAL persistence, and topological graph tools.**
 
-VSIX **3.4.0** (Field Soak + Per-Actor Wall Discipline) · server/pip/npm **3.4.0**. 366 lib + 473 unit + 180+ integration + 56 property + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+VSIX **3.5.0** (Epistemic Seam Proof) · server/pip/npm **3.5.0**. 366 lib + 473 unit + 180+ integration + 56 property + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v3.5.0 — Epistemic Seam Proof: The Agent Noticed the World Changed
+
+| Change | Details |
+|--------|---------|
+| **Epistemic field soak** | `field_soak_scenario.py` rewritten: `/intent/open` → `hashlib.sha256` → `/intent/receipt`; `was_surprising=True` → `Belief{confidence=0.3}` → `uncertain_count↑` after silent edit — no `/memory/add` for the edit event |
+| **Scorecard diary** | `docs/epistemic_soak_example.json`: `uncertain_count_before`, `uncertain_count_after`, `recommended_op`, `sha256_hex`; `uncertain_count_increased=true`, `epistemic_state_survived_restart=true` |
+| **Strong ACs** | `acceptance_suite_v350.rs`: 8 ACs with JSON field assertions; v3.4.0 ACs updated to check `/intent/open` + `sha256_hex` |
 
 ---
 

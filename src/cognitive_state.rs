@@ -481,8 +481,10 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
                         "discrepancy_detected".to_string(),
                         entity.clone(),
                         serde_json::json!({
-                            "reason": "observation_diverged_from_wm_prediction",
-                            "entity": entity,
+                            "proposition": format!("discrepancy_detected:{}", entity),
+                            "justification": "observation_diverged_from_wm_prediction",
+                            "confidence": 0.3_f32,
+                            "epistemic_status": "Observed",
                         }),
                     );
                     disc.confidence = 0.3;

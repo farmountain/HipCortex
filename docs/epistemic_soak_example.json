@@ -1,0 +1,26 @@
+{
+  "scenario": "epistemic_seam_proof_v350",
+  "actor": "soak-epistemic-1",
+  "entity": "filesystem",
+  "probe_before": {
+    "sha256_hex": "d8e63958c971f445ab0893000b76cac6dc1d5b04a2262182fabd4831607db3a2",
+    "uncertain_count": 136,
+    "recommended_op": "probe_entity:filesystem"
+  },
+  "probe_after": {
+    "sha256_hex": "235e210e2368f18aebfb9b7798cc61af6b38525ff1cc42cf85c6960ac44c6d39",
+    "uncertain_count": 137,
+    "recommended_op": "probe_entity:filesystem"
+  },
+  "after_restart": {
+    "uncertain_count": 137,
+    "recommended_op": "probe_entity:filesystem"
+  },
+  "assertions": {
+    "hashes_differ": true,
+    "uncertain_count_increased": true,
+    "epistemic_state_survived_restart": true,
+    "no_memory_add_for_edit": true
+  },
+  "result": "PASS"
+}

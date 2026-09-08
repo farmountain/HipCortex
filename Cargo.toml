@@ -1,6 +1,6 @@
 [package]
 name = "hipcortex"
-version = "3.4.0"
+version = "3.5.0"
 edition = "2021"
 description = "Cognitive state substrate for AI agents: goal scheduling, belief revision, content-anchored world-model, OpEx budget metering, field-proven two-process WAL persistence (live diary), and decision provenance — MCP + REST"
 repository = "https://github.com/farmountain/HipCortex"
@@ -187,6 +187,10 @@ path = "tests/acceptance_suite_v330.rs"
 [[test]]
 name = "acceptance_suite_v340"
 path = "tests/acceptance_suite_v340.rs"
+
+[[test]]
+name = "acceptance_suite_v350"
+path = "tests/acceptance_suite_v350.rs"
 
 [[bench]]
 name = "temporal_state_diff_bench"
