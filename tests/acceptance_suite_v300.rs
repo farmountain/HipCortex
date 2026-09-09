@@ -62,7 +62,7 @@ fn ac_c1_restate_renames_env_blocked_factor_and_writes_reflexion() {
     payload.status = GoalStatus::Pending;
     payload.target_state = "prod".to_string();
     payload.success_factors = vec![
-        SuccessFactor { name: "deploy_service".to_string(), weight: 1.0, satisfied: false },
+        SuccessFactor { name: "deploy_service".to_string(), weight: 1.0, satisfied: false, observation_pattern: None },
     ];
     let meta = serde_json::to_value(&payload).unwrap();
     let mut rec = MemoryRecord::new(
@@ -117,7 +117,7 @@ fn ac_c2_restate_is_idempotent() {
     payload.status = GoalStatus::Pending;
     payload.target_state = "prod".to_string();
     payload.success_factors = vec![
-        SuccessFactor { name: "build_pipeline".to_string(), weight: 1.0, satisfied: false },
+        SuccessFactor { name: "build_pipeline".to_string(), weight: 1.0, satisfied: false, observation_pattern: None },
     ];
     let meta = serde_json::to_value(&payload).unwrap();
     let mut rec = MemoryRecord::new(

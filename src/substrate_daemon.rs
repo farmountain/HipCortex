@@ -190,6 +190,7 @@ impl SubstrateDaemon {
                                         name: "entity_uncertainty_below_threshold".to_string(),
                                         weight: 1.0,
                                         satisfied: false,
+                                        observation_pattern: None,
                                     }],
                                     status: GoalStatus::InProgress,
                                     max_react_iterations: 3,

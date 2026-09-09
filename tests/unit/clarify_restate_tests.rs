@@ -9,7 +9,7 @@ fn make_goal(
 ) -> uuid::Uuid {
     let sf: Vec<SuccessFactor> = factors
         .into_iter()
-        .map(|n| SuccessFactor { name: n.to_string(), weight: 1.0, satisfied: false })
+        .map(|n| SuccessFactor { name: n.to_string(), weight: 1.0, satisfied: false, observation_pattern: None })
         .collect();
     let gp = GoalPayload {
         target_state: "deploy_production".into(),

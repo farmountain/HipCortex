@@ -8,7 +8,7 @@ fn make_store_with_goal(max_iter: u32) -> (MemoryStore<impl hipcortex::persisten
     let gp = GoalPayload {
         target_state: "end".into(),
         acceptance_criteria: vec![],
-        success_factors: vec![SuccessFactor { name: "done".into(), satisfied: false, weight: 1.0 }],
+        success_factors: vec![SuccessFactor { name: "done".into(), satisfied: false, weight: 1.0, observation_pattern: None }],
         max_react_iterations: max_iter,
         current_iteration: 0,
         status: GoalStatus::Pending,

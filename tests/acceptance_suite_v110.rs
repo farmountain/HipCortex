@@ -102,7 +102,7 @@ fn main() {
             target_state: "wm_ac4".into(),
             max_react_iterations: 3,
             status: GoalStatus::Pending,
-            success_factors: vec![SuccessFactor { name: "f".into(), weight: 1.0, satisfied: false }],
+            success_factors: vec![SuccessFactor { name: "f".into(), weight: 1.0, satisfied: false, observation_pattern: None }],
             ..Default::default()
         };
         let rec = MemoryRecord::new(MemoryType::Goal, "agent".into(), "p".into(), "wm_ac4".into(), serde_json::to_value(&gp).unwrap());
@@ -121,7 +121,7 @@ fn main() {
             target_state: "ac5_target".into(),
             max_react_iterations: 2,
             status: GoalStatus::Pending,
-            success_factors: vec![SuccessFactor { name: "s".into(), weight: 1.0, satisfied: false }],
+            success_factors: vec![SuccessFactor { name: "s".into(), weight: 1.0, satisfied: false, observation_pattern: None }],
             ..Default::default()
         };
         let rec = MemoryRecord::new(MemoryType::Goal, "agent".into(), "p".into(), "ac5_target".into(), serde_json::to_value(&gp).unwrap());

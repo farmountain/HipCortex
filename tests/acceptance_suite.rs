@@ -62,7 +62,7 @@ fn main() {
         let mut store = MemoryStore::new_in_memory();
         let gp = GoalPayload {
             target_state: "t".into(), acceptance_criteria: vec![],
-            success_factors: vec![SuccessFactor { name: "x".into(), satisfied: false, weight: 1.0 }],
+            success_factors: vec![SuccessFactor { name: "x".into(), satisfied: false, weight: 1.0, observation_pattern: None }],
             max_react_iterations: 3, current_iteration: 0,
             status: GoalStatus::Pending,
             ..Default::default()

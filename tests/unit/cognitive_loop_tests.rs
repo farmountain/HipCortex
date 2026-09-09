@@ -195,7 +195,7 @@ fn ac_gap1a_daemon_marks_satisfied_goal_succeeded() {
     // Pre-load an InProgress goal whose factors are already satisfied.
     let payload = GoalPayload {
         target_state: "integration_complete".into(),
-        success_factors: vec![SuccessFactor { name: "done".into(), weight: 1.0, satisfied: true }],
+        success_factors: vec![SuccessFactor { name: "done".into(), weight: 1.0, satisfied: true, observation_pattern: None }],
         status: GoalStatus::InProgress,
         max_react_iterations: 3,
         ..Default::default()
@@ -430,7 +430,7 @@ fn ac_novel_c_no_synthesis_when_active_goal_exists() {
     // Add an existing InProgress goal with non-empty factors
     let payload = GoalPayload {
         target_state: "existing_goal".into(),
-        success_factors: vec![SuccessFactor { name: "done".into(), weight: 1.0, satisfied: false }],
+        success_factors: vec![SuccessFactor { name: "done".into(), weight: 1.0, satisfied: false, observation_pattern: None }],
         status: GoalStatus::InProgress,
         max_react_iterations: 3,
         ..Default::default()
@@ -569,7 +569,7 @@ fn ac_veto_a_critic_veto_writes_decision_rejected() {
     // Real InProgress goal — CriticGate will evaluate it (not the dummy-goal from the old bug).
     let payload = GoalPayload {
         target_state: "veto_target".into(),
-        success_factors: vec![SuccessFactor { name: "not_done".into(), weight: 1.0, satisfied: false }],
+        success_factors: vec![SuccessFactor { name: "not_done".into(), weight: 1.0, satisfied: false, observation_pattern: None }],
         status: GoalStatus::InProgress,
         max_react_iterations: 1,
         ..Default::default()
@@ -617,7 +617,7 @@ fn ac_veto_b_critic_veto_gates_ols_rewrite() {
     // Real InProgress goal with 1 unsatisfied factor (never satisfied → veto at iter 1)
     let payload = GoalPayload {
         target_state: "veto_ols_target".into(),
-        success_factors: vec![SuccessFactor { name: "not_done".into(), weight: 1.0, satisfied: false }],
+        success_factors: vec![SuccessFactor { name: "not_done".into(), weight: 1.0, satisfied: false, observation_pattern: None }],
         status: GoalStatus::InProgress,
         max_react_iterations: 1,
         ..Default::default()
@@ -905,7 +905,7 @@ fn ac_step_execution_mode_serializes() {
 
     let payload = GoalPayload {
         target_state: "reach_goal".into(),
-        success_factors: vec![SuccessFactor { name: "done".into(), weight: 1.0, satisfied: false }],
+        success_factors: vec![SuccessFactor { name: "done".into(), weight: 1.0, satisfied: false, observation_pattern: None }],
         status: GoalStatus::InProgress,
         execution_mode: GoalExecutionMode::StepByStep,
         max_react_iterations: 3,
@@ -931,7 +931,7 @@ fn ac_step_one_step_advances_iteration() {
 
     let payload = GoalPayload {
         target_state: "step_target".into(),
-        success_factors: vec![SuccessFactor { name: "step_done".into(), weight: 1.0, satisfied: false }],
+        success_factors: vec![SuccessFactor { name: "step_done".into(), weight: 1.0, satisfied: false, observation_pattern: None }],
         status: GoalStatus::InProgress,
         execution_mode: GoalExecutionMode::StepByStep,
         max_react_iterations: 5,
@@ -977,8 +977,8 @@ fn ac_step_goal_advances_across_multiple_ticks() {
     let payload = GoalPayload {
         target_state: "multi_step_target".into(),
         success_factors: vec![
-            SuccessFactor { name: "s1".into(), weight: 1.0, satisfied: true },
-            SuccessFactor { name: "s2".into(), weight: 1.0, satisfied: false },
+            SuccessFactor { name: "s1".into(), weight: 1.0, satisfied: true, observation_pattern: None },
+            SuccessFactor { name: "s2".into(), weight: 1.0, satisfied: false, observation_pattern: None },
         ],
         status: GoalStatus::InProgress,
         execution_mode: GoalExecutionMode::StepByStep,
@@ -1025,7 +1025,7 @@ fn ac_step_veto_at_tick1_blocks_step_writes_decision() {
 
     let payload = GoalPayload {
         target_state: "veto_target".into(),
-        success_factors: vec![SuccessFactor { name: "v1".into(), weight: 1.0, satisfied: false }],
+        success_factors: vec![SuccessFactor { name: "v1".into(), weight: 1.0, satisfied: false, observation_pattern: None }],
         status: GoalStatus::InProgress,
         execution_mode: GoalExecutionMode::StepByStep,
         max_react_iterations: 5,
@@ -1415,7 +1415,7 @@ fn q10_clarify_pending_trumps_react_loop() {
     let gp = GoalPayload {
         target_state: "clarify_target".to_string(),
         status: GoalStatus::InProgress,
-        success_factors: vec![SuccessFactor { name: "f1".into(), weight: 1.0, satisfied: false }],
+        success_factors: vec![SuccessFactor { name: "f1".into(), weight: 1.0, satisfied: false, observation_pattern: None }],
         ..Default::default()
     };
     let mut goal_rec = MemoryRecord::new(

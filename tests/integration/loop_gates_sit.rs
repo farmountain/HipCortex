@@ -33,7 +33,7 @@ fn make_goal(factors: Vec<SuccessFactor>, max_iter: u32) -> MemoryRecord {
 }
 
 fn unsatisfied() -> SuccessFactor {
-    SuccessFactor { name: "f1".into(), weight: 1.0, satisfied: false }
+    SuccessFactor { name: "f1".into(), weight: 1.0, satisfied: false, observation_pattern: None }
 }
 
 #[test]

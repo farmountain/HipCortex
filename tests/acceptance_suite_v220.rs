@@ -199,8 +199,8 @@ fn main() {
             execution_mode: GoalExecutionMode::StepByStep,
             current_iteration: 2,
             success_factors: vec![
-                SuccessFactor { name: "tests_pass".to_string(), weight: 1.0, satisfied: true },
-                SuccessFactor { name: "deployed".to_string(), weight: 1.0, satisfied: false },
+                SuccessFactor { name: "tests_pass".to_string(), weight: 1.0, satisfied: true, observation_pattern: None },
+                SuccessFactor { name: "deployed".to_string(), weight: 1.0, satisfied: false, observation_pattern: None },
             ],
             ..Default::default()
         };

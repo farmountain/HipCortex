@@ -17,8 +17,8 @@ fn seed_goal(store: &mut MemoryStore<hipcortex::InMemoryBackend>, max_iters: u32
         target_state: "task complete".to_string(),
         acceptance_criteria: vec!["task complete".to_string()],
         success_factors: vec![
-            SuccessFactor { name: "step-1".to_string(), weight: 0.5, satisfied: false },
-            SuccessFactor { name: "step-2".to_string(), weight: 0.5, satisfied: false },
+            SuccessFactor { name: "step-1".to_string(), weight: 0.5, satisfied: false, observation_pattern: None },
+            SuccessFactor { name: "step-2".to_string(), weight: 0.5, satisfied: false, observation_pattern: None },
         ],
         max_react_iterations: max_iters,
         status: GoalStatus::Pending,

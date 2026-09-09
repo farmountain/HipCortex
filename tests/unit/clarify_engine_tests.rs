@@ -86,7 +86,7 @@ fn clarify_engine_matching_belief_self_resolves() {
 #[test]
 fn clarify_engine_non_empty_factors_already_clear() {
     let mut store = make_store();
-    let factor = SuccessFactor { name: "service_running".to_string(), weight: 1.0, satisfied: false };
+    let factor = SuccessFactor { name: "service_running".to_string(), weight: 1.0, satisfied: false, observation_pattern: None };
     let gid = add_goal(&mut store, "agent-3", "deploy_service", vec![factor]);
     let outcome = ClarifyEngine::run(&mut store, gid, "agent-3", ClarifyTrigger::EmptyAC, None);
     assert_eq!(

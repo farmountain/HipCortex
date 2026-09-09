@@ -142,7 +142,7 @@ fn ac_e1_q10_recommends_task_complete_for_succeeded_goal() {
     payload.target_state = "done".to_string();
     payload.status = GoalStatus::Succeeded;
     payload.success_factors = vec![
-        SuccessFactor { name: "factor_a".to_string(), weight: 1.0, satisfied: true },
+        SuccessFactor { name: "factor_a".to_string(), weight: 1.0, satisfied: true, observation_pattern: None },
     ];
     let meta = serde_json::to_value(&payload).unwrap();
     let mut rec = MemoryRecord::new(
@@ -171,8 +171,8 @@ fn ac_e2_assess_completion_returns_complete_when_all_factors_satisfied() {
     let mut payload = GoalPayload::default();
     payload.status = GoalStatus::InProgress;
     payload.success_factors = vec![
-        SuccessFactor { name: "a".to_string(), weight: 1.0, satisfied: true },
-        SuccessFactor { name: "b".to_string(), weight: 1.0, satisfied: true },
+        SuccessFactor { name: "a".to_string(), weight: 1.0, satisfied: true, observation_pattern: None },
+        SuccessFactor { name: "b".to_string(), weight: 1.0, satisfied: true, observation_pattern: None },
     ];
     let meta = serde_json::to_value(&payload).unwrap();
     let mut rec = MemoryRecord::new(

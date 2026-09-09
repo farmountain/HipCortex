@@ -504,6 +504,9 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
                             let mut meta = rec.metadata.clone();
                             meta["status"] = serde_json::json!("Received");
                             meta["was_surprising"] = serde_json::json!(was_surprising);
+                            if let Some(excerpt) = receipt.observation.get("content_excerpt").and_then(|v| v.as_str()) {
+                                meta["content_excerpt"] = serde_json::json!(excerpt);
+                            }
                             (rec.id, meta)
                         })
                     };

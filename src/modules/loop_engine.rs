@@ -842,6 +842,11 @@ impl ReactEngine {
                     revision.derived_from = Some(goal_id);
                     revision.react_iteration = Some(i);
                     let _ = store.add(revision);
+                    // Apply revision: synthesise new success_factors from active entities.
+                    // Bounded — apply_revision runs once per GoalRevision emit (counter already reset).
+                    crate::clarify_engine::ClarifyEngine::apply_revision(
+                        store, goal_id, &goal_record.actor,
+                    );
                 }
             }
 
@@ -945,12 +950,35 @@ impl ReactEngine {
                 continue;
             }
             let entity_key = factor.name.split('_').next().unwrap_or(&factor.name);
-            let hits = received_targets
-                .iter()
-                .filter(|t| t.contains(entity_key) || entity_key.contains(t.as_str()))
-                .count();
-            if hits >= 2 {
-                factor.satisfied = true;
+            if let Some(pattern) = &factor.observation_pattern {
+                // Predicate-based: at least one Received intent for this entity has
+                // content_excerpt containing the pattern.
+                let matched = store
+                    .all_by_type(MemoryType::Intent)
+                    .into_iter()
+                    .any(|r| {
+                        let entity_match = r.metadata.get("target_entity")
+                            .and_then(|v| v.as_str())
+                            .map(|e| e.contains(entity_key) || entity_key.contains(e))
+                            .unwrap_or(false);
+                        let received = r.metadata.get("status").and_then(|v| v.as_str()) == Some("Received");
+                        let content_ok = r.metadata.get("content_excerpt")
+                            .and_then(|v| v.as_str())
+                            .map(|c| c.contains(pattern.as_str()))
+                            .unwrap_or(false);
+                        entity_match && received && content_ok
+                    });
+                if matched {
+                    factor.satisfied = true;
+                }
+            } else {
+                let hits = received_targets
+                    .iter()
+                    .filter(|t| t.contains(entity_key) || entity_key.contains(t.as_str()))
+                    .count();
+                if hits >= 2 {
+                    factor.satisfied = true;
+                }
             }
         }
     }

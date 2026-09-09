@@ -14,7 +14,7 @@ fn test_no_blind_retry_when_attribution_available() {
     let gp = GoalPayload {
         target_state: "reach_B".into(),
         acceptance_criteria: vec![],
-        success_factors: vec![SuccessFactor { name: "at_B".into(), satisfied: false, weight: 1.0 }],
+        success_factors: vec![SuccessFactor { name: "at_B".into(), satisfied: false, weight: 1.0, observation_pattern: None }],
         max_react_iterations: 2,
         current_iteration: 0,
         status: GoalStatus::Pending,

@@ -64,12 +64,13 @@ def _open_intent(base: str, actor: str, entity: str) -> str:
     return r["intent_id"]
 
 
-def _send_receipt(base: str, actor: str, intent_id: str, sha256_hex: str, sensor_path: str) -> None:
+def _send_receipt(base: str, actor: str, intent_id: str, sha256_hex: str, sensor_path: str,
+                  content_excerpt: str = "") -> None:
     _post(base, "/intent/receipt", {
         "actor": actor,
         "intent_id": intent_id,
         "ok": True,
-        "observation": {"sha256_hex": sha256_hex},
+        "observation": {"sha256_hex": sha256_hex, "content_excerpt": content_excerpt},
         "sensor_path": sensor_path,
     })
 
@@ -78,12 +79,21 @@ def _get_scorecard(base: str, actor: str) -> dict:
     return _get(base, "/substrate/scorecard", {"actor": actor})
 
 
-def _poll_and_receipt(base: str, actor: str, entity: str, watch: str) -> None:
-    """Receipt daemon-opened intents for entity. Opens only as fallback when none pending.
+def _read_excerpt(path: str, max_bytes: int = 256) -> str:
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            return f.read(max_bytes)
+    except OSError:
+        return ""
 
-    Product model: daemon owns cognition (opens intents); runner owns sensing (receipts them).
-    Fallback ensures the loop progresses even before daemon opens — but in a pure production
-    deployment, the daemon always opens intents before the runner polls.
+
+def _poll_and_receipt(base: str, actor: str, entity: str, watch: str,
+                      allow_open: bool = True) -> None:
+    """Receipt daemon-opened intents for entity.
+
+    allow_open=False (guided/production mode): pure sensing — never opens intents.
+      If no pending intents found, logs and returns. Daemon must open first.
+    allow_open=True (default): opens as fallback when no daemon intents pending.
     """
     sensor_path = f"runner:{entity}"
     try:
@@ -98,21 +108,25 @@ def _poll_and_receipt(base: str, actor: str, entity: str, watch: str) -> None:
 
     if pending:
         h = _sha256(watch)
+        excerpt = _read_excerpt(watch)
         for intent in pending:
             try:
-                _send_receipt(base, actor, intent["id"], h, sensor_path)
+                _send_receipt(base, actor, intent["id"], h, sensor_path, content_excerpt=excerpt)
                 print(f"[runner] receipt daemon-intent={str(intent['id'])[:8]}... entity={entity}", flush=True)
             except Exception as e:
                 print(f"[runner] receipt error: {e}", flush=True)
-    else:
+    elif allow_open:
         # Fallback: daemon has not opened an intent yet — open one ourselves.
         try:
             intent_id = _open_intent(base, actor, entity)
             h = _sha256(watch)
-            _send_receipt(base, actor, intent_id, h, sensor_path)
+            excerpt = _read_excerpt(watch)
+            _send_receipt(base, actor, intent_id, h, sensor_path, content_excerpt=excerpt)
             print(f"[runner] fallback open+receipt entity={entity} hash={h[:12]}...", flush=True)
         except Exception as e:
             print(f"[runner] fallback error: {e}", flush=True)
+    else:
+        print(f"[runner] no daemon intents for entity={entity} — waiting (single-role mode)", flush=True)
 
 
 def _react_step(base: str, goal_id: str) -> dict:
@@ -189,7 +203,7 @@ def run_guided(base: str, actor: str, entity: str, watch: str, poll: float, goal
 
         if op.startswith("probe_entity:"):
             probe_entity = op.split(":", 1)[1]
-            _poll_and_receipt(base, actor, probe_entity, watch)
+            _poll_and_receipt(base, actor, probe_entity, watch, allow_open=False)
 
         elif op == "react_loop":
             try:

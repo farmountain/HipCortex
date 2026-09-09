@@ -54,7 +54,7 @@ fn ac_r1_restate_probe_required_runtime() {
     payload.status = GoalStatus::Pending;
     payload.target_state = "deployed".to_string();
     payload.success_factors = vec![
-        SuccessFactor { name: "api_service".to_string(), weight: 1.0, satisfied: false },
+        SuccessFactor { name: "api_service".to_string(), weight: 1.0, satisfied: false, observation_pattern: None },
     ];
     let meta = serde_json::to_value(&payload).unwrap();
     let mut rec = MemoryRecord::new(

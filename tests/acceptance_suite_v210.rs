@@ -119,7 +119,7 @@ fn main() {
         let mut store = MemoryStore::new_in_memory();
 
         // Create goal with a success_factor that references "deploy_production"
-        let sf = vec![SuccessFactor { name: "deploy_production".into(), weight: 1.0, satisfied: false }];
+        let sf = vec![SuccessFactor { name: "deploy_production".into(), weight: 1.0, satisfied: false, observation_pattern: None }];
         let gp = GoalPayload {
             target_state: "deploy".into(),
             success_factors: sf,

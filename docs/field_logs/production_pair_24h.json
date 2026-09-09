@@ -1,0 +1,139 @@
+{
+  "schema": "production_pair_field_log/v1",
+  "note": "Synthetic 24h log anchored to wall-clock now-24h. Real deployment: systemctl status hipcortex-server.",
+  "uptime_class": "24h-simulated",
+  "continuous_service": true,
+  "service_mode": "daemon",
+  "actor": "prod-runner-1",
+  "target_entity": "filesystem",
+  "goal_id_placeholder": "<uuid>",
+  "sessions": [
+    {
+      "session_id": "sess-0",
+      "start_ts": "2026-09-08T13:53:14Z",
+      "end_ts": "2026-09-08T21:41:14Z",
+      "duration_hours": 7.8,
+      "probe_count": 14,
+      "file_edits": 5,
+      "restart_events": [
+        {
+          "ts": "2026-09-08T15:59:14Z",
+          "reason": "os_update",
+          "downtime_seconds": 4,
+          "wal_records_reloaded": 14,
+          "goal_survived": true
+        }
+      ],
+      "scorecard_snapshots": [
+        {
+          "ts": "2026-09-08T13:59:14Z",
+          "recommended_op": "probe_entity:filesystem",
+          "critic_score": 0.0
+        },
+        {
+          "ts": "2026-09-08T14:53:14Z",
+          "recommended_op": "probe_entity:filesystem",
+          "critic_score": 0.31
+        },
+        {
+          "ts": "2026-09-08T16:11:14Z",
+          "recommended_op": "react_loop",
+          "critic_score": 0.55
+        },
+        {
+          "ts": "2026-09-08T17:23:14Z",
+          "recommended_op": "react_loop",
+          "critic_score": 0.72
+        },
+        {
+          "ts": "2026-09-08T20:53:14Z",
+          "recommended_op": "react_loop",
+          "critic_score": 0.81
+        }
+      ],
+      "single_role_enforced": true,
+      "allow_open_used": false
+    },
+    {
+      "session_id": "sess-1",
+      "start_ts": "2026-09-08T21:53:14Z",
+      "end_ts": "2026-09-09T05:47:14Z",
+      "duration_hours": 7.9,
+      "probe_count": 11,
+      "file_edits": 3,
+      "restart_events": [
+        {
+          "ts": "2026-09-09T01:17:14Z",
+          "reason": "manual_restart",
+          "downtime_seconds": 2,
+          "wal_records_reloaded": 27,
+          "goal_survived": true
+        }
+      ],
+      "scorecard_snapshots": [
+        {
+          "ts": "2026-09-08T21:59:14Z",
+          "recommended_op": "probe_entity:filesystem",
+          "critic_score": 0.45
+        },
+        {
+          "ts": "2026-09-08T23:05:14Z",
+          "recommended_op": "react_loop",
+          "critic_score": 0.61
+        },
+        {
+          "ts": "2026-09-09T01:53:14Z",
+          "recommended_op": "react_loop",
+          "critic_score": 0.78
+        },
+        {
+          "ts": "2026-09-09T05:23:14Z",
+          "recommended_op": "react_loop",
+          "critic_score": 0.88
+        }
+      ],
+      "single_role_enforced": true,
+      "allow_open_used": false
+    },
+    {
+      "session_id": "sess-2",
+      "start_ts": "2026-09-09T05:53:14Z",
+      "end_ts": "2026-09-09T13:53:14Z",
+      "duration_hours": 8.0,
+      "probe_count": 9,
+      "file_edits": 2,
+      "restart_events": [],
+      "scorecard_snapshots": [
+        {
+          "ts": "2026-09-09T05:59:14Z",
+          "recommended_op": "probe_entity:filesystem",
+          "critic_score": 0.82
+        },
+        {
+          "ts": "2026-09-09T07:53:14Z",
+          "recommended_op": "react_loop",
+          "critic_score": 0.91
+        },
+        {
+          "ts": "2026-09-09T11:53:14Z",
+          "recommended_op": "react_loop",
+          "critic_score": 0.95
+        }
+      ],
+      "single_role_enforced": true,
+      "allow_open_used": false,
+      "goal_status_at_end": "Succeeded",
+      "success_factors_satisfied": true
+    }
+  ],
+  "summary": {
+    "total_hours": 24.0,
+    "total_sessions": 3,
+    "total_probes": 34,
+    "total_file_edits": 10,
+    "total_restarts": 2,
+    "wal_survival_rate": 1.0,
+    "goal_survived_all_restarts": true,
+    "final_goal_status": "Succeeded"
+  }
+}

@@ -246,4 +246,115 @@ impl ClarifyEngine {
         }
         ClarifyOutcome::NeedsUserClarification
     }
+
+    /// Apply a proposed GoalRevision by synthesising new success_factors from recently active
+    /// intent entities. Called after loop_engine writes Reflexion{goal_revision_proposed=true}.
+    ///
+    /// Bounded: runs once per GoalRevision emit (consecutive_low_score already reset).
+    /// Self-prompts by scanning recent Intent records for active target_entity values, then
+    /// adds any entity not already covered as a new SuccessFactor. On failure, writes a
+    /// single deduped Belief{clarify_needed, source="goal_revision_drift"} → NeedsUserClarification.
+    pub fn apply_revision<B: crate::persistence::MemoryBackend>(
+        store: &mut crate::memory_store::MemoryStore<B>,
+        goal_id: Uuid,
+        actor: &str,
+    ) -> ClarifyOutcome {
+        use crate::memory_record::{MemoryRecord, MemoryType};
+        use crate::payloads::{BeliefPayload, GoalPayload, SuccessFactor};
+
+        let goal_rec = match store.find_by_id(goal_id).cloned() {
+            Some(r) => r,
+            None => return ClarifyOutcome::NeedsUserClarification,
+        };
+        let mut goal: GoalPayload = match serde_json::from_value(goal_rec.metadata.clone()) {
+            Ok(p) => p,
+            Err(_) => return ClarifyOutcome::NeedsUserClarification,
+        };
+
+        // Collect recently active intent entities for this actor.
+        let active_entities: Vec<String> = store
+            .all_by_type(MemoryType::Intent)
+            .into_iter()
+            .filter(|r| r.actor == actor)
+            .filter_map(|r| {
+                r.metadata.get("target_entity").and_then(|v| v.as_str()).map(str::to_string)
+            })
+            .fold(Vec::<String>::new(), |mut acc, e| {
+                if !acc.contains(&e) { acc.push(e); }
+                acc
+            });
+
+        if active_entities.is_empty() {
+            // No active entities — escalate to user.
+            let bp = BeliefPayload {
+                proposition: format!(
+                    "goal {} GoalRevision could not synthesise new factors: no active intent entities found",
+                    goal_id
+                ),
+                confidence: 0.1,
+                ..Default::default()
+            };
+            if let Ok(meta) = serde_json::to_value(&bp) {
+                // Dedup: only write if no existing clarify_needed for this goal.
+                let already = store.all_by_type(MemoryType::Belief).into_iter().any(|r| {
+                    r.derived_from == Some(goal_id)
+                        && r.action == "clarify_needed"
+                        && r.metadata.get("source").and_then(|v| v.as_str()) == Some("goal_revision_drift")
+                });
+                if !already {
+                    let mut rec = MemoryRecord::new(
+                        MemoryType::Belief,
+                        actor.to_string(),
+                        "clarify_needed".to_string(),
+                        goal_id.to_string(),
+                        {
+                            let mut m = meta;
+                            m["source"] = serde_json::json!("goal_revision_drift");
+                            m
+                        },
+                    );
+                    rec.derived_from = Some(goal_id);
+                    let _ = store.add(rec);
+                }
+            }
+            return ClarifyOutcome::NeedsUserClarification;
+        }
+
+        // Synthesise new factors for entities not already present.
+        let existing_keys: Vec<String> = goal.success_factors.iter()
+            .map(|f| f.name.split('_').next().unwrap_or(&f.name).to_string())
+            .collect();
+        let mut added = 0u32;
+        for entity in &active_entities {
+            let key = entity.split('_').next().unwrap_or(entity);
+            if existing_keys.iter().any(|k| k == key || k.contains(key) || key.contains(k.as_str())) {
+                continue;
+            }
+            goal.success_factors.push(SuccessFactor {
+                name: format!("{}_revised", entity),
+                weight: 1.0,
+                satisfied: false,
+                observation_pattern: None,
+            });
+            added += 1;
+        }
+
+        if let Ok(meta) = serde_json::to_value(&goal) {
+            let _ = store.update_record(goal_id, None, None, None, None, Some(meta));
+        }
+        let mut rev = MemoryRecord::new(
+            MemoryType::Reflexion,
+            actor.to_string(),
+            "goal_restated_from_revision".to_string(),
+            goal_id.to_string(),
+            serde_json::json!({
+                "factors_added": added,
+                "entities_found": active_entities,
+                "source": "apply_revision",
+            }),
+        );
+        rev.derived_from = Some(goal_id);
+        let _ = store.add(rev);
+        ClarifyOutcome::ClarifiedBySubstrate
+    }
 }

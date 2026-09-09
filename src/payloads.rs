@@ -19,6 +19,10 @@ pub struct SuccessFactor {
     pub name: String,
     pub weight: f32,
     pub satisfied: bool,
+    /// Content predicate: satisfied when a Received intent's content_excerpt contains this string.
+    /// None = fall back to count-based (≥2 surprising Received intents).
+    #[serde(default)]
+    pub observation_pattern: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]

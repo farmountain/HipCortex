@@ -1,13 +1,25 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.8.0`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.9.0`)
 
-[![Version](https://img.shields.io/badge/version-v3.8.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v3.9.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
 **Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, grounded probe planning, OpEx budget metering, field-proven two-process WAL persistence, and topological graph tools.**
 
-VSIX **3.8.0** (Production-Grade Goal Lifecycle) · server/pip/npm **3.8.0**. 366 lib + 473 unit + 180+ integration + 56 property + 10 AC-GS (v3.8.0) + 10 AC-LR (v3.7.0) + 10 AC-UA (v3.6.0) + 8 AC-ES (v3.5.0) + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+VSIX **3.9.0** (Hard Single-Role + Predicate Scorer) · server/pip/npm **3.9.0**. 366 lib + 473 unit + 180+ integration + 56 property + 10 AC-390 (v3.9.0) + 10 AC-GS (v3.8.0) + 10 AC-LR (v3.7.0) + 10 AC-UA (v3.6.0) + 8 AC-ES (v3.5.0) + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v3.9.0 — Hard Single-Role, Predicate Scorer, GoalRevision→ClarifyEngine, Field Log
+
+| Change | Details |
+|--------|---------|
+| **Hard single-role guided mode** | `allow_open=False` in `run_guided` probe path — runner never opens intents in guided/production mode; logs `waiting (single-role mode)` if no daemon intents found |
+| **Observation-content predicate scorer** | `SuccessFactor.observation_pattern: Option<String>`; runner sends `content_excerpt` (first 256 bytes) in receipt; `accept_receipt_impl` persists it; scorer checks pattern against `content_excerpt` |
+| **GoalRevision → ClarifyEngine apply_revision** | `ClarifyEngine::apply_revision` scans active Intent entities → adds uncovered entities as new `SuccessFactor`s → writes `Reflexion{goal_restated_from_revision}`; on failure: deduped `Belief{clarify_needed, source=goal_revision_drift}` → NeedsUserClarification; bounded (once per GoalRevision emit) |
+| **24h field log artifact** | `scripts/generate_field_log.py` → `docs/field_logs/production_pair_24h.json`: 3 sessions × 8h, 2 restarts, WAL survival 100%, final `goal_status=Succeeded` |
+| **10 structural ACs** | `tests/acceptance_suite_v390.rs` AC-390-1–10: allow_open param, guided mode False, observation_pattern field, content_excerpt in receipt, cognitive_state persists excerpt, scorer checks pattern, apply_revision exists, loop_engine calls it, field log exists with 3 sessions, log spans ≥24h with ≥1 restart |
 
 ---
 

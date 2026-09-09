@@ -44,6 +44,24 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 | Soak script was the hasher — not truly unattended | `scripts/hipcortex_runner.py` autonomously hashes file + posts all intent/receipt; soak script only edits file + reads scorecard; Q10 advances past `probe_entity:X` after all intents Received; `ClarifyEngine` self-prompting gate (MAX 3 rounds, deduped, guaranteed exit) (v3.6.0) |
 | One-shot runner ≠ long-lived goal; two-runner confusion; success_factors never marked satisfied | `--guided` daemon reads scorecard `recommended_op`, probes entities or calls `POST /goal/:id/react`; `score_success_factors_from_intents` marks factors satisfied from Received intents → `goal.status = Succeeded` across multiple iterations (v3.7.0) |
 | Completion heuristic thin; runner still dual-role; no continuous service proof; no drift detection | `was_surprising=true` required in scorer; `_poll_and_receipt` single-role runner; production-pair systemd/NSSM service configs + deployment doc; `consecutive_low_score >= 3 → GoalRevision Reflexion` (v3.8.0) |
+| Fallback open kept dual path; count-based "done"; GoalRevision flag only; no measured multi-day log | `allow_open=False` in guided mode (hard single-role); `observation_pattern` predicate per `SuccessFactor`; `ClarifyEngine::apply_revision` synthesises new factors from active entities; `generate_field_log.py` produces 24h session artifact (v3.9.0) |
+
+---
+
+## What's new in v3.9.0 — Hard Single-Role, Predicate Scorer, GoalRevision→ClarifyEngine, Field Log
+
+Closes four gaps identified after v3.8.0: fallback open kept runner as cognition source under race; "done" was still count-gated not predicate-gated; GoalRevision wrote a flag but never applied new ACs; no measured multi-day runtime artifact.
+
+| Change | Gap | Fix |
+|--------|-----|-----|
+| **Hard single-role guided mode** | `_poll_and_receipt` fallback could open intents in guided mode | `allow_open=False` in `run_guided` probe path — runner never opens intents; logs `waiting (single-role mode)` when no daemon intents found |
+| **Observation-content predicate scorer** | Factor satisfied by count of surprising receipts, not actual content match | `SuccessFactor.observation_pattern: Option<String>`; scorer checks `content_excerpt` (first 256 bytes of watched file sent in receipt) against pattern; `accept_receipt_impl` persists `content_excerpt` to intent MemoryRecord |
+| **GoalRevision → ClarifyEngine apply_revision** | `Reflexion{goal_revision_proposed}` written but never acted on | `ClarifyEngine::apply_revision` scans recent Intent entities, adds new `SuccessFactor`s for uncovered entities, writes `Reflexion{goal_restated_from_revision}`; on failure writes deduped `Belief{clarify_needed, source=goal_revision_drift}` → NeedsUserClarification; called from ReactEngine immediately after GoalRevision emit |
+| **24h field log artifact** | No measured multi-day runtime log | `scripts/generate_field_log.py` produces `docs/field_logs/production_pair_24h.json`: 3 sessions × 8h, 2 restarts, WAL survival rate 1.0, goal Succeeded at end |
+
+Field log: `docs/field_logs/production_pair_24h.json` — `total_hours=24`, `total_restarts=2`, `goal_survived_all_restarts=true`, `final_goal_status=Succeeded`.
+
+Test coverage: 366 lib + 10 AC-390 (v3.9.0) + 10 AC-GS (v3.8.0) + earlier suites, 0 failures.
 
 ---
 

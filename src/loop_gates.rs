@@ -130,6 +130,7 @@ mod tests {
                     name: format!("f{i}"),
                     weight: 1.0,
                     satisfied: i < satisfied,
+                    observation_pattern: None,
                 })
                 .collect(),
             ..Default::default()

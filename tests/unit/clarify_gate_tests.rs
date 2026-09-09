@@ -45,7 +45,7 @@ fn make_goal(status: GoalStatus, factors: Vec<SuccessFactor>) -> MemoryRecord {
 }
 
 fn one_factor() -> Vec<SuccessFactor> {
-    vec![SuccessFactor { name: "done".into(), weight: 1.0, satisfied: false }]
+    vec![SuccessFactor { name: "done".into(), weight: 1.0, satisfied: false, observation_pattern: None }]
 }
 
 #[test]

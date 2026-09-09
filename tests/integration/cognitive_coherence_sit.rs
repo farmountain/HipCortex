@@ -36,7 +36,7 @@ fn belief(store: &mut MemoryStore<hipcortex::persistence::InMemoryBackend>, conf
 
 fn goal_with_factors(store: &mut MemoryStore<hipcortex::persistence::InMemoryBackend>, factors: Vec<&str>) -> uuid::Uuid {
     let sf: Vec<SuccessFactor> = factors.iter()
-        .map(|n| SuccessFactor { name: n.to_string(), weight: 1.0, satisfied: false })
+        .map(|n| SuccessFactor { name: n.to_string(), weight: 1.0, satisfied: false, observation_pattern: None })
         .collect();
     let gp = GoalPayload {
         target_state: "deploy".into(),
