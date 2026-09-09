@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hipcortex"
-version = "3.6.0"
+version = "3.7.0"
 description = "Cognitive state substrate for AI agents — unattended file runner (autonomous intent/receipt sensor, v3.6), epistemic seam (was_surprising detection), ClarifyEngine self-prompting gate, grounded probes, belief revision, OpEx metering, field-proven WAL persistence. LangChain, AutoGen, CrewAI, MCP"
 readme = "README.md"
 license = {text = "Apache-2.0"}

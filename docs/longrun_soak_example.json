@@ -1,0 +1,26 @@
+{
+  "scenario": "longrun_soak_v370",
+  "goal_id": "00000000-0000-0000-0000-000000000001",
+  "actor": "soak-longrun-1",
+  "goal_status": "Succeeded",
+  "success_factors_satisfied": true,
+  "react_iterations": 3,
+  "goal_lifecycle": [
+    "Pending",
+    "InProgress",
+    "Succeeded"
+  ],
+  "assertions": {
+    "goal_created_before_runner": true,
+    "not_one_shot": true,
+    "guided_mode_used": true,
+    "scorecard_read_before_probe": true,
+    "react_endpoint_called": true,
+    "score_success_factors_in_loop_engine": true,
+    "goal_status_succeeded": true,
+    "success_factors_satisfied": true,
+    "react_iterations_gte_2": true,
+    "lifecycle_includes_inprogress_and_succeeded": true
+  },
+  "result": "PASS"
+}

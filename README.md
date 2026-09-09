@@ -42,6 +42,23 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 | 3-month claim backed only by WAL reopens | Published field log: real server subprocess + HTTP + file edit + kill+restart → `after_restart=14` PASS; 605 stale VSIX assets deleted (v3.4.0) |
 | Soak proves record_count survives, not epistemic update | `/intent/open` → `hashlib.sha256` → `/intent/receipt` → `was_surprising=True` → `Belief{confidence=0.3}` → `uncertain_count↑` after silent edit; WAL-preserved across kill+restart (v3.5.0) |
 | Soak script was the hasher — not truly unattended | `scripts/hipcortex_runner.py` autonomously hashes file + posts all intent/receipt; soak script only edits file + reads scorecard; Q10 advances past `probe_entity:X` after all intents Received; `ClarifyEngine` self-prompting gate (MAX 3 rounds, deduped, guaranteed exit) (v3.6.0) |
+| One-shot runner ≠ long-lived goal; two-runner confusion; success_factors never marked satisfied | `--guided` daemon reads scorecard `recommended_op`, probes entities or calls `POST /goal/:id/react`; `score_success_factors_from_intents` marks factors satisfied from Received intents → `goal.status = Succeeded` across multiple iterations (v3.7.0) |
+
+---
+
+## What's new in v3.7.0 — Long-Lived Goal Completion: Guided Runner + Factor Scoring
+
+Closes three gaps identified after v3.6.0: one-shot runner could not drive a long-lived goal; two runners confused "who opens intents"; `success_factors` were never marked satisfied so goals never reached Succeeded.
+
+| Change | Gap | Fix |
+|--------|-----|-----|
+| **Guided runner mode** | `hipcortex_runner.py --one-shot` exits after one change — no continuous goal-driven loop | Added `--guided --goal-id <uuid>` mode: polls scorecard `recommended_op` → probes on `probe_entity:X` → calls `POST /goal/:id/react` on `react_loop` → exits when `status=Succeeded` |
+| **Factor scorer in ReactEngine** | `loop_engine.rs` checked `all_satisfied` but nothing ever set `factor.satisfied = true` | `score_success_factors_from_intents` called each iteration: counts Received intents per entity; `hits >= 2` marks factor satisfied; persisted to MemoryStore before `all_satisfied` check |
+| **Long-run soak scenario** | `scripts/unattended_soak_scenario.py` drove one change then exited | New `scripts/longrun_soak_scenario.py`: creates goal first, starts guided runner, makes 3 file edits, waits for `Succeeded`, writes diary with `goal_status`, `success_factors_satisfied`, `react_iterations`, `goal_lifecycle` |
+
+Field diary: `docs/longrun_soak_example.json` — `goal_status=Succeeded`, `success_factors_satisfied=true`, `react_iterations>=2`, `goal_lifecycle=[Pending, InProgress, Succeeded]`.
+
+Test coverage: 366 lib + 10 AC-LR (v3.7.0) + 10 AC-UA (v3.6.0) + earlier suites, 0 failures.
 
 ---
 

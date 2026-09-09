@@ -735,6 +735,13 @@ impl ReactEngine {
             // Emergence: promote patterns every 10 writes (P2.2)
             self.emergence.on_temporal_write(store, &goal_record.actor);
 
+            // Score success_factors against Received intent evidence before evaluating all_satisfied.
+            Self::score_success_factors_from_intents(store, &goal_record.actor, &mut goal_payload);
+            let _ = store.update_record(
+                goal_id, None, None, None, None,
+                Some(serde_json::to_value(&goal_payload).unwrap_or_default()),
+            );
+
             let all_satisfied = goal_payload.success_factors.iter().all(|f| f.satisfied);
 
             if all_satisfied {
@@ -886,6 +893,41 @@ impl ReactEngine {
         goal_payload.status = GoalStatus::Failed;
         self.update_goal_status(store, goal_id, &goal_payload)?;
         Ok(GoalStatus::Failed)
+    }
+
+    fn score_success_factors_from_intents<B: crate::persistence::MemoryBackend>(
+        store: &crate::memory_store::MemoryStore<B>,
+        actor: &str,
+        goal: &mut crate::payloads::GoalPayload,
+    ) {
+        use crate::memory_record::MemoryType;
+        let received_targets: Vec<String> = store
+            .all_by_type(MemoryType::Intent)
+            .into_iter()
+            .filter(|r| {
+                r.actor == actor
+                    && r.metadata.get("status").and_then(|v| v.as_str()) == Some("Received")
+            })
+            .filter_map(|r| {
+                r.metadata
+                    .get("target_entity")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string)
+            })
+            .collect();
+        for factor in &mut goal.success_factors {
+            if factor.satisfied {
+                continue;
+            }
+            let entity_key = factor.name.split('_').next().unwrap_or(&factor.name);
+            let hits = received_targets
+                .iter()
+                .filter(|t| t.contains(entity_key) || entity_key.contains(t.as_str()))
+                .count();
+            if hits >= 2 {
+                factor.satisfied = true;
+            }
+        }
     }
 
     fn update_goal_status(
