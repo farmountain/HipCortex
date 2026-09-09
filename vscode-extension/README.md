@@ -1,13 +1,25 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.7.0`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.8.0`)
 
-[![Version](https://img.shields.io/badge/version-v3.7.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v3.8.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
 **Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, grounded probe planning, OpEx budget metering, field-proven two-process WAL persistence, and topological graph tools.**
 
-VSIX **3.7.0** (Long-Lived Goal Completion) · server/pip/npm **3.7.0**. 366 lib + 473 unit + 180+ integration + 56 property + 10 AC-LR (v3.7.0) + 10 AC-UA (v3.6.0) + 8 AC-ES (v3.5.0) + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+VSIX **3.8.0** (Production-Grade Goal Lifecycle) · server/pip/npm **3.8.0**. 366 lib + 473 unit + 180+ integration + 56 property + 10 AC-GS (v3.8.0) + 10 AC-LR (v3.7.0) + 10 AC-UA (v3.6.0) + 8 AC-ES (v3.5.0) + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v3.8.0 — Production-Grade Goal Lifecycle: Semantic Completion + Drift Detection
+
+| Change | Details |
+|--------|---------|
+| **Semantic completion scorer** | `score_success_factors_from_intents` now requires `was_surprising=true` — "≥ 2 Received intents" ≠ AC satisfied unless the world actually changed. `accept_receipt_impl` persists `was_surprising` to intent MemoryRecord metadata. |
+| **Production-pair continuous service** | `scripts/production_pair_setup.py` generates systemd (Linux) or NSSM (Windows) service configs for `hipcortex-server` + `hipcortex-runner`. `docs/production_deployment.md` documents IDE-closed pattern + WAL restart proof. Diary: `continuous_service=true`. |
+| **Single-role runner** | `_poll_and_receipt()` polls `GET /intent/open?actor=X` for daemon-opened intents, receipts each; opens only as fallback when none pending. `run_guided` probe path calls `_poll_and_receipt` — not `_open_intent` directly. Clean product model: daemon owns cognition, runner owns sensing. |
+| **Long-horizon drift detection** | `GoalPayload.consecutive_low_score: u32` (`#[serde(default)]`). After each critic_score block: `< 0.3` increments, else resets. At `>= 3` consecutive: emits `Reflexion{goal_revision_proposed=true, reason="env may have drifted"}` and resets counter (bounded exit). |
+| **10 structural ACs** | `tests/acceptance_suite_v380.rs`: AC-GS1–10 enforced at compile time — `was_surprising` sync, scorer filter, production service scripts, deployment doc, diary `continuous_service`, `_poll_and_receipt`, single-role proof, `consecutive_low_score`, `goal_revision_proposed`, bounded reset |
 
 ---
 

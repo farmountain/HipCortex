@@ -819,6 +819,30 @@ impl ReactEngine {
                 critic_rec.derived_from = Some(goal_id);
                 critic_rec.react_iteration = Some(i);
                 let _ = store.add(critic_rec);
+
+                // Drift detection: bounded self-prompt when env drifts away from success_factors.
+                if critic_score < 0.3 {
+                    goal_payload.consecutive_low_score += 1;
+                } else {
+                    goal_payload.consecutive_low_score = 0;
+                }
+                if goal_payload.consecutive_low_score >= 3 {
+                    goal_payload.consecutive_low_score = 0; // reset — fires once per episode, bounded exit
+                    let mut revision = MemoryRecord::new(
+                        MemoryType::Reflexion,
+                        "react_engine".to_string(),
+                        "goal_revision".to_string(),
+                        goal_payload.target_state.clone(),
+                        serde_json::json!({
+                            "goal_revision_proposed": true,
+                            "reason": "critic_score < 0.3 for 3 consecutive iterations — env may have drifted from success_factors",
+                            "proposed_revision": "revisit acceptance_criteria: probe most recently active entities",
+                        }),
+                    );
+                    revision.derived_from = Some(goal_id);
+                    revision.react_iteration = Some(i);
+                    let _ = store.add(revision);
+                }
             }
 
             // Invalidate beliefs contradicted by this critique (P1.4)
@@ -907,6 +931,7 @@ impl ReactEngine {
             .filter(|r| {
                 r.actor == actor
                     && r.metadata.get("status").and_then(|v| v.as_str()) == Some("Received")
+                    && r.metadata.get("was_surprising").and_then(|v| v.as_bool()).unwrap_or(false)
             })
             .filter_map(|r| {
                 r.metadata

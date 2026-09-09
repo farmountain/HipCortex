@@ -1,8 +1,8 @@
 [package]
 name = "hipcortex"
-version = "3.7.0"
+version = "3.8.0"
 edition = "2021"
-description = "Cognitive state substrate for AI agents: guided long-run goal completion (score_success_factors, goal.status=Succeeded), unattended runner (autonomous intent/receipt sensor), epistemic seam (sha256-anchored world-model, was_surprising detection), ClarifyEngine self-prompting gate, OpEx budget metering, field-proven WAL persistence — MCP + REST"
+description = "Cognitive state substrate for AI agents: semantic goal completion (was_surprising scorer, goal.status=Succeeded), production-pair continuous service (systemd/NSSM, WAL-persistent), single-role runner (_poll_and_receipt polls daemon-opened intents), drift detection (consecutive_low_score → GoalRevision Reflexion), ClarifyEngine self-prompting gate, OpEx budget metering, field-proven WAL persistence — MCP + REST"
 repository = "https://github.com/farmountain/HipCortex"
 license = "Apache-2.0"
 readme = "README.md"
@@ -199,6 +199,10 @@ path = "tests/acceptance_suite_v360.rs"
 [[test]]
 name = "acceptance_suite_v370"
 path = "tests/acceptance_suite_v370.rs"
+
+[[test]]
+name = "acceptance_suite_v380"
+path = "tests/acceptance_suite_v380.rs"
 
 [[bench]]
 name = "temporal_state_diff_bench"

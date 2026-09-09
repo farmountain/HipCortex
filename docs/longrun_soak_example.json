@@ -1,5 +1,5 @@
 {
-  "scenario": "longrun_soak_v370",
+  "scenario": "longrun_soak_v380",
   "goal_id": "00000000-0000-0000-0000-000000000001",
   "actor": "soak-longrun-1",
   "goal_status": "Succeeded",
@@ -10,6 +10,10 @@
     "InProgress",
     "Succeeded"
   ],
+  "continuous_service": true,
+  "service_mode": "daemon",
+  "uptime_class": "multi-session",
+  "goal_drift_checked": true,
   "assertions": {
     "goal_created_before_runner": true,
     "not_one_shot": true,
@@ -17,10 +21,14 @@
     "scorecard_read_before_probe": true,
     "react_endpoint_called": true,
     "score_success_factors_in_loop_engine": true,
+    "was_surprising_checked_in_scorer": true,
     "goal_status_succeeded": true,
     "success_factors_satisfied": true,
     "react_iterations_gte_2": true,
-    "lifecycle_includes_inprogress_and_succeeded": true
+    "lifecycle_includes_inprogress_and_succeeded": true,
+    "continuous_service": true,
+    "poll_and_receipt_used": true,
+    "goal_revision_logic_present": true
   },
   "result": "PASS"
 }

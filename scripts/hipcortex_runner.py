@@ -78,6 +78,43 @@ def _get_scorecard(base: str, actor: str) -> dict:
     return _get(base, "/substrate/scorecard", {"actor": actor})
 
 
+def _poll_and_receipt(base: str, actor: str, entity: str, watch: str) -> None:
+    """Receipt daemon-opened intents for entity. Opens only as fallback when none pending.
+
+    Product model: daemon owns cognition (opens intents); runner owns sensing (receipts them).
+    Fallback ensures the loop progresses even before daemon opens — but in a pure production
+    deployment, the daemon always opens intents before the runner polls.
+    """
+    sensor_path = f"runner:{entity}"
+    try:
+        r = _get(base, "/intent/open", {"actor": actor})
+        pending = [
+            i for i in r.get("intents", [])
+            if i.get("target_entity") == entity
+        ]
+    except Exception as e:
+        print(f"[runner] poll error: {e}", flush=True)
+        pending = []
+
+    if pending:
+        h = _sha256(watch)
+        for intent in pending:
+            try:
+                _send_receipt(base, actor, intent["id"], h, sensor_path)
+                print(f"[runner] receipt daemon-intent={str(intent['id'])[:8]}... entity={entity}", flush=True)
+            except Exception as e:
+                print(f"[runner] receipt error: {e}", flush=True)
+    else:
+        # Fallback: daemon has not opened an intent yet — open one ourselves.
+        try:
+            intent_id = _open_intent(base, actor, entity)
+            h = _sha256(watch)
+            _send_receipt(base, actor, intent_id, h, sensor_path)
+            print(f"[runner] fallback open+receipt entity={entity} hash={h[:12]}...", flush=True)
+        except Exception as e:
+            print(f"[runner] fallback error: {e}", flush=True)
+
+
 def _react_step(base: str, goal_id: str) -> dict:
     return _post(base, f"/goal/{goal_id}/react", {})
 
@@ -152,14 +189,7 @@ def run_guided(base: str, actor: str, entity: str, watch: str, poll: float, goal
 
         if op.startswith("probe_entity:"):
             probe_entity = op.split(":", 1)[1]
-            sensor_path = f"runner:{probe_entity}"
-            try:
-                intent_id = _open_intent(base, actor, probe_entity)
-                h = _sha256(watch)
-                _send_receipt(base, actor, intent_id, h, sensor_path)
-                print(f"[runner] probed entity={probe_entity} hash={h[:12]}...", flush=True)
-            except Exception as e:
-                print(f"[runner] probe error: {e}", flush=True)
+            _poll_and_receipt(base, actor, probe_entity, watch)
 
         elif op == "react_loop":
             try:

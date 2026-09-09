@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hipcortex"
-version = "3.7.0"
-description = "Cognitive state substrate for AI agents — guided long-run goal completion (v3.7), unattended runner (autonomous sensor), epistemic seam (was_surprising detection), ClarifyEngine self-prompting gate, grounded probes, belief revision, OpEx metering, field-proven WAL persistence. LangChain, AutoGen, CrewAI, MCP"
+version = "3.8.0"
+description = "Cognitive state substrate for AI agents — semantic goal completion (v3.8: was_surprising scorer), production-pair continuous service (systemd/NSSM), single-role runner (poll-and-receipt), drift detection (GoalRevision Reflexion), ClarifyEngine, belief revision, OpEx metering, field-proven WAL persistence. LangChain, AutoGen, CrewAI, MCP"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.9"

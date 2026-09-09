@@ -503,6 +503,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
                         }).map(|rec| {
                             let mut meta = rec.metadata.clone();
                             meta["status"] = serde_json::json!("Received");
+                            meta["was_surprising"] = serde_json::json!(was_surprising);
                             (rec.id, meta)
                         })
                     };

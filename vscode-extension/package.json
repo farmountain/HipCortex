@@ -1,8 +1,8 @@
 {
   "name": "hipcortex-memory",
   "displayName": "HipCortex Memory Engine & Cognitive OS",
-  "description": "Cognitive OS for VS Code: guided long-run goal completion (v3.7), unattended file runner (autonomous sensor), epistemic seam (was_surprising), ClarifyEngine self-prompting gate, belief revision, world-model rollout, DigitalTwin simulation, grounded planning, OpEx budget metering, WAL persistence — MCP + REST",
-  "version": "3.7.0",
+  "description": "Cognitive OS for VS Code: semantic goal completion (v3.8: was_surprising scorer), production-pair continuous service (systemd/NSSM), single-role runner (_poll_and_receipt), drift detection (GoalRevision Reflexion), ClarifyEngine self-prompting gate, belief revision, world-model rollout, DigitalTwin simulation, OpEx metering, WAL persistence — MCP + REST",
+  "version": "3.8.0",
   "publisher": "farmountain",
   "repository": {
     "type": "git",

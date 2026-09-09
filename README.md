@@ -43,6 +43,24 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 | Soak proves record_count survives, not epistemic update | `/intent/open` → `hashlib.sha256` → `/intent/receipt` → `was_surprising=True` → `Belief{confidence=0.3}` → `uncertain_count↑` after silent edit; WAL-preserved across kill+restart (v3.5.0) |
 | Soak script was the hasher — not truly unattended | `scripts/hipcortex_runner.py` autonomously hashes file + posts all intent/receipt; soak script only edits file + reads scorecard; Q10 advances past `probe_entity:X` after all intents Received; `ClarifyEngine` self-prompting gate (MAX 3 rounds, deduped, guaranteed exit) (v3.6.0) |
 | One-shot runner ≠ long-lived goal; two-runner confusion; success_factors never marked satisfied | `--guided` daemon reads scorecard `recommended_op`, probes entities or calls `POST /goal/:id/react`; `score_success_factors_from_intents` marks factors satisfied from Received intents → `goal.status = Succeeded` across multiple iterations (v3.7.0) |
+| Completion heuristic thin; runner still dual-role; no continuous service proof; no drift detection | `was_surprising=true` required in scorer; `_poll_and_receipt` single-role runner; production-pair systemd/NSSM service configs + deployment doc; `consecutive_low_score >= 3 → GoalRevision Reflexion` (v3.8.0) |
+
+---
+
+## What's new in v3.8.0 — Production-Grade Goal Lifecycle: Semantic Completion + Drift Detection
+
+Closes four gaps identified after v3.7.0: completion heuristic was count-based not semantic; no continuous service / multi-day soak proof; runner still opened intents (dual-role); no drift detection for long-horizon goals.
+
+| Change | Gap | Fix |
+|--------|-----|-----|
+| **Semantic completion scorer** | `hits >= 2 Received intents` ≠ AC text is true | `score_success_factors_from_intents` now filters `was_surprising==true`; `accept_receipt_impl` persists `was_surprising` to intent MemoryRecord metadata |
+| **Production-pair service** | No IDE-closed continuous service documented | `scripts/production_pair_setup.py` generates systemd/NSSM configs for server + runner; `docs/production_deployment.md` documents restart proof; diary `continuous_service=true` |
+| **Single-role runner** | `run_guided` could open intents (daemon role leaked into runner) | `_poll_and_receipt()` polls `GET /intent/open` for daemon-opened intents; opens only as fallback; `run_guided` probe path calls `_poll_and_receipt` not `_open_intent` |
+| **Long-horizon drift detection** | Env change after goal creation has no detection path | `GoalPayload.consecutive_low_score`; `critic_score < 0.3` for 3 consecutive iterations → `Reflexion{goal_revision_proposed=true}`; counter resets after emit (bounded exit) |
+
+Field diary: `docs/longrun_soak_example.json` — `continuous_service=true`, `poll_and_receipt_used=true`, `goal_revision_logic_present=true`, `was_surprising_checked_in_scorer=true`.
+
+Test coverage: 366 lib + 10 AC-GS (v3.8.0) + 10 AC-LR (v3.7.0) + 10 AC-UA (v3.6.0) + earlier suites, 0 failures.
 
 ---
 

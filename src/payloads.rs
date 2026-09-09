@@ -61,6 +61,9 @@ pub struct GoalPayload {
     /// Estimated resource cost (relative units). Lower = cheaper. Default 1.0.
     #[serde(default = "default_cost")]
     pub estimated_cost: f64,
+    /// Consecutive react iterations where critic_score < 0.3. Triggers goal revision at >= 3.
+    #[serde(default)]
+    pub consecutive_low_score: u32,
 }
 
 fn default_max_iterations() -> u32 {
