@@ -41,6 +41,22 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 | Wall guard meter claims host context coverage | Honest `wall_status` (bounded/at_risk/exceeded) + `[honest]` disclaimer: only MCP output metered; per-actor `_live_beliefs_seen_actors` discipline (v3.3.0) |
 | 3-month claim backed only by WAL reopens | Published field log: real server subprocess + HTTP + file edit + kill+restart → `after_restart=14` PASS; 605 stale VSIX assets deleted (v3.4.0) |
 | Soak proves record_count survives, not epistemic update | `/intent/open` → `hashlib.sha256` → `/intent/receipt` → `was_surprising=True` → `Belief{confidence=0.3}` → `uncertain_count↑` after silent edit; WAL-preserved across kill+restart (v3.5.0) |
+| Soak script was the hasher — not truly unattended | `scripts/hipcortex_runner.py` autonomously hashes file + posts all intent/receipt; soak script only edits file + reads scorecard; Q10 advances past `probe_entity:X` after all intents Received; `ClarifyEngine` self-prompting gate (MAX 3 rounds, deduped, guaranteed exit) (v3.6.0) |
+
+---
+
+## What's new in v3.6.0 — Unattended Runner: Runner Hashes, Script Only Edits
+
+Closes the "soak script was the hasher" gap identified after v3.5.0: `scripts/hipcortex_runner.py` is the autonomous sensor. The soak script contains no `hashlib`, no `/intent/open`, no `/intent/receipt`. Runner exits cleanly leaving all intents Received → Q10 unblocked.
+
+| Change | Gap | Fix |
+|--------|-----|-----|
+| **Unattended runner** | v3.5.0 soak script did the hashing inline — scripted, not autonomous | `scripts/hipcortex_runner.py` (new): `hashlib.sha256` + `/intent/open` + `/intent/receipt` fully autonomous. `--one-shot` mode: baseline receipt → poll until change → surprising receipt → exit. `scripts/unattended_soak_scenario.py` has no hashlib/intent calls — file edit + scorecard GET only |
+| **Q10 fix** | `AcceptReceipt` updated in-memory Vec but NOT MemoryStore → `has_open_intents` read stale `"Open"` forever | `accept_receipt_impl` now syncs intent `metadata["status"] = "Received"` in MemoryStore (borrow-scoped). `cognitive_report` reads `"Received"` → `has_open_intents=false` → `recommended_op` advances to `query_memory` |
+| **ClarifyEngine gate** | No self-prompting clarity check before ReAct loop body | `ClarifyEngine::run()` wired at `loop_engine.rs:584` before loop: MAX 3 rounds, deduped `Belief{clarify_needed}`, guaranteed exit. Substrate-resolved → `Reflexion{self_clarified}`; unresolved → `NeedsUserClarification` |
+| **Clean actor proof** | Baseline `uncertain_count` was 136 (dirty WAL) — 0→1 unreadable | Fresh actor `soak-unattended-1` + fresh server → `uncertain_count_before=0`, `uncertain_count_after=1`, `recommended_op_changed=true`, `epistemic_state_survived_restart=true` |
+
+366 lib + 473 unit + 180+ integration + 56 property + 10 AC-UA (v3.6.0) + 8 AC-ES (v3.5.0) + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + earlier suites, 0 failures.
 
 ---
 

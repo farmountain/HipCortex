@@ -1,13 +1,25 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.5.0`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.6.0`)
 
-[![Version](https://img.shields.io/badge/version-v3.5.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v3.6.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
 **Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, grounded probe planning, OpEx budget metering, field-proven two-process WAL persistence, and topological graph tools.**
 
-VSIX **3.5.0** (Epistemic Seam Proof) · server/pip/npm **3.5.0**. 366 lib + 473 unit + 180+ integration + 56 property + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+VSIX **3.6.0** (Unattended Runner) · server/pip/npm **3.6.0**. 366 lib + 473 unit + 180+ integration + 56 property + 10 AC-UA (v3.6.0) + 8 AC-ES (v3.5.0) + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v3.6.0 — Unattended Runner: Runner Hashes, Script Only Edits
+
+| Change | Details |
+|--------|---------|
+| **Unattended runner** | `scripts/hipcortex_runner.py`: autonomous sensor — `hashlib.sha256` + `/intent/open` + `/intent/receipt`. `--one-shot`: baseline → poll until change → surprising receipt → exit. Soak script has no hashlib/intent calls — file edit + scorecard GET only |
+| **Q10 fix** | `AcceptReceipt` now syncs intent `metadata["status"] = "Received"` in MemoryStore → `has_open_intents=false` after runner exits → `recommended_op` advances past `probe_entity:X` to `query_memory` |
+| **ClarifyEngine gate** | `ClarifyEngine::run()` wired at `loop_engine.rs:584` before loop body: MAX 3 rounds, deduped `Belief{clarify_needed}`, substrate-resolved → `Reflexion{self_clarified}` |
+| **Clean actor proof** | Fresh actor + fresh server → `uncertain_count_before=0`, `uncertain_count_after=1`, `epistemic_state_survived_restart=true` |
+| **10 structural ACs** | `acceptance_suite_v360.rs`: AC-UA1–10 enforced at compile time — structural separation of runner vs soak script verified |
 
 ---
 
