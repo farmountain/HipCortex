@@ -1,433 +1,433 @@
 {
-    "name": "hipcortex-memory",
-    "displayName": "HipCortex Memory Engine & Cognitive OS",
-    "description": "HipCortex v3.6.0 — Unattended Runner: autonomous file sensor (hipcortex_runner.py) hashes files and posts intent/receipt autonomously. Script only edits file + reads scorecard. Q10 advances past probe_entity after all intents Received. ClarifyEngine self-prompting gate. 366 lib + 473 unit + 180+ integration + 56 property + 10 AC-UA (v3.6) + 8 AC-ES (v3.5) + 6 AC-FS/WD (v3.4), 0 failures.",
-    "version": "3.7.0",
-    "publisher": "farmountain",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/farmountain/HipCortex.git"
-    },
-    "engines": {
-        "vscode": "^1.90.0"
-    },
-    "categories": [
-        "Machine Learning",
-        "Data Science",
-        "Other"
+  "name": "hipcortex-memory",
+  "displayName": "HipCortex Memory Engine & Cognitive OS",
+  "description": "Cognitive OS for VS Code: guided long-run goal completion (v3.7), unattended file runner (autonomous sensor), epistemic seam (was_surprising), ClarifyEngine self-prompting gate, belief revision, world-model rollout, DigitalTwin simulation, grounded planning, OpEx budget metering, WAL persistence — MCP + REST",
+  "version": "3.7.0",
+  "publisher": "farmountain",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/farmountain/HipCortex.git"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Machine Learning",
+    "Data Science",
+    "Other"
+  ],
+  "icon": "icon.png",
+  "keywords": [
+    "memory",
+    "causal",
+    "cognitive-os",
+    "copilot",
+    "antigravity",
+    "mcp",
+    "ai",
+    "agent",
+    "topological",
+    "world-model"
+  ],
+  "main": "./dist/extension.js",
+  "files": [
+    "dist",
+    "server",
+    "icon.png"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "hipcortex.addMemory",
+        "title": "Add Memory Record",
+        "category": "HipCortex"
+      },
+      {
+        "command": "hipcortex.queryMemory",
+        "title": "Query Memory Records",
+        "category": "HipCortex"
+      },
+      {
+        "command": "hipcortex.testExtension",
+        "title": "Test HipCortex Extension",
+        "category": "HipCortex"
+      },
+      {
+        "command": "hipcortex.healthCheck",
+        "title": "System Health Check",
+        "category": "HipCortex"
+      },
+      {
+        "command": "hipcortex.predictState",
+        "title": "Predict Next State",
+        "category": "HipCortex"
+      },
+      {
+        "command": "hipcortex.restartServer",
+        "title": "Restart HipCortex Server",
+        "category": "HipCortex"
+      },
+      {
+        "command": "hipcortex.systemHealth",
+        "title": "Show System Health",
+        "category": "HipCortex"
+      },
+      {
+        "command": "hipcortex.stateDiff",
+        "title": "Compute State Diff",
+        "category": "HipCortex"
+      },
+      {
+        "command": "hipcortex.cognitiveHealth",
+        "title": "Cognitive Health Status",
+        "category": "HipCortex"
+      },
+      {
+        "command": "hipcortex.cognitiveSnapshot",
+        "title": "Show Cognitive Snapshot",
+        "category": "HipCortex"
+      },
+      {
+        "command": "hipcortex.twinCreate",
+        "title": "Create DigitalTwin",
+        "category": "HipCortex"
+      },
+      {
+        "command": "hipcortex.twinStep",
+        "title": "DigitalTwin: Step",
+        "category": "HipCortex"
+      },
+      {
+        "command": "hipcortex.twinRollout",
+        "title": "DigitalTwin: Rollout",
+        "category": "HipCortex"
+      },
+      {
+        "command": "hipcortex.twinGet",
+        "title": "DigitalTwin: Show State",
+        "category": "HipCortex"
+      },
+      {
+        "command": "hipcortex.experienceTiers",
+        "title": "Show Experience Tier Stats",
+        "category": "HipCortex"
+      }
     ],
-    "icon": "icon.png",
-    "keywords": [
-        "memory",
-        "causal",
-        "cognitive-os",
-        "copilot",
-        "antigravity",
-        "mcp",
-        "ai",
-        "agent",
-        "topological",
-        "world-model"
-    ],
-    "main": "./dist/extension.js",
-    "files": [
-        "dist",
-        "server",
-        "icon.png"
-    ],
-    "contributes": {
+    "chatParticipants": [
+      {
+        "id": "hipcortex",
+        "name": "HipCortex",
+        "description": "HipCortex AI Memory Assistant - Official Extension",
+        "isSticky": true,
         "commands": [
-            {
-                "command": "hipcortex.addMemory",
-                "title": "Add Memory Record",
-                "category": "HipCortex"
-            },
-            {
-                "command": "hipcortex.queryMemory",
-                "title": "Query Memory Records",
-                "category": "HipCortex"
-            },
-            {
-                "command": "hipcortex.testExtension",
-                "title": "Test HipCortex Extension",
-                "category": "HipCortex"
-            },
-            {
-                "command": "hipcortex.healthCheck",
-                "title": "System Health Check",
-                "category": "HipCortex"
-            },
-            {
-                "command": "hipcortex.predictState",
-                "title": "Predict Next State",
-                "category": "HipCortex"
-            },
-            {
-                "command": "hipcortex.restartServer",
-                "title": "Restart HipCortex Server",
-                "category": "HipCortex"
-            },
-            {
-                "command": "hipcortex.systemHealth",
-                "title": "Show System Health",
-                "category": "HipCortex"
-            },
-            {
-                "command": "hipcortex.stateDiff",
-                "title": "Compute State Diff",
-                "category": "HipCortex"
-            },
-            {
-                "command": "hipcortex.cognitiveHealth",
-                "title": "Cognitive Health Status",
-                "category": "HipCortex"
-            },
-            {
-                "command": "hipcortex.cognitiveSnapshot",
-                "title": "Show Cognitive Snapshot",
-                "category": "HipCortex"
-            },
-            {
-                "command": "hipcortex.twinCreate",
-                "title": "Create DigitalTwin",
-                "category": "HipCortex"
-            },
-            {
-                "command": "hipcortex.twinStep",
-                "title": "DigitalTwin: Step",
-                "category": "HipCortex"
-            },
-            {
-                "command": "hipcortex.twinRollout",
-                "title": "DigitalTwin: Rollout",
-                "category": "HipCortex"
-            },
-            {
-                "command": "hipcortex.twinGet",
-                "title": "DigitalTwin: Show State",
-                "category": "HipCortex"
-            },
-            {
-                "command": "hipcortex.experienceTiers",
-                "title": "Show Experience Tier Stats",
-                "category": "HipCortex"
-            }
-        ],
-        "chatParticipants": [
-            {
-                "id": "hipcortex",
-                "name": "HipCortex",
-                "description": "HipCortex AI Memory Assistant - Official Extension",
-                "isSticky": true,
-                "commands": [
-                    {
-                        "name": "add",
-                        "description": "Add a new memory record"
-                    },
-                    {
-                        "name": "query",
-                        "description": "Search memory records"
-                    },
-                    {
-                        "name": "health",
-                        "description": "Check system health"
-                    },
-                    {
-                        "name": "help",
-                        "description": "Show help information"
-                    },
-                    {
-                        "name": "predict",
-                        "description": "Predict next state using world-model"
-                    },
-                    {
-                        "name": "coherence",
-                        "description": "Check memory coherence"
-                    },
-                    {
-                        "name": "link",
-                        "description": "Link two memory records: @hipcortex /link <source-id> <target-id> [relation]"
-                    },
-                    {
-                        "name": "mode",
-                        "description": "Switch token optimization mode: @hipcortex /mode <headroom|caveman>"
-                    }
-                ]
-            }
-        ],
-        "configuration": {
-            "title": "HipCortex Memory",
-            "properties": {
-                "hipcortex.apiUrl": {
-                    "type": "string",
-                    "default": "http://127.0.0.1:3030",
-                    "description": "HipCortex API server URL"
-                },
-                "hipcortex.apiKey": {
-                    "type": "string",
-                    "default": "",
-                    "description": "API key for authentication (if required)"
-                },
-                "hipcortex.autoStart": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Automatically start HipCortex server if not running"
-                },
-                "hipcortex.strictServerVersion": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "When true, only reuse a local server if /health.version exactly matches the expected crate/server binary version. When false (default), reuse any healthy server with same major.minor (or missing version field)."
-                },
-                "hipcortex.passiveCapture": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "When enabled, HipCortex automatically captures file saves and terminal output as memories. Disable to opt out of passive capture."
-                }
-            }
-        },
-        "languageModelTools": [
-            {
-                "name": "hipcortex_search",
-                "displayName": "HipCortex Memory Search",
-                "modelDescription": "Use this FIRST for any recall. Returns unified live_beliefs (memory + world model + hypotheses + coherence). Call before asking the user.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string"
-                        }
-                    },
-                    "required": [
-                        "query"
-                    ]
-                }
-            },
-            {
-                "name": "hipcortex_health",
-                "displayName": "HipCortex System Health",
-                "modelDescription": "Use this FIRST for health/status before other actions. Returns substrate health + world model coherence.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {},
-                    "required": []
-                }
-            },
-            {
-                "name": "hipcortex_predict",
-                "displayName": "HipCortex State Prediction",
-                "modelDescription": "Use this FIRST for world model predictions. Call substrate predict before deciding actions. Returns WM + uncertainty.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "state": {
-                            "type": "string"
-                        },
-                        "action": {
-                            "type": "string"
-                        }
-                    },
-                    "required": [
-                        "state",
-                        "action"
-                    ]
-                }
-            },
-            {
-                "name": "hipcortex_graph_search",
-                "displayName": "HipCortex Graph Search",
-                "modelDescription": "Use this AFTER hipcortex_search to expand context graph-first. Call with a seed_id (record UUID) to find memories linked via the CausalTopoGraph using PPR (alpha=0.85, 20 rounds).",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "seed_id": {
-                            "type": "string"
-                        },
-                        "limit": {
-                            "type": "number"
-                        }
-                    },
-                    "required": [
-                        "seed_id"
-                    ]
-                }
-            },
-            {
-                "name": "hipcortex_topo_ppr",
-                "displayName": "HipCortex Topo PPR",
-                "modelDescription": "Use after link/deconstruct for topology-first exploration of graph nodes.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "seed": {
-                            "type": "string"
-                        },
-                        "limit": {
-                            "type": "number"
-                        }
-                    }
-                }
-            },
-            {
-                "name": "hipcortex_deconstruct",
-                "displayName": "HipCortex Deconstruct Hypothesis",
-                "modelDescription": "Parse hypothesis text into causal edges. Set apply=true to write into topo.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "text": {
-                            "type": "string"
-                        },
-                        "llm_json": {
-                            "type": "string"
-                        },
-                        "apply": {
-                            "type": "boolean"
-                        }
-                    },
-                    "required": [
-                        "text"
-                    ]
-                }
-            },
-            {
-                "name": "hipcortex_check_edge",
-                "displayName": "HipCortex Check Topo Edge",
-                "modelDescription": "Check whether from→to would create a cycle or reverse-causal contradiction.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "from": {
-                            "type": "string"
-                        },
-                        "to": {
-                            "type": "string"
-                        }
-                    },
-                    "required": [
-                        "from",
-                        "to"
-                    ]
-                }
-            },
-            {
-                "name": "hipcortex_can_execute",
-                "displayName": "HipCortex Can Execute",
-                "modelDescription": "Query SelfModel should_execute for an operation name.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string"
-                        }
-                    },
-                    "required": [
-                        "operation"
-                    ]
-                }
-            },
-            {
-                "name": "hipcortex_rollout",
-                "displayName": "HipCortex WorldModel Rollout",
-                "modelDescription": "Multi-step world-model rollout. Prefer mode=dirichlet after observe; mode=mcts with goal_state for goal-shaped search.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "initial_state": {
-                            "type": "string"
-                        },
-                        "actions": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "mode": {
-                            "type": "string",
-                            "enum": [
-                                "dirichlet",
-                                "mcts",
-                                "ensemble"
-                            ]
-                        },
-                        "goal_state": {
-                            "type": "string"
-                        },
-                        "iterations": {
-                            "type": "number"
-                        },
-                        "max_depth": {
-                            "type": "number"
-                        }
-                    },
-                    "required": [
-                        "initial_state"
-                    ]
-                }
-            },
-            {
-                "name": "hipcortex_system_health",
-                "displayName": "HipCortex System Health (Calibrated)",
-                "modelDescription": "Use for substrate health checks. Returns calibration_score, prediction_error_ewma, consolidation_pressure, epistemic_entropy, and overall health boolean.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {}
-                }
-            },
-            {
-                "name": "hipcortex_state_diff",
-                "displayName": "HipCortex State Diff",
-                "modelDescription": "Use to understand what changed between two tx points. Requires tx_log enabled on the server.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "from_tx": {
-                            "type": "integer"
-                        },
-                        "to_tx": {
-                            "type": "integer"
-                        }
-                    },
-                    "required": [
-                        "from_tx",
-                        "to_tx"
-                    ]
-                }
-            }
+          {
+            "name": "add",
+            "description": "Add a new memory record"
+          },
+          {
+            "name": "query",
+            "description": "Search memory records"
+          },
+          {
+            "name": "health",
+            "description": "Check system health"
+          },
+          {
+            "name": "help",
+            "description": "Show help information"
+          },
+          {
+            "name": "predict",
+            "description": "Predict next state using world-model"
+          },
+          {
+            "name": "coherence",
+            "description": "Check memory coherence"
+          },
+          {
+            "name": "link",
+            "description": "Link two memory records: @hipcortex /link <source-id> <target-id> [relation]"
+          },
+          {
+            "name": "mode",
+            "description": "Switch token optimization mode: @hipcortex /mode <headroom|caveman>"
+          }
         ]
-    },
-    "activationEvents": [
-        "onStartupFinished",
-        "onCommand:workbench.action.chat.open"
+      }
     ],
-    "scripts": {
-        "vscode:prepublish": "npm run package",
-        "compile": "tsc -p ./",
-        "watch": "tsc -watch -p ./",
-        "package": "webpack --mode production --devtool hidden-source-map",
-        "fetch-bins": "node scripts/fetch-bins.js",
-        "fetch-bins:force": "node scripts/fetch-bins.js --force",
-        "package:vsix": "node scripts/fetch-bins.js --force && npm run package && npx --yes @vscode/vsce package --no-dependencies",
-        "compile-tests": "tsc -p . --outDir out",
-        "watch-tests": "tsc -p . -w --outDir out",
-        "pretest": "npm run compile && npm run lint",
-        "lint": "eslint src --ext ts",
-        "test": "jest --config jest.config.js"
+    "configuration": {
+      "title": "HipCortex Memory",
+      "properties": {
+        "hipcortex.apiUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:3030",
+          "description": "HipCortex API server URL"
+        },
+        "hipcortex.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for authentication (if required)"
+        },
+        "hipcortex.autoStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically start HipCortex server if not running"
+        },
+        "hipcortex.strictServerVersion": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, only reuse a local server if /health.version exactly matches the expected crate/server binary version. When false (default), reuse any healthy server with same major.minor (or missing version field)."
+        },
+        "hipcortex.passiveCapture": {
+          "type": "boolean",
+          "default": true,
+          "description": "When enabled, HipCortex automatically captures file saves and terminal output as memories. Disable to opt out of passive capture."
+        }
+      }
     },
-    "devDependencies": {
-        "@types/vscode": "^1.90.0",
-        "@types/jest": "^29.5.12",
-        "@types/node": "20.x",
-        "jest": "^29.7.0",
-        "ts-jest": "^29.2.5",
-        "@typescript-eslint/eslint-plugin": "^6.13.1",
-        "@typescript-eslint/parser": "^6.13.1",
-        "eslint": "^8.54.0",
-        "typescript": "^5.3.2",
-        "webpack": "^5.89.0",
-        "webpack-cli": "^5.1.4",
-        "ts-loader": "^9.5.1"
-    },
-    "dependencies": {
-        "axios": "^1.6.2"
-    }
+    "languageModelTools": [
+      {
+        "name": "hipcortex_search",
+        "displayName": "HipCortex Memory Search",
+        "modelDescription": "Use this FIRST for any recall. Returns unified live_beliefs (memory + world model + hypotheses + coherence). Call before asking the user.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      },
+      {
+        "name": "hipcortex_health",
+        "displayName": "HipCortex System Health",
+        "modelDescription": "Use this FIRST for health/status before other actions. Returns substrate health + world model coherence.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      },
+      {
+        "name": "hipcortex_predict",
+        "displayName": "HipCortex State Prediction",
+        "modelDescription": "Use this FIRST for world model predictions. Call substrate predict before deciding actions. Returns WM + uncertainty.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "state": {
+              "type": "string"
+            },
+            "action": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "state",
+            "action"
+          ]
+        }
+      },
+      {
+        "name": "hipcortex_graph_search",
+        "displayName": "HipCortex Graph Search",
+        "modelDescription": "Use this AFTER hipcortex_search to expand context graph-first. Call with a seed_id (record UUID) to find memories linked via the CausalTopoGraph using PPR (alpha=0.85, 20 rounds).",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "seed_id": {
+              "type": "string"
+            },
+            "limit": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "seed_id"
+          ]
+        }
+      },
+      {
+        "name": "hipcortex_topo_ppr",
+        "displayName": "HipCortex Topo PPR",
+        "modelDescription": "Use after link/deconstruct for topology-first exploration of graph nodes.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "seed": {
+              "type": "string"
+            },
+            "limit": {
+              "type": "number"
+            }
+          }
+        }
+      },
+      {
+        "name": "hipcortex_deconstruct",
+        "displayName": "HipCortex Deconstruct Hypothesis",
+        "modelDescription": "Parse hypothesis text into causal edges. Set apply=true to write into topo.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "llm_json": {
+              "type": "string"
+            },
+            "apply": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "text"
+          ]
+        }
+      },
+      {
+        "name": "hipcortex_check_edge",
+        "displayName": "HipCortex Check Topo Edge",
+        "modelDescription": "Check whether from→to would create a cycle or reverse-causal contradiction.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string"
+            },
+            "to": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "from",
+            "to"
+          ]
+        }
+      },
+      {
+        "name": "hipcortex_can_execute",
+        "displayName": "HipCortex Can Execute",
+        "modelDescription": "Query SelfModel should_execute for an operation name.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "operation"
+          ]
+        }
+      },
+      {
+        "name": "hipcortex_rollout",
+        "displayName": "HipCortex WorldModel Rollout",
+        "modelDescription": "Multi-step world-model rollout. Prefer mode=dirichlet after observe; mode=mcts with goal_state for goal-shaped search.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "initial_state": {
+              "type": "string"
+            },
+            "actions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "dirichlet",
+                "mcts",
+                "ensemble"
+              ]
+            },
+            "goal_state": {
+              "type": "string"
+            },
+            "iterations": {
+              "type": "number"
+            },
+            "max_depth": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "initial_state"
+          ]
+        }
+      },
+      {
+        "name": "hipcortex_system_health",
+        "displayName": "HipCortex System Health (Calibrated)",
+        "modelDescription": "Use for substrate health checks. Returns calibration_score, prediction_error_ewma, consolidation_pressure, epistemic_entropy, and overall health boolean.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      {
+        "name": "hipcortex_state_diff",
+        "displayName": "HipCortex State Diff",
+        "modelDescription": "Use to understand what changed between two tx points. Requires tx_log enabled on the server.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "from_tx": {
+              "type": "integer"
+            },
+            "to_tx": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "from_tx",
+            "to_tx"
+          ]
+        }
+      }
+    ]
+  },
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:workbench.action.chat.open"
+  ],
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "fetch-bins": "node scripts/fetch-bins.js",
+    "fetch-bins:force": "node scripts/fetch-bins.js --force",
+    "package:vsix": "node scripts/fetch-bins.js --force && npm run package && npx --yes @vscode/vsce package --no-dependencies",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "jest --config jest.config.js"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.90.0",
+    "@types/jest": "^29.5.12",
+    "@types/node": "20.x",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "@typescript-eslint/eslint-plugin": "^6.13.1",
+    "@typescript-eslint/parser": "^6.13.1",
+    "eslint": "^8.54.0",
+    "typescript": "^5.3.2",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4",
+    "ts-loader": "^9.5.1"
+  },
+  "dependencies": {
+    "axios": "^1.6.2"
+  }
 }
