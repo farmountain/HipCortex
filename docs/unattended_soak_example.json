@@ -1,0 +1,24 @@
+{
+  "scenario": "unattended_soak_v360",
+  "actor": "soak-unattended-1",
+  "entity": "filesystem",
+  "note": "Template — replace by running: python scripts/unattended_soak_scenario.py --start-server",
+  "probe_before": {
+    "uncertain_count": 0
+  },
+  "probe_after": {
+    "uncertain_count": 1,
+    "recommended_op": "query_memory"
+  },
+  "after_restart": {
+    "uncertain_count": 1
+  },
+  "assertions": {
+    "uncertain_count_before_zero": true,
+    "uncertain_count_increased": true,
+    "recommended_op_changed": true,
+    "epistemic_state_survived_restart": true,
+    "unattended": true
+  },
+  "result": "PASS"
+}

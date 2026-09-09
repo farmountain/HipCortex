@@ -1,8 +1,8 @@
 {
     "name": "hipcortex-memory",
     "displayName": "HipCortex Memory Engine & Cognitive OS",
-    "description": "HipCortex v3.5.0 — Epistemic Seam Proof: autonomous world-change detection via intent/receipt (sha256_hex, was_surprising, uncertain_count↑), field-proven two-process WAL, per-actor wall discipline. 366 lib + 473 unit + 180+ integration + 56 property + 8 AC-ES (v3.5) + 6 AC-FS/WD (v3.4) + 10 AC-W/D/PA (v3.3) + 6 AC-B (v3.2) + 4 AC (v3.1) + 6 AC (v3.0), 0 failures.",
-    "version": "3.5.0",
+    "description": "HipCortex v3.6.0 — Unattended Runner: autonomous file sensor (hipcortex_runner.py) hashes files and posts intent/receipt autonomously. Script only edits file + reads scorecard. Q10 advances past probe_entity after all intents Received. ClarifyEngine self-prompting gate. 366 lib + 473 unit + 180+ integration + 56 property + 10 AC-UA (v3.6) + 8 AC-ES (v3.5) + 6 AC-FS/WD (v3.4), 0 failures.",
+    "version": "3.6.0",
     "publisher": "farmountain",
     "repository": {
         "type": "git",

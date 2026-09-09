@@ -490,6 +490,26 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
                     disc.confidence = 0.3;
                     let _ = ms.add(disc);
                 }
+                // Sync intent status → "Received" in MemoryStore so cognitive_report Q10
+                // reads the closed intent and can advance past probe_entity:X.
+                // Borrow scoped so the Vec<&MemoryRecord> is dropped before update_record.
+                {
+                    let intent_uuid = receipt.intent_id.to_string();
+                    let update_data = {
+                        let intent_recs = ms.all_by_type(MemoryType::Intent);
+                        intent_recs.into_iter().find(|r| {
+                            r.metadata.get("id").and_then(|v| v.as_str())
+                                == Some(intent_uuid.as_str())
+                        }).map(|rec| {
+                            let mut meta = rec.metadata.clone();
+                            meta["status"] = serde_json::json!("Received");
+                            (rec.id, meta)
+                        })
+                    };
+                    if let Some((rid, meta)) = update_data {
+                        let _ = ms.update_record(rid, None, None, None, None, Some(meta));
+                    }
+                }
             }
         }
 

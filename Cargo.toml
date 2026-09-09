@@ -1,8 +1,8 @@
 [package]
 name = "hipcortex"
-version = "3.5.0"
+version = "3.6.0"
 edition = "2021"
-description = "Cognitive state substrate for AI agents: goal scheduling, belief revision, epistemic seam (intent/receipt sha256-anchored world-model update, was_surprising detection), OpEx budget metering, field-proven two-process WAL persistence, and decision provenance — MCP + REST"
+description = "Cognitive state substrate for AI agents: unattended file runner (autonomous intent/receipt sensor), epistemic seam (sha256-anchored world-model update, was_surprising detection), ClarifyEngine self-prompting gate, OpEx budget metering, field-proven two-process WAL persistence — MCP + REST"
 repository = "https://github.com/farmountain/HipCortex"
 license = "Apache-2.0"
 readme = "README.md"
@@ -191,6 +191,10 @@ path = "tests/acceptance_suite_v340.rs"
 [[test]]
 name = "acceptance_suite_v350"
 path = "tests/acceptance_suite_v350.rs"
+
+[[test]]
+name = "acceptance_suite_v360"
+path = "tests/acceptance_suite_v360.rs"
 
 [[bench]]
 name = "temporal_state_diff_bench"
