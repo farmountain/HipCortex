@@ -1,5 +1,7 @@
 use hipcortex::archive_store::ArchiveStore;
 use hipcortex::aureus_bridge::AureusBridge;
+use hipcortex::substrate_daemon::SubstrateDaemon;
+use hipcortex::workspace::WorkspaceRegistry;
 use hipcortex::coherence::CoherenceChecker;
 /// SIT tests for intelligence layer wiring (requires web-server feature — gated in mod.rs)
 use hipcortex::memory_record::{MemoryRecord, MemoryType};
@@ -44,6 +46,9 @@ pub fn make_app_state() -> AppState<InMemoryBackend> {
         cognitive,
         forks: Arc::new(Mutex::new(std::collections::HashMap::new())),
         twins: Arc::new(Mutex::new(std::collections::HashMap::new())),
+        daemon: Arc::new(Mutex::new(SubstrateDaemon::new())),
+        workspace_registry: Arc::new(Mutex::new(WorkspaceRegistry::new())),
+        passive_capture_enabled: true,
     }
 }
 

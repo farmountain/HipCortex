@@ -611,19 +611,19 @@ def test_g5_4_ts_sdk_self_health_has_healthy_bool():
     assert "SelfHealthResponse" in src, "SelfHealthResponse type missing from TS client"
 
 
-def test_g5_5_version_080_on_all_surfaces():
-    """G5-5 (schema-only): VERSION file, MCP serverInfo, Python VERSION, TS package.json all 0.8.0."""
+def test_g5_5_version_3_10_0_on_all_surfaces():
+    """G5-5 (schema-only): VERSION file, MCP serverInfo, Python VERSION, TS package.json all 3.10.0."""
     import os, json
     root = os.path.join(os.path.dirname(__file__), "../../..")
     # VERSION file
     version_file = open(os.path.join(root, "VERSION"), encoding="utf-8").read().strip()
-    assert version_file == "0.8.0", f"VERSION file is {version_file!r}"
+    assert version_file == "3.10.0", f"VERSION file is {version_file!r}"
     # MCP server
     mcp = open(os.path.join(root, "sdk/mcp/server.py"), encoding="utf-8").read()
-    assert '"version": "0.8.0"' in mcp, "MCP serverInfo.version != 0.8.0"
+    assert '"version": "3.10.0"' in mcp, "MCP serverInfo.version != 3.10.0"
     # Python SDK
     client_py = open(os.path.join(root, "sdk/python/hipcortex/client.py"), encoding="utf-8").read()
-    assert 'VERSION = "0.8.0"' in client_py, "Python client VERSION != 0.8.0"
+    assert 'VERSION = "3.10.0"' in client_py, "Python client VERSION != 3.10.0"
     # TS SDK
     ts_pkg = json.load(open(os.path.join(root, "sdk/typescript/package.json"), encoding="utf-8"))
-    assert ts_pkg["version"] == "0.8.0", f"TS package.json version is {ts_pkg['version']!r}"
+    assert ts_pkg["version"] == "3.10.0", f"TS package.json version is {ts_pkg['version']!r}"

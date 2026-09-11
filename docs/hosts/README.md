@@ -19,7 +19,7 @@ hipcortex uninstall --channel antigravity|hermes|openclaw|grok
 |--|--|
 | **Wizard** | `hipcortex install` → writes `~/.gemini/antigravity/mcp_config.json` |
 | **Shape** | `mcpServers.hipcortex` (same as Cursor) |
-| **Also** | VS Code–compatible VSIX: `hipcortex-memory-0.5.8.vsix` / Open VSX |
+| **Also** | VS Code–compatible VSIX: `hipcortex-memory-3.10.0.vsix` / Open VSX |
 | **Skip** | Permission errors only (creates parent dirs) |
 
 ```bash

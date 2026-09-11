@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hipcortex"
-version = "3.9.0"
-description = "Cognitive state substrate for AI agents — hard single-role runner (allow_open=False in guided mode), observation-content predicate scorer (observation_pattern per SuccessFactor), GoalRevision→ClarifyEngine apply_revision, 24h field log artifact, WAL-persistent. LangChain, AutoGen, CrewAI, MCP"
+version = "3.10.0"
+description = "Cognitive state substrate for AI agents — universal server-side passive capture (any channel, zero client changes); hard single-role runner, observation-content predicate scorer, GoalRevision→ClarifyEngine, 24h field log, WAL-persistent. LangChain, AutoGen, CrewAI, MCP"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.9"

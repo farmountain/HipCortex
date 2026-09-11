@@ -96,6 +96,7 @@ fn restart_coherent_snapshot() {
                 name: "latency_ok".to_string(),
                 weight: 1.0,
                 satisfied: false,
+                observation_pattern: None,
             }],
             ..Default::default()
         };
@@ -211,6 +212,7 @@ fn restart_inprogress_goal_resumable_by_daemon() {
                 name: "done".to_string(),
                 weight: 1.0,
                 satisfied: false,
+                observation_pattern: None,
             }],
             ..Default::default()
         };

@@ -38,6 +38,7 @@ mod tests {
                 name: "done".into(),
                 weight: 1.0,
                 satisfied: true,
+                observation_pattern: None,
             }],
             5,
         );
@@ -68,6 +69,7 @@ mod tests {
                 name: "impossible".into(),
                 weight: 1.0,
                 satisfied: false,
+                observation_pattern: None,
             }],
             3,
         );
@@ -99,6 +101,7 @@ mod tests {
                 name: "x".into(),
                 weight: 1.0,
                 satisfied: false,
+                observation_pattern: None,
             }],
             2,
         );
@@ -165,6 +168,7 @@ mod tests {
                 name: "u".into(),
                 weight: 1.0,
                 satisfied: false,
+                observation_pattern: None,
             }],
             1,
         );

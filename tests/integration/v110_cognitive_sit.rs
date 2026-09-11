@@ -14,6 +14,7 @@ fn make_goal(target: &str, max_iter: u32, satisfied: bool) -> MemoryRecord {
             name: "main".into(),
             weight: 1.0,
             satisfied,
+            observation_pattern: None,
         }],
         ..Default::default()
     };

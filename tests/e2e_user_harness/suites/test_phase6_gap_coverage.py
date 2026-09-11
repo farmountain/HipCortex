@@ -75,12 +75,12 @@ def test_mcp_resource_read_returns_content_silently_on_server_error():
         proc.terminate()
 
 
-def test_mcp_version_is_0_6_0():
+def test_mcp_version_is_3_10_0():
     proc = _start_server()
     try:
         resp = _send(proc, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
         ver = resp["result"]["serverInfo"]["version"]
-        assert ver in ("0.6.0", "0.7.0", "0.8.0"), f"expected 0.6.x/0.7.x/0.8.x, got {ver}"
+        assert ver == "3.10.0", f"expected 3.10.0, got {ver}"
     finally:
         proc.terminate()
 

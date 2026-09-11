@@ -8,8 +8,10 @@ use hipcortex::memory_store::MemoryStore;
 use hipcortex::persistence::InMemoryBackend;
 use hipcortex::self_model::calibration::CalibrationTracker;
 use hipcortex::self_model::{CapabilityDescriptor, SelfModel};
+use hipcortex::substrate_daemon::SubstrateDaemon;
 use hipcortex::symbolic_store::{InMemoryGraph, SymbolicStore};
 use hipcortex::web_server::AppState;
+use hipcortex::workspace::WorkspaceRegistry;
 use hipcortex::world_model_enhanced::WorldModelEnhanced;
 use hipcortex::CausalTopoGraph;
 use std::sync::{Arc, Mutex, RwLock};
@@ -52,6 +54,9 @@ fn make_state() -> AppState<InMemoryBackend> {
         cognitive,
         forks: Arc::new(Mutex::new(std::collections::HashMap::new())),
         twins: Arc::new(Mutex::new(std::collections::HashMap::new())),
+        daemon: Arc::new(Mutex::new(SubstrateDaemon::new())),
+        workspace_registry: Arc::new(Mutex::new(WorkspaceRegistry::new())),
+        passive_capture_enabled: true,
     }
 }
 

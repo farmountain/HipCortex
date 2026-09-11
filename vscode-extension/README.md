@@ -1,13 +1,25 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.9.0`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.10.0`)
 
-[![Version](https://img.shields.io/badge/version-v3.9.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v3.10.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
-**Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, grounded probe planning, OpEx budget metering, field-proven two-process WAL persistence, and topological graph tools.**
+**Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — universal server-side passive capture (any channel, zero client changes), transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, grounded probe planning, OpEx budget metering, field-proven two-process WAL persistence, and topological graph tools.**
 
-VSIX **3.9.0** (Hard Single-Role + Predicate Scorer) · server/pip/npm **3.9.0**. 366 lib + 473 unit + 180+ integration + 56 property + 10 AC-390 (v3.9.0) + 10 AC-GS (v3.8.0) + 10 AC-LR (v3.7.0) + 10 AC-UA (v3.6.0) + 8 AC-ES (v3.5.0) + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+VSIX **3.10.0** (Universal Passive Capture) · server/pip/npm **3.10.0**. 366 lib + 473 unit + 262 integration + 56 property + 4 AC-PC (v3.10.0) + 10 AC-390 (v3.9.0) + 10 AC-GS (v3.8.0) + 10 AC-LR (v3.7.0) + 10 AC-UA (v3.6.0) + 8 AC-ES (v3.5.0) + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v3.10.0 — Universal Server-Side Passive Capture
+
+| Change | Details |
+|--------|---------|
+| **Universal passive capture** | Server-side Axum middleware captures every successful mutation (POST/PUT/DELETE) as a `Temporal` record — regardless of which client sent it. MCP, VSIX, REST, CLI, LangChain, AutoGen, CrewAI: one middleware, all channels, zero client changes required. |
+| **`X-Actor` header attribution** | Each captured record carries the actor from the `X-Actor` request header; defaults to `"unknown-channel"` when absent. MCP server now sends `X-Actor: mcp` on every request. |
+| **`AppState.passive_capture_enabled`** | Flag resolved once at server startup from `HIPCORTEX_PASSIVE_CAPTURE` env var (default `true`). No per-request env reads — no race conditions in tests or concurrent deployments. |
+| **Fire-and-forget write** | Capture uses `tokio::spawn` — zero latency added to the HTTP response path. |
+| **4 structural ACs** | `tests/integration/passive_capture_sit.rs`: capture fires on POST, no capture on GET, disabled flag suppresses all captures, unknown-channel actor default. |
 
 ---
 

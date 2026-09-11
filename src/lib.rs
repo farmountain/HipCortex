@@ -23,6 +23,8 @@ pub mod goal_scheduler;
 pub mod wm_updater;
 #[path = "modules/aureus_bridge.rs"]
 pub mod aureus_bridge;
+#[cfg(feature = "web-server")]
+pub mod passive_capture;
 pub mod cognitive_gc;
 pub mod clarify_engine;
 pub mod cognitive_state;

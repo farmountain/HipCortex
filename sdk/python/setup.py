@@ -2,8 +2,8 @@ from setuptools import setup, find_packages
 
 setup(
     name="hipcortex",
-    version="0.1.0",
-    description="HipCortex AI memory engine — Python SDK",
+    version="3.10.0",
+    description="Cognitive state substrate for AI agents — Python SDK (universal server-side passive capture, WAL-persistent, MCP + REST)",
     long_description=open("../../README.md").read() if False else "",
     author="HipCortex Contributors",
     license="Apache-2.0",

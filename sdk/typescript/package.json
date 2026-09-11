@@ -1,7 +1,7 @@
 {
   "name": "hipcortex",
-  "version": "0.8.0",
-  "description": "TypeScript & Node.js SDK for HipCortex  - the persistent causal memory & token optimization substrate for autonomous AI agents.",
+  "version": "3.10.0",
+  "description": "Cognitive state substrate for AI agents — TypeScript & Node.js SDK (universal server-side passive capture, WAL-persistent, MCP + REST).",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": ["dist", "README.md"],

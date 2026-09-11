@@ -164,6 +164,8 @@ pub struct AppState<B: MemoryBackend + Send + Sync + 'static> {
     pub twins: Arc<Mutex<std::collections::HashMap<uuid::Uuid, Arc<Mutex<crate::digital_twin::DigitalTwin<B>>>>>>,
     pub daemon: Arc<Mutex<crate::substrate_daemon::SubstrateDaemon>>,
     pub workspace_registry: Arc<Mutex<WorkspaceRegistry>>,
+    /// Resolved once at server start from `HIPCORTEX_PASSIVE_CAPTURE` env var.
+    pub passive_capture_enabled: bool,
 }
 
 /// Manual Clone: all fields are Arc<…> so clone is a ref-count bump regardless of B.
@@ -186,6 +188,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> Clone for AppState<B> {
             twins: self.twins.clone(),
             daemon: self.daemon.clone(),
             workspace_registry: self.workspace_registry.clone(),
+            passive_capture_enabled: self.passive_capture_enabled,
         }
     }
 }
@@ -548,6 +551,7 @@ pub async fn run_with_memory<B: MemoryBackend + Send + Sync + 'static>(
         twins: Arc::new(Mutex::new(std::collections::HashMap::new())),
         daemon: Arc::new(Mutex::new(crate::substrate_daemon::SubstrateDaemon::new())),
         workspace_registry: Arc::new(Mutex::new(WorkspaceRegistry::new())),
+        passive_capture_enabled: crate::passive_capture::passive_capture_enabled(),
     };
     run_with_state(addr, state).await;
 }
@@ -559,6 +563,7 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
     state: AppState<B>,
 ) -> axum::Router {
     // ── Unpack state into locals so closures can capture by value ─────────
+    let passive_capture_on = state.passive_capture_enabled;
     let symbolic_store = state.symbolic_store.clone();
     let memory_store = state.memory_store.clone();
     let world_model = state.world_model.clone();
@@ -1850,6 +1855,14 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
                 axum::Json(serde_json::json!({"goal_id": goal_id.to_string(), "records": records, "count": records.len()}))
             })
         })
+        .layer(middleware::from_fn({
+            let store = memory_store.clone();
+            let enabled = passive_capture_on;
+            move |req, next| {
+                let s = store.clone();
+                crate::passive_capture::passive_capture_mw(s, enabled, req, next)
+            }
+        }))
         .layer(middleware::from_fn(api_key_middleware));
 
     app
@@ -3549,6 +3562,7 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
         calibration.clone(),
         Arc::new(crate::cognitive_gc::CognitiveGC::new()),
     ));
+    let passive_capture_on = crate::passive_capture::passive_capture_enabled();
 
     // Symbolic store routes
     let graph_route = {
@@ -4317,6 +4331,14 @@ pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
                 }
             })
         })
+        .layer(middleware::from_fn({
+            let store = memory_store.clone();
+            let enabled = passive_capture_on;
+            move |req, next| {
+                let s = store.clone();
+                crate::passive_capture::passive_capture_mw(s, enabled, req, next)
+            }
+        }))
         .layer(middleware::from_fn(api_key_middleware));
 
     axum::Server::bind(&addr)

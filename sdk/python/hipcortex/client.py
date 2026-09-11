@@ -10,7 +10,7 @@ import requests
 
 
 class HipCortexClient:
-    VERSION = "0.8.0"
+    VERSION = "3.10.0"
 
     """Synchronous HTTP client for the HipCortex memory server.
 

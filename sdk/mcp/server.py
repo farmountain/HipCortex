@@ -87,7 +87,7 @@ def _charge_budget(actor: str, substrate_bytes: int,
 # ---------------------------------------------------------------------------
 
 def _headers() -> dict:
-    h = {"Content-Type": "application/json"}
+    h = {"Content-Type": "application/json", "X-Actor": "mcp"}
     if API_KEY:
         h["X-Api-Key"] = API_KEY
     return h
@@ -1915,7 +1915,7 @@ def main() -> None:
             respond(id_, {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}, "resources": {}},
-                "serverInfo": {"name": "hipcortex", "version": "3.9.0"},
+                "serverInfo": {"name": "hipcortex", "version": "3.10.0"},
             })
         elif method == "initialized":
             pass  # notification — no response

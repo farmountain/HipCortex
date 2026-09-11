@@ -13,6 +13,8 @@ use hipcortex::{
     coherence::CoherenceChecker,
     memory_record::{MemoryRecord, MemoryType},
     memory_store::MemoryStore,
+    substrate_daemon::SubstrateDaemon,
+    workspace::WorkspaceRegistry,
     InMemoryBackend,
     self_model::{calibration::CalibrationTracker, SelfModel},
     symbolic_store::SymbolicStore,
@@ -55,6 +57,9 @@ fn make_test_state() -> TestState {
         cognitive,
         forks: Arc::new(Mutex::new(std::collections::HashMap::new())),
         twins: Arc::new(Mutex::new(std::collections::HashMap::new())),
+        daemon: Arc::new(Mutex::new(SubstrateDaemon::new())),
+        workspace_registry: Arc::new(Mutex::new(WorkspaceRegistry::new())),
+        passive_capture_enabled: true,
     }
 }
 

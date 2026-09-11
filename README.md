@@ -45,6 +45,23 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 | One-shot runner ≠ long-lived goal; two-runner confusion; success_factors never marked satisfied | `--guided` daemon reads scorecard `recommended_op`, probes entities or calls `POST /goal/:id/react`; `score_success_factors_from_intents` marks factors satisfied from Received intents → `goal.status = Succeeded` across multiple iterations (v3.7.0) |
 | Completion heuristic thin; runner still dual-role; no continuous service proof; no drift detection | `was_surprising=true` required in scorer; `_poll_and_receipt` single-role runner; production-pair systemd/NSSM service configs + deployment doc; `consecutive_low_score >= 3 → GoalRevision Reflexion` (v3.8.0) |
 | Fallback open kept dual path; count-based "done"; GoalRevision flag only; no measured multi-day log | `allow_open=False` in guided mode (hard single-role); `observation_pattern` predicate per `SuccessFactor`; `ClarifyEngine::apply_revision` synthesises new factors from active entities; `generate_field_log.py` produces 24h session artifact (v3.9.0) |
+| Passive capture required per-channel client instrumentation — VSIX break silently killed memory | Universal server-side Axum middleware captures every mutation (POST/PUT/DELETE) from any channel — MCP, VSIX, REST, CLI, LangChain — zero client changes; `X-Actor` header attribution; `AppState.passive_capture_enabled`; fire-and-forget Temporal write; 262 integration tests 0 failures (v3.10.0) |
+
+---
+
+## What's new in v3.10.0 — Universal Server-Side Passive Capture
+
+Closes the gap identified after v3.9.0: passive memory capture required per-channel client instrumentation — a VSIX break silently killed memory for that channel.
+
+| Change | Gap | Fix |
+|--------|-----|-----|
+| **Universal passive capture** | Each channel needed its own client-side capture hook; a broken VSIX silently lost memory | Server-side Axum middleware captures every successful mutation (POST/PUT/DELETE) as a `Temporal` record — MCP, VSIX, REST, CLI, LangChain, AutoGen, CrewAI: one middleware, all channels, zero client changes |
+| **`X-Actor` header attribution** | Captured records had no actor source | Each record carries the actor from the `X-Actor` header (defaults to `unknown-channel`); MCP server sends `X-Actor: mcp` on every request |
+| **`AppState.passive_capture_enabled`** | Per-request env reads raced under concurrency | Flag resolved once at startup from `HIPCORTEX_PASSIVE_CAPTURE` (default `true`) |
+| **Fire-and-forget write** | Capture added latency to the HTTP path | `tokio::spawn` — zero latency added to the response path |
+| **4 structural ACs** | No passive-capture test coverage | `tests/integration/passive_capture_sit.rs`: capture fires on POST, no capture on GET, disabled flag suppresses all, unknown-channel actor default |
+
+Test coverage: 366 lib + 473 unit + 262 integration + 56 property + 4 AC-PC (v3.10.0) + 10 AC-390 (v3.9.0) + earlier suites, 0 failures.
 
 ---
 

@@ -20,6 +20,8 @@ mod intelligence_sit;
 mod intelligence_uat;
 #[cfg(feature = "web-server")]
 mod intelligence_wiring_sit;
+#[cfg(feature = "web-server")]
+mod passive_capture_sit;
 mod llm_integration_tests;
 #[cfg(all(feature = "web-server", feature = "grpc-server"))]
 mod mcp_server_sit;

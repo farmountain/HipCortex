@@ -16,6 +16,7 @@ mod tests {
                 name: "x".to_string(),
                 weight: 1.0,
                 satisfied: false,
+                observation_pattern: None,
             }],
             max_react_iterations: 1,
             status: GoalStatus::Pending,
