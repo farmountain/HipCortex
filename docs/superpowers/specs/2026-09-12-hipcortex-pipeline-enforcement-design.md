@@ -464,18 +464,25 @@ consistent shape; `examples/causal_agent_demo.rs`, `benches/world_model_bench.rs
 
 ---
 
-### 3.10 G10 — the suite that was never registered (found by the same sweep)
+### 3.10 G10 — the suite no CI step named (found by the same sweep)
 
-The census that closed §3.9 was run against the **registrar**, not the directory listing: for each of
-`tests/unit/`, `tests/integration/` and `tests/property/`, list the `.rs` files and check each one
-against the `mod` declaration that is the only thing turning a file into a module. 160 files, one
-orphan: `tests/integration/v040_contract_sit.rs`, committed by `dfad2ea`, never named in
-`tests/integration/mod.rs`.
+The census that closed §3.9 was run against the **registrar**: for each of `tests/unit/`,
+`tests/integration/` and `tests/property/`, list the `.rs` files and check each one against the `mod`
+declaration that turns a file into a module. 160 files, one orphan:
+`tests/integration/v040_contract_sit.rs` — a file with a real assertion history, most recently
+`dfad2ea` (link aliases), `f2d76b9` (`loops_run`) and `2dde95d` (search/related enrichment), none of
+which had ever executed.
 
-This is the finding shape of G1–G3 reached from the other side. G1–G3 were suites the *pipeline* never
-invoked; this is a suite the *compiler* never invoked. Both hide behind a green run, and this one is
-invisible to every `cargo` command: an unregistered file is not compiled, so it cannot fail, so it
-cannot be noticed. Only a comparison against the registrar finds it.
+The registrar reading of that orphan turned out to be wrong, and the correction is part of the
+finding. The file was **not** forgotten: `77b418b` ("move v040_contract_sit to standalone binary,
+avoid intelligence_sit compile errors") deliberately removed it from the registrar and declared it as
+its own `[[test]]` target with `required-features = ["web-server"]` — a legitimate way to keep one
+web-gated suite off another suite's compile path, and an ancestor of `origin/main`. But a standalone
+target is compiled and run only by a job that names it, and every job in `ci.yml` names `unit_suite`,
+`integration_suite` and `property_suite`. So the six tests were declared, compiled on demand, and
+never executed by the pipeline: the same outward symptom as G1–G3, reached from a different gate.
+Re-registering the module would have reverted a deliberate decision to close a hole that decision did
+not open; the fix is a `web-tests` step that names the target.
 
 *Evidence:*
 
@@ -483,11 +490,12 @@ cannot be noticed. Only a comparison against the registrar finds it.
    `POST /memory/link` field aliases, G-BELIEFS `GET /memory/live_beliefs` top-level `loops_run`,
    G-RELATED `GET /memory/search/related` record enrichment. A repo-wide search for
    `v040_contract` returned nothing before the fix.
-2. Registering it under `#[cfg(feature = "web-server")]` — it builds an `AppState` and calls
-   `run_with_state` — compiled clean (`--no-run`, 0 errors) and then went **red on the first run**:
-   `test_worldmodel_rollout_endpoint` at `v040_contract_sit.rs:235`, expected
-   `actions must be non-empty`, got `No actions available for MCTS (observe transitions first)`.
-   A file that has never run is not a file that would have passed.
+2. Running it for the first time — first as a temporary registrant, then as the standalone target it
+   already is — went **red**: `test_worldmodel_rollout_endpoint` at `v040_contract_sit.rs:235`,
+   expected `actions must be non-empty`, got
+   `No actions available for MCTS (observe transitions first)`. A file that has never run is not a
+   file that would have passed. The temporary registration was reverted afterwards, so the target
+   ships exactly as `77b418b` declared it, plus a step that runs it.
 3. Root cause: `handle_wm_rollout` resolved its default mode as
    `unwrap_or(if req.actions.is_empty() { "mcts" } else { "dirichlet" })`. With empty `actions` and
    no `mode`, the MCTS branch answered first, so the `actions must be non-empty` guard beneath it was
@@ -511,10 +519,11 @@ assertion instead was rejected: the archived design pins the exact string in thr
 primitive the guard fronts — `WorldModelEnhanced::rollout_dirichlet` — returns that same wording for
 the same input.
 
-*Verification:* registering the module takes the `web-server` integration suite from 309 to **315
-tests, 0 failed**; the web unit suite is 374/0; web clippy reports 0 errors. Both assertions the test
-went red on are the endpoint's two specified error contracts: the empty-actions guard, and
-`No trained predictors available` when nothing is trained.
+*Verification:* the target is green at **6 passed / 0 failed** as its own `web-tests` step, and the
+`web-server` integration suite is **309 → 310, 0 failed** (the +1 is the regression test recorded in
+§3.12); the web unit suite is 374/0. Both assertions the test went red on are the endpoint's two
+specified error contracts: the empty-actions guard, and `No trained predictors available` when
+nothing is trained.
 
 *Found and left open:* the same audit turned up one contract that nothing adjudicates.
 `docs/superpowers/specs/2026-08-13-hipcortex-gap-remediation-design.md` §2.1 and `CLAUDE.md` both
@@ -528,9 +537,59 @@ evidence, so behaviour is left unchanged and the discrepancy is recorded here in
 resolved silently. This is the clarify ladder's exit applied to a spec question: the ambiguity is
 real and bounded, so it gets named rather than blocking.
 
-*Generalisation:* a file being committed is not evidence that it runs. For test files the registrar is
-the gate, and the only reliable check lists the directory and subtracts what the registrar names — the
-compiler cannot report on what it never read.
+*Generalisation, corrected by the above:* a file being committed is not evidence that it runs, and a
+census against the registrar is necessary but not sufficient — the registrar gates only `mod`-included
+files, whereas a `[[test]]` target is gated by the CI command line that names it and by nothing else.
+Two censuses are needed: the directory against the registrar, and the declared targets against the
+steps that name them. A declared target nobody names is as invisible as a file nobody declares — and
+this change drew its evidence from the first census while the defect lived entirely in the second.
+
+### 3.12 G11 — the guardrail that blocked the operation for its own identifiers
+
+Running `v040_contract_sit` also surfaced an intermittent second failure, and that one is a defect in
+the product rather than in the suite. In one of the twelve runs it was given:
+
+```
+assertion `left == right` failed: link failed:
+  {"error":"precondition blocked: PII risk=0.90 patterns=[\"PII:369623-7774\"]","success":false}
+  left: 403
+ right: 200
+```
+
+The request was `POST /memory/link` carrying two UUIDs and `"relation": "supports"`. There is no
+content in it to be personal data. The guard's context was
+`format!("link {} --[{}]--> {}", req.from_id, req.relation, req.to_id)`, and the PII set's US-phone
+pattern is `\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}` — three digits, an optional separator, three
+digits, a separator, four digits — which **six digits, a hyphen and four more digits** satisfies
+exactly. That is what a UUID presents at one of its hyphens: `…369623-7774…`. A v4 UUID carries such
+a straddle roughly once in twenty, and with two ids per request the endpoint refused well-formed
+requests at random, on identifiers the caller does not choose and cannot re-roll — retrying the same
+ids always fails, and the only recourse is to store the records again and hope. A false positive at
+that rate is a reliability defect, not a strictness setting, which is why it is removed rather than
+tolerated.
+
+The classifier is not wrong; it is answering the question it was asked. The defect is the question.
+`/memory/add` classifies `actor action target`, its free text, and `/topo/apply_hyp` classifies `text`:
+both content. `/memory/link` classified identifiers, which cannot be content, and was the only site in
+the tree that did. Its context is now `format!("link memory records --[{}]-->", req.relation)` — the
+check still runs, the one caller-supplied free-text field is still in scope, and the record ids are no
+longer asked to prove they are not phone numbers. They leave the audit context with this change: they
+are not what the check examines, and what the check refuses is what gets logged.
+
+Every other classification site was audited for the same mistake and is clean: `temporal_backend.rs`
+classifies the FSM condition, `semantic_cache.rs` the cache key length, and
+`check_precondition_with_threshold` and `check_postcondition` have no callers at all. Widening the
+phone pattern with a word boundary was rejected: it still has to match `(555) 123-4567`, and the same
+boundary that rejects `x123456-1234` would suppress that form too. The detector is not where the
+mistake is.
+
+*Verification:* `link_does_not_classify_identifiers_as_pii` in
+`tests/integration/rest_contract_safety_sit.rs` builds the false positive deterministically —
+`ab123456-1234-4abc-8def-0123456789ab` is a valid UUID whose first hyphen carries the phone shape —
+and asserts **404** (the store was consulted and the synthetic records were not found) where the
+pre-fix handler answered **403** (the classifier refused), reporting `patterns=["PII:123456-1234"]`.
+The `web-server` integration suite is 309 → 310, 0 failed, and the standalone target ran 6/0 on three
+consecutive runs.
 
 ### 3.11 A2 — recorded, not reconciled
 
@@ -576,13 +635,17 @@ exit again: bounded, named, and not silently resolved in either direction.
 | G7 | `git status --porcelain` free of `*.db-wal` / `*.db-shm` |
 | G8 | `a_failed_goal_with_factors_is_retried_by_react_not_clarify` in `clarify_ladder_sit.rs` |
 | G9 | `causal_intervention_fallback_is_keyed_by_the_outcome_variable` in `tests/unit/scm_foundations_tests.rs` (not tokio-gated); the tokio actor step that found it is `370 passed; 0 failed` |
-| G10 | `test_worldmodel_rollout_endpoint` in `v040_contract_sit.rs`, reachable only once the module is registered in `tests/integration/mod.rs`; `web-server` integration 315, 0 failed |
+| G10 | `test_worldmodel_rollout_endpoint` in `v040_contract_sit.rs`, reachable only because the `web-tests` job now names the standalone target (`cargo test --test v040_contract_sit`); target 6 passed / 0 failed, `web-server` integration 310, 0 failed |
+| G11 | `link_does_not_classify_identifiers_as_pii` in `tests/integration/rest_contract_safety_sit.rs` — asserts 404 rather than 403 for a link whose UUIDs carry the phone shape; `web-server` integration 310, 0 failed |
 
 Plus the existing regression set, which must stay green and unmodified:
-`unit_suite` 502 → 510, `integration_suite` 306 → 315 (`web-server`) / 182 (minimal),
-`property_suite` 59, the 24 `acceptance_suite*` targets (181 tests), and the Python suite (237 → 242).
-Counts after this change were measured locally at the same feature sets, and every one is green
-(`unit` 510/0, `integration` 182/0 minimal and 315/0 web, `property` 59/0, Python 242 passed).
+`unit_suite` 502 → 510, `integration_suite` 306 → 310 (`web-server`, the +4 being G5's consolidation
+invariant, G8's failed-goal retry, the `/memory/query` vocabulary test and G11's link regression) /
+182 (minimal), `property_suite` 59, the standalone `v040_contract_sit` target (6 tests, previously
+unnamed by any step), the 24 `acceptance_suite*` targets (181 tests), and the Python suite
+(237 → 242). Counts after this change were measured locally at the same feature sets, and every one
+is green (`unit` 510/0, `integration` 182/0 minimal and 310/0 web, `property` 59/0, Python 242
+passed, `v040_contract_sit` 6/0).
 
 New `MemoryStore` unit tests live in the existing `tests/unit/` aggregate (registered in
 `tests/unit/mod.rs`):

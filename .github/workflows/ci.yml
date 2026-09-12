@@ -112,6 +112,14 @@ jobs:
   # never executed in CI — which is how a record_type mismatch on /memory/query
   # reached main with a green pipeline.
   #
+  # One more web-gated suite is not reachable through `--test integration_suite`:
+  # `v040_contract_sit` is declared as its own `[[test]]` target with
+  # `required-features = ["web-server"]`, because 77b418b moved it out of the
+  # integration registrar to avoid an `intelligence_sit` compile error. Every step
+  # here names its target explicitly, so a target nobody names is a target nothing
+  # runs — its 6 contract tests sat red and silent while the pipeline stayed green.
+  # It is named below.
+  #
   # Features are additive, so the same suites are re-run with the feature on:
   # a target that passes minimally can still fail once web-server is compiled
   # in, and the property suite is where the graph/FSM invariants live.
@@ -144,6 +152,13 @@ jobs:
         # These bind a real TCP listener on an ephemeral port and drive it with
         # reqwest, so the routes and their handlers are exercised end to end.
         run: cargo test --no-default-features --features "web-server,petgraph_backend" --test integration_suite
+
+      - name: Contract suite (standalone target)
+        # Kept as its own target rather than folded back into `integration_suite`:
+        # 77b418b split it out deliberately, and naming it here closes the real gap
+        # without reverting that decision. Today it is green; the point is that it
+        # runs, so a future drift cannot hide the way bc5d6f7's did.
+        run: cargo test --no-default-features --features "web-server,petgraph_backend" --test v040_contract_sit
 
       - name: Property suite
         run: cargo test --no-default-features --features "web-server,petgraph_backend" --test property_suite

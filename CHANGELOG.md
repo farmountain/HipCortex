@@ -163,16 +163,26 @@ Pipeline enforcement: `docs/superpowers/specs/2026-09-12-hipcortex-pipeline-enfo
   recorded under "Changed" below: because that step fails, every step after it is skipped, so
   `origin/main` has never run its integration, property, clippy or rustfmt gates at all.
 
-**G10 — An Acceptance Suite That Was Never Registered**
-- `tests/integration/v040_contract_sit.rs` was committed but absent from `tests/integration/mod.rs`,
-  and the registrar is what turns a file into a module: none of its six tests had ever compiled or
-  run. Three of them are the v0.4.0 contract fixes the file exists to pin — G-LINK
-  `POST /memory/link` field aliases, G-BELIEFS `GET /memory/live_beliefs` top-level `loops_run`, and
-  G-RELATED `GET /memory/search/related` record enrichment. This is the same class as G1–G3,
-  declared but never executed, and it is invisible to the compiler — only a census of the directory
-  listing against the registrar finds it. Across the three suites that census is 160 files, and
-  this was the single orphan (integration 73/1, unit 75/0, property 12/0).
-- Registering it went red on the first run, which **is** the finding. `handle_wm_rollout` defaulted
+**G10 — An Acceptance Suite That No CI Step Named**
+- `tests/integration/v040_contract_sit.rs` had six tests and not one of them had ever run in CI. The
+  file is not missing from the registrar by oversight: `77b418b` moved it out of
+  `tests/integration/mod.rs` into its own `[[test]]` target with
+  `required-features = ["web-server"]`, to keep it off the `intelligence_sit` compile path — a
+  legitimate structural choice, and an ancestor of `origin/main`. But a standalone target is built
+  and run only by a job that names it, and every job in `ci.yml` names `unit_suite`,
+  `integration_suite` and `property_suite`. So the six tests were declared, compiled on demand, and
+  never executed: the same class as G1–G3, declared but never run, reached from a different gate.
+  Three of them pin the v0.4.0 contract fixes the file exists for — G-LINK `POST /memory/link` field
+  aliases, G-BELIEFS `GET /memory/live_beliefs` top-level `loops_run`, and G-RELATED
+  `GET /memory/search/related` record enrichment.
+- The remedy is therefore to *name* it, not to re-register it: `tests/integration/mod.rs` is left as
+  `77b418b` wrote it, and the `web-tests` job gains a step for the target. This is the sharper half
+  of the lesson: a census against the registrar is necessary and not sufficient, because the
+  registrar gates only `mod`-included files, while a `[[test]]` target is gated by the CI command
+  line and by nothing else. Two censuses are needed — the directory against the registrar (160
+  files, one orphan: integration 73/1, unit 75/0, property 12/0), and the declared targets against
+  the steps that name them.
+- Running it went red on the first attempt, which **is** the finding. `handle_wm_rollout` defaulted
   its mode to `mcts` whenever `actions` was empty, so a malformed Dirichlet call was answered by the
   MCTS branch, the `actions must be non-empty` guard below it became unreachable for the request it
   was written for, and the caller got `No actions available for MCTS (observe transitions first)`.
@@ -195,9 +205,43 @@ Pipeline enforcement: `docs/superpowers/specs/2026-09-12-hipcortex-pipeline-enfo
   `"default": "dirichlet"` in `sdk/mcp/server.py:355` and its bundled mirror. For all four to hold,
   empty `actions` with no `mode` must be an input error — exactly what the code alone had stopped
   doing.
-- Evidence: `web-server` integration **309 → 315 tests, 0 failed**; web unit suite 374/0; web clippy
-  0 errors. The suite that had never run now runs, and both assertions it went red on are the
-  endpoint's two specified error contracts.
+- Evidence: the target is **6 passed / 0 failed** as its own `web-tests` step; the `web-server`
+  integration suite is **309 → 310, 0 failed** (the +1 is the regression test recorded under G11
+  below); web unit suite 374/0. Both assertions the target went red on are the endpoint's two
+  specified error contracts.
+
+**G11 — The Guardrail Refused the Operation for Its Own Identifiers**
+- Running that target surfaced a second, intermittent failure, and this one is a defect in the
+  product rather than in the suite. In one of the twelve runs I gave it, `POST /memory/link`
+  answered **403 `precondition blocked: PII risk=0.90 patterns=["PII:369623-7774"]`** to a request
+  whose entire content was two UUIDs and `"relation": "supports"`. The guard's context was
+  `format!("link {} --[{}]--> {}", from_id, relation, to_id)`, and the PII set's US-phone pattern
+  `\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}` is satisfied by *six digits, a hyphen and four more
+  digits* — exactly the straddle a UUID presents at one of its hyphens (`…369623-7774…`). A v4 UUID
+  carries such a straddle roughly once in twenty, so a documented write endpoint refused well-formed
+  requests at random, on identifiers the caller neither chooses nor can re-roll: retrying the same
+  ids always failed, and the only recourse was to store the records again and hope. This is why it
+  is fixed rather than tolerated — a false positive at ~5% per call is a reliability defect, not a
+  strictness setting.
+- The classifier is not wrong; it is answering the question it was asked. The defect is the
+  question. `/memory/add` classifies `actor action target` and `/topo/apply_hyp` its `text` — both
+  content — while `/memory/link` classified identifiers, which cannot be content, and was the only
+  site in the tree that did. Its context is now `format!("link memory records --[{}]-->",
+  req.relation)`: the check still runs, the one caller-supplied free-text field is still in scope,
+  and the record ids are no longer asked to prove they are not phone numbers. They leave the audit
+  context with this change — they are not what the check examines, and what the check refuses is
+  what gets logged.
+- Every other classification site was audited for the same mistake and is clean:
+  `temporal_backend.rs` classifies the FSM condition, `semantic_cache.rs` the cache key length, and
+  `check_precondition_with_threshold` and `check_postcondition` have no callers at all. Widening the
+  phone pattern with a boundary was rejected: it still has to match `(555) 123-4567`, which the same
+  boundary that rejects `x123456-1234` would also suppress. The detector is not where the mistake is.
+- Evidence: the new `link_does_not_classify_identifiers_as_pii` in `rest_contract_safety_sit.rs`
+  builds the false positive deterministically — `ab123456-1234-4abc-8def-0123456789ab` is a valid
+  UUID whose first hyphen carries the phone shape — and asserts **404** (the store was consulted) in
+  place of **403** (the classifier refused). It reported
+  `patterns=["PII:123456-1234"]` before the fix and passes after it; the `web-server` integration
+  suite is 309 → 310, 0 failed, and the standalone target ran 6/0 on three consecutive runs.
 
 ## [1.3.0] - 2026-09-01 — Cognitive Loop Closure (Phases A–H)
 

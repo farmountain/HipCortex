@@ -10,6 +10,13 @@
 ///   case-sensitive `record_type` list, so it rejected records the write path
 ///   had accepted moments earlier (`Goal`, `Semantic`). One vocabulary now.
 ///
+/// And one spurious refusal, found while wiring the v0.4.0 contract suite into CI:
+///
+/// * `POST /memory/link` classified its two record UUIDs instead of any content,
+///   and the US-phone pattern in the PII set reads the `NNNNNN-NNNN` straddle of a
+///   UUID hyphen as a phone number — so roughly one link in twenty came back 403 at
+///   random, on identifiers the caller neither chooses nor can re-roll.
+///
 /// Uses a real TCP server + reqwest to avoid axum-test / axum-0.6 version skew.
 #[cfg(feature = "web-server")]
 mod tests {
@@ -371,5 +378,45 @@ mod tests {
         assert_eq!(v["success"], true);
         assert_eq!(v["records_deleted"], 0);
         assert_eq!(v["deleted_ids"].as_array().unwrap().len(), 0);
+    }
+
+    // ── Safety guardrail: classify content, never identifiers ────────────────
+
+    // AC: a link whose UUIDs happen to read like a phone number is not refused as PII.
+    // The guard exists to inspect content; a UUID is an opaque record handle that the
+    // caller neither chooses nor can re-roll, so refusing one is a coin toss in prod.
+    #[tokio::test]
+    async fn link_does_not_classify_identifiers_as_pii() {
+        let (state, _store) = make_test_state();
+        let (base, srv) = start_test_server(state).await;
+
+        // `123456-1234` is six digits, a hyphen, four digits — the
+        // `\d{3}[-.\s]?\d{3}[-.\s]?\d{4}` shape the classifier scores as PII at 0.90 and
+        // therefore blocks. Roughly one v4 UUID in twenty contains such a straddle.
+        let tripping = "ab123456-1234-4abc-8def-0123456789ab";
+        let other = "cd654321-4321-4fed-8cba-2109876543fe";
+
+        let resp = reqwest::Client::new()
+            .post(format!("{}/memory/link", base))
+            .json(&serde_json::json!({
+                "from_id": tripping,
+                "to_id": other,
+                "relation": "supports"
+            }))
+            .send()
+            .await
+            .unwrap();
+
+        // 403 is the classifier refusing the identifiers; 404 is the contract asserting
+        // itself — the guard passed, the store was consulted, and these synthetic records
+        // were not found. The status alone tells the two apart.
+        assert_eq!(
+            resp.status().as_u16(),
+            404,
+            "link refused before reaching the store: {}",
+            resp.text().await.unwrap_or_default()
+        );
+
+        srv.abort();
     }
 }

@@ -3494,7 +3494,13 @@ async fn handle_memory_link<B: MemoryBackend + Send + Sync + 'static>(
     req: MemoryLinkRequest,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     {
-        let ctx = format!("link {} --[{}]--> {}", req.from_id, req.relation, req.to_id);
+        // Safety: classify what the operation says, not the identifiers it says it about. A UUID
+        // is an opaque record handle — the caller does not choose it and cannot re-roll it — so
+        // handing one to a PII detector can only ever produce a false positive: the US-phone
+        // pattern reads the `NNNNNN-NNNN` straddle of a UUID hyphen as a number, scoring 0.90 and
+        // refusing roughly one link in twenty at random. `relation` is the only caller-supplied
+        // text this operation carries, so it is the only part worth classifying.
+        let ctx = format!("link memory records --[{}]-->", req.relation);
         if let Ok(mut guard) = crate::safety_guardrail::SAFETY_GUARDRAIL.lock() {
             if let Err(reason) = guard.check_precondition(&ctx) {
                 return Err((
