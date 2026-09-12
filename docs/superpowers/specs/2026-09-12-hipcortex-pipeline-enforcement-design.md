@@ -464,6 +464,76 @@ consistent shape; `examples/causal_agent_demo.rs`, `benches/world_model_bench.rs
 
 ---
 
+### 3.10 G10 — the suite that was never registered (found by the same sweep)
+
+The census that closed §3.9 was run against the **registrar**, not the directory listing: for each of
+`tests/unit/`, `tests/integration/` and `tests/property/`, list the `.rs` files and check each one
+against the `mod` declaration that is the only thing turning a file into a module. 160 files, one
+orphan: `tests/integration/v040_contract_sit.rs`, committed by `dfad2ea`, never named in
+`tests/integration/mod.rs`.
+
+This is the finding shape of G1–G3 reached from the other side. G1–G3 were suites the *pipeline* never
+invoked; this is a suite the *compiler* never invoked. Both hide behind a green run, and this one is
+invisible to every `cargo` command: an unregistered file is not compiled, so it cannot fail, so it
+cannot be noticed. Only a comparison against the registrar finds it.
+
+*Evidence:*
+
+1. Six tests, three of them the v0.4.0 contract fixes the file is named for — G-LINK
+   `POST /memory/link` field aliases, G-BELIEFS `GET /memory/live_beliefs` top-level `loops_run`,
+   G-RELATED `GET /memory/search/related` record enrichment. A repo-wide search for
+   `v040_contract` returned nothing before the fix.
+2. Registering it under `#[cfg(feature = "web-server")]` — it builds an `AppState` and calls
+   `run_with_state` — compiled clean (`--no-run`, 0 errors) and then went **red on the first run**:
+   `test_worldmodel_rollout_endpoint` at `v040_contract_sit.rs:235`, expected
+   `actions must be non-empty`, got `No actions available for MCTS (observe transitions first)`.
+   A file that has never run is not a file that would have passed.
+3. Root cause: `handle_wm_rollout` resolved its default mode as
+   `unwrap_or(if req.actions.is_empty() { "mcts" } else { "dirichlet" })`. With empty `actions` and
+   no `mode`, the MCTS branch answered first, so the `actions must be non-empty` guard beneath it was
+   **unreachable for the request it was written for**. `git log -S` puts both that inference and the
+   `(or set mode=mcts)` suffix on the guard's message in one commit, `bc5d6f7` (2026-07-20).
+4. The endpoint's archived spec is the authority and disagrees:
+   `openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/design.md` fixes the guard as an
+   input check returning exactly `{"error": "actions must be non-empty"}` — in D2, in the component
+   design, and again in verification item 4 — and predates `bc5d6f7` by nine days.
+   `WmRolloutRequest`'s own doc comment still reads `"dirichlet" (default)` with `actions` "Optional
+   when mode=mcts". The code had drifted from its spec *and* from its documentation, and nothing
+   executed the assertion that would have said so.
+5. The defect is not cosmetic. A caller posting an empty `actions` list without a mode was answered
+   about MCTS they never requested, by a `mode` the handler had inferred for them.
+
+*Decision:* the mode default is plainly `"dirichlet"`, and the guard's message is restored to the
+specified string. MCTS is opted into through `mode` and is not advertised by a validation error;
+MCTS with no actions still works when `mode` asks for it, which
+`tests/integration/worldmodel_self_http_sit.rs` pinned already and still passes. Editing the
+assertion instead was rejected: the archived design pins the exact string in three places, and the
+primitive the guard fronts — `WorldModelEnhanced::rollout_dirichlet` — returns that same wording for
+the same input.
+
+*Verification:* registering the module takes the `web-server` integration suite from 309 to **315
+tests, 0 failed**; the web unit suite is 374/0; web clippy reports 0 errors. Both assertions the test
+went red on are the endpoint's two specified error contracts: the empty-actions guard, and
+`No trained predictors available` when nothing is trained.
+
+*Found and left open:* the same audit turned up one contract that nothing adjudicates.
+`docs/superpowers/specs/2026-08-13-hipcortex-gap-remediation-design.md` §2.1 and `CLAUDE.md` both
+state the server-side caps as `iterations <= 200, max_depth <= 10`, while `check_rollout_depth`
+rejects `depth > 5` and `handle_wm_rollout` clamps `max_depth` to 5. The OpenAPI entry at
+`src/openapi_spec.rs:556` declares no maximum for either, so it does not break the tie, and every
+test that pins a 5 is about `k` (`actions.len()`, "7 actions → only 5 steps"), which is a different
+quantity from MCTS tree depth — `v040_contract_sit.rs` exercises `max_depth` only at values ≤ 3.
+With no test and no declaration on either side, choosing 5 or 10 would be preference rather than
+evidence, so behaviour is left unchanged and the discrepancy is recorded here instead of being
+resolved silently. This is the clarify ladder's exit applied to a spec question: the ambiguity is
+real and bounded, so it gets named rather than blocking.
+
+*Generalisation:* a file being committed is not evidence that it runs. For test files the registrar is
+the gate, and the only reliable check lists the directory and subtracts what the registrar names — the
+compiler cannot report on what it never read.
+
+---
+
 ## 4. Test plan — acceptance criterion to named test
 
 | AC | Test / command |
@@ -477,10 +547,14 @@ consistent shape; `examples/causal_agent_demo.rs`, `benches/world_model_bench.rs
 | G6 | `test_mcp_server_req.py::test_req_is_defined_and_fail_silent`, `::test_bundled_mirror_matches_canonical` |
 | G7 | `git status --porcelain` free of `*.db-wal` / `*.db-shm` |
 | G8 | `a_failed_goal_with_factors_is_retried_by_react_not_clarify` in `clarify_ladder_sit.rs` |
+| G9 | `causal_intervention_fallback_is_keyed_by_the_outcome_variable` in `tests/unit/scm_foundations_tests.rs` (not tokio-gated); the tokio actor step that found it is `370 passed; 0 failed` |
+| G10 | `test_worldmodel_rollout_endpoint` in `v040_contract_sit.rs`, reachable only once the module is registered in `tests/integration/mod.rs`; `web-server` integration 315, 0 failed |
 
 Plus the existing regression set, which must stay green and unmodified:
-`unit_suite` 502, `integration_suite` 306, `property_suite` 59, the 24 `acceptance_suite*`
-targets (181 tests), and the Python suite (237).
+`unit_suite` 502 → 510, `integration_suite` 306 → 315 (`web-server`) / 182 (minimal),
+`property_suite` 59, the 24 `acceptance_suite*` targets (181 tests), and the Python suite (237 → 242).
+Counts after this change were measured locally at the same feature sets, and every one is green
+(`unit` 510/0, `integration` 182/0 minimal and 315/0 web, `property` 59/0, Python 242 passed).
 
 New `MemoryStore` unit tests live in the existing `tests/unit/` aggregate (registered in
 `tests/unit/mod.rs`):

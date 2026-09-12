@@ -2,6 +2,8 @@ mod agent_bridge_sit;
 mod v110_cognitive_sit;
 #[cfg(feature = "web-server")]
 mod v110_rest_sit;
+#[cfg(feature = "web-server")]
+mod v040_contract_sit;
 mod cli_tests;
 mod conversation_memory_sit;
 mod conversation_memory_uat;

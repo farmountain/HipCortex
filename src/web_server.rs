@@ -5956,15 +5956,11 @@ async fn handle_wm_rollout(
     world_model: Arc<RwLock<WorldModelEnhanced>>,
     Json(req): Json<WmRolloutRequest>,
 ) -> Json<serde_json::Value> {
-    let mode = req
-        .mode
-        .as_deref()
-        .unwrap_or(if req.actions.is_empty() {
-            "mcts"
-        } else {
-            "dirichlet"
-        })
-        .to_lowercase();
+    // `WmRolloutRequest::mode` documents "dirichlet" as the default and `actions` as "Optional
+    // when mode=mcts": MCTS is opt-in, never inferred. Inferring it from an empty action list
+    // made the "actions must be non-empty" guard below unreachable for the very request it was
+    // written for, and answered a malformed dirichlet call with an MCTS notice instead.
+    let mode = req.mode.as_deref().unwrap_or("dirichlet").to_lowercase();
     let iterations = req.iterations.unwrap_or(50).min(200);
     let max_depth = req.max_depth.unwrap_or(3).min(5);
 
@@ -6000,9 +5996,15 @@ async fn handle_wm_rollout(
                 }
             }
 
+            // Contract per the archived rollout-endpoint design (D2 + verification item 4): empty
+            // `actions` is a 200-with-error and the message is exactly this string. The
+            // "(or set mode=mcts)" suffix landed with the mode inference in bc5d6f7 and drifted
+            // from that spec; MCTS is opted into through `mode`, not advertised by a validation
+            // error. Matches `WorldModelEnhanced::rollout_dirichlet`'s own wording — that is the
+            // primitive this guard fronts; `predict_multi_step` reports its own, unrelated error.
             if req.actions.is_empty() {
                 return Json(serde_json::json!({
-                    "error": "actions must be non-empty (or set mode=mcts)"
+                    "error": "actions must be non-empty"
                 }));
             }
 

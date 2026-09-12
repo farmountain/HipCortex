@@ -111,7 +111,7 @@ Pipeline enforcement: `docs/superpowers/specs/2026-09-12-hipcortex-pipeline-enfo
   `record_type` mismatch on `/memory/query` reached `main` behind a green pipeline. The job runs the
   unit, integration and property suites and clippy with the feature on, on the shared `cargo-web`
   cache key.
-- `build-core` runs `tests/unit/` (509 tests). `--lib` covers only the crate's inline `#[cfg(test)]`
+- `build-core` runs `tests/unit/` (510 tests). `--lib` covers only the crate's inline `#[cfg(test)]`
   modules, so a file added under `tests/unit/` was invisible to the pipeline.
 - `python-sdk` runs `sdk/python/tests/` (242 tests) instead of 6. The directory needs no server and
   takes ~6 s.
@@ -162,6 +162,42 @@ Pipeline enforcement: `docs/superpowers/specs/2026-09-12-hipcortex-pipeline-enfo
 - This defect was **pre-existing on `origin/main`**, and finding it exposed the more serious fact
   recorded under "Changed" below: because that step fails, every step after it is skipped, so
   `origin/main` has never run its integration, property, clippy or rustfmt gates at all.
+
+**G10 — An Acceptance Suite That Was Never Registered**
+- `tests/integration/v040_contract_sit.rs` was committed but absent from `tests/integration/mod.rs`,
+  and the registrar is what turns a file into a module: none of its six tests had ever compiled or
+  run. Three of them are the v0.4.0 contract fixes the file exists to pin — G-LINK
+  `POST /memory/link` field aliases, G-BELIEFS `GET /memory/live_beliefs` top-level `loops_run`, and
+  G-RELATED `GET /memory/search/related` record enrichment. This is the same class as G1–G3,
+  declared but never executed, and it is invisible to the compiler — only a census of the directory
+  listing against the registrar finds it. Across the three suites that census is 160 files, and
+  this was the single orphan (integration 73/1, unit 75/0, property 12/0).
+- Registering it went red on the first run, which **is** the finding. `handle_wm_rollout` defaulted
+  its mode to `mcts` whenever `actions` was empty, so a malformed Dirichlet call was answered by the
+  MCTS branch, the `actions must be non-empty` guard below it became unreachable for the request it
+  was written for, and the caller got `No actions available for MCTS (observe transitions first)`.
+  Both that inference and a `(or set mode=mcts)` suffix on the guard's message were introduced by a
+  single later commit, `bc5d6f7` (2026-07-20).
+- Both also deviate from this endpoint's archived spec,
+  `openspec/changes/archive/2026-07-09-worldmodel-rollout-endpoint/design.md`, which had fixed the
+  guard as an input check returning exactly `{"error": "actions must be non-empty"}` — in D2, in the
+  component design, and again in verification item 4. The spec is dated nine days before the
+  commit that drifted from it. The mode default is now plainly `"dirichlet"`, as `WmRolloutRequest`
+  already documented, and the message is restored to the specified string — matching
+  `WorldModelEnhanced::rollout_dirichlet`, the primitive the guard fronts, which returns
+  `actions must be non-empty` for the same input. MCTS with no actions is unaffected: it
+  still works when `mode` asks for it, which the live `worldmodel_self_http_sit` pins and passes.
+- The handler was the only place in the tree that disagreed. Four declarations of the same contract
+  were already present: the archived design above; `WmRolloutRequest`'s own doc comment; the OpenAPI
+  entry at `src/openapi_spec.rs:556` — `"Multi-step rollout: dirichlet MAP (default)"`, with
+  `mode: {"default": "dirichlet"}` and `actions: "Required unless mode=mcts"`; and the MCP tool
+  schema, which carries the identical `"Required unless mode=mcts"` description and
+  `"default": "dirichlet"` in `sdk/mcp/server.py:355` and its bundled mirror. For all four to hold,
+  empty `actions` with no `mode` must be an input error — exactly what the code alone had stopped
+  doing.
+- Evidence: `web-server` integration **309 → 315 tests, 0 failed**; web unit suite 374/0; web clippy
+  0 errors. The suite that had never run now runs, and both assertions it went red on are the
+  endpoint's two specified error contracts.
 
 ## [1.3.0] - 2026-09-01 — Cognitive Loop Closure (Phases A–H)
 
