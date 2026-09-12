@@ -65,6 +65,8 @@ Closes the gaps identified after v3.10.0: the clarify protocol existed but was a
 | **One intervention shape** | World-model rollout accepted two intervention shapes depending on what the model knew | One shape, whatever the world model knows |
 | **Pipeline enforcement (G1–G8)** | CI never ran `v040_contract_sit`, the acceptance suite, `--test property_suite` under `web-server`, or the jest suite; nothing validated the staged VSIX server binary | All four now run in CI; the VSIX packaging step validates the staged server's *version*, not its file size |
 | **MCP surface proven by execution** | The declared tool surface was asserted from prose rather than from calling it | MCP self-test repaired and run in CI; `forget_actor` reduced to one contract; every dispatched handler's globals asserted; bundled mirror resynced |
+| **Gates that assert the declaration, not a copy (G17–G18)** | A test that hard-codes the value it verifies is a restatement, not a gate; and a gitignored artifact read as present | Version assertions bind to the declaration; the VSIX binary check builds synthetic fixtures instead of reading a gitignored path |
+| **Seven SITs lost to cargo lock contention (G19)** | `integration_suite --features web-server` read 313 passed / 0 failed locally but 306 passed / 7 failed in CI | The seven SITs now spawn the cargo-built executable instead of shelling out to `cargo run`, removing the shared target-directory lock; 60 s budget as margin |
 
 Test coverage: 366 lib + 517 unit + 182 minimal / 313 web-server integration + 59 property + standalone `v040_contract_sit`, 0 failures.
 
@@ -557,4 +559,4 @@ Engine internals are not reviewed here. See [DUAL_REPO.md](DUAL_REPO.md).
 | [DEPLOY.md](DEPLOY.md) | Self-host / Fly / Docker |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Historical in-tree build notes |
 
-**License:** [Apache-2.0](LICENSE) for this public repository · **Version:** `2.6.0` · VSIX `2.6.0`
+**License:** [Apache-2.0](LICENSE) for this public repository · **Version:** `3.11.0` · VSIX `3.11.0` · MCP `3.11.0`
