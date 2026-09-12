@@ -4,9 +4,21 @@ use reqwest;
 use serde_json::json;
 use std::process::{Child, Command, Stdio};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tempfile::tempdir;
 use tokio;
+
+/// How long `TestServer::start` waits for `/health` to answer before giving up.
+///
+/// Margin, not mechanism. The 15s this replaced (30 x 500ms) was too tight for
+/// seven tests starting servers concurrently; on CI the suite read 306 passed /
+/// 7 failed, all seven timing out here, while the same commit read 313 passed /
+/// 0 failed locally. What actually removed that failure mode is
+/// `server_command` below, which drops the nested `cargo` invocation and with it
+/// the shared target-directory lock. This budget matches
+/// `uat_tests::UATTestRunner::new`, which starts the same server with 60s and
+/// passes in CI.
+const STARTUP_BUDGET: Duration = Duration::from_secs(60);
 
 struct TestServer {
     process: Option<Child>,
@@ -15,6 +27,30 @@ struct TestServer {
 }
 
 impl TestServer {
+    /// Command that starts the server.
+    ///
+    /// Prefers the executable cargo already built for this test target. Spawning
+    /// it directly avoids one nested `cargo` invocation per test, and with them
+    /// the target-directory lock that seven concurrently running tests would
+    /// otherwise queue on. Falling back to `cargo run` keeps the previous
+    /// behaviour wherever cargo does not supply the variable.
+    fn server_command() -> Command {
+        match option_env!("CARGO_BIN_EXE_webserver") {
+            Some(bin) => Command::new(bin),
+            None => {
+                let mut command = Command::new("cargo");
+                command.args(&[
+                    "run",
+                    "--bin",
+                    "webserver",
+                    "--features",
+                    "web-server,petgraph_backend",
+                ]);
+                command
+            }
+        }
+    }
+
     async fn start() -> Result<Self, Box<dyn std::error::Error>> {
         let temp_dir = tempdir()?;
 
@@ -22,24 +58,22 @@ impl TestServer {
         let base_url = format!("http://127.0.0.1:{}", port);
 
         // Start the server in the background
-        let mut process = Command::new("cargo")
-            .args(&[
-                "run",
-                "--bin",
-                "webserver",
-                "--features",
-                "web-server,petgraph_backend",
-            ])
+        let mut process = Self::server_command()
             .env("DATA_DIR", temp_dir.path().to_str().unwrap())
             .env("PORT", port.to_string())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            // `null`, not `piped`: nothing here ever drains these pipes, and an
+            // unread pipe eventually fills and blocks the child. That would show
+            // up as "the server never became healthy", the exact symptom this
+            // helper reports, making the two indistinguishable.
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .spawn()?;
 
-        // Wait for server to start
+        // Poll for the whole budget rather than for a fixed number of attempts.
         let client = reqwest::Client::new();
+        let deadline = Instant::now() + STARTUP_BUDGET;
 
-        for _ in 0..30 {
+        while Instant::now() < deadline {
             thread::sleep(Duration::from_millis(500));
             if let Ok(response) = client.get(&format!("{}/health", base_url)).send().await {
                 if response.status().is_success() {
@@ -52,8 +86,20 @@ impl TestServer {
             }
         }
 
-        process.kill()?;
-        Err("Server failed to start within timeout".into())
+        // `kill` returns InvalidInput when the child already exited; that must
+        // not replace the real diagnosis. `wait` reaps it either way.
+        let _ = process.kill();
+        let _ = process.wait();
+        Err(format!(
+            "server on {base_url} did not become healthy within {STARTUP_BUDGET:?} \
+             (started via {}, with seven of these tests starting concurrently)",
+            if option_env!("CARGO_BIN_EXE_webserver").is_some() {
+                "the cargo-built executable"
+            } else {
+                "`cargo run`"
+            }
+        )
+        .into())
     }
 
     async fn health_check(&self) -> Result<bool, Box<dyn std::error::Error>> {

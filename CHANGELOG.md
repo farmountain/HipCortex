@@ -532,6 +532,53 @@ Design: `docs/superpowers/specs/2026-09-12-hipcortex-mcp-tool-surface-design.md`
   The suite is **88 passed / 2 suites**, verified with `server/` moved aside — the exact CI condition
   — as well as with it staged.
 
+**G19 — Seven SITs Allowed 15 s for a Start-Up Cost Measured in Tens of Seconds**
+- `TestServer::start` in `tests/integration/sit_tests.rs` launched the server with `cargo run` and
+  allowed **30 × 500 ms = 15 s** for `/health` to answer. `uat_tests::UATTestRunner::new` launches the
+  identical subprocess and has always allowed **60 × 1000 ms = 60 s**, with in-source comments
+  recording that the numbers were widened (`// Increased from 30 to 60 attempts`). The sibling's
+  budget was the correct one; this one was too small for the work it covered.
+- The suite reads **313 passed / 0 failed** locally and **306 passed / 7 failed** in CI on the same
+  commit, all seven on `.expect("Failed to start test server")`. Seven tests spawn a server, and the
+  test harness runs them concurrently, so the failure is about how many cargo-mediated launches have
+  to get through in the window — not about any single one being slow.
+- **Measured, correcting this entry's first draft**, which guessed that CI lacked a debug `webserver`
+  binary and that the nested `cargo run` had to compile it: it does not. Moving
+  `target/debug/webserver.exe` aside and running
+  `cargo test --features "web-server,petgraph_backend" --test integration_suite --no-run` **builds the
+  binary as part of the test-target build** — it reappeared, 23,997,440 bytes. So a pre-build step in
+  the CI job would have been cargo-cult: the binary is already there. What the budget has to absorb is
+  seven `cargo` invocations serialising on the shared target-directory lock on a two-core runner. A
+  forced `webserver` recompile plus relink alone measured **8.7 s on this eight-core machine**, so 15 s
+  had almost no margin before any CI slowdown.
+- The mechanism is *inferred* from those measurements. What is *established* is that the same
+  subprocess, with the sibling's 60 s budget, passes in CI today — so 60 s is the budget that is known
+  to work, not merely a larger guess.
+- This is the third instance of one pattern in this release (see G17, G18): a large test surface that
+  had never been executed by the pipeline. These seven tests were not new; what was new is that CI now
+  runs the web-server `integration_suite` at all, which turned a latent budget shortfall red.
+- Fixed by removing the contention and widening the budget:
+  - `TestServer::server_command()` now spawns the executable cargo already built for this test target
+    (`CARGO_BIN_EXE_webserver`) instead of shelling out to `cargo run`. That is what actually removes
+    the failure mode: no nested cargo invocation, therefore no shared target-directory lock to queue
+    on, and start-up drops from seconds to milliseconds. `cargo run` remains as the fallback wherever
+    cargo does not supply the variable, so no configuration loses the previous behaviour.
+  - `STARTUP_BUDGET` (60 s), matching the UAT runner, is kept as margin rather than as the mechanism.
+    Polling is now against a deadline instead of a fixed attempt count.
+  - `Stdio::piped()` with nothing draining the pipes. An unread pipe eventually fills and blocks the
+    child, which presents as "the server never became healthy" — indistinguishable from the timeout
+    this helper was reporting. Now `Stdio::null()`.
+  - `process.kill()?` propagated `InvalidInput` when the child had already exited, replacing the
+    real diagnosis with a less informative one. Now `kill` and `wait` are both best-effort.
+  - The error said only `Server failed to start within timeout`. It now names the budget, the start-up
+    path actually used, and the concurrency.
+- Verified: full web-server `integration_suite` **313 passed / 0 failed**, all seven SITs `ok`.
+- Correction to this entry's first draft, recorded rather than quietly amended: the local gate battery
+  asserted `failed == 0` for this exact suite and reported it green, and that measurement was
+  truthful — the suite really does pass here. **A local green is not a proxy for CI when the
+  difference between the two environments is how much of the work the machine can absorb at once.**
+  The battery's numbers were right; they were answering a narrower question than the one being asked.
+
 ## [1.3.0] - 2026-09-01 — Cognitive Loop Closure (Phases A–H)
 
 ### Added
