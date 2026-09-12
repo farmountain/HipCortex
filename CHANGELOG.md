@@ -3,6 +3,38 @@
 All notable changes to HipCortex are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+Post-release corrections to honesty surfaces. The 3.11.0 tag and its release body are **not**
+rewritten — published history stays as published, and the corrections are recorded here instead.
+
+### Fixed
+
+**A claimed channel version that the registry does not serve**
+
+Three surfaces asserted that npm carried 3.11.0. The npm registry still serves `0.5.2`: the
+TypeScript source in this repository is `3.11.0` and its `npm ci` / `npm test` / `npm run build`
+steps all pass, but the publish job stops at `ENEEDAUTH` because no `NPM_TOKEN` is configured.
+Source version and registry version were being conflated.
+
+- `vscode-extension/README.md` — the version-matrix line (which is also the VS Code Marketplace
+  description body) said `server/pip/npm **3.11.0**`. It now separates the two and links to a new
+  **Channel state for this release** section that states plainly what is published, what is not,
+  and why — including Open VSX (no publisher holds the namespace) and crates.io (name unclaimed,
+  no publish workflow).
+- `docs/channels.md` — the npm row and the version snapshot both listed npm at 3.11.0. The
+  snapshot now reads `Cargo / pip (product) 3.11.0` with a separate npm row carrying
+  `source 3.11.0 · registry 0.5.2`.
+- `docs/channels.yaml` — the npm entry's `notes` recorded only "HTTP client only; no install
+  wizard", which read as parity. It now carries the registry version and the reason for the gap.
+
+`docs/channels.yaml` is self-described as the *single honesty source* for README, wizard and CLI
+claims, so a stale entry there propagates. No version strings were stale in the file — all seven
+occurrences already read 3.11.0 — and no test or script binds it (`hipcortex channels` parses it at
+runtime via the minimal parser in `sdk/python/hipcortex/cli.py`), so these are documentation-only
+edits. The embedded `_fallback_channels()` in that file already named
+`hipcortex-memory-3.11.0.vsix`, so the published 3.11.0 wheel is unaffected and was not rebuilt.
+
 ## [3.11.0] - 2026-09-12 — Gap Closure H1–H10 + Pipeline Enforcement
 
 Design: `docs/superpowers/specs/2026-09-12-hipcortex-gap-closure-design.md`.

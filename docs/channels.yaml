@@ -35,7 +35,7 @@ channels:
     category: distribution
     status: native
     install: "npm install hipcortex"
-    notes: "HTTP client only; no install wizard"
+    notes: "HTTP client only; no install wizard; source 3.11.0 but registry latest is 0.5.2 (publish stops at ENEEDAUTH / no NPM_TOKEN)"
 
   - id: docker
     name: Docker

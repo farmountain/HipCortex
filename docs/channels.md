@@ -25,7 +25,7 @@
 |---------|--------|---------|-------|
 | Rust binary / Cargo | native | `cargo build` / GitHub Releases | Crate **3.11.0** (Win/macOS/Linux amd64+arm64) |
 | pip (Python SDK + CLI) | native | `pip install hipcortex` | Wizard + SDK **3.11.0** (platform-agnostic) |
-| npm (TypeScript SDK) | native | `npm install hipcortex` | Client only; no wizard |
+| npm (TypeScript SDK) | native | `npm install hipcortex` | Client only; no wizard. Source **3.11.0**; registry still serves **0.5.2** (publish stops at `ENEEDAUTH`) |
 | Docker | native | `docker run -p 3030:3030 …` | Image may lag releases |
 | Managed tier (Fly) | native | `hipcortex install --url https://hipcortex.fly.dev` | Remote HTTP |
 | MCP server (Python stdio) | mcp | `hipcortex install` → `~/.hipcortex-mcp/` | Banner **3.11.0**; **61 tools** (topo PPR, deconstruct, check_edge, rollout MCTS, can_execute, …) |
@@ -83,7 +83,8 @@
 
 | Surface | Version |
 |---------|---------|
-| Cargo / pip / npm (product) | 3.11.0 |
+| Cargo / pip (product) | 3.11.0 |
+| npm (TypeScript SDK) | source 3.11.0 · **registry 0.5.2** — publish blocked on `NPM_TOKEN` |
 | VS Code extension (VSIX) | 3.11.0 |
 | MCP `serverInfo.version` | 3.11.0 (stamped from VERSION) |
 

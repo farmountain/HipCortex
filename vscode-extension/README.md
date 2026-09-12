@@ -7,7 +7,7 @@
 
 **Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — universal server-side passive capture (any channel, zero client changes), transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, grounded probe planning, OpEx budget metering, field-proven two-process WAL persistence, and topological graph tools.**
 
-VSIX **3.11.0** (Authoritative Clarify Ladder · Durable Removals · Pipeline Enforcement) · server/pip/npm **3.11.0**. 366 lib + 517 unit + 182 minimal / 313 web-server integration + 59 property + standalone `v040_contract_sit` + 4 AC-PC (v3.10.0) + 10 AC-390 (v3.9.0) + 10 AC-GS (v3.8.0) + 10 AC-LR (v3.7.0) + 10 AC-UA (v3.6.0) + 8 AC-ES (v3.5.0) + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+VSIX **3.11.0** (Authoritative Clarify Ladder · Durable Removals · Pipeline Enforcement) · server/pip **3.11.0** · npm source **3.11.0** (registry still serves `0.5.2` — see *Channel state* below). 366 lib + 517 unit + 182 minimal / 313 web-server integration + 59 property + standalone `v040_contract_sit` + 4 AC-PC (v3.10.0) + 10 AC-390 (v3.9.0) + 10 AC-GS (v3.8.0) + 10 AC-LR (v3.7.0) + 10 AC-UA (v3.6.0) + 8 AC-ES (v3.5.0) + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
 
 ---
 
@@ -425,6 +425,27 @@ npx @vscode/vsce package --no-dependencies
 ```
 
 Produces `hipcortex-memory-3.11.0.vsix` (the version comes from `package.json`, so the name follows the release automatically).
+
+---
+
+## Channel state for this release
+
+Published at **3.11.0**: the [GitHub release](https://github.com/farmountain/HipCortex/releases/tag/v3.11.0)
+with its five platform binaries, and **pip** — `pip install hipcortex` genuinely gets 3.11.0, with the
+bundled MCP server reporting `serverInfo` 3.11.0 and exposing 61 tools / 7 resources.
+
+Two channels are **not** at 3.11.0, and in both cases it is a credential or namespace matter rather
+than a code one:
+
+- **npm** — the registry still serves `0.5.2`. The TypeScript source in this repository is `3.11.0`
+  and its build and test steps pass; the publish job stops at `ENEEDAUTH` because no `NPM_TOKEN`
+  is configured.
+- **Open VSX** — no publisher holds this extension's namespace there, so nothing is published.
+  The text in this file is the copy intended for that listing.
+
+**crates.io** does not carry the crate either: the name `hipcortex` is currently unclaimed and no
+publish workflow exists. This is stated plainly rather than left in a footnote, so that the version
+you install matches the version you were told to expect.
 
 ---
 
