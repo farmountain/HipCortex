@@ -268,6 +268,13 @@ Reproducible from a checkout; none of it needs a build.
 Ordered by whether it is durable or local repair. Nothing here should be started before the numbers above are
 accepted, because the handover's own fix order was built on a 12:44 reading of a tree that has since moved.
 
+**Status at HEAD `24e0c39`** (added after the fact, so this section does not read as if everything below were
+still outstanding). Items **0** (§4.1 `forget_actor`), **3** (G7's stale counts) and **7** (§4.3 `CLAUDE.md`
+counts) are **closed** — commits `aa255b5` and `d7f7fe4`. Item **6** (G9) remains *no action*. Items **1**
+(G6 residual), **2** (G1 residual), **4** (G8) and **5** (G4 → G5 → G3) remain **open**, the last of these
+deliberately: it changes the user's running environment. The `62 (61 unique)` figures in §1, §4.1 and item 7
+are the pre-`aa255b5` measurements; at HEAD the declared surface is **61 entries / 61 unique**.
+
 0. **§4.1 `forget_actor`** — the only live defect found in this audit, and the one item that is not a staleness
    problem: one of the two advertised argument shapes cannot work. Fix the duplicate schema entry, the duplicate
    definition, and the `actor`/`actor_id` split.

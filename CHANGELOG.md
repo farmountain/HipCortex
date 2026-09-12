@@ -164,10 +164,11 @@ Design: `docs/superpowers/specs/2026-09-12-hipcortex-mcp-tool-surface-design.md`
   `test_mcp_server_req.py` pins by name. The rule is validated against an input known to violate it
   rather than assumed sound: pointed at the gitignored build output in `sdk/python/build/lib/`, which
   predates the `_req` fix, it flags 17 handlers, 17 names, all of them `_req`, and nothing else.
-- Two of these assertions would have passed on the original broken file, and the plan said so: a
-  `dict`-keyed unique-name check cannot see a duplicate schema entry at all. That defect was
-  established by calling the tool, not by reading it. The count assertion
-  (`len(TOOLS) == len(unique)`) is what now keeps it caught.
+- On the pre-fix file exactly one of the first four assertions passed. The unique-name assertion
+  *did* catch the duplicate: `_tools` accumulates `setdefault(name, []).append(...)`, so it retains
+  both entries and reports `{'forget_actor': [211, 629]}`. The duplicate therefore had two
+  independent proofs — that assertion, and the execution probe that raised `KeyError: 'actor_id'`
+  — and the name→handler map was the only one of the four that held.
 
 **`sdk/mcp/test_server.py` — the self-test no job ran, and the four tests it was failing**
 - No workflow referenced `sdk/mcp/test_server.py`; `ci.yml` ran `pytest sdk/python/tests/ -q` and

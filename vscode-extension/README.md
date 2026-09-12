@@ -350,10 +350,10 @@ Extension registers **10** tools with `vscode.lm` (requires host LM tool API):
 
 ---
 
-## MCP Integration (45 tools, 7 resources)
+## MCP Integration (61 tools, 7 resources)
 
 MCP hosts (Claude Code, Cursor, Windsurf, …) use the Python MCP server via `hipcortex install`.  
-45 tools + 7 auto-injected resources:
+61 tools + 7 auto-injected resources:
 
 - `hipcortex://context/relevant` — top-k semantically relevant memories
 - `hipcortex://beliefs/current` — active belief records

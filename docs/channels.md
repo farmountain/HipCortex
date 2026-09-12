@@ -28,7 +28,7 @@
 | npm (TypeScript SDK) | native | `npm install hipcortex` | Client only; no wizard |
 | Docker | native | `docker run -p 3030:3030 …` | Image may lag releases |
 | Managed tier (Fly) | native | `hipcortex install --url https://hipcortex.fly.dev` | Remote HTTP |
-| MCP server (Python stdio) | mcp | `hipcortex install` → `~/.hipcortex-mcp/` | Banner **3.10.0**; **18 tools** (topo PPR, deconstruct, check_edge, rollout MCTS, can_execute, …) |
+| MCP server (Python stdio) | mcp | `hipcortex install` → `~/.hipcortex-mcp/` | Banner **3.10.0**; **61 tools** (topo PPR, deconstruct, check_edge, rollout MCTS, can_execute, …) |
 | VS Code / Antigravity VSIX | native | `hipcortex-memory-3.10.0.vsix` | Ext **3.10.0**; **chmod +x** bundled Mac/Linux; **10 LM tools** + dual `/health` |
 
 ---

@@ -393,7 +393,11 @@ In `consolidate_memory`'s `inputSchema.properties` (line ~621), add:
 - [ ] **Step 7: Run the tests to verify they pass**
 
 Run: `pytest sdk/python/tests/test_mcp_tool_surface.py -q`
-Expected: **5 passed** *(measured; predicted 6)*. `test_tool_names_are_unique` passing is not proof the second schema entry was removed — that is what `len(TOOLS) == len(unique)` catches, and it caught it. The duplicate-schema defect was confirmed by execution instead: `dispatch_tool('forget_actor', {})` raised `KeyError: 'actor_id'` and the JSON-RPC layer returned `-32000`.
+Expected: **5 passed** *(measured; predicted 6)*. Before the fix, `test_tool_names_are_unique` **failed** on the duplicate, and that is the point: `_tools` accumulates `setdefault(name, []).append(...)`, so a second `forget_actor` entry survives as a second list element and the test names it. Measured against `fa3c234:sdk/mcp/server.py`:
+`AssertionError -> ... {'forget_actor': [211, 629]}`. The duplicate was *also* confirmed by execution —
+`dispatch_tool('forget_actor', {})` raised `KeyError: 'actor_id'` and the JSON-RPC layer returned `-32000` —
+so there were two independent proofs, not one. *(Corrected after measurement; the original text claimed the
+opposite. See "Corrections to this plan's own predictions" below.)*
 
 - [ ] **Step 8: Resync the bundled mirror and prove identity**
 
@@ -646,7 +650,7 @@ In `docs/superpowers/specs/2026-09-12-hipcortex-gap-closure-design.md`:
 
 ```markdown
 Do not weaken the `_req` call sites: every handler that calls it must keep calling it, and
-`test_mcp_tool_surface_globals.py` asserts the general property for all dispatched handlers.
+`test_mcp_tool_surface.py` asserts the general property for all dispatched handlers.
 ```
 
 ```markdown
@@ -658,6 +662,19 @@ Every `_req` call site resolves (17 at the last measurement; the count is not th
 
 Run: `Select-String -Path CLAUDE.md,docs\superpowers\specs\*.md -Pattern '18 tools|the 6 call sites|All 6 call'`
 Expected: no matches.
+
+**This gate was scoped too narrowly.** It searched two paths while the same stale claim survived in five
+others, so "no matches" proved less than it appeared to. It was corrected after the fact, by the wider sweep
+below, and the sibling files were fixed in the same commit. The gate to use instead:
+
+```powershell
+Select-String -Path . -Include *.md,*.yaml,*.yml,*.html,*.json,*.toml -Recurse `
+  -Pattern '18 tools|45 tools|the 6 call sites|All 6 call|3 resources' |
+  Where-Object { $_.Path -notmatch '\\(target|node_modules|\.ua|graphify-out)\\' }
+```
+
+Expected: no matches, apart from quotations of the *pre-fix* state (the design's §1 measurement, this plan's
+correction notes, and the dated audit under `docs/hosts/`).
 
 - [ ] **Step 5: Commit**
 
@@ -705,8 +722,8 @@ passed; `git status` shows only `CHANGELOG.md` modified (plus the pre-existing u
   reached the model as JSON-RPC `-32000`. One entry now declares `actor` with `actor_id` as an
   accepted alias, the shadowed handler and the duplicate schema entry are gone, and `add_memory` /
   `consolidate_memory` now declare the `intent_id` / `actor` keys their handlers already read.
-  Two tests keep it that way: `test_mcp_tool_surface.py` (schema ↔ handler agreement, unique names,
-  reachable handlers) and `test_mcp_tool_surface_globals.py` (every dispatched handler's globals
+  Two rules keep it that way, both in `test_mcp_tool_surface.py`: schema ↔ handler agreement
+  (unique names, reachable handlers) and global resolution (every dispatched handler's globals
   resolve — the general form of the `_req` defect, validated against the stale build copy that
   still reproduces it).
 ```
@@ -766,12 +783,16 @@ measurement and the prediction was wrong.
 
 Six. Five were corrected above, in place: the RED count (3/2, not 5/1), the GREEN count (5, not 6), the suite count
 (8 in `test_mcp_tool_surface.py`, not 9), the tool count (61 entries after the duplicate is removed, not 62),
-and — the one that matters — the belief that `test_tool_names_are_unique` would fail on the duplicate.
-`_tools` builds a `dict`, so a second `forget_actor` entry is silently absorbed and the test passes either way.
-The duplicate was real; the test designed to catch it could not. It was the execution probe
-(`dispatch_tool('forget_actor', {})` → `KeyError: 'actor_id'` → `-32000`) that established it, and the
-name-count assertion `len(TOOLS) == len(unique)` that now keeps it caught.
-The sixth is Task 4's own verification gate, corrected in place above and explained immediately below.
+and — the one that matters — the belief that `test_tool_names_are_unique` had no power over the duplicate.
+That belief was wrong, and it was wrong in the safe direction. The reasoning was that `_tools` builds a
+`dict`; it does not. It accumulates `setdefault(name, []).append(...)`, so both `forget_actor` entries survive
+as two list elements, and the test **fails** on the pre-fix file: pointed at `fa3c234:sdk/mcp/server.py` it
+reports `AssertionError -> ... {'forget_actor': [211, 629]}`. The duplicate therefore had two independent
+proofs — that assertion, and the execution probe (`dispatch_tool('forget_actor', {})` → `KeyError: 'actor_id'`
+→ `-32000`) — not one. Related: the phrasing `len(TOOLS) == len(unique)` is not implementable as written,
+because `len(TOOLS)` is **62** with the duplicate and **61** without, while distinct names are **61** in both;
+the check that actually went in is per-name entry count, which is the strictly stronger statement.
+The sixth correction is Task 4's own verification gate, corrected in place above and explained immediately below.
 
 ### What the falsification test actually proved
 

@@ -56,7 +56,7 @@ channels:
     category: distribution
     status: mcp
     install: "hipcortex install (copies ~/.hipcortex-mcp/server.py; PyPI ships hipcortex/install/mcp_server.py)"
-    notes: "serverInfo 3.10.0; 18 tools incl. topo/rollout/can_execute; stamped from VERSION"
+    notes: "serverInfo 3.10.0; 61 tools / 7 resources incl. topo/rollout/can_execute; stamped from VERSION"
 
   - id: vscode-extension
     name: VS Code / Antigravity VSIX
