@@ -47,6 +47,15 @@ jobs:
       - name: Unit tests (with tokio actors)
         run: cargo test --no-default-features --features "petgraph_backend,tokio" --lib
 
+      # `--lib` covers the crate's inline `#[cfg(test)]` modules only. tests/unit/
+      # is a separate target (509 tests) and nothing ran it until this step
+      # existed, so a file added there was never executed by CI.
+      - name: Unit suite (tests/unit)
+        run: cargo test --no-default-features --features "petgraph_backend" --test unit_suite
+
+      - name: Unit suite (tests/unit, with tokio actors)
+        run: cargo test --no-default-features --features "petgraph_backend,tokio" --test unit_suite
+
       - name: Integration tests
         run: cargo test --no-default-features --features "petgraph_backend" --test integration_suite
 
@@ -94,6 +103,53 @@ jobs:
 
       - name: Build web-server binary
         run: cargo build --release --bin webserver --no-default-features --features "web-server,petgraph_backend"
+
+  # ------------------------------------------------------------------
+  # Web server test surface
+  #
+  # `web-server` gates 127 integration tests (182 -> 309). build-web only
+  # compiles the binary, so until this job existed those 127 were written but
+  # never executed in CI — which is how a record_type mismatch on /memory/query
+  # reached main with a green pipeline.
+  #
+  # Features are additive, so the same suites are re-run with the feature on:
+  # a target that passes minimally can still fail once web-server is compiled
+  # in, and the property suite is where the graph/FSM invariants live.
+  # ------------------------------------------------------------------
+  web-tests:
+    name: Test (web-server,petgraph_backend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-web-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-web-
+
+      - name: Unit suite
+        run: cargo test --no-default-features --features "web-server,petgraph_backend" --test unit_suite
+
+      - name: Integration suite
+        # These bind a real TCP listener on an ephemeral port and drive it with
+        # reqwest, so the routes and their handlers are exercised end to end.
+        run: cargo test --no-default-features --features "web-server,petgraph_backend" --test integration_suite
+
+      - name: Property suite
+        run: cargo test --no-default-features --features "web-server,petgraph_backend" --test property_suite
+
+      - name: Clippy
+        run: cargo clippy --no-default-features --features "web-server,petgraph_backend" -- -D clippy::correctness
 
   # ------------------------------------------------------------------
   # Latency benchmark — runs on PRs, posts results as comment
@@ -182,6 +238,15 @@ jobs:
 
       - name: Run unit tests (no server needed)
         run: pytest sdk/python/langchain_contrib/test_hipcortex_memory.py -v -k "not integration"
+        env:
+          PYTHONPATH: ${{ github.workspace }}/sdk/python
+
+      # The step above covers 6 tests. sdk/python/tests/ holds 242 — the passive
+      # observers, the MCP server contract, config and CLI behaviour — and none
+      # of it ran in CI. The whole directory is ~6s and needs no server, so there
+      # is no reason to keep it out of the pipeline.
+      - name: Run SDK test suite
+        run: pytest sdk/python/tests/ -q
         env:
           PYTHONPATH: ${{ github.workspace }}/sdk/python
 

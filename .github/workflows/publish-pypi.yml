@@ -25,6 +25,15 @@ jobs:
       - name: Install build tools
         run: pip install build
 
+      # The wheel ships a bundled copy of the MCP server at
+      # hipcortex/install/mcp_server.py, and on a PyPI install that copy is the
+      # artifact users run: install_hosts falls back to importlib.resources and
+      # copies it out. A drift between it and sdk/mcp/server.py therefore
+      # publishes a broken tool set, and nothing here checked for one. This
+      # fails the release instead of shipping the mismatch.
+      - name: Check the bundled MCP server matches the canonical copy
+        run: python scripts/stamp_versions.py --mcp --check
+
       - name: Build wheel + sdist
         working-directory: sdk/python
         run: python -m build
