@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 import pytest
 
+from tests.e2e_user_harness.repo_version import repo_version
+
 @pytest.mark.vscode
 def test_extension_package_json_manifest():
     """Verify VS Code extension package.json structure, version, and contributed commands."""
@@ -10,7 +12,9 @@ def test_extension_package_json_manifest():
     
     manifest = json.loads(pkg_path.read_text(encoding="utf-8"))
     assert manifest.get("name") == "hipcortex-memory"
-    assert manifest.get("version") == "3.10.0"
+    assert manifest.get("version") == repo_version(), (
+        "VSIX package.json version disagrees with the repo VERSION file"
+    )
     
     commands = {cmd["command"] for cmd in manifest.get("contributes", {}).get("commands", [])}
     assert "hipcortex.addMemory" in commands

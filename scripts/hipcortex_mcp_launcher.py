@@ -2,7 +2,11 @@
 """HipCortex MCP launcher — starts Rust server if needed, then execs MCP stdio server."""
 import os, socket, subprocess, sys, time
 
-HIPCORTEX_DIR = r"D:\all_projects\hipcortex"
+# Repo root is this script's grandparent directory. Derived rather than hard-coded so the
+# launcher is correct on any checkout path and on case-sensitive filesystems. The previous
+# literal spelled the directory "hipcortex" in lowercase, which only resolved because
+# Windows paths are case-insensitive.
+HIPCORTEX_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SERVER_BIN    = os.path.join(HIPCORTEX_DIR, "target", "release", "webserver.exe")
 MCP_SERVER    = os.path.join(HIPCORTEX_DIR, "sdk", "mcp", "server.py")
 PORT          = int(os.getenv("HIPCORTEX_PORT", "3030"))

@@ -188,7 +188,7 @@ export class HipCortexClient {
   // Phase 5: Agent Surfaces (v0.8.0)
   // ---------------------------------------------------------------------------
 
-  static readonly VERSION = "3.10.0";
+  static readonly VERSION = "3.11.0";
 
   async transact(delta: CognitiveDelta, actor: string): Promise<TransactResponse> {
     return this.request<TransactResponse>("POST", "/v1/cognitive/transact", { delta, actor });

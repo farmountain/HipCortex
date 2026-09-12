@@ -611,19 +611,61 @@ def test_g5_4_ts_sdk_self_health_has_healthy_bool():
     assert "SelfHealthResponse" in src, "SelfHealthResponse type missing from TS client"
 
 
-def test_g5_5_version_3_10_0_on_all_surfaces():
-    """G5-5 (schema-only): VERSION file, MCP serverInfo, Python VERSION, TS package.json all 3.10.0."""
-    import os, json
-    root = os.path.join(os.path.dirname(__file__), "../../..")
-    # VERSION file
-    version_file = open(os.path.join(root, "VERSION"), encoding="utf-8").read().strip()
-    assert version_file == "3.10.0", f"VERSION file is {version_file!r}"
-    # MCP server
-    mcp = open(os.path.join(root, "sdk/mcp/server.py"), encoding="utf-8").read()
-    assert '"version": "3.10.0"' in mcp, "MCP serverInfo.version != 3.10.0"
-    # Python SDK
-    client_py = open(os.path.join(root, "sdk/python/hipcortex/client.py"), encoding="utf-8").read()
-    assert 'VERSION = "3.10.0"' in client_py, "Python client VERSION != 3.10.0"
-    # TS SDK
-    ts_pkg = json.load(open(os.path.join(root, "sdk/typescript/package.json"), encoding="utf-8"))
-    assert ts_pkg["version"] == "3.10.0", f"TS package.json version is {ts_pkg['version']!r}"
+def test_g5_5_version_aligned_on_all_surfaces():
+    """G5-5 (schema-only): every published surface agrees with the VERSION file.
+
+    Covers the surfaces a user actually receives: the Rust crate, the Python SDK
+    (manifest plus runtime constants), the TypeScript SDK (manifest plus runtime
+    constant), the MCP server and the copy PyPI ships, the VSIX manifest and the
+    server version the extension demands, and the OpenAPI document. Every
+    assertion is derived from VERSION, so this is an alignment gate rather than a
+    restatement of a literal that a bump would silently invalidate.
+    """
+    import json as _json
+
+    from tests.e2e_user_harness.repo_version import repo_root, repo_version
+
+    root = repo_root()
+    want = repo_version()
+
+    def read(rel: str) -> str:
+        return (root / rel).read_text(encoding="utf-8")
+
+    def read_json(rel: str) -> dict:
+        return _json.loads(read(rel))
+
+    # 1. VERSION itself is a well-formed x.y.z line
+    assert want.count(".") == 2, f"VERSION file is not x.y.z: {want!r}"
+
+    # 2. Rust crate
+    assert f'version = "{want}"' in read("Cargo.toml"), "Cargo.toml version != VERSION"
+
+    # 3. MCP server, 4. the mirror bundled into the PyPI wheel
+    assert f'"version": "{want}"' in read("sdk/mcp/server.py"), "MCP serverInfo.version != VERSION"
+    assert f'"version": "{want}"' in read("sdk/python/hipcortex/install/mcp_server.py"), (
+        "bundled MCP mirror serverInfo.version != VERSION"
+    )
+
+    # 5-7. Python SDK: manifest and both runtime constants
+    assert f'version = "{want}"' in read("sdk/python/pyproject.toml"), "pyproject.toml version != VERSION"
+    assert f'__version__ = "{want}"' in read("sdk/python/hipcortex/__init__.py"), (
+        "hipcortex.__version__ != VERSION"
+    )
+    assert f'VERSION = "{want}"' in read("sdk/python/hipcortex/client.py"), (
+        "HipCortexClient.VERSION != VERSION"
+    )
+
+    # 8-9. TypeScript SDK: manifest and runtime constant
+    assert read_json("sdk/typescript/package.json")["version"] == want, "TS package.json != VERSION"
+    assert f'static readonly VERSION = "{want}"' in read("sdk/typescript/src/client.ts"), (
+        "TS client VERSION != VERSION"
+    )
+
+    # 10-11. VSIX manifest and the server version the extension will accept
+    assert read_json("vscode-extension/package.json")["version"] == want, "VSIX package.json != VERSION"
+    assert f"EXPECTED_SERVER_VERSION = '{want}'" in read("vscode-extension/src/extension.ts"), (
+        "extension EXPECTED_SERVER_VERSION != VERSION (it would refuse this server)"
+    )
+
+    # 12. OpenAPI document served at /openapi.json
+    assert f'"version": "{want}"' in read("src/openapi_spec.rs"), "OpenAPI info.version != VERSION"

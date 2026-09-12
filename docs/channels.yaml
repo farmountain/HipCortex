@@ -12,7 +12,7 @@
 # Print: hipcortex channels
 
 version: 1
-updated: "2026-09-11"  # v3.10.0: universal server-side passive capture
+updated: "2026-09-12"  # v3.11.0: universal server-side passive capture
 
 channels:
   # ── Distribution surfaces ──────────────────────────────────────────────
@@ -21,14 +21,14 @@ channels:
     category: distribution
     status: native
     install: "cargo build / GitHub Releases"
-    notes: "Crate version 3.10.0; CLI + webserver"
+    notes: "Crate version 3.11.0; CLI + webserver"
 
   - id: pip
     name: pip (Python SDK + CLI)
     category: distribution
     status: native
     install: "pip install hipcortex && hipcortex install"
-    notes: "Wizard + SDK; package 3.10.0"
+    notes: "Wizard + SDK; package 3.11.0"
 
   - id: npm
     name: npm (TypeScript SDK)
@@ -56,14 +56,14 @@ channels:
     category: distribution
     status: mcp
     install: "hipcortex install (copies ~/.hipcortex-mcp/server.py; PyPI ships hipcortex/install/mcp_server.py)"
-    notes: "serverInfo 3.10.0; 61 tools / 7 resources incl. topo/rollout/can_execute; stamped from VERSION"
+    notes: "serverInfo 3.11.0; 61 tools / 7 resources incl. topo/rollout/can_execute; stamped from VERSION"
 
   - id: vscode-extension
     name: VS Code / Antigravity VSIX
     category: distribution
     status: native
-    install: "code --install-extension hipcortex-memory-3.10.0.vsix"
-    notes: "Extension 3.10.0; chmod +x bundled Mac/Linux bins; 10 LM tools + dual health; expects server 3.10.0 (same major.minor OK); Antigravity = VS Code-compatible host"
+    install: "code --install-extension hipcortex-memory-3.11.0.vsix"
+    notes: "Extension 3.11.0; chmod +x bundled Mac/Linux bins; 10 LM tools + dual health; expects server 3.11.0 (same major.minor OK); Antigravity = VS Code-compatible host"
 
   # ── Coding assistants (install registry) ───────────────────────────────
   - id: claude-code

@@ -5,6 +5,8 @@ import subprocess
 import sys
 from unittest.mock import MagicMock
 
+from tests.e2e_user_harness.repo_version import repo_version
+
 PYTHON = sys.executable
 SERVER = os.path.join(os.path.dirname(__file__), "../../../sdk/mcp/server.py")
 
@@ -75,12 +77,19 @@ def test_mcp_resource_read_returns_content_silently_on_server_error():
         proc.terminate()
 
 
-def test_mcp_version_is_3_10_0():
+def test_mcp_version_matches_version_file():
+    """MCP serverInfo.version must equal the repo VERSION file.
+
+    This literal used to be hard-coded, so a version bump produced a false green
+    instead of a failure. Deriving it from VERSION makes it a real alignment
+    gate; ``scripts/stamp_versions.py --mcp`` is the only writer.
+    """
+    expected = repo_version()
     proc = _start_server()
     try:
         resp = _send(proc, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
         ver = resp["result"]["serverInfo"]["version"]
-        assert ver == "3.10.0", f"expected 3.10.0, got {ver}"
+        assert ver == expected, f"expected {expected}, got {ver}"
     finally:
         proc.terminate()
 

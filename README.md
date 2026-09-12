@@ -46,6 +46,27 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 | Completion heuristic thin; runner still dual-role; no continuous service proof; no drift detection | `was_surprising=true` required in scorer; `_poll_and_receipt` single-role runner; production-pair systemd/NSSM service configs + deployment doc; `consecutive_low_score >= 3 → GoalRevision Reflexion` (v3.8.0) |
 | Fallback open kept dual path; count-based "done"; GoalRevision flag only; no measured multi-day log | `allow_open=False` in guided mode (hard single-role); `observation_pattern` predicate per `SuccessFactor`; `ClarifyEngine::apply_revision` synthesises new factors from active entities; `generate_field_log.py` produces 24h session artifact (v3.9.0) |
 | Passive capture required per-channel client instrumentation — VSIX break silently killed memory | Universal server-side Axum middleware captures every mutation (POST/PUT/DELETE) from any channel — MCP, VSIX, REST, CLI, LangChain — zero client changes; `X-Actor` header attribution; `AppState.passive_capture_enabled`; fire-and-forget Temporal write; 262 integration tests 0 failures (v3.10.0) |
+| Clarify ladder was advisory; a removal could not be persisted through the store's own primitives; `/memory/embed` and `/memory/query` drifted from the write path's vocabulary; CI never executed several suites that existed | Clarify H1–H10 closed and the ladder made authoritative; durable removals + `delete_by_ids`/`upsert`/`delete_by_actor` store primitives; one guardrail and one `record_type` vocabulary across `/memory/add`, `/memory/embed`, `/memory/query`; pipeline enforcement G1–G8 — CI now runs the suites it previously skipped (v3.11.0) |
+
+---
+
+## What's new in v3.11.0 — Authoritative Clarify Ladder, Durable Removals, Pipeline Enforcement
+
+Closes the gaps identified after v3.10.0: the clarify protocol existed but was advisory; a deletion could not be persisted through the store's own primitives; and CI never executed several suites that existed — which is how a `record_type` mismatch reached `main` behind a green pipeline.
+
+| Change | Gap | Fix |
+|--------|-----|-----|
+| **Clarify ladder made authoritative** | H1–H10 gaps left `ClarifyEngine` advisory — a provably blocked goal could sit open | `feat(clarify)`: the ladder is now the authority for blocked goals, with bounded rounds, deduped prompts and a guaranteed exit; `ladder_rungs` / `ladder_exit_reasons` are reported on the goal routes |
+| **Durable removals** | `MemoryBackend` exposes only load/append/flush/clear, so a deletion had no way to persist | `MemoryStore::delete_by_id`, `delete_by_ids`, `delete_by_actor` — removal is persisted, and consolidation routes through the bulk primitives instead of rewriting the store |
+| **One `record_type` vocabulary** | `/memory/query` and `/memory/embed` accepted values the write path rejected | Both run the write path's guardrail and share its `record_type` vocabulary |
+| **Identifiers are not content** | The safety guardrail classified record ids as personally-identifiable content | The guardrail classifies record *content*, never identifiers |
+| **Self-describing integrity** | A record could not say which hash format produced its integrity | `MemoryRecord.hash_version`, stamped `INTEGRITY_FORMAT_VERSION` and compared on load |
+| **gRPC record literal completed** | The gRPC path built a partial `MemoryRecord` literal that no CI job compiled | Literal completed |
+| **One intervention shape** | World-model rollout accepted two intervention shapes depending on what the model knew | One shape, whatever the world model knows |
+| **Pipeline enforcement (G1–G8)** | CI never ran `v040_contract_sit`, the acceptance suite, `--test property_suite` under `web-server`, or the jest suite; nothing validated the staged VSIX server binary | All four now run in CI; the VSIX packaging step validates the staged server's *version*, not its file size |
+| **MCP surface proven by execution** | The declared tool surface was asserted from prose rather than from calling it | MCP self-test repaired and run in CI; `forget_actor` reduced to one contract; every dispatched handler's globals asserted; bundled mirror resynced |
+
+Test coverage: 366 lib + 517 unit + 182 minimal / 313 web-server integration + 59 property + standalone `v040_contract_sit`, 0 failures.
 
 ---
 

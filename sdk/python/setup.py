@@ -2,9 +2,11 @@ from setuptools import setup, find_packages
 
 setup(
     name="hipcortex",
-    version="3.10.0",
-    description="Cognitive state substrate for AI agents — Python SDK (universal server-side passive capture, WAL-persistent, MCP + REST)",
-    long_description=open("../../README.md").read() if False else "",
+    version="3.11.0",
+    description="Cognitive state substrate for AI agents — Python SDK + CLI (universal server-side passive capture, 61-tool / 7-resource MCP server, WAL-persistent, MCP + REST)",
+    # No long_description here: PEP 621 metadata in pyproject.toml supplies readme = "README.md",
+    # and declaring it in both places is a duplicate-metadata error. This used to be a dead
+    # expression (open(...).read() if False else "") that read as if it did something.
     author="HipCortex Contributors",
     license="Apache-2.0",
     packages=find_packages(),

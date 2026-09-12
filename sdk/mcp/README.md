@@ -1,4 +1,4 @@
-# HipCortex Universal MCP Server & Multi-Agent Setup Guide (`v3.10.0`)
+# HipCortex Universal MCP Server & Multi-Agent Setup Guide (`v3.11.0`)
 
 HipCortex exposes a native **Model Context Protocol (MCP)** server (`hipcortex.mcp.server`) and REST API (`http://127.0.0.1:3030`) that gives autonomous AI agents multi-tier causal memory, world-model rollout prediction (`POST /worldmodel/rollout`), and `Headroom Mode` token reduction (`59–88% savings`).
 
@@ -24,7 +24,7 @@ Not every host below has a **wizard installer**. Official matrix: [docs/channels
 | Claude Code, Cursor, Windsurf, VS Code MCP, Cline, RooCode | **native / mcp** (wizard) |
 | Continue, Copilot, Codex, Aider, Gemini, Amazon Q, Flowise | **guide** |
 | Antigravity, Hermes, OpenClaw, Grok Code / Grok Build | **mcp** — `hipcortex install` ([docs/hosts/README.md](../../docs/hosts/README.md)) |
-| VS Code / Antigravity VSIX | **native** — `hipcortex-memory-3.10.0.vsix` (chmod +x bundled Mac/Linux bins) |
+| VS Code / Antigravity VSIX | **native** — `hipcortex-memory-3.11.0.vsix` (chmod +x bundled Mac/Linux bins) |
 
 ---
 
@@ -148,7 +148,7 @@ aider --mcp-server "python -m hipcortex.mcp.server --mode headroom"
 ```
 
 ### 10. Gemini CLI & Antigravity IDE — **guide / mcp**
-> **Gemini CLI:** guide-only (manual MCP). **Antigravity:** **mcp** — `hipcortex install` writes `~/.gemini/antigravity/mcp_config.json`. Also VSIX (`hipcortex-memory-3.10.0.vsix`) if VS Code–compatible. See [docs/hosts/README.md](../../docs/hosts/README.md).
+> **Gemini CLI:** guide-only (manual MCP). **Antigravity:** **mcp** — `hipcortex install` writes `~/.gemini/antigravity/mcp_config.json`. Also VSIX (`hipcortex-memory-3.11.0.vsix`) if VS Code–compatible. See [docs/hosts/README.md](../../docs/hosts/README.md).
 
 Example MCP fragment (`mcpServers` shape):
 ```json
@@ -189,7 +189,7 @@ curl -X POST http://127.0.0.1:3030/memory/add \
 
 ## Available MCP Tools (18)
 
-`serverInfo.version` = **3.10.0** (product / VERSION). Full capability matrix: [docs/capabilities.md](../../docs/capabilities.md).
+`serverInfo.version` = **3.11.0** (product / VERSION). Full capability matrix: [docs/capabilities.md](../../docs/capabilities.md).
 
 | Tool Name | Arguments | Description |
 | :--- | :--- | :--- |

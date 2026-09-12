@@ -1,8 +1,8 @@
 {
   "name": "hipcortex-memory",
   "displayName": "HipCortex Memory Engine & Cognitive OS",
-  "description": "Cognitive OS for VS Code: universal server-side passive capture (any channel — MCP, VSIX, REST, CLI — zero client changes); hard single-role runner, predicate scorer, GoalRevision→ClarifyEngine, belief revision, world-model rollout, DigitalTwin simulation, OpEx metering, WAL persistence — MCP + REST",
-  "version": "3.10.0",
+  "description": "Cognitive OS for VS Code: universal server-side passive capture (any channel — MCP, VSIX, REST, CLI — zero client changes, X-Actor attribution); 61 MCP tools + 7 MCP resources; hard single-role runner, GoalRevision→ClarifyEngine, belief revision, world-model rollout, DigitalTwin simulation, WAL persistence — MCP + REST",
+  "version": "3.11.0",
   "publisher": "farmountain",
   "repository": {
     "type": "git",

@@ -1,13 +1,28 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.10.0`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.11.0`)
 
-[![Version](https://img.shields.io/badge/version-v3.10.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v3.11.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
 **Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — universal server-side passive capture (any channel, zero client changes), transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, grounded probe planning, OpEx budget metering, field-proven two-process WAL persistence, and topological graph tools.**
 
-VSIX **3.10.0** (Universal Passive Capture) · server/pip/npm **3.10.0**. 366 lib + 473 unit + 262 integration + 56 property + 4 AC-PC (v3.10.0) + 10 AC-390 (v3.9.0) + 10 AC-GS (v3.8.0) + 10 AC-LR (v3.7.0) + 10 AC-UA (v3.6.0) + 8 AC-ES (v3.5.0) + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+VSIX **3.11.0** (Authoritative Clarify Ladder · Durable Removals · Pipeline Enforcement) · server/pip/npm **3.11.0**. 366 lib + 517 unit + 182 minimal / 313 web-server integration + 59 property + standalone `v040_contract_sit` + 4 AC-PC (v3.10.0) + 10 AC-390 (v3.9.0) + 10 AC-GS (v3.8.0) + 10 AC-LR (v3.7.0) + 10 AC-UA (v3.6.0) + 8 AC-ES (v3.5.0) + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v3.11.0 — Authoritative Clarify Ladder, Durable Removals, Pipeline Enforcement
+
+| Change | Details |
+|--------|---------|
+| **Clarify ladder made authoritative** | `feat(clarify)`: H1–H10 closed — the clarify ladder is now the authority for blocked goals, with bounded rounds, deduped prompts and a guaranteed exit. `ladder_rungs` / `ladder_exit_reasons` are reported on the goal routes. |
+| **Durable removals** | `MemoryStore::delete_by_id`, `delete_by_ids`, `delete_by_actor` — a deletion now persists. Consolidation routes through the bulk primitives instead of rewriting the store. |
+| **One `record_type` vocabulary** | `/memory/query` and `/memory/embed` run the write path's guardrail and share its `record_type` vocabulary — the alias drift that let `/memory/query` accept values `/memory/add` rejected is closed. |
+| **Identifiers are not content** | The safety guardrail classifies record *content*, never identifiers — record ids are no longer reported as personally-identifiable content. |
+| **Self-describing integrity** | `MemoryRecord.hash_version`, stamped `INTEGRITY_FORMAT_VERSION` and compared on load, so a record says which hash format produced its integrity. |
+| **One intervention shape** | World-model rollout accepts one intervention shape regardless of what the world model knows. |
+| **Pipeline enforcement (G1–G8)** | CI now runs `v040_contract_sit`, the acceptance suite, `--test property_suite` under `web-server`, and the jest suite; the VSIX packaging step validates the **staged server's version**, not its file size. |
+| **MCP surface proven by execution** | MCP self-test repaired and run in CI; `forget_actor` reduced to one contract; every dispatched handler's globals asserted; bundled mirror resynced so `_req` is defined. |
 
 ---
 

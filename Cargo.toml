@@ -1,8 +1,8 @@
 [package]
 name = "hipcortex"
-version = "3.10.0"
+version = "3.11.0"
 edition = "2021"
-description = "Cognitive state substrate for AI agents: universal server-side passive capture (any channel — MCP, VSIX, REST, CLI — zero client changes, X-Actor attribution); hard single-role runner, observation-content predicate scorer, GoalRevision→ClarifyEngine, 24h field log, WAL-persistent, MCP + REST"
+description = "Cognitive state substrate for AI agents: universal server-side passive capture (any channel — MCP, VSIX, REST, CLI — zero client changes, X-Actor attribution); 61 MCP tools + 7 auto-injected MCP resources; hard single-role runner, observation-content predicate scorer, GoalRevision→ClarifyEngine, temporal decay, causal world model, WAL-persistent, MCP + REST"
 repository = "https://github.com/farmountain/HipCortex"
 license = "Apache-2.0"
 readme = "README.md"

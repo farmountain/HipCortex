@@ -456,7 +456,7 @@ interface QueryMemoryResponse {
  * Crate / bundled server binary version (CARGO_PKG_VERSION), NOT vscode package.json.
  * Keep in sync with Cargo.toml [package].version and published hipcortex-* assets.
  */
-export const EXPECTED_SERVER_VERSION = '3.10.0';
+export const EXPECTED_SERVER_VERSION = '3.11.0';
 
 /** Parse listen port from hipcortex.apiUrl / HipCortexAPI.baseUrl. */
 export function extractPortFromBaseUrl(baseUrl: string): { port: number; portStr: string } {
@@ -1388,7 +1388,7 @@ class HipCortexChatParticipant {
     }
 
     private async handleHelp(stream: vscode.ChatResponseStream): Promise<void> {
-        stream.markdown(`# 🧠 HipCortex Memory Assistant (Official Extension v3.10.0)
+        stream.markdown(`# 🧠 HipCortex Memory Assistant (Official Extension v3.11.0)
 
 **✅ You are now talking to the OFFICIAL HipCortex VS Code Extension!**
 
@@ -1666,7 +1666,7 @@ export function formatMemoryDetailMessage(record: MemoryRecord): string {
 
 export function activate(context: vscode.ExtensionContext) {
     extensionInstallPath = context.extensionPath;
-    console.log('🧠 HipCortex Memory Extension v3.10.0 active');
+    console.log('🧠 HipCortex Memory Extension v3.11.0 active');
     console.log('🔧 Registering chat participant: hipcortex');
 
     const tokenTracker = new TokenTracker();

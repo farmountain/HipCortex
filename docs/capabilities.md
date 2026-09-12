@@ -75,7 +75,7 @@ Checker `scripts/check_capabilities.py` greps these names from `TOOLS` and requi
 
 **Not in MCP `TOOLS` today (honest gaps):** dedicated `health` tool (use REST `/health` or VS Code LM `hipcortex_health`), dedicated `query` tool (use `search_memory` / `get_live_beliefs`).
 
-MCP serverInfo version in `sdk/mcp/server.py`: **3.10.0**. VS Code extension package: **3.10.0** (10 LM tools; bundled bin chmod).
+MCP serverInfo version in `sdk/mcp/server.py`: **3.11.0**. VS Code extension package: **3.11.0** (10 LM tools; bundled bin chmod).
 
 ## Known surface gaps (priority)
 

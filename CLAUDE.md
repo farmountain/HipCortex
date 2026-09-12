@@ -127,7 +127,7 @@ HipCortex has two integration profiles:
 - **Profile 1 (Standard):** agent explicitly calls `add_memory` / SDK tools.
 - **Profile 0 (Zero-Config):** passive observers capture automatically — no `add_memory` calls required.
 
-**Python SDK** (`sdk/python/hipcortex/`, version `3.10.0` in `pyproject.toml`):
+**Python SDK** (`sdk/python/hipcortex/`, version `3.11.0` in `pyproject.toml`):
 
 | Class | File | Profile | Wire-up |
 |-------|------|---------|---------|
@@ -139,7 +139,7 @@ HipCortex has two integration profiles:
 
 **Fail-silent invariant:** all passive observers catch all exceptions silently (`except Exception: pass`). They must never raise, never slow the agent loop.
 
-**MCP server** (`sdk/mcp/server.py`, version `3.10.0`): the `TOOLS` literal declares **61 tools** (61 unique names) and `RESOURCES` declares **7 resources**. Resources are auto-injected by MCP hosts at session start (no LLM tool call needed):
+**MCP server** (`sdk/mcp/server.py`, version `3.11.0`): the `TOOLS` literal declares **61 tools** (61 unique names) and `RESOURCES` declares **7 resources**. Resources are auto-injected by MCP hosts at session start (no LLM tool call needed):
 - `hipcortex://context/relevant` — top-k semantically relevant memories
 - `hipcortex://beliefs/current` — active Symbolic records
 - `hipcortex://beliefs/live` — current beliefs as held, before any consolidation pass
@@ -150,7 +150,7 @@ HipCortex has two integration profiles:
 
 Counts are asserted by `sdk/python/tests/test_mcp_tool_surface.py`, which parses the literals rather than trusting prose.
 
-**VSIX** (`vscode-extension/`, version `3.10.0`): file-save passive capture exists at `extension.ts:1844` (`onDidSaveTextDocument`). Terminal passive capture wraps `vscode.window.onDidWriteTerminalData` via runtime guard (type not in bundled `@types/vscode`). Both guarded by `hipcortex.passiveCapture` config (default `true`).
+**VSIX** (`vscode-extension/`, version `3.11.0`): file-save passive capture exists at `extension.ts:1844` (`onDidSaveTextDocument`). Terminal passive capture wraps `vscode.window.onDidWriteTerminalData` via runtime guard (type not in bundled `@types/vscode`). Both guarded by `hipcortex.passiveCapture` config (default `true`).
 
 **Version stamp:** single source of truth is `VERSION` file (repo root). `scripts/stamp_versions.py --mcp` updates MCP `serverInfo.version`. Python SDK version is in `sdk/python/pyproject.toml`. VSIX version is `vscode-extension/package.json`.
 

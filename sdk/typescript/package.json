@@ -1,7 +1,7 @@
 {
   "name": "hipcortex",
-  "version": "3.10.0",
-  "description": "Cognitive state substrate for AI agents — TypeScript & Node.js SDK (universal server-side passive capture, WAL-persistent, MCP + REST).",
+  "version": "3.11.0",
+  "description": "Cognitive state substrate for AI agents — TypeScript & Node.js SDK: universal server-side passive capture, WAL-persistent, typed REST client for the 61-tool / 7-resource MCP server.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": ["dist", "README.md"],
