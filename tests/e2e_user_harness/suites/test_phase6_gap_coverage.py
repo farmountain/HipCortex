@@ -1,14 +1,33 @@
 """Profile 0 / MCP resources gap coverage tests."""
+import ast
 import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 from unittest.mock import MagicMock
 
 from tests.e2e_user_harness.repo_version import repo_version
 
 PYTHON = sys.executable
 SERVER = os.path.join(os.path.dirname(__file__), "../../../sdk/mcp/server.py")
+
+
+def _declared_resource_uris():
+    """URIs declared by the RESOURCES literal in sdk/mcp/server.py.
+
+    Parsed with ast instead of restated here. This test previously asserted the
+    literal 6 while the server declared 7, so it failed for a real drift in a way
+    that read exactly like a typo. Binding to the declaration makes the count
+    follow the source and keeps the assertion about the surface, not the number.
+    """
+    src = Path(SERVER).read_text(encoding="utf-8")
+    for node in ast.parse(src).body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "RESOURCES" for t in node.targets
+        ):
+            return [r["uri"] for r in ast.literal_eval(node.value)]
+    raise AssertionError("no RESOURCES literal found in sdk/mcp/server.py")
 
 
 def _send(proc, msg):
@@ -39,20 +58,22 @@ def test_mcp_initialize_advertises_resources():
         proc.terminate()
 
 
-def test_mcp_resources_list_returns_six_resources():
+def test_mcp_resources_list_matches_declared_resources():
+    declared = _declared_resource_uris()
     proc = _start_server()
     try:
         _send(proc, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
         resp = _send(proc, {"jsonrpc": "2.0", "id": 2, "method": "resources/list", "params": {}})
         resources = resp["result"]["resources"]
-        assert len(resources) == 6, f"expected 6 resources, got {len(resources)}"
         uris = {r["uri"] for r in resources}
-        assert "hipcortex://context/relevant" in uris
-        assert "hipcortex://beliefs/current" in uris
-        assert "hipcortex://beliefs/live" in uris
-        assert "hipcortex://context/conversation" in uris
-        assert "hipcortex://state/diff" in uris
-        assert "hipcortex://self/health" in uris
+        assert uris == set(declared), (
+            f"resources/list advertises {sorted(uris)} but sdk/mcp/server.py declares "
+            f"{sorted(declared)}"
+        )
+        assert len(resources) == len(declared), (
+            f"resources/list returned {len(resources)} entries for {len(declared)} "
+            "declared URIs - duplicate URIs are being advertised"
+        )
     finally:
         proc.terminate()
 
