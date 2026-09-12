@@ -3952,18 +3952,24 @@ async fn handle_consolidate<B: MemoryBackend + Send + Sync + 'static>(
                     serde_json::json!(chrono::Utc::now().to_rfc3339()),
                 );
             }
-            ms.delete_by_id(keep_rec.id);
             // Re-seal the record: `MemoryStore::add` stores verbatim, so mutating
             // `evidence`/`metadata` in place would leave a stale SHA-256 integrity
             // hash on disk. Mirrors `MemoryStore::update_record`.
             survivor.integrity = Some(survivor.compute_hash());
-            if let Err(e) = ms.add(survivor) {
+            // `upsert` replaces in place and rewrites the backend, so the survivor lands as one
+            // record on disk. The previous `delete_by_id` + `add` pair rebuilt every index twice
+            // and left a second copy of the same id in the append-only file.
+            if let Err(e) = ms.upsert(survivor) {
                 errors.push(format!("reinsert survivor {}: {}", keep_rec.id, e));
             }
             survivors.push(keep_rec.id.to_string());
 
-            for rec in &drop_recs {
-                ms.delete_by_id(rec.id);
+            // One bulk removal rather than a per-record loop: `delete_by_ids` purges the pending
+            // write buffer and rewrites the backend, so a dropped duplicate cannot be read back
+            // on the next restart while the Cold Store keeps its copy.
+            let dropped: Vec<uuid::Uuid> = drop_recs.iter().map(|r| r.id).collect();
+            if let Err(e) = ms.delete_by_ids(&dropped) {
+                errors.push(format!("drop duplicates: {}", e));
             }
         }
 

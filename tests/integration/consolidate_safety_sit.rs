@@ -368,4 +368,224 @@ mod tests {
             "a short target must not clear the threshold by containment"
         );
     }
+
+    /// G4: the handler must mutate through the bulk primitives, not the per-record one.
+    ///
+    /// axum 0.6's `Router` exposes no handler or route table, so the handler's own source is the
+    /// only accessible artifact. The trailing parenthesis is load-bearing: a naive
+    /// `!body.contains("delete_by_id")` would also match `delete_by_ids(`.
+    #[test]
+    fn consolidation_uses_bulk_primitives_not_delete_by_id() {
+        let source = include_str!("../../src/web_server.rs");
+        let lines: Vec<&str> = source.lines().collect();
+        let start = lines
+            .iter()
+            .position(|l| l.contains("async fn handle_consolidate"))
+            .expect("handle_consolidate must exist");
+        let end = lines[start + 1..]
+            .iter()
+            .position(|l| {
+                !l.starts_with(' ')
+                    && (l.starts_with("async fn ")
+                        || l.starts_with("pub async fn ")
+                        || l.starts_with("fn ")
+                        || l.starts_with("pub fn ")
+                        || l.starts_with("impl ")
+                        || l.starts_with("struct ")
+                        || l.starts_with('}'))
+            })
+            .map(|offset| start + 1 + offset)
+            .unwrap_or(lines.len());
+        let body = lines[start..end].join("\n");
+
+        assert!(
+            body.len() > 200,
+            "the slice must contain a handler body, got {} chars",
+            body.len()
+        );
+        assert!(
+            body.contains("upsert("),
+            "the survivor must be replaced through `upsert`, not `delete_by_id` + `add`"
+        );
+        assert!(
+            body.contains("delete_by_ids("),
+            "the duplicates must be dropped with one bulk removal"
+        );
+        assert!(
+            !body.contains("delete_by_id("),
+            "no per-record `delete_by_id(` may remain in the handler: it is neither durable nor bulk"
+        );
+    }
+
+    /// G5: the safety invariant over a seeded sweep of cluster shapes.
+    ///
+    /// The property-test harness cannot host this one: `tests/property/` aliases
+    /// `MemoryStore<InMemoryBackend>` and adding `web-server` there would feature-unify the
+    /// property target away from the minimal build CI enforces. It is enumerated
+    /// deterministically here instead -- `groups` clusters of `per_group` byte-identical
+    /// records, 64 shapes in total.
+    #[tokio::test]
+    async fn invariant_holds_over_seeded_cluster_shapes() {
+        let mut shapes = 0;
+
+        for groups in 1usize..=8 {
+            for per_group in 1usize..=8 {
+                shapes += 1;
+                let ctx = || format!("groups={} per_group={}", groups, per_group);
+
+                let (state, store, archive) = make_test_state();
+                {
+                    let mut ms = store.lock().unwrap();
+                    for g in 0..groups {
+                        for k in 0..per_group {
+                            let mut r = MemoryRecord::new(
+                                MemoryType::Temporal,
+                                "alice".to_string(),
+                                "decided".to_string(),
+                                format!("topic{}", g),
+                                serde_json::json!({}),
+                            );
+                            // Unique per record so survivor election is deterministic. Confidence
+                            // is not part of the similarity token set, so a group still scores
+                            // Jaccard 1.0 internally.
+                            r.confidence = 0.5_f32 + (k as f32) * 0.01;
+                            ms.add(r).unwrap();
+                        }
+                    }
+                }
+
+                let before: Vec<uuid::Uuid> = records_for(&store, "alice")
+                    .iter()
+                    .map(|r| r.id)
+                    .collect();
+                assert_eq!(before.len(), groups * per_group, "seed count ({})", ctx());
+
+                let (base, _srv) = start_test_server(state).await;
+                let (status, v) = call(
+                    &base,
+                    "actor=alice&dry_run=false&confirm=true",
+                    serde_json::json!({}),
+                )
+                .await;
+                assert_eq!(status, 200, "status ({})", ctx());
+
+                let after_records: Vec<MemoryRecord> = records_for(&store, "alice");
+                // The handler journals the call as a single Reflexion record owned by the same
+                // actor, so the *live* set excludes it.
+                let journal_count = after_records
+                    .iter()
+                    .filter(|r| r.action == "consolidate")
+                    .count();
+                let active: Vec<&MemoryRecord> = after_records
+                    .iter()
+                    .filter(|r| r.action != "consolidate")
+                    .collect();
+                let active_ids: Vec<uuid::Uuid> = active.iter().map(|r| r.id).collect();
+                let has_clusters = per_group >= 2;
+                let read_ids = |field: &str| -> Vec<uuid::Uuid> {
+                    v[field]
+                        .as_array()
+                        .unwrap_or_else(|| panic!("`{}` must be an array ({})", field, ctx()))
+                        .iter()
+                        .map(|s| uuid::Uuid::parse_str(s.as_str().unwrap()).unwrap())
+                        .collect()
+                };
+                let survivor_ids = read_ids("survivors");
+                let archived_ids = read_ids("archived_ids");
+
+                // 0. Exactly one journal record, and only when a cluster was actually merged.
+                assert_eq!(
+                    journal_count,
+                    usize::from(has_clusters),
+                    "journal record count ({})",
+                    ctx()
+                );
+                // 1. The live set never grows. Growth is the symptom the non-durable delete caused.
+                assert!(
+                    active_ids.len() <= before.len(),
+                    "consolidation must never grow the Hot Store ({})",
+                    ctx()
+                );
+                // 2. Exactly one record per group survives, whatever the group size.
+                assert_eq!(
+                    active_ids.len(),
+                    groups,
+                    "exactly one live record per group ({})",
+                    ctx()
+                );
+                // A singleton group is not a cluster, so no survivor is *elected* for it: the
+                // record simply stays put and is reported as neither survivor nor archive.
+                let expected_survivors = if has_clusters { groups } else { 0 };
+                assert_eq!(
+                    survivor_ids.len(),
+                    expected_survivors,
+                    "elected survivors ({})",
+                    ctx()
+                );
+                // 3. Every id reported as surviving is still live, and election picked the
+                //    highest-confidence member of its group.
+                for id in &survivor_ids {
+                    let rec = active.iter().find(|r| r.id == *id).unwrap_or_else(|| {
+                        panic!("reported survivor {} is not live ({})", id, ctx())
+                    });
+                    assert_eq!(
+                        rec.confidence,
+                        0.5_f32 + ((per_group - 1) as f32) * 0.01,
+                        "survivor {} must be the highest-confidence member ({})",
+                        id,
+                        ctx()
+                    );
+                }
+                // 4. No id can be both dropped and surviving.
+                for id in &archived_ids {
+                    assert!(
+                        !active_ids.contains(id),
+                        "archived record {} is still live ({})",
+                        id,
+                        ctx()
+                    );
+                }
+                // 5. Every dropped record is recoverable from the Cold Store.
+                let cold = archive.lock().unwrap().load_all().unwrap();
+                let cold_ids: Vec<uuid::Uuid> = cold.iter().map(|r| r.id).collect();
+                assert_eq!(cold_ids.len(), archived_ids.len(), "cold count ({})", ctx());
+                for id in &archived_ids {
+                    assert!(
+                        cold_ids.contains(id),
+                        "archived {} is not in the Cold Store ({})",
+                        id,
+                        ctx()
+                    );
+                }
+                // 6. Conservation: nothing left the live set without being archived first.
+                assert_eq!(
+                    active_ids.len() + archived_ids.len(),
+                    before.len(),
+                    "every removed record must have been archived ({})",
+                    ctx()
+                );
+                assert_eq!(
+                    archived_ids.len(),
+                    groups * per_group.saturating_sub(1),
+                    "one archive per duplicate, none for singletons ({})",
+                    ctx()
+                );
+                // 7. The reported counters agree with the observed mutation.
+                assert_eq!(
+                    v["clusters_found"].as_u64().unwrap() as usize,
+                    expected_survivors,
+                    "clusters_found ({})",
+                    ctx()
+                );
+                assert_eq!(
+                    v["duplicates_found"].as_u64().unwrap() as usize,
+                    archived_ids.len(),
+                    "duplicates_found ({})",
+                    ctx()
+                );
+            }
+        }
+
+        assert_eq!(shapes, 64, "the sweep must cover all 64 shapes");
+    }
 }
