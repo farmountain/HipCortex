@@ -23,6 +23,8 @@ VSIX **3.11.0** (Authoritative Clarify Ladder · Durable Removals · Pipeline En
 | **One intervention shape** | World-model rollout accepts one intervention shape regardless of what the world model knows. |
 | **Pipeline enforcement (G1–G8)** | CI now runs `v040_contract_sit`, the acceptance suite, `--test property_suite` under `web-server`, and the jest suite; the VSIX packaging step validates the **staged server's version**, not its file size. |
 | **MCP surface proven by execution** | MCP self-test repaired and run in CI; `forget_actor` reduced to one contract; every dispatched handler's globals asserted; bundled mirror resynced so `_req` is defined. |
+| **Gates that assert the declaration, not a copy (G17–G18)** | A test that hard-codes the value it verifies is a restatement, not a gate; and a gitignored artifact was being read as present. Version assertions now bind to the declaration, and the bundled-binary check builds synthetic fixtures instead of reading a gitignored path. |
+| **Seven SITs lost to cargo lock contention (G19)** | `integration_suite --features web-server` read 313 passed / 0 failed locally but 306 passed / 7 failed in CI. The seven SITs now spawn the cargo-built executable instead of shelling out to `cargo run`, removing the shared target-directory lock; the 60 s budget is margin, not the mechanism. |
 
 ---
 
@@ -422,7 +424,7 @@ npm test
 npx @vscode/vsce package --no-dependencies
 ```
 
-Produces `hipcortex-memory-2.8.0.vsix` (version from `package.json`).
+Produces `hipcortex-memory-3.11.0.vsix` (the version comes from `package.json`, so the name follows the release automatically).
 
 ---
 
