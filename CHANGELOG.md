@@ -373,6 +373,32 @@ Pipeline enforcement: `docs/superpowers/specs/2026-09-12-hipcortex-pipeline-enfo
   test tear down the port a slower test is still pointed at. `rta9` resets the guardrail and fires a
   benign control request first, so a 403 cannot be a guardrail that was already refusing everything.
 
+**G15 — `rollback()` Could Not Restore Any Store Holding Pre-Upgrade Records**
+- `MemoryRecord::compute_hash` serialises the record and hashes it, so **every field ever added to
+  `MemoryRecord` made every previously written hash unreproducible**. Nothing in the record said
+  which format its hash came from, and `rollback()` — the crate's *only* integrity verifier, since
+  `load()` never verifies — treated every mismatch as fatal. Any long-lived store therefore refused
+  to roll back, and the condition was silent until a rollback was attempted.
+- Measured on the operator's live store, 852 records: **436 reproduce, 416 do not, 0 reproduce a
+  current-format hash and fail.** So every non-reproducing record is pre-tag, not tampered — which is
+  the distinction the old single `integrity mismatch` error could not make.
+- `IntegrityVerdict::{Ok, LegacyUnverified, Mismatch}` now separates those three cases. `rollback()`
+  refuses only current-format mismatches, and reports what it tolerated in the audit trail
+  (`ok legacy_unverified=416`) rather than accepting it silently.
+- The tag is `#[serde(default, skip_serializing_if = "is_zero_u32")]`, and `compute_hash` hashes the
+  record as it has it rather than pinning the current version. Pinning would add a field to the
+  serialised form, changing the bytes of every record and demoting the exact pre-tag records the tag
+  exists to tolerate; and hiding the field is not enough on its own, because a `u32` serialises as
+  `"hash_version":0`. Skipping a zero tag leaves a pre-tag record byte-identical to what it was
+  written with, so it still verifies `Ok`. Documented on the constant: the store carries no key and
+  no signature, so this is a corruption check, not a tamper-proof seal.
+- Evidence: `unit_suite` 517 passed / 0 failed (four tests added: fresh records verify `Ok`; a
+  zero-tag record keeps the bytes it was written with; `rollback` tolerates a superseded format;
+  `rollback` refuses a current-format record that does not verify; plus the positive control that an
+  untouched snapshot reports `ok`). Two independent implementations agree on all 852 live records —
+  the crate's `integrity_verdict()` and a Python probe that first proves it can re-emit each stored
+  line byte-for-byte (852/852) *before* any digest it computes is trusted.
+
 ## [1.3.0] - 2026-09-01 — Cognitive Loop Closure (Phases A–H)
 
 ### Added
