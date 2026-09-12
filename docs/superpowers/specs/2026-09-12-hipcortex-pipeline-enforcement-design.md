@@ -619,6 +619,68 @@ evidence on both sides rather than a rule. It is recorded here so the next reade
 rediscover it as a defect, and so the decision is taken deliberately. This is the clarify ladder's
 exit again: bounded, named, and not silently resolved in either direction.
 
+### 3.13 G12 — the packaging gate that checked size, and the path that never called it
+
+This one was found by using the product rather than by auditing it: the extension directory
+`farmountain.hipcortex-memory-3.10.0` answered `/health` with `{"version":"3.5.0"}`.
+
+The payload behind that answer was an 8,030,208-byte executable containing the literal `3.5.0`, in a
+directory whose manifest said 3.10.0. Every staged binary under `vscode-extension/server/` was 3.5.0
+too — linux-amd64 6,818,056, linux-arm64 6,129,672, darwin-amd64 6,474,656, darwin-arm64 2,478,520
+(**truncated**; the published asset is 6,036,832) and win32 8,030,208 — and the VSIX built from that
+tree (15,386,848 B) embedded the same stale executable. The published `v3.10.0` assets were correct
+throughout, the windows asset at 8,102,400 B and the published VSIX at 17,069,132 B embedding it.
+So the build was right and the packaging was wrong; a correct release had been assembled from an
+incorrect tree.
+
+Two independent causes, each survivable alone:
+
+1. **The gate could not fail for the reason that mattered.** `isValidBinary()` tested
+   `size >= 1_000_000` and "the first 32 bytes are not `PLACEHOLDER` and not `<!`". A stale 8 MB
+   `MZ` executable satisfies both. The guard's answer to "is this the binary we want?" was "it is
+   large and not HTML". This is G10's lesson in another costume: the check existed, ran, and was
+   blind — *declaring* a check is not *having* one that can see the defect.
+2. **The packaging path never reached the fetcher.** `vsce package` runs the `vscode:prepublish`
+   script, which is `npm run package` = `webpack --mode production`; `fetch-bins.js` was reachable
+   only through the separate `package:vsix` script or by hand. The gate and the path that needed it
+   never met, so even a perfect `isValidBinary()` would not have run during packaging.
+
+What let the two drift apart without a symptom is that the fetch target was a hardcoded
+`RELEASE_TAG = 'v3.10.0'`: the staged binaries and the crate version had no shared source of truth to
+disagree about. `EXPECTED_VERSION` now reads `VERSION` (with a `HIPCORTEX_SERVER_VERSION` override),
+`RELEASE_TAG` derives from it, `binaryHasVersion()` scans the file as latin1 for that literal, and
+`isValidBinary()` requires it — which makes "this binary is the right version" the same statement as
+"this binary matches this checkout", the thing the release actually needs to be true.
+
+`--check` is the pull-able form of the assertion: per platform it prints `ok`, `STALE` or `absent` and
+exits non-zero if any staged binary is not `v${EXPECTED_VERSION}`. `main()` is guarded by
+`require.main === module` and the module exports `EXPECTED_VERSION`, `RELEASE_TAG`,
+`readExpectedVersion`, `binaryHasVersion` and `isValidBinary`, so the gate is testable rather than
+self-certifying. And `release.yml`'s `package-vsix` job now runs it, because that job copies the
+`build-release` artifacts into `vscode-extension/server/` and seals them *without* re-fetching — the
+precise window in which a stale matrix ships under a new label.
+
+*Verification:* RED with the change stashed — `src/test/fetch-bins.test.ts` reports 8 failed / 8
+(`isValidBinary is not a function`); GREEN restored — 8 passed. Against the real tree
+`node scripts/fetch-bins.js --check` printed `STALE` for all five platforms and exited 1, and after
+`npm run fetch-bins` (6,858,056 / 6,166,536 / 6,511,664 / 6,036,832 / 8,102,400) printed `ok` for all
+five and exited 0. The extension suite is unchanged at 87 passed / 2 suites. The installed extension
+was repaired through the supported path — `code --install-extension <published vsix> --force`, since a
+hand copy of the same file had not stuck — and now measures 8,102,400 B, contains `3.10.0`, does not
+contain `3.5.0`, and serves `/health` version 3.10.0.
+
+**Correction, recorded rather than amended away.** The first draft of this section attributed a
+second symptom to the stale binary: that `POST /memory/add` with `record_type=belief` stored
+`Temporal`. It does not. `origin/main`'s `parse_record_type_alias` is exact-match and case-sensitive —
+`Some("Belief") => MemoryType::Belief`, `_ => MemoryType::Temporal` — while the local commits ahead of
+`origin/main` replace it with a case-insensitive parser that returns `Err` instead of coercing. A
+lowercase `"belief"` therefore stores `Temporal` on *any* released build, a correct one included, and
+the two binaries that disagreed about it were HEAD and the release, not 3.5.0 and 3.10.0. The
+stale-binary finding stands on the version literal and the `/health` output alone.
+
+*Not claimed:* no CI job runs the extension's jest suite, so these 8 tests are still exercised by hand
+only; the `release.yml` gate is the fix's sole automated consumer.
+
 ---
 
 ## 4. Test plan — acceptance criterion to named test
@@ -637,6 +699,7 @@ exit again: bounded, named, and not silently resolved in either direction.
 | G9 | `causal_intervention_fallback_is_keyed_by_the_outcome_variable` in `tests/unit/scm_foundations_tests.rs` (not tokio-gated); the tokio actor step that found it is `370 passed; 0 failed` |
 | G10 | `test_worldmodel_rollout_endpoint` in `v040_contract_sit.rs`, reachable only because the `web-tests` job now names the standalone target (`cargo test --test v040_contract_sit`); target 6 passed / 0 failed, `web-server` integration 310, 0 failed |
 | G11 | `link_does_not_classify_identifiers_as_pii` in `tests/integration/rest_contract_safety_sit.rs` — asserts 404 rather than 403 for a link whose UUIDs carry the phone shape; `web-server` integration 310, 0 failed |
+| G12 | `vscode-extension/src/test/fetch-bins.test.ts` (8 tests: version literal required, stale 3.5.0 body rejected for 3.10.0, oversized HTML rejected, undersized rejected, missing invalid, `EXPECTED_VERSION` equals the repo `VERSION`, `RELEASE_TAG` derived from it); the gate itself is `node scripts/fetch-bins.js --check`, exit 1 → 0 across `npm run fetch-bins`, and it is now called by `release.yml`'s `package-vsix` before `vsce package` |
 
 Plus the existing regression set, which must stay green and unmodified:
 `unit_suite` 502 → 510, `integration_suite` 306 → 310 (`web-server`, the +4 being G5's consolidation

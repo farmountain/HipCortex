@@ -243,6 +243,62 @@ Pipeline enforcement: `docs/superpowers/specs/2026-09-12-hipcortex-pipeline-enfo
   `patterns=["PII:123456-1234"]` before the fix and passes after it; the `web-server` integration
   suite is 309 → 310, 0 failed, and the standalone target ran 6/0 on three consecutive runs.
 
+**G12 — The Packaged Server Binary Was Never Version-Checked**
+- The extension directory `farmountain.hipcortex-memory-3.10.0` was serving `/health`
+  `{"version":"3.5.0"}`. Its payload `server/win32/hipcortex-windows-amd64.exe` was 8,030,208 bytes
+  and contained the literal `3.5.0`; the extension manifest said 3.10.0. Every staged binary under
+  `vscode-extension/server/` was 3.5.0 as well — linux-amd64 6,818,056, linux-arm64 6,129,672,
+  darwin-amd64 6,474,656, darwin-arm64 2,478,520 (**truncated**; the published asset is 6,036,832)
+  and win32 8,030,208 — and the VSIX built from that tree (15,386,848 B) embedded the 8,030,208 B
+  3.5.0 executable. The published `v3.10.0` assets were correct throughout: the windows asset is
+  8,102,400 B and contains `3.10.0`, and the published VSIX (17,069,132 B) embeds that same
+  8,102,400 B binary. That is what made this a *packaging* defect rather than a build one.
+- Two independent causes, and either alone would have been survivable:
+  1. `isValidBinary()` was a check that could not fail for the reason that mattered. It tested
+     `size >= 1_000_000` and "the first 32 bytes are neither `PLACEHOLDER` nor `<!`". A stale 8 MB
+     `MZ` executable satisfies both conditions perfectly, so the guard's answer to "is this the
+     binary we want?" was "it is large and not HTML". Version was never part of the question.
+  2. `vsce package` runs the `vscode:prepublish` script, which is `npm run package` =
+     `webpack --mode production`, which never invokes `fetch-bins.js` at all. The fetcher was only
+     reachable through the separate `package:vsix` script or by hand, so the ordinary packaging path
+     could not refresh the tree even in principle. The gate and the path that needed it never met.
+- The chicken-and-egg that let the two drift apart silently: the fetch target was a hardcoded
+  `RELEASE_TAG = 'v3.10.0'`, so the staged binaries and the crate version had no shared source of
+  truth. `EXPECTED_VERSION` now reads `VERSION` (with a `HIPCORTEX_SERVER_VERSION` override),
+  `RELEASE_TAG` is derived from it, `binaryHasVersion()` scans the file as latin1 for that literal,
+  and `isValidBinary()` requires it — so "the staged binary is the right version" is now the same
+  statement as "the staged binary matches this checkout".
+- `--check` is the pull-able form of that assertion: it prints `ok` / `STALE` / `absent` per
+  platform and exits non-zero if any staged binary is not `v${EXPECTED_VERSION}`. `main()` is now
+  guarded by `require.main === module` and the module exports `EXPECTED_VERSION`, `RELEASE_TAG`,
+  `readExpectedVersion`, `binaryHasVersion` and `isValidBinary`, so the gate is testable rather than
+  self-certifying.
+- The release pipeline now runs it. `release.yml`'s `package-vsix` job copies the `build-release`
+  artifacts into `vscode-extension/server/` and seals them without re-fetching, which is exactly the
+  window in which a stale matrix ships under a new label; it asserts `node scripts/fetch-bins.js
+  --check` before `vsce package`. The G10 lesson, applied: the gate had to be *called*, not merely
+  to exist.
+- Evidence: RED — with the change stashed, the new `src/test/fetch-bins.test.ts` reports
+  **8 failed / 8** (`isValidBinary is not a function`); GREEN — restored, **8 passed**. Against the
+  real tree, `node scripts/fetch-bins.js --check` printed `STALE` for all five platforms and exited
+  **1**; after `npm run fetch-bins` (6,858,056 / 6,166,536 / 6,511,664 / 6,036,832 / 8,102,400) it
+  printed `ok` for all five and exited **0**. The extension suite is unchanged at **87 passed /
+  2 suites**. The installed extension was then repaired through the supported path
+  (`code --install-extension <published vsix> --force`, not a hand copy — the hand copy did not
+  stick), and the installed binary now measures 8,102,400 B, contains `3.10.0`, does not contain
+  `3.5.0`, and serves `/health` version 3.10.0.
+- Correction to this entry's first draft, recorded rather than quietly amended: that draft attributed
+  the symptom "`POST /memory/add` with `record_type=belief` stored `Temporal`" to the stale binary.
+  It is not. `origin/main`'s `parse_record_type_alias` is exact-match and case-sensitive
+  (`Some("Belief") => MemoryType::Belief`, `_ => MemoryType::Temporal`), and the local commits ahead
+  of `origin/main` replace it with a case-insensitive parser that returns `Err` instead of coercing —
+  so a lowercase `"belief"` stores `Temporal` on *any* released build, including a correct one. The
+  divergence that symptom exposed was HEAD-versus-released, not 3.5.0-versus-3.10.0. The
+  stale-binary finding stands on the version literal and the `/health` output alone.
+- Open, and deliberately not claimed as closed: no CI job runs the extension's jest suite, so these
+  8 tests are still run only by hand. The `release.yml` gate is the only automated consumer of the
+  fix.
+
 ## [1.3.0] - 2026-09-01 — Cognitive Loop Closure (Phases A–H)
 
 ### Added

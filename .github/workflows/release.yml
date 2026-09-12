@@ -126,6 +126,14 @@ jobs:
         with:
           node-version: "20"
 
+      # G12: this job seals whatever sits in vscode-extension/server/ into the VSIX and never
+      # re-fetches it, so a stale artifact in the matrix would ship under the new version label.
+      # Assert the staged binaries carry the repo's version before packaging. No dependencies
+      # needed — fetch-bins.js is plain node.
+      - name: Verify staged server binaries match VERSION
+        working-directory: vscode-extension
+        run: node scripts/fetch-bins.js --check
+
       - name: Build extension + VSIX
         working-directory: vscode-extension
         run: |
