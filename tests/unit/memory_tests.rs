@@ -222,4 +222,127 @@ mod unit_tests {
         assert!(edge_record.action.contains("!@#$%"));
         assert!(edge_record.target.contains("-") && edge_record.target.contains("_"));
     }
+
+    /// The lines of the block opened by `anchor`, paired with the brace depth *at the
+    /// start* of each line (so the anchor line itself is depth 0 and its contents are
+    /// depth 1). Stops after the line that closes the block.
+    fn anchored_block<'a>(src: &'a str, anchor: &str) -> Vec<(i32, &'a str)> {
+        let start = src
+            .find(anchor)
+            .unwrap_or_else(|| panic!("anchor not found: {anchor}"));
+        let mut depth = 0i32;
+        let mut out = Vec::new();
+        for line in src[start..].lines() {
+            out.push((depth, line));
+            for ch in line.chars() {
+                match ch {
+                    '{' => depth += 1,
+                    '}' => depth -= 1,
+                    _ => {}
+                }
+            }
+            if depth <= 0 {
+                break;
+            }
+        }
+        out
+    }
+
+    /// Field names assigned at the top level of the block opened by `anchor`.
+    /// `strip` is a per-line prefix to drop first (`"pub "` for a struct declaration,
+    /// `""` for a struct literal). Lines whose first colon-separated token is not a bare
+    /// identifier are skipped, which is what keeps doc comments, attributes and wrapped
+    /// continuation lines such as `.map_err(|_| tonic::Status::…)` out of the result.
+    fn field_names(src: &str, anchor: &str, strip: &str) -> Vec<String> {
+        let mut names = Vec::new();
+        for (depth, line) in anchored_block(src, anchor) {
+            if depth != 1 {
+                continue;
+            }
+            let trimmed = line.trim();
+            let trimmed = trimmed.strip_prefix(strip).unwrap_or(trimmed);
+            let Some((name, _)) = trimmed.split_once(':') else {
+                continue;
+            };
+            let name = name.trim();
+            if !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+                names.push(name.to_string());
+            }
+        }
+        names.sort();
+        names.dedup();
+        names
+    }
+
+    /// `src/grpc_server.rs` builds its `MemoryRecord` with a struct literal. `#[serde(default)]`
+    /// does **not** apply to Rust struct literals, so any field the literal omits is a hard
+    /// `E0063` — and no job in `.github/workflows/` builds `--features grpc-server`. The literal
+    /// therefore stayed at 8 of 22 fields from the moment `MemoryRecord` gained its metric and
+    /// provenance fields.
+    ///
+    /// This reads both files and fails when the literal stops listing every declared field.
+    /// It inspects source text precisely because the defect is a compile error that nothing here
+    /// compiles: `protoc` is not installed, so `--features grpc-server` cannot be built even by
+    /// hand.
+    #[test]
+    fn gpc_literal_lists_every_declared_field() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let record_src = fs::read_to_string(root.join("src/memory_record.rs")).unwrap();
+        let grpc_src = fs::read_to_string(root.join("src/grpc_server.rs")).unwrap();
+
+        let declared = field_names(&record_src, "pub struct MemoryRecord {", "pub ");
+        let literal = field_names(&grpc_src, "let mut record = MemoryRecord {", "");
+
+        // Without this the comparison below would pass vacuously if the parser stopped
+        // recognising the declaration at all.
+        assert!(
+            declared.len() >= 20,
+            "field parser recovered only {} names from MemoryRecord: {declared:?}",
+            declared.len()
+        );
+
+        let missing: Vec<&String> = declared.iter().filter(|f| !literal.contains(f)).collect();
+        assert!(
+            missing.is_empty(),
+            "src/grpc_server.rs's MemoryRecord literal omits {missing:?}; \
+             --features grpc-server therefore fails with E0063 (`missing fields ... \
+             in initializer of MemoryRecord`) while no CI job compiles it"
+        );
+    }
+
+    /// The values the gRPC literal must supply, expressed as the constructor's defaults —
+    /// `MemoryRecord::new` is the reference implementation the literal mirrors. If a default
+    /// changes here, the hard-coded value in `src/grpc_server.rs` is now wrong and this test
+    /// says so.
+    #[test]
+    fn gpc_literal_defaults_match_the_constructor() {
+        let constructed = MemoryRecord::new(
+            MemoryType::Temporal,
+            "UnitTest".into(),
+            "test_grpc_defaults".into(),
+            "memory_record".into(),
+            json!({}),
+        );
+
+        assert_eq!(constructed.access_count, 0);
+        assert_eq!(constructed.last_accessed, constructed.timestamp);
+        assert_eq!(constructed.relevance_score, 1.0);
+        assert_eq!(constructed.expires_at, None);
+        assert_eq!(constructed.confidence, 1.0);
+        assert_eq!(constructed.source, None);
+        assert_eq!(constructed.version, 0);
+        assert!(constructed.tags.is_empty());
+        assert_eq!(constructed.priority, "normal");
+        assert_eq!(constructed.status, "active");
+        assert!(constructed.evidence.is_empty());
+        assert_eq!(constructed.derived_from, None);
+        assert_eq!(constructed.react_iteration, None);
+
+        // Two fields diverge on purpose, and the gRPC path is the one that keeps the older
+        // shape: it sets `integrity` from `compute_hash()` but leaves `content_hash` unset,
+        // where the constructor sets both to the same hash. Changing that is not this test's
+        // business — recording it is, so the divergence is deliberate rather than accidental.
+        assert!(constructed.integrity.is_some());
+        assert_eq!(constructed.integrity, constructed.content_hash);
+    }
 }

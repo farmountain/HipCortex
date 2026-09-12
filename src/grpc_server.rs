@@ -61,6 +61,26 @@ impl<B: MemoryBackend + Send + 'static> MemoryService for MemoryServiceImpl<B> {
             metadata: serde_json::from_str(&rec.metadata)
                 .map_err(|_| tonic::Status::invalid_argument("metadata"))?,
             integrity: None,
+            // The gRPC payload carries none of the fields below; these mirror the defaults in
+            // MemoryRecord::new. Omitting them was an E0063 that nothing here could see, because
+            // no CI job builds --features grpc-server and `protoc` is not installed.
+            access_count: 0,
+            last_accessed: chrono::Utc
+                .timestamp_opt(rec.timestamp, 0)
+                .single()
+                .ok_or_else(|| tonic::Status::invalid_argument("timestamp"))?,
+            relevance_score: 1.0,
+            content_hash: None,
+            expires_at: None,
+            confidence: 1.0,
+            source: None,
+            version: 0,
+            tags: Vec::new(),
+            priority: "normal".to_string(),
+            status: "active".to_string(),
+            evidence: Vec::new(),
+            derived_from: None,
+            react_iteration: None,
         };
         let hash = record.compute_hash();
         record.integrity = Some(hash);

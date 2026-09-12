@@ -305,6 +305,40 @@ Pipeline enforcement: `docs/superpowers/specs/2026-09-12-hipcortex-pipeline-enfo
   is untracked, so a fresh checkout reports `absent` for all five platforms and the gate correctly
   exits 1 — the staged tree exists only in `release.yml`, after `build-release` has populated it.
 
+**G13 — The gRPC Surface Has Not Compiled Since the Record Gained Fields**
+- `src/grpc_server.rs` built its `MemoryRecord` with a struct literal listing **8 of 22** fields.
+  `#[serde(default)]` does not apply to Rust struct literals — it is an attribute on the *serde*
+  path, not the initializer — so the omission is a hard `E0063`: `missing fields access_count,
+  confidence, content_hash and 11 other fields in initializer of MemoryRecord`. The 14 omitted
+  fields are the metric and provenance set (`access_count`, `last_accessed`, `relevance_score`,
+  `content_hash`, `expires_at`, `confidence`, `source`, `version`, `tags`, `priority`, `status`,
+  `evidence`, `derived_from`, `react_iteration`), so the feature has been dead code since the last
+  of them landed. `src/passive_capture.rs` builds the same record correctly and was the template.
+- Nothing noticed, and nothing *could*: `ci.yml` and `release.yml` name only `petgraph_backend`,
+  `tokio` and `web-server`. `--features grpc-server` had no owner. That is the same class as G1–G3
+  and G10 — declared, never run — reached from the third direction: not a test missing from a
+  registrar and not a target missing from a command line, but a *feature* missing from every build.
+- The literal is now complete. Every value mirrors `MemoryRecord::new`, with one divergence kept
+  deliberately rather than silently "fixed": the gRPC path sets `integrity` from `compute_hash()`
+  and leaves `content_hash` unset, where the constructor sets both to the same hash. That is the
+  pre-existing gRPC semantics and changing it is a separate decision.
+- Verification, given that `protoc` is not installed and the feature cannot be built here at all —
+  the same condition that hid the defect. Two independent checks, neither of which needs `protoc`:
+  1. `tests/unit/memory_tests.rs::gpc_literal_lists_every_declared_field` reads `src/memory_record.rs`
+     and `src/grpc_server.rs` and fails when the literal stops listing every declared field. Source
+     text is the right subject here because the defect *is* a compile error that nothing in this
+     repository compiles. RED against the old literal it named all 14 missing fields — the same count
+     and the same first three names the compiler reported. GREEN after the fix. It runs in the
+     `build-core` and `web-tests` jobs, which already call `--test unit_suite`, so the literal now
+     has an owner. It guards the field *set*; only a compiler can guard the field *types*, which is
+     item 2.
+  2. A scratch `examples/_grpc_literal_check.rs` mirrored the literal's field list and value
+     expressions against the real `MemoryRecord`; `cargo check --example` reported `Finished` with no
+     `E0063` and no `E0308`. The example was then deleted and is not part of the commit.
+- Residual, stated rather than claimed away: the *feature* still does not build in this environment,
+  because `build.rs` needs `protoc` and no job installs it. Enabling `--features grpc-server` in CI
+  is a separate decision with a separate cost, and is not asserted here.
+
 ## [1.3.0] - 2026-09-01 — Cognitive Loop Closure (Phases A–H)
 
 ### Added
