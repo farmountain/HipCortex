@@ -440,6 +440,106 @@ mod tests {
         );
     }
 
+    // ── G8: the 409 must name the exit that exists, and that exit must work ──────────────
+
+    /// A goal the ladder already settled, which the loop then failed, is not "completed".
+    ///
+    /// `/clarify` is right to refuse it: `success_factors` exist, so there is nothing left to
+    /// clarify. But the caller is not stuck either — `/react` only answers 422 when
+    /// `success_factors` is empty, so retrying against the settled factors is the supported
+    /// path. The 409 therefore has to name it; a bare "cannot clarify completed goal" misstates
+    /// the state *and* hides the exit.
+    #[tokio::test]
+    async fn a_settled_failed_goal_answers_409_naming_the_retry_that_works() {
+        let base = spawn_app().await;
+        let client = reqwest::Client::new();
+
+        // Built as the wire payload and round-tripped through `GoalPayload`, per the payload
+        // rule: metadata is only ever read back through the typed struct.
+        let metadata = serde_json::json!({
+            "target_state": "tweak_log_level",
+            "estimated_cost": 1.0,
+            "status": "Failed",
+            "success_factors": [
+                {"name": "log_level_is_tweakable", "weight": 1.0, "satisfied": false}
+            ],
+        });
+        assert!(
+            serde_json::from_value::<GoalPayload>(metadata.clone()).is_ok(),
+            "the fixture must round-trip through GoalPayload: {metadata}"
+        );
+
+        let created: serde_json::Value = client
+            .post(format!("{base}/memory/add"))
+            .json(&serde_json::json!({
+                "actor": "sit-settled",
+                "action": "set_goal",
+                "target": "tweak_log_level",
+                "record_type": "goal",
+                "metadata": metadata,
+            }))
+            .send()
+            .await
+            .expect("POST /memory/add must be reachable")
+            .json()
+            .await
+            .unwrap();
+        let gid = created
+            .get("record_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or_else(|| panic!("AddMemoryResponse must carry record_id: {created}"))
+            .to_string();
+
+        let clarify = client
+            .post(format!("{base}/goal/{gid}/clarify"))
+            .json(&serde_json::json!({}))
+            .send()
+            .await
+            .expect("POST /goal/:id/clarify must be reachable");
+        assert_eq!(
+            clarify.status().as_u16(),
+            409,
+            "a settled goal has nothing left to clarify and must be refused"
+        );
+        let body: serde_json::Value = clarify.json().await.unwrap();
+        let err = body
+            .get("error")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default();
+        assert!(
+            err.contains("success_factors"),
+            "the refusal must name what is already settled: {body}"
+        );
+        assert!(
+            !err.contains("completed"),
+            "a Failed goal is not a completed one — that wording made a recoverable state \
+             read as terminal: {body}"
+        );
+        let fix = body
+            .get("fix")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default();
+        assert!(
+            fix.contains(&format!("/goal/{gid}/react")),
+            "the refusal must name the supported retry *and this goal's id*: {body}"
+        );
+
+        // The named exit must be reachable. `/react` rejects only a goal with no factor to
+        // check; this one has one, so following the advice cannot land on the same dead end.
+        let react = client
+            .post(format!("{base}/goal/{gid}/react"))
+            .json(&serde_json::json!({}))
+            .send()
+            .await
+            .expect("POST /goal/:id/react must be reachable");
+        assert_eq!(
+            react.status().as_u16(),
+            200,
+            "the route named by the 409 must accept the goal it pointed at: {}",
+            react.text().await.unwrap_or_default()
+        );
+    }
+
     // ── The ledger is a pure read, and an unclarified goal still answers ─────────────────
 
     #[test]

@@ -351,6 +351,25 @@ Change the message to name that exit:
 No test asserts the current string (verified: the only occurrence is the handler itself), so
 this is a message change plus a new test asserting the retry path succeeds end to end.
 
+**As built (refinement found during implementation).** The gate is
+`terminal && (succeeded || !success_factors.is_empty())`, which covers two states that need
+different advice: a `Succeeded` goal is genuinely completed and has nothing to retry, whereas a
+`Failed` goal with factors is retryable. Emitting the "success_factors already exist" wording for
+the first case would assert something false — a `Succeeded` goal may have no factors at all. The
+body is therefore chosen per state:
+
+| State | `error` | `fix` |
+| --- | --- | --- |
+| `Succeeded` | `cannot clarify a completed goal` (unchanged) | `null` |
+| `Failed` with factors | `cannot clarify a settled goal: success_factors already exist` | `retry with POST /goal/{goal_id}/react` |
+
+`status` is echoed for observability. The `Succeeded` string is deliberately left byte-identical
+so the change cannot alter behaviour on a state that was never misdescribed.
+Test: `a_settled_failed_goal_answers_409_naming_the_retry_that_works` in
+`tests/integration/clarify_ladder_sit.rs` — asserts the 409 body names `/goal/{id}/react`, that
+`error` does **not** call a `Failed` goal "completed", and that following the advice returns 200
+(`ReactEngine::run` has no terminal-status guard; `/react` 422s only on an empty factor list).
+
 ---
 
 ## 4. Test plan — acceptance criterion to named test

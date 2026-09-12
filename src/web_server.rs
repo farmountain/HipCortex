@@ -2018,7 +2018,33 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
                 );
                 let succeeded = matches!(payload.status, crate::payloads::GoalStatus::Succeeded);
                 if terminal && (succeeded || !payload.success_factors.is_empty()) {
-                    return (axum::http::StatusCode::CONFLICT, axum::Json(serde_json::json!({"error": "cannot clarify completed goal"})));
+                    // The gate covers two terminal states that need different advice, so the body
+                    // names the state and the supported exit instead of one blanket string. A
+                    // `Failed` goal is not "completed": the ladder settled its factors, so
+                    // `/react` is retryable and `/clarify` correctly has nothing left to add.
+                    let (error, fix) = if succeeded {
+                        (
+                            "cannot clarify a completed goal".to_string(),
+                            serde_json::Value::Null,
+                        )
+                    } else {
+                        (
+                            "cannot clarify a settled goal: success_factors already exist"
+                                .to_string(),
+                            serde_json::json!(format!(
+                                "retry with POST /goal/{}/react",
+                                goal_id
+                            )),
+                        )
+                    };
+                    return (
+                        axum::http::StatusCode::CONFLICT,
+                        axum::Json(serde_json::json!({
+                            "error": error,
+                            "status": format!("{:?}", payload.status),
+                            "fix": fix,
+                        })),
+                    );
                 }
 
                 // Two ways to clarify, and they must not be conflated.
