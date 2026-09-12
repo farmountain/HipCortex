@@ -3,9 +3,10 @@
 All notable changes to HipCortex are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased] — Gap Closure H1–H10
+## [Unreleased] — Gap Closure H1–H10 + Pipeline Enforcement
 
 Design: `docs/superpowers/specs/2026-09-12-hipcortex-gap-closure-design.md`.
+Pipeline enforcement: `docs/superpowers/specs/2026-09-12-hipcortex-pipeline-enforcement-design.md`.
 
 ### Added
 
@@ -103,6 +104,43 @@ Design: `docs/superpowers/specs/2026-09-12-hipcortex-gap-closure-design.md`.
   for the same key — a key is a number or an array, not both. The explicit-naming clause was
   followed, and every in-repo consumer was updated in the same change. Each count is derived from
   its detail vector, and tests assert `count == detail.len()` so the two can never disagree.
+
+**G1/G2/G3 — CI Now Runs What It Previously Only Declared**
+- New `web-tests` job. `web-server` gates 127 integration tests (182 → 309) and `build-web` only
+  compiled the binary, so those tests existed but never executed in CI — which is how a
+  `record_type` mismatch on `/memory/query` reached `main` behind a green pipeline. The job runs the
+  unit, integration and property suites and clippy with the feature on, on the shared `cargo-web`
+  cache key.
+- `build-core` runs `tests/unit/` (509 tests). `--lib` covers only the crate's inline `#[cfg(test)]`
+  modules, so a file added under `tests/unit/` was invisible to the pipeline.
+- `python-sdk` runs `sdk/python/tests/` (242 tests) instead of 6. The directory needs no server and
+  takes ~6 s.
+- `publish-pypi` runs `python scripts/stamp_versions.py --mcp --check` before `python -m build`. The
+  wheel ships `hipcortex/install/mcp_server.py`, and on a PyPI install `install_hosts` falls back to
+  `importlib.resources` and copies *that* file out — so drift between it and `sdk/mcp/server.py`
+  would publish a broken tool set, with nothing in the release path to catch it.
+
+### Fixed
+
+**G4b — Consolidation Removals Survive a Restart**
+- `MemoryStore::delete_by_id` emptied `records` and rebuilt every index, but touched neither the
+  backend nor the pending write buffer. `MemoryBackend` exposes `load`/`append`/`flush`/`clear` and
+  **no delete**, so an append-only backend retained the record and the next `load()` read it back.
+  Every caller was affected, not just the one route. Removals now go through `delete_by_ids`, which
+  purges the buffer and rewrites the backend — the same durability contract `delete_by_actor`
+  already honoured. `delete_by_id` is documented as non-durable rather than left as a trap.
+- `MemoryStore::upsert` replaces a record in place and rewrites the backend in one pass.
+  `POST /memory/consolidate` used `delete_by_id` + `add` to reinsert a survivor, which rebuilt every
+  index twice and left a second copy of the same id in the append-only file. The handler now uses
+  both primitives and no longer contains a `delete_by_id` call.
+
+**G8 — A Failed Goal Is Not Reported as a Completed One**
+- The 409 from `POST /goal/:id/clarify` said `cannot clarify completed goal` for a `Failed` goal
+  whose ladder had already settled its success factors. That is wrong twice: the goal is not
+  completed, and the caller is not stuck — `/react` rejects only an *empty* factor list, so retrying
+  against the settled factors is the supported path. The body is now chosen per state: `Succeeded`
+  keeps its existing message (there is genuinely nothing to retry), while `Failed`-with-factors
+  names the settled factors and carries the working exit as `fix`.
 
 ## [1.3.0] - 2026-09-01 — Cognitive Loop Closure (Phases A–H)
 
