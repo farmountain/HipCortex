@@ -5013,13 +5013,15 @@ async fn handle_query_memory<B: MemoryBackend + Send + Sync + 'static>(
                 filtered_records.retain(|r| r.action == *action);
             }
             if let Some(record_type) = &params.record_type {
-                let target_type = match record_type.as_str() {
-                    "Temporal" => MemoryType::Temporal,
-                    "Symbolic" => MemoryType::Symbolic,
-                    "Procedural" => MemoryType::Procedural,
-                    "Reflexion" => MemoryType::Reflexion,
-                    "Perception" => MemoryType::Perception,
-                    _ => {
+                // Same authority as the write path (`POST /memory/add`, `POST /memory/bulk`).
+                // This block used to hold its own five-name, case-sensitive list, which made
+                // `GET /memory/query?record_type=Goal` a 400 for a record that
+                // `POST /memory/add` had just accepted with `record_type: "Goal"`, and even
+                // rejected `Semantic` — a documented alias. One vocabulary, one parser;
+                // no third hand-maintained record-type list.
+                let target_type = match parse_record_type_alias(Some(record_type.as_str())) {
+                    Ok(t) => t,
+                    Err(_bad) => {
                         return Err((
                             StatusCode::BAD_REQUEST,
                             Json(QueryMemoryResponse {
