@@ -186,6 +186,13 @@ TOOLS = [
                     "type": "integer",
                     "description": "Auto-expire after N seconds (omit for permanent memory)",
                 },
+                "intent_id": {
+                    "type": "string",
+                    "description": (
+                        "Open ActionIntent this add closes; routes a Temporal add through "
+                        "the Accept-Receipt seam instead of POST /memory/add."
+                    ),
+                },
             },
         },
     },
@@ -210,12 +217,19 @@ TOOLS = [
     },
     {
         "name": "forget_actor",
-        "description": "Delete all memories for an actor (GDPR right-to-forget / fresh start).",
+        "description": (
+            "GDPR hard-delete all records for an actor via a ForgetActor delta on "
+            "POST /v1/cognitive/transact."
+        ),
         "inputSchema": {
             "type": "object",
             "required": ["actor"],
             "properties": {
-                "actor": {"type": "string", "description": "Actor whose memories to delete"},
+                "actor": {"type": "string", "description": "Actor whose records to delete"},
+                "actor_id": {
+                    "type": "string",
+                    "description": "Legacy alias for actor; accepted for compatibility",
+                },
             },
         },
     },
@@ -622,17 +636,9 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "min_frequency": {"type": "integer", "default": 3, "description": "Minimum causal path frequency to qualify for induction."},
+                "actor": {"type": "string", "default": "mcp", "description": "Actor the AutoConsolidate transaction is attributed to."},
             },
             "required": [],
-        },
-    },
-    {
-        "name": "forget_actor",
-        "description": "GDPR hard-delete all records for an actor via ForgetActor delta.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {"actor_id": {"type": "string"}},
-            "required": ["actor_id"],
         },
     },
     {
@@ -1070,14 +1076,6 @@ def handle_search_memory(args: dict) -> str:
     return f"Found {len(lines)} record(s):\n" + "\n".join(lines)
 
 
-def handle_forget_actor(args: dict) -> str:
-    actor = args["actor"]
-    result = _delete(f"/memory/forget/{actor}")
-    deleted  = result.get("records_deleted", 0)
-    symbolic = result.get("symbolic_nodes_deleted", 0)
-    return f"✓ Deleted {deleted} records and {symbolic} symbolic nodes for '{actor}'."
-
-
 def handle_get_stats(_args: dict) -> str:
     result = _get("/stats")
     total   = result.get("total_records", 0)
@@ -1422,7 +1420,12 @@ def handle_get_state_export(_args: dict) -> str:
     )
 
 def handle_forget_actor(args: dict) -> str:
-    delta = {"type": "ForgetActor", "actor": args["actor_id"]}
+    # `actor` is the project-wide spelling (dispatch_tool itself defaults on it);
+    # `actor_id` is accepted because an older schema entry advertised it.
+    actor = args.get("actor") or args.get("actor_id")
+    if not actor:
+        raise ValueError("forget_actor requires 'actor'")
+    delta = {"type": "ForgetActor", "actor": actor}
     return json.dumps(_post("/v1/cognitive/transact", {"delta": delta, "actor": "mcp"}))
 
 def handle_archive_record(args: dict) -> str:
