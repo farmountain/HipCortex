@@ -26,8 +26,31 @@ We will introduce a **Cognitive Garbage Collector (GC)** for mathematical proven
 ### 2.3 Kalman Covariance Stability (Bug 2 / A3)
 **Design:** Implement the numerically stable Joseph form update: `P = (I - KH) P (I - KH)^T + K R K^T`. Add a symmetrization step to prevent asymmetric float drift.
 
-### 2.4 Merkle Chain Test Correction (A10)
-**Design:** Update the Python test `assert_merkle_chain_integrity` to match the production `compute_hash` implementation (serializing all non-hash fields).
+### 2.4 Merkle Chain Verification (A10) — **RESOLVED: the assertion was correct, the data was historical**
+**Original design (superseded):** update the Python test `assert_merkle_chain_integrity` to match the production `compute_hash` implementation.
+
+The recommendation to change the test rested on a false premise. The test already matched `compute_hash`; the records it rejected were hashed by a superseded binary. Measured on a frozen copy of the operator's live store (897 lines, copied before reading because the running instance keeps writing):
+
+| Check | Result |
+|---|---|
+| Python re-emission of each stored line vs. the stored bytes | **897 / 897, 0 differences** |
+| Records reproducing their stored hash under the convention `compute_hash` uses | **436** |
+| Records reproducing it when `"hash_version": 0` is written instead of omitted | **0** |
+| Records carrying a hash that does not reproduce under the correct convention | 307 |
+| Records carrying no hash at all (`integrity: null`) | 154 |
+| Records reproducing a *current-format* hash and failing | **0** |
+| Rust `integrity_verdict()` vs. an independent Python reimplementation | agree on all 897 (`mismatch = 0`) |
+
+Two things this establishes. First, the byte model is not in question: the harness re-emits every stored line exactly, so any digest it computes is computed over the right bytes. Second, the convention is load-bearing — omitting an absent tag reproduces 436 records, writing `"hash_version": 0` reproduces none, which is why a checker that gets the convention wrong reports a healthy store as wholly corrupt.
+
+The unverifiable records divide into two causes, both provenance rather than corruption:
+
+- **307 pre-tag records.** `compute_hash` hashes the serialised record, so any field added to `MemoryRecord` invalidates every earlier hash, and until this change nothing recorded which format a hash came from.
+- **154 records with no hash.** The server-side passive-capture path stores `integrity: null`; it writes one such record per `/memory/add`, so half of a fresh store is in this bucket. Gap recorded, not fixed here.
+
+Resolved not by changing the test but by tagging the hash format on the record (`hash_version`, `skip_serializing_if` a zero tag so pre-tag bytes stay byte-identical) and splitting verification into `Ok` / `LegacyUnverified` / `Mismatch`. The E2E assertion now verifies current-format records strictly and counts the rest, reporting the count against the total so a run that skipped everything cannot read as a pass.
+
+**Surfaced consequence, a defect in its own right:** `MemoryStore::rollback` (`src/memory_store.rs`) is the crate's only integrity verifier, and it returned `Err("integrity mismatch")` on the first record it could not re-hash — so a long-lived store could not be rolled back at all. `load()` never verifies, so the condition stayed silent until a rollback was attempted. `rollback()` now tolerates records it cannot re-hash and still refuses a current-format record that fails.
 
 ## 3. Sprint 2: The Unified Storage Foundation (Traps 2 & 3)
 

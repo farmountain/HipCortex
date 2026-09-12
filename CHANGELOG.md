@@ -399,6 +399,34 @@ Pipeline enforcement: `docs/superpowers/specs/2026-09-12-hipcortex-pipeline-enfo
   the crate's `integrity_verdict()` and a Python probe that first proves it can re-emit each stored
   line byte-for-byte (852/852) *before* any digest it computes is trusted.
 
+**G16 — The Merkle Assertion Was Never Wrong, and Half of Every Store Is Written Without a Hash**
+- A10 recommended rewriting the E2E harness's `assert_merkle_chain_integrity` to match
+  `compute_hash`. It already matched it: the recommendation rested on a false premise. Measured on a
+  frozen copy of the operator's live store (897 records, frozen before reading because the running
+  instance keeps writing), **Python re-emits every stored line byte-for-byte — 897/897, 0
+  differences** — so any digest it computes is computed over the right bytes. Two independent
+  implementations, the crate's `integrity_verdict()` and the Python reimplementation, agree on all
+  897 with `mismatch = 0`.
+- The hash convention is load-bearing, and getting it wrong is the easy mistake: with an absent tag
+  omitted exactly as `skip_serializing_if` omits it, **436** records reproduce their stored hash;
+  writing `"hash_version": 0` instead reproduces **0**. A checker that inserts the key reports a
+  healthy store as wholly corrupt — which is how this measurement first went wrong here, and why the
+  first result was discarded rather than believed.
+- The unverifiable records have two causes, both provenance rather than corruption: **307** hashed by
+  a superseded binary before the tag existed, and **154** carrying `integrity: null`. The second is a
+  new finding — the server-side passive-capture path stores one unhashed record per `/memory/add`, so
+  **half of a fresh, history-free store is already unverifiable**. Recorded, not fixed: an unhashed
+  record sits outside the Merkle chain by construction and closing that is a separate change.
+- `assert_merkle_chain_integrity` verifies current-format records strictly and returns the count it
+  could not verify. The phase-5 suite prints that count against the total (`5 unverifiable of 10`)
+  and asserts the strict path covered the records the test itself wrote, so a run in which every
+  record was skipped can no longer be read as a pass.
+- New `suites/test_merkle_strictness.py`, 6 tests, pins the behaviours and conventions the split
+  depends on: a current-format record verifies; a current-format record altered after hashing **still
+  fails the assertion**, so the split is not a deletion of the check; a pre-tag record and an
+  unhashed record are counted, not failed; a pre-tag digest omits the tag key; and the digest covers
+  raw UTF-8, because escaping non-ASCII would invent corruption in healthy records.
+
 ## [1.3.0] - 2026-09-01 — Cognitive Loop Closure (Phases A–H)
 
 ### Added
