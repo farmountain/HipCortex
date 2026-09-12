@@ -3126,6 +3126,53 @@ async fn handle_embed_and_add<B: MemoryBackend + Send + Sync + 'static>(
     store: Arc<Mutex<MemoryStore<B>>>,
     Json(req): Json<EmbedAndAddRequest>,
 ) -> Result<Json<AddMemoryResponse>, (StatusCode, Json<AddMemoryResponse>)> {
+    // Order matters, and this is deliberately the write path's order: classify the
+    // content, then resolve the record type, then spend a network call embedding.
+    // Previously this handler embedded first and resolved the type with a
+    // case-sensitive ladder that fell through to `MemoryType::Temporal`, so
+    // `{"record_type":"belief"}` returned 200 and wrote a decaying temporal trace,
+    // and an injection attempt in the target text was embedded and stored without
+    // ever reaching the guardrail its sibling /memory/add runs.
+    // Safety: classify free-text target/action before mutation
+    {
+        let ctx = format!("{} {} {}", req.actor, req.action, req.target);
+        if let Ok(mut guard) = crate::safety_guardrail::SAFETY_GUARDRAIL.lock() {
+            if let Err(reason) = guard.check_precondition(&ctx) {
+                return Err((
+                    StatusCode::FORBIDDEN,
+                    Json(AddMemoryResponse {
+                        success: false,
+                        record_id: None,
+                        error: Some(reason),
+                        warning: None,
+                    }),
+                ));
+            }
+        }
+    }
+
+    let record_type = match parse_record_type_alias(req.record_type.as_deref()) {
+        Ok(t) => t,
+        Err(bad) => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(AddMemoryResponse {
+                    success: false,
+                    record_id: None,
+                    error: Some(format!(
+                        "unknown record_type {:?}; valid values: {}",
+                        bad,
+                        RECORD_TYPE_ALIASES.join(", ")
+                    )),
+                    warning: Some(serde_json::json!({
+                        "valid_record_types": RECORD_TYPE_ALIASES,
+                        "reason": "record_type was previously coerced to Temporal on unrecognised input"
+                    })),
+                }),
+            ));
+        }
+    };
+
     let embedding = match generate_embedding(&req.embedding_model, &req.target).await {
         Ok(v) => v,
         Err(e) => {
@@ -3141,13 +3188,6 @@ async fn handle_embed_and_add<B: MemoryBackend + Send + Sync + 'static>(
         }
     };
 
-    let record_type = match req.record_type.as_deref() {
-        Some("Symbolic") => MemoryType::Symbolic,
-        Some("Procedural") => MemoryType::Procedural,
-        Some("Reflexion") => MemoryType::Reflexion,
-        Some("Perception") => MemoryType::Perception,
-        _ => MemoryType::Temporal,
-    };
     let mut metadata = req.metadata.unwrap_or_else(|| serde_json::json!({}));
     if let serde_json::Value::Object(ref mut map) = metadata {
         map.insert("embedding".to_string(), serde_json::json!(embedding));
