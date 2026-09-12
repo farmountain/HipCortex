@@ -532,12 +532,16 @@ Design: `docs/superpowers/specs/2026-09-12-hipcortex-mcp-tool-surface-design.md`
   The suite is **88 passed / 2 suites**, verified with `server/` moved aside — the exact CI condition
   — as well as with it staged.
 
-**G19 — Seven SITs Allowed 15 s for a Start-Up Cost Measured in Tens of Seconds**
+**G19 — Seven SITs Queued on One Cargo Lock and Blamed a Timeout**
 - `TestServer::start` in `tests/integration/sit_tests.rs` launched the server with `cargo run` and
   allowed **30 × 500 ms = 15 s** for `/health` to answer. `uat_tests::UATTestRunner::new` launches the
   identical subprocess and has always allowed **60 × 1000 ms = 60 s**, with in-source comments
   recording that the numbers were widened (`// Increased from 30 to 60 attempts`). The sibling's
   budget was the correct one; this one was too small for the work it covered.
+- The sibling's budget was, however, the *symptom* of the mismatch rather than its cure. `uat_tests`
+  has **three** concurrent call sites; these seven tests each start a server, so the operand is not
+  the same and the precedent does not transfer. The right question was how to stop the contention,
+  not how large to make the window — widening a timeout treats what removing a lock eliminates.
 - The suite reads **313 passed / 0 failed** locally and **306 passed / 7 failed** in CI on the same
   commit, all seven on `.expect("Failed to start test server")`. Seven tests spawn a server, and the
   test harness runs them concurrently, so the failure is about how many cargo-mediated launches have
@@ -572,7 +576,13 @@ Design: `docs/superpowers/specs/2026-09-12-hipcortex-mcp-tool-surface-design.md`
     real diagnosis with a less informative one. Now `kill` and `wait` are both best-effort.
   - The error said only `Server failed to start within timeout`. It now names the budget, the start-up
     path actually used, and the concurrency.
-- Verified: full web-server `integration_suite` **313 passed / 0 failed**, all seven SITs `ok`.
+- Verified locally: full web-server `integration_suite` **313 passed / 0 failed**, all seven SITs
+  `ok`, and the seven alone reporting **1.59 s** of test time — seven cargo-mediated launches could
+  not fit in that, so the direct spawn is demonstrably in effect rather than merely present.
+- **Confirmed in CI.** `Test (web-server,petgraph_backend)` on run `34703851361` (commit `00c56f9`)
+  reports **success**. This is the job that read 306 passed / 7 failed on the same suite at `28366b8`,
+  and it is the first time these seven tests have ever passed under the pipeline - the contention
+  removal is what closed it, on the two-core runner that exposed it.
 - Correction to this entry's first draft, recorded rather than quietly amended: the local gate battery
   asserted `failed == 0` for this exact suite and reported it green, and that measurement was
   truthful — the suite really does pass here. **A local green is not a proxy for CI when the
