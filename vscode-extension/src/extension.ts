@@ -286,7 +286,8 @@ async function killKnownHipcortexPid(_port: number, log?: (msg: string) => void)
     }
 }
 
-const MIN_BINARY_BYTES = 1_000_000;
+/** Minimum plausible size for a real packed server binary; HTML/placeholder stubs are far smaller. */
+export const MIN_BINARY_BYTES = 1_000_000;
 const SERVER_START_TIMEOUT_SEC = 30;
 
 let extensionInstallPath: string | undefined;

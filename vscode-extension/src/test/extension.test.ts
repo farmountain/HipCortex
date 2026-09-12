@@ -8,6 +8,7 @@ import {
     buildPublishedBinaryName,
     HARNESS_TOOL_DESCRIPTIONS,
     isValidServerBinary,
+    MIN_BINARY_BYTES,
     ensureUnixExecutable,
     activate,
     AddMemoryRequest,
@@ -265,11 +266,37 @@ describe('HipCortex Extension Unit Tests', () => {
             expect(buildPublishedBinaryName('win32', 'x64')).not.toContain('webserver');
         });
 
-        // Basic test for Task 2: fetch script ran (or directory check)
-        test('bundled win32 binary should be valid (not placeholder/HTML)', () => {
-            const winAsset = path.join(__dirname, '..', '..', 'server', 'win32', 'hipcortex-windows-amd64.exe');
-            expect(fs.existsSync(winAsset)).toBe(true);
-            expect(isValidServerBinary(winAsset)).toBe(true);
+        // server/ is gitignored and only exists after `npm run fetch-bins` has staged the
+        // release assets, so the unit suite must not assert on it - that invariant is owned
+        // by `node scripts/fetch-bins.js --check` in release.yml, which runs where the
+        // binaries actually exist. Cover the accept path with a synthetic fixture instead so
+        // this test behaves identically on a clean checkout and in CI.
+        test('isValidServerBinary accepts a real binary (not only rejects placeholders)', () => {
+            const tmp = path.join(os.tmpdir(), `hipcortex-realbin-${Date.now()}`);
+            const buf = Buffer.alloc(MIN_BINARY_BYTES + 1024);
+            buf.write('MZ', 0, 'latin1');
+            fs.writeFileSync(tmp, buf);
+            try {
+                expect(isValidServerBinary(tmp)).toBe(true);
+            } finally {
+                try { fs.unlinkSync(tmp); } catch { /* ignore */ }
+            }
+        });
+
+        // The tiny-placeholder case below trips the size check and never reaches the
+        // HTML/PLACEHOLDER prefix guard, so cover that guard explicitly: a release
+        // download that returned an HTML error page has a plausible size and is
+        // exactly what the prefix check exists to catch.
+        test('isValidServerBinary rejects an HTML error page saved as a binary', () => {
+            const tmp = path.join(os.tmpdir(), `hipcortex-html-${Date.now()}`);
+            const html = Buffer.alloc(MIN_BINARY_BYTES + 1024, 0x20);
+            html.write('<!DOCTYPE html>', 0, 'latin1');
+            fs.writeFileSync(tmp, html);
+            try {
+                expect(isValidServerBinary(tmp)).toBe(false);
+            } finally {
+                try { fs.unlinkSync(tmp); } catch { /* ignore */ }
+            }
         });
 
         test('ensureUnixExecutable no-ops on win32 path shape', () => {
