@@ -1151,7 +1151,20 @@ cargo build --no-default-features --features "petgraph_backend,web-server"
 # 2. Lint (never apply an is_none_or suggestion — MSRV 1.70)
 cargo clippy --no-default-features --features "petgraph_backend" --all-targets -- -D clippy::correctness
 cargo clippy --no-default-features --features "petgraph_backend,web-server" --all-targets -- -D clippy::correctness
-cargo fmt --all -- --check
+
+# Formatting: NOT `cargo fmt --all -- --check`. That fails at the parent commit with
+# 882 diff blocks spread across the repository, so it is not a gate this change can
+# satisfy without a repo-wide reformat, which the Surgical Changes rule forbids.
+# The gate is instead: a file this plan touches must not carry more rustfmt diffs
+# than it carried before. Measured per file with
+#   rustfmt --check --edition 2021 <file>          (count occurrences of "Diff in")
+# Never pipe that through Python without an explicit utf-8 decode: the console
+# default codec is GBK and rustfmt emits UTF-8, which raises UnicodeDecodeError.
+#
+# Baseline at 8756478 (parent of fde853b):
+#   tests/integration/v110_rest_sit.rs  28      src/web_server.rs  15
+# After the /memory/embed fix:
+#   tests/integration/v110_rest_sit.rs  28      src/web_server.rs  15
 
 # 3. Tests
 cargo test --no-default-features --features "petgraph_backend" --test unit_suite
