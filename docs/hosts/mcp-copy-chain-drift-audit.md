@@ -167,12 +167,51 @@ turned into acceptance criteria.
 
 ## 4. Pre-existing drift the handover did not name
 
+### 4.1 `forget_actor` is advertised twice, and the first shape raises
+
+`TOOLS` contains **two** entries named `forget_actor` with **incompatible schemas**:
+
+| # | line | description | `required` |
+|---|---|---|---|
+| 1 | `:212` | "Delete all memories for an actor (GDPR right-to-forget / fresh start)." | `["actor"]` |
+| 2 | `:630` | "GDPR hard-delete all records for an actor via ForgetActor delta." | `["actor_id"]` |
+
+Both dispatch to `handle_forget_actor`, which is **defined twice**:
+
+* `:1073` — `args["actor"]` → `_delete(f"/memory/forget/{actor}")`
+* `:1424` — `args["actor_id"]` → `POST /v1/cognitive/transact` with a `ForgetActor` delta
+
+Python keeps the second definition, so `:1073` is dead code, the `DELETE /memory/forget/{actor}` path is
+unreachable, and the handler requires `actor_id` — the key that schema entry **#2** declares and entry **#1**
+does not. An MCP host that presents the first entry (the common case: first match wins) tells the model to pass
+`actor`.
+
+Proven by execution, not by reading — importing the canonical module and calling
+`dispatch_tool("forget_actor", {"actor": "probe"})` yields `KeyError: 'actor_id'`, which `main()` converts to
+JSON-RPC `error.code = -32000`; `{"actor_id": "probe"}` proceeds past the handler and reaches
+`POST /v1/cognitive/transact`. A sweep of all 61 dispatched tools found no other handler that hard-reads a key
+its schema fails to declare.
+
+### 4.2 `add_memory` reads an undeclared key
+
+`handle_add_memory` reads `args.get("intent_id")`, but the `add_memory` schema declares only
+`actor`, `action`, `target`, `record_type`, `ttl_seconds`. The server does accept `intent_id`
+(`AddMemoryRequest.intent_id`, the Accept-Receipt redirect), so the schema is incomplete — the client cannot
+learn the field exists. Low severity: the read is `.get`, so nothing raises.
+
+### 4.3 `CLAUDE.md` states the tool surface wrongly
+
 `CLAUDE.md` states the MCP server exposes **"18 tools + 3 resources"**. Measured: `TOOLS` holds **62 entries
 (61 unique)** and `RESOURCES` holds **7**. The stated "18" matches the *stale deployed copy*, which suggests the
 figure was never updated after the canonical list grew.
 
-Also: `TOOLS` lists `forget_actor` **twice**. Whether that is intentional aliasing or a duplicate entry is not
-determined here.
+### 4.4 A probe that reproduces the original defect
+
+The check "every global name a dispatched handler reads resolves at module scope" is the general form of the
+`_req` bug. Run across the four copies it returns **17 unresolved sites in `build/lib`** — exactly the copy that
+still lacks `_req`, one site per affected handler — and **none in the canonical file, the bundle, or the
+deployed copy**. The check therefore reproduces a known-broken input and clears a known-good one, which is what
+makes it worth keeping as a test rather than a one-off probe.
 
 ---
 
@@ -218,6 +257,9 @@ Reproducible from a checkout; none of it needs a build.
 | CI enforcement | job block read out of `.github/workflows/ci.yml` (the `python-sdk` job begins at `:238`); every `pytest` line in every workflow file printed |
 | what the index holds | `GET /stats`, `POST /memory/search` ×6 |
 | `python` resolution | `Get-Command python -All` |
+| §4.1/§4.2 (schemas vs handler bodies) | `ast.parse` of `TOOLS` (names, `required`, `properties`) vs the `dispatch_tool` `handlers` dict vs each handler's `args[...]` / `args.get(...)` reads |
+| §4.1 break | import the canonical module by path with `HIPCORTEX_URL` on a dead port, then `dispatch_tool("forget_actor", {"actor": …})` and catch the exception `main()` would render as `-32000` |
+| §4.4 | for each dispatched handler, collect module-scope bindings (defs, assigns, imports, `if`/`try`/`with` bodies) + its own locals/params + `builtins`; report every `Load` name outside all three |
 
 ---
 
@@ -226,22 +268,36 @@ Reproducible from a checkout; none of it needs a build.
 Ordered by whether it is durable or local repair. Nothing here should be started before the numbers above are
 accepted, because the handover's own fix order was built on a 12:44 reading of a tree that has since moved.
 
+0. **§4.1 `forget_actor`** — the only live defect found in this audit, and the one item that is not a staleness
+   problem: one of the two advertised argument shapes cannot work. Fix the duplicate schema entry, the duplicate
+   definition, and the `actor`/`actor_id` split.
 1. **G6 residual** — a test that invokes every `TOOLS` entry against a stubbed transport, so an unexercised
-   handler cannot die at runtime. This is the only *durable* item that is not already closed.
+   handler cannot die at runtime. This is the only *durable* item that is not already closed, and §4.4 shows the
+   underlying check has already caught a real defect on a copy that still had it.
 2. **G1 residual** — an explicit `--mcp --check` step in `ci.yml`. Optional: `pytest sdk/python/tests/` already
    fails on drift; the step adds a clearer failure message and covers the case where the Python job is skipped.
 3. **G7** — correct the spec's H2 row and WP4 criteria. Prefer "every `_req` call site resolves" over a fixed
    count, so it cannot go stale again.
-4. **G8** — pin an absolute interpreter in `HipCortex/.mcp.json`.
+4. **G8** — pin an absolute interpreter in `HipCortex/.mcp.json`. Note that the repo-side fix is not obvious:
+   committing one machine's interpreter path makes the file non-portable, whereas
+   `install_hosts.py::_desired_mcp_entry()` already pins `sys.executable` for machine-local installs. Probably a
+   documentation note rather than an edit.
 5. **G4 → G5 → G3** — local environment repair, in that order: repoint VS Code's registry, then restart the four
    processes, then refresh `~/.hipcortex-mcp/server.py`. Restarting before repointing converts a stale-but-working
    server into no server. All of it touches the user's live setup.
 6. **G9** — no action. It is gitignored, regenerated by setuptools, and 6 days old, not 7 weeks.
-7. **`CLAUDE.md` counts** — 18/3 is stale; the real figures are 62 (61 unique) and 7.
+7. **§4.3 `CLAUDE.md` counts** — 18/3 is stale; the real figures are 62 (61 unique) and 7.
 
 Two questions cannot be resolved by measurement and are left for the user:
 
 * Whether any of the local repairs (5) should be performed at all — they change the running environment the user
   is actively using, and the handover's caveat that *which* process served the observed calls was never
   determined still stands.
-* Whether `forget_actor` appearing twice in `TOOLS` is intended.
+* Whether the deployed-copy configs should be repointed at the canonical file, or the installer rerun against
+  them, given `docs/hosts/README.md:30` and `docs/hosts/grok-build.md:16` present the deployed path as an
+  intended `hipcortex install` output rather than an accident.
+
+The question the earlier draft of this audit left open — whether `forget_actor` appearing twice in `TOOLS` is
+intended — is now answered: it is not. The two entries disagree about the argument name, only one of the two
+implementations survives, and the shape the first entry advertises raises (§4.1).
+
