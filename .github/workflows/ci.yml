@@ -256,12 +256,17 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/sdk/python
 
-      # The step above covers 6 tests. sdk/python/tests/ holds 242 — the passive
+      # The step above covers 6 tests. sdk/python/tests/ holds the passive
       # observers, the MCP server contract, config and CLI behaviour — and none
-      # of it ran in CI. The whole directory is ~6s and needs no server, so there
-      # is no reason to keep it out of the pipeline.
+      # of it ran in CI. The directory is ~10s and needs no server, so there is
+      # no reason to keep it out of the pipeline.
+      #
+      # sdk/mcp/test_server.py joins it for the same reason: it covers the
+      # JSON-RPC transport and the harness soft-warning, needs no server, and no
+      # workflow ran it — so four of its twelve tests failed unobserved.
+      # Invoke it with pytest; as a script it exits 0 without running anything.
       - name: Run SDK test suite
-        run: pytest sdk/python/tests/ -q
+        run: pytest sdk/python/tests/ sdk/mcp/test_server.py -q
         env:
           PYTHONPATH: ${{ github.workspace }}/sdk/python
 

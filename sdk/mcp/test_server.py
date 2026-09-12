@@ -1,17 +1,24 @@
 """MCP server tests — run: pytest sdk/mcp/test_server.py -v
 Requires: pip install requests pytest
+
+Invoke with pytest, never as a script: `python test_server.py` exits 0 having
+run no test at all, which reads exactly like a pass.
 """
 import json
 import io
+import os
 from unittest.mock import patch, MagicMock
 import importlib.util
+
+# Resolved from this file so the suite runs from any working directory.
+_SERVER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "server.py")
 
 
 def _load_server():
     """Import server module without executing __main__."""
     spec = importlib.util.spec_from_file_location(
         "mcp_server",
-        "sdk/mcp/server.py",
+        _SERVER_PATH,
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -40,7 +47,11 @@ def test_initialize():
     ])
     assert len(resp) == 1
     assert resp[0]["id"] == 1
-    assert resp[0]["result"]["capabilities"] == {"tools": {}}
+    # Advertise only what is served: `resources` belongs in the capability
+    # block exactly when RESOURCES declares any, so the two cannot drift.
+    caps = resp[0]["result"]["capabilities"]
+    assert "tools" in caps
+    assert ("resources" in caps) == bool(_load_server().RESOURCES)
     assert resp[0]["result"]["serverInfo"]["name"] == "hipcortex"
 
 
@@ -52,7 +63,11 @@ def test_tools_list():
     ])
     tools_resp = next(r for r in resp if r.get("id") == 2)
     tool_names = {t["name"] for t in tools_resp["result"]["tools"]}
-    assert tool_names == {
+    # Bind to the declaration, not to a snapshot of it: an exact set of names
+    # rots on every addition, and this one had gone stale by 43 tools.
+    assert tool_names == {t["name"] for t in _load_server().TOOLS}
+    # The original intent survives as a floor: these must always be advertised.
+    assert {
         "add_memory",
         "search_memory",
         "forget_actor",
@@ -71,7 +86,7 @@ def test_tools_list():
         "purge_expired",
         "reflect",
         "predict",
-    }
+    } <= tool_names
 
 
 def test_tools_call_add_memory():
@@ -209,7 +224,7 @@ def _mock_search_empty():
 def test_harness_warn_search_without_live_beliefs():
     """search_memory alone → soft harness warning prepended (HIPCORTEX_HARNESS_SOFT default on)."""
     mod = _load_server()
-    mod._live_beliefs_seen = False
+    mod._live_beliefs_seen_actors.clear()
     post, get = _mock_search_empty()
     original_getenv = mod.os.getenv
 
@@ -231,7 +246,7 @@ def test_harness_warn_search_without_live_beliefs():
 def test_harness_no_warn_after_live_beliefs():
     """get_live_beliefs first → later search_memory has no harness warning."""
     mod = _load_server()
-    mod._live_beliefs_seen = False
+    mod._live_beliefs_seen_actors.clear()
     beliefs = MagicMock()
     beliefs.json.return_value = {
         "beliefs": [{"actor": "p", "action": "decided", "target": "JWT"}],
@@ -249,16 +264,18 @@ def test_harness_no_warn_after_live_beliefs():
          patch.object(mod.requests, "post", return_value=post):
         live = mod.dispatch_tool("get_live_beliefs", {})
         assert "JWT" in live
-        assert mod._live_beliefs_seen is True
+        # The seen-set is per actor; dispatch_tool defaults the actor to
+        # "_global", and that is the actor the following search uses too.
+        assert "_global" in mod._live_beliefs_seen_actors
         text = mod.dispatch_tool("search_memory", {"query": "auth"})
     assert _HARNESS_SNIPPET not in text
     assert "No memories found." in text
 
 
 def test_harness_no_warn_after_reflect():
-    """reflect also sets live_beliefs_seen (substrate-first CoT path)."""
+    """reflect also marks the actor as having seen live beliefs (substrate-first CoT path)."""
     mod = _load_server()
-    mod._live_beliefs_seen = False
+    mod._live_beliefs_seen_actors.clear()
     reflect_resp = MagicMock()
     reflect_resp.json.return_value = {
         "hypothesis": "use JWT",
@@ -279,7 +296,7 @@ def test_harness_no_warn_after_reflect():
     with patch.object(mod.requests, "post", side_effect=post_side), \
          patch.object(mod.requests, "get", return_value=get_empty):
         mod.dispatch_tool("reflect", {"query": "auth"})
-        assert mod._live_beliefs_seen is True
+        assert "_global" in mod._live_beliefs_seen_actors
         text = mod.dispatch_tool("search_memory", {"query": "auth"})
     assert _HARNESS_SNIPPET not in text
 
@@ -287,7 +304,7 @@ def test_harness_no_warn_after_reflect():
 def test_harness_soft_off_no_warn():
     """HIPCORTEX_HARNESS_SOFT=0 disables soft warning entirely."""
     mod = _load_server()
-    mod._live_beliefs_seen = False
+    mod._live_beliefs_seen_actors.clear()
     post, get = _mock_search_empty()
     original_getenv = mod.os.getenv
 
