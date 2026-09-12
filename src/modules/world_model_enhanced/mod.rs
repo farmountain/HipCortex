@@ -487,7 +487,28 @@ impl WorldModelEnhanced {
             }
         }
 
-        graph.compute_intervention(&query)
+        // The heuristic fallback keys its map by outcome *value* ("1"), while the branch above
+        // keys by `<outcome>=<value>` and repeats the MAP estimate under the bare outcome name.
+        // One public method answering in one shape or the other depending on whether empirical
+        // distributions happen to exist is a trap: `world_model_actor` reads the bare name and
+        // silently got nothing. Re-key the fallback into the empirical shape. Purely additive —
+        // every value-qualified entry is preserved, only its key gains the outcome prefix.
+        let heuristic = graph.compute_intervention(&query)?;
+        if heuristic.is_empty() {
+            return Ok(heuristic);
+        }
+        let mut result: HashMap<String, f64> = heuristic
+            .into_iter()
+            .map(|(value, p)| (format!("{}={}", query.outcome, value), p))
+            .collect();
+        let map_estimate = result
+            .iter()
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(_, &p)| p);
+        if let Some(p) = map_estimate {
+            result.insert(query.outcome.clone(), p);
+        }
+        Ok(result)
     }
 
     /// Counterfactual via Pearl SCM (abduction-action-prediction); falls back to heuristic.

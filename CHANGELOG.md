@@ -119,6 +119,13 @@ Pipeline enforcement: `docs/superpowers/specs/2026-09-12-hipcortex-pipeline-enfo
   wheel ships `hipcortex/install/mcp_server.py`, and on a PyPI install `install_hosts` falls back to
   `importlib.resources` and copies *that* file out — so drift between it and `sdk/mcp/server.py`
   would publish a broken tool set, with nothing in the release path to catch it.
+- The reasoning above was understated, and running the sweep proved it. `origin/main`'s CI run
+  `34604611892` fails at `Unit tests (with tokio actors)` with exit 101, and **every later step is
+  skipped** — `Integration tests` (both), `Property tests` (both), `Clippy` (both) and `Rustfmt`
+  have never executed on `main`. A declared gate below a failing step is not a gate, and step order
+  is a silent dependency. The defect that caused it is fixed under "Fixed" below; the general point
+  is that "the pipeline is green" and "the pipeline ran" are different claims, and only the last
+  step of a job can tell you which one you have.
 
 ### Fixed
 
@@ -141,6 +148,20 @@ Pipeline enforcement: `docs/superpowers/specs/2026-09-12-hipcortex-pipeline-enfo
   against the settled factors is the supported path. The body is now chosen per state: `Succeeded`
   keeps its existing message (there is genuinely nothing to retry), while `Failed`-with-factors
   names the settled factors and carries the working exit as `fix`.
+
+**G9 — One Intervention Shape, Whatever the World Model Knows**
+- `WorldModelEnhanced::causal_intervention` answered in one of two key shapes depending on hidden
+  state. When empirical distributions existed it returned `<outcome>=<value>` keys plus the MAP
+  estimate under the bare outcome name; when they did not, it delegated to
+  `CausalGraph::compute_intervention`, which keys by outcome *value* alone (`{"1": 0.5}`). A caller
+  reading the outcome variable therefore got a non-empty map with nothing addressable — the tokio
+  actor test asserted exactly that and panicked. The fallback is now re-keyed into the empirical
+  shape; it is purely additive (every value-qualified entry is preserved, only the key gains the
+  outcome prefix) and an empty result is still returned empty. Fixed in the wrapper, **not** in
+  `CausalGraph`, whose value-keyed shape is a separate public API with its own direct caller.
+- This defect was **pre-existing on `origin/main`**, and finding it exposed the more serious fact
+  recorded under "Changed" below: because that step fails, every step after it is skipped, so
+  `origin/main` has never run its integration, property, clippy or rustfmt gates at all.
 
 ## [1.3.0] - 2026-09-01 — Cognitive Loop Closure (Phases A–H)
 

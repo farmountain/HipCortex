@@ -532,3 +532,58 @@ fn h10_rollout_requires_a_pinned_intervention() {
         err
     );
 }
+
+/// `WorldModelEnhanced::causal_intervention` has two branches: an empirical backdoor path when
+/// distributions have been recorded, and the heuristic fallback in `CausalGraph` when they have
+/// not. They used to return different key shapes — the empirical branch keys by `<outcome>=<value>`
+/// and repeats the MAP estimate under the bare outcome name, while the fallback keyed by outcome
+/// *value* alone ("1"), so a caller reading the outcome variable found nothing. A public method
+/// that answers in one shape or another depending on hidden state is not a contract, so this pins
+/// the shape for the branch that needs no recorded data. `world_model_actor` reads the bare name.
+#[test]
+fn causal_intervention_fallback_is_keyed_by_the_outcome_variable() {
+    let wm = WorldModelEnhanced::new();
+    // Edge only: no `record_empirical_distribution`, so this takes the heuristic fallback.
+    wm.add_causal_edge("rain".into(), "wet_floor".into()).unwrap();
+
+    let query = InterventionQuery {
+        outcome: "wet_floor".into(),
+        intervention_var: "rain".into(),
+        intervention_value: 1.0,
+        conditioned_on: HashMap::new(),
+        intervention_label: None,
+        intervention_vector: None,
+    };
+    let result = wm.causal_intervention(query).unwrap();
+
+    assert!(
+        !result.is_empty(),
+        "the fallback must answer, not return an empty map: {:?}",
+        result
+    );
+    assert!(
+        result.contains_key("wet_floor"),
+        "the outcome variable is not addressable: {:?}",
+        result
+    );
+    assert!(
+        result
+            .keys()
+            .any(|k| k.starts_with("wet_floor=")),
+        "no value-qualified key, so the per-value distribution is unreadable: {:?}",
+        result
+    );
+
+    let map_estimate = result["wet_floor"];
+    let best = result
+        .iter()
+        .filter(|(k, _)| k.starts_with("wet_floor="))
+        .map(|(_, v)| *v)
+        .fold(f64::NEG_INFINITY, f64::max);
+    assert!(
+        (map_estimate - best).abs() < 1e-12,
+        "the bare outcome key is {}, but the best value-qualified entry is {} — it must be the MAP",
+        map_estimate,
+        best
+    );
+}

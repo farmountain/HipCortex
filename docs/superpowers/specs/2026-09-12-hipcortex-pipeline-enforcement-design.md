@@ -372,6 +372,98 @@ Test: `a_settled_failed_goal_answers_409_naming_the_retry_that_works` in
 
 ---
 
+### 3.9 G9 — the abort that hid every step after it (found by running the sweep)
+
+**Found, not planned.** The validation sweep for this change ran the exact command
+`build-core` runs. It failed with exit 101 — so the finding was investigated rather than assumed
+to be a regression.
+
+*Evidence, in order:*
+
+1. `cargo test --no-default-features --features "petgraph_backend,tokio" --lib` → **101**,
+   two consecutive runs (deterministic). 369 passed, 1 failed.
+2. The panic is `src/actors/world_model_actor.rs:378`:
+   `assertion failed: intervention_res.contains_key("wet_floor") || intervention_res.is_empty()`.
+3. `git show 17055a0 -- src/actors/` — this change's only edit to that file is **+1 line**
+   (`intervention_vector: None,` in a struct literal, a compile fix for the new field). Not the
+   cause.
+4. `git show origin/main:src/.../causal.rs` — `origin/main` carries the **same** value-keyed tail
+   in `CausalGraph::compute_intervention`. So this is not introduced here.
+5. `gh run list` / `gh run view 34604611892` — `origin/main`'s own CI run matching `395776d` is
+   **`failure`**. The failing job is `Build + Test (petgraph_backend)`; the failing step is
+   `X Unit tests (with tokio actors)` with `Process completed with exit code 101`, and
+   **every later step is `-` (skipped)**: `Integration tests`, `Integration tests (with tokio
+   actors)`, `Property tests`, `Property tests (with tokio actors)`, `Clippy`, `Clippy (with tokio
+   actors)`, `Rustfmt`.
+
+Step 5 is the important one, and it is worse than a single red test: **`origin/main` has never run
+its integration, property, clippy or rustfmt gates.** They are declared in the workflow and have
+never executed. This is a second, independent instance of the defect this whole change exists to
+fix (§1.1) — a gate that is declared and never reached is not a gate. G2's rationale is therefore
+understated: not "the web-server feature was untested" but "any step below a step that fails is
+untested, and step order is a silent dependency."
+
+**Root cause.** `WorldModelEnhanced::causal_intervention` has two branches. The empirical branch
+(when distributions have been recorded) inserts `<outcome>=<value>` keys and then repeats the MAP
+estimate under the bare outcome name; `mod.rs`'s own test pins that contract
+(`res.get("Y")`). The fallback branch — taken when no empirical distributions exist — delegated
+straight to `CausalGraph::compute_intervention`, which keys by outcome **value** alone
+(`{"1": 0.5}`). One public method therefore answered in one of two shapes depending on hidden
+state, and the actor test reads the bare outcome name. Under the empirical branch it works; under
+the fallback it gets a non-empty map with no addressable outcome and panics. The test is
+correct — it is asserting the contract the method's own documentation and sibling test assert.
+
+**Decision — fix where the contract is stated, not where the shape is produced.** The alternative
+was to relax the assertion. Rejected: the assertion states the public contract, and the empirical
+branch already honours it. The fix goes in the wrapper
+`WorldModelEnhanced::causal_intervention` (the `mod.rs` fallback call), **not** in
+`CausalGraph::compute_intervention`, because `tests/integration/intelligence_sit.rs` calls the
+graph-level function directly and a change there would alter a second, independent public API to
+fix a defect in the first. `CausalGraph` keeps its value-keyed shape.
+
+The fallback is re-keyed into the empirical shape — additive, nothing dropped:
+
+```rust
+let heuristic = graph.compute_intervention(&query)?;
+if heuristic.is_empty() {
+    return Ok(heuristic);
+}
+let mut result: HashMap<String, f64> = heuristic
+    .into_iter()
+    .map(|(value, p)| (format!("{}={}", query.outcome, value), p))
+    .collect();
+let map_estimate = result
+    .iter()
+    .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
+    .map(|(_, &p)| p);
+if let Some(p) = map_estimate {
+    result.insert(query.outcome.clone(), p);
+}
+Ok(result)
+```
+
+The empty case is returned untouched: an empty map stays empty, so the "no answer" case keeps
+meaning no answer and no key is invented.
+
+*Falsification:* the new test was written first and run against unfixed code. It failed at
+`tests/unit/scm_foundations_tests.rs:564` with the actual map in the message —
+`the outcome variable is not addressable: {"1": 0.5}`. After the fix: 1 passed, and the previously
+red CI step is `370 passed; 0 failed`.
+
+Regression test: `causal_intervention_fallback_is_keyed_by_the_outcome_variable` in
+`tests/unit/scm_foundations_tests.rs`. It is deliberately **not** tokio-gated — the actor test
+that found this only runs under `--features tokio`, so the contract would be unpinned in the
+minimal build, which is the build the default CI job runs first. It asserts the outcome variable is
+addressable, that value-qualified keys survive, and that the bare key is the MAP over them.
+
+Consumers audited before choosing the site (19 call sites, 9 files): the REST handler
+`handle_wm_causal_intervention` forwards the map as `outcome_probabilities` and gains the
+consistent shape; `examples/causal_agent_demo.rs`, `benches/world_model_bench.rs` and
+`tests/integration/intelligence_wiring_sit.rs` do not assert on keys; only
+`tests/integration/intelligence_sit.rs` is sensitive to the graph-level shape, and it is untouched.
+
+---
+
 ## 4. Test plan — acceptance criterion to named test
 
 | AC | Test / command |
