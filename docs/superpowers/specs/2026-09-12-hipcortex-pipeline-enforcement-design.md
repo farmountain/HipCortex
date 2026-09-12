@@ -532,6 +532,34 @@ real and bounded, so it gets named rather than blocking.
 the gate, and the only reliable check lists the directory and subtracts what the registrar names — the
 compiler cannot report on what it never read.
 
+### 3.11 A2 — recorded, not reconciled
+
+The G9 and G10 audits read `docs/superpowers/specs/2026-08-13-hipcortex-gap-remediation-design.md`,
+whose header says `**Status:** IMPLEMENTED`, and found one of its directives apparently at odds with
+the code: §2.2 asks to *"Remove the linear heuristic from `compute_intervention`. Return explicit
+`Err` if empirical distributions are missing."* Read literally, that second clause would delete the
+code path G9 had just re-keyed, so both halves were checked rather than assumed.
+
+- **Clause 1 is satisfied — the directive is stale, not disobeyed.** No linear heuristic remains in
+  `CausalGraph::compute_intervention` (`causal.rs:851`); it computes a genuine backdoor adjustment,
+  `P(Y|do(X=x)) = Σ_z P(Y|X=x,Z=z) · P(Z=z)`. The only occurrences of "linear" in that file are
+  `LinearSE`, the directional structural equation type contributed by H10, which is unrelated to
+  intervention querying. The spec's `IMPLEMENTED` status is defensible on this reading, and §2.1 and
+  §2.3 of the same spec match the code exactly (mode enum plus the `iterations ≤ 200` cap; the
+  Joseph-form covariance update with symmetrization at `world_model_enhanced/entity.rs:178`).
+- **Clause 2 is not implemented, and cannot be implemented literally without overturning a live
+  assertion.** `compute_intervention` answers with `unwrap_or(0.5)` placeholders and a uniform `P(Z)`
+  when `prior_Z` is absent (`causal.rs:903`, `:942`, `:970`) — the silent-failure shape Sprint 1 set
+  out to remove. But `tests/integration/intelligence_sit.rs:414` asserts `intervention.is_ok()` on a
+  fresh graph with three nodes and no empirical distributions at all, which is precisely the input
+  clause 2 says must produce `Err`. The suite pins the current contract; the two cannot both hold.
+
+No behaviour changes. Clause 2 is a real, user-visible question — should an absent intervention
+estimate be a placeholder or an error — it is outside the G1–G10 mandate, and the repository holds
+evidence on both sides rather than a rule. It is recorded here so the next reader does not
+rediscover it as a defect, and so the decision is taken deliberately. This is the clarify ladder's
+exit again: bounded, named, and not silently resolved in either direction.
+
 ---
 
 ## 4. Test plan — acceptance criterion to named test
