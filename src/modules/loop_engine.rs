@@ -580,31 +580,73 @@ impl ReactEngine {
         let mut goal_payload: GoalPayload = serde_json::from_value(goal_record.metadata.clone())
             .map_err(|e| format!("Goal metadata parse error: {}", e))?;
 
-        if goal_payload.success_factors.is_empty() {
-            // Self-prompt first (ClarifyEngine, max 3 cycles). If unresolvable,
-            // write Belief{clarify_needed} and return Pending — do not run react loop.
+        // ── Clarify gate (WP10) — the ladder runs *before* the first ReAct iteration. ──
+        //
+        // Two AC defects are worth the substrate's attention:
+        //   * `EmptyAC`       — no success factors at all;
+        //   * `UntestableAC`  — prose acceptance criteria, but no factor to score them with.
+        //
+        // A factor whose `observation_pattern` is `None` is **not** an `UntestableAC`: the
+        // scorer treats a missing pattern as the two-hit rule, so such a factor is already
+        // decidable. Gating on `success_factors.is_empty()` therefore leaves every existing
+        // goal untouched — which is the point. See `clarify_engine`'s ladder docs.
+        let ac_trigger = if goal_payload.success_factors.is_empty() {
+            if goal_payload.acceptance_criteria.is_empty() {
+                Some(crate::clarify_engine::ClarifyTrigger::EmptyAC)
+            } else {
+                Some(crate::clarify_engine::ClarifyTrigger::UntestableAC)
+            }
+        } else {
+            None
+        };
+
+        if let Some(trigger) = ac_trigger {
+            // Self-prompt first (ClarifyEngine ladder T0→T1→T2). Only if every rung is
+            // exhausted *and* the ask-cost gate says the question is worth a human's time
+            // does it write Belief{clarify_needed} and park the goal instead of running the
+            // loop — do not run react against an AC we cannot check.
             let actor = goal_record.actor.as_str();
             let outcome = crate::clarify_engine::ClarifyEngine::run(
                 store,
                 goal_id,
                 actor,
-                crate::clarify_engine::ClarifyTrigger::EmptyAC,
+                trigger,
                 Some(&self.wm),
             );
             match outcome {
-                crate::clarify_engine::ClarifyOutcome::ClarifiedBySubstrate => {
-                    // Reload payload — env restatement may have added factors.
+                crate::clarify_engine::ClarifyOutcome::ClarifiedBySubstrate { .. } => {
+                    // Reload payload — a rung wrote the clause it resolved from.
                     goal_payload = serde_json::from_value(
                         store.find_by_id(goal_id)
                             .ok_or_else(|| format!("Goal not found: {}", goal_id))?
                             .metadata.clone(),
                     ).map_err(|e| format!("Goal metadata re-parse error: {}", e))?;
                     if goal_payload.success_factors.is_empty() {
+                        // A rung claimed a resolution but left no decidable clause. The loop
+                        // would repeat whatever failed before; park it instead of spinning.
                         return Ok(GoalStatus::Pending);
                     }
-                    // success_factors populated by restatement — continue run.
+                    // success_factors now populated — continue run.
                 }
-                _ => return Ok(GoalStatus::Pending), // NeedsUserClarification or AlreadyClear
+                crate::clarify_engine::ClarifyOutcome::NeedsUserClarification => {
+                    // Parked on a human. That is only *terminal* once the lifetime budget is
+                    // spent, because then no future invocation can ask again and re-entering
+                    // the loop is provably futile (spec §3.2 exit guarantee 3). Before that
+                    // point `Pending` is correct and resumable: answering the belief clears
+                    // the block and the next `run` proceeds.
+                    let cycles = crate::clarify_engine::ClarifyEngine::ladder_cycles(store, goal_id);
+                    if cycles >= crate::clarify_engine::MAX_CLARIFY_CYCLES_PER_GOAL {
+                        goal_payload.status = GoalStatus::Abandoned;
+                        self.update_goal_status(store, goal_id, &goal_payload)?;
+                        return Ok(GoalStatus::Abandoned);
+                    }
+                    return Ok(GoalStatus::Pending);
+                }
+                crate::clarify_engine::ClarifyOutcome::AlreadyClear => {
+                    // Nothing to clarify (and the ask-cost gate declined to bother a human).
+                    // Fall through: `UntestableAC` goals were given factors by T1, so the loop
+                    // has something decidable to run against.
+                }
             }
         }
 
@@ -742,9 +784,45 @@ impl ReactEngine {
                 Some(serde_json::to_value(&goal_payload).unwrap_or_default()),
             );
 
-            let all_satisfied = goal_payload.success_factors.iter().all(|f| f.satisfied);
+            // ── Exit authority (§3.4, closes C4) ────────────────────────────────────
+            //
+            // The loop must not decide for itself that it is finished. `agent_guidance`
+            // owns that decision — its own docs call `should_exit` "the only safe loop-exit
+            // gate" — so the rule this loop obeys is the same rule `/goal/:id/verify` and
+            // any acceptance test can consult: **one authority, one answer**. What was here
+            // before (`all(|f| f.satisfied)` inline) was a second, ad-hoc copy of that rule,
+            // which is how a loop and a verifier come to disagree about whether a goal is
+            // done.
+            //
+            // Responsibility split, deliberately: the engine owns *measurement* (the
+            // factors were just scored by `score_success_factors_from_intents`, which knows
+            // about `observation_pattern` and the two-hit rule), while `agent_guidance` owns
+            // the *exit rule*. `check_progress` is consulted as an advisory second opinion on
+            // the same factors — its `recommended_action` and `uncertainty_detected` are what
+            // the failure-path critique below reasons about — but its substring-based verdict
+            // is not the exit verdict, because measurement belongs to the scorer.
+            let progress_ratio = if goal_payload.success_factors.is_empty() {
+                1.0f32
+            } else {
+                let satisfied = goal_payload.success_factors.iter().filter(|f| f.satisfied).count();
+                satisfied as f32 / goal_payload.success_factors.len() as f32
+            };
+            // Surprise proxy in [0,1]: how far the goal still is from its own acceptance.
+            let surprise_signal = 1.0 - progress_ratio;
+            let exit_decision = crate::agent_guidance::should_exit(
+                i,
+                max_iter,
+                progress_ratio,
+                surprise_signal,
+            );
+            let progress_check = {
+                let names: Vec<&str> = goal_payload.success_factors.iter().map(|f| f.name.as_str()).collect();
+                let done: Vec<&str> = goal_payload.success_factors.iter()
+                    .filter(|f| f.satisfied).map(|f| f.name.as_str()).collect();
+                crate::agent_guidance::check_progress(&names, &done, i, max_iter)
+            };
 
-            if all_satisfied {
+            if exit_decision.action == crate::agent_guidance::ExitAction::Succeed {
                 // VERIFIER: write formal verification Belief on success.
                 {
                     let factor_scores: Vec<serde_json::Value> = goal_payload
@@ -773,16 +851,23 @@ impl ReactEngine {
                 return Ok(GoalStatus::Succeeded);
             }
 
-            // REFLECT on incomplete progress
+            // REFLECT on incomplete progress.
+            //
+            // `check_progress`'s advisory output is folded in verbatim: when the substrate is
+            // burning iterations without moving factors, the critique should say so in the
+            // words the guidance module uses, so an operator reading `/goal/:id/trace` sees
+            // one vocabulary rather than two.
             let critique = format!(
-                "Iteration {} incomplete. Unsatisfied: {:?}",
+                "Iteration {} incomplete ({:.0}% of factors satisfied). Unsatisfied: {:?}. Advice: {}",
                 i,
+                progress_check.progress_ratio * 100.0,
                 goal_payload
                     .success_factors
                     .iter()
                     .filter(|f| !f.satisfied)
                     .map(|f| &f.name)
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>(),
+                progress_check.recommended_action,
             );
             let mut reflection = MemoryRecord::new(
                 MemoryType::Reflexion,
@@ -881,16 +966,34 @@ impl ReactEngine {
         }
 
         // Counterfactual attribution before declaring Failed (P1.4)
+        //
+        // The trajectory is keyed by **causal node id**, not by ReAct field names. This is
+        // load-bearing: `causal::CausalGraph::credit_assign` scores a candidate equation only
+        // when `step.get(node_id)` binds (and needs `step.get(parent_id)` for each parent of
+        // that node). Keying the steps by `iteration`/`unsatisfied` — which no causal graph
+        // ever declares as a node — made every candidate skip, so `broken_equation` was always
+        // `None` and this attribution block never produced a finding. A node that the step's
+        // text never mentions still gets a `0.0` so its equation is *scored*: a large residual
+        // is exactly the evidence that its structural equation is the broken one.
+        let causal_node_ids = self.wm.causal_node_ids();
         let traj: Vec<std::collections::HashMap<String, f64>> = store
             .all()
             .iter()
             .filter(|r| r.record_type == MemoryType::Temporal && r.derived_from == Some(goal_id))
             .map(|r| {
-                std::collections::HashMap::from([
-                    ("iteration".to_string(), r.react_iteration.unwrap_or(0) as f64),
-                    ("unsatisfied".to_string(),
-                        goal_payload.success_factors.iter().filter(|f| !f.satisfied).count() as f64),
-                ])
+                let haystack = format!(
+                    "{} {} {}",
+                    r.target.to_lowercase(),
+                    r.action.to_lowercase(),
+                    r.metadata.to_string().to_lowercase()
+                );
+                causal_node_ids
+                    .iter()
+                    .map(|id| {
+                        let hits = haystack.matches(id.to_lowercase().as_str()).count() as f64;
+                        (id.clone(), hits)
+                    })
+                    .collect()
             })
             .collect();
 
@@ -1073,7 +1176,21 @@ impl ReactEngine {
         refl.react_iteration = Some(i);
         let _ = store.add(refl);
 
-        if payload.success_factors.iter().all(|f| f.satisfied) {
+        // Exit authority (§3.4, closes C4) — same rule as `run`, consulted rather than
+        // re-derived. A one-shot step must agree with the loop about what "done" means, or
+        // `StepByStep` goals and `FullCycle` goals finish under different criteria.
+        let progress_ratio = if total_count == 0 {
+            1.0f32
+        } else {
+            satisfied_count as f32 / total_count as f32
+        };
+        let exit_decision = crate::agent_guidance::should_exit(
+            i,
+            max_iter,
+            progress_ratio,
+            1.0 - progress_ratio,
+        );
+        if exit_decision.action == crate::agent_guidance::ExitAction::Succeed {
             payload.status = GoalStatus::Succeeded;
             self.update_goal_status(store, goal_id, &payload)?;
             return Ok(GoalStatus::Succeeded);

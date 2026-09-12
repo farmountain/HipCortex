@@ -19,9 +19,19 @@ mod intelligence_hooks_sit;
 mod intelligence_sit;
 mod intelligence_uat;
 #[cfg(feature = "web-server")]
+mod consolidate_safety_sit;
+#[cfg(feature = "web-server")]
+mod rest_contract_safety_sit;
+#[cfg(feature = "web-server")]
 mod intelligence_wiring_sit;
 #[cfg(feature = "web-server")]
 mod passive_capture_sit;
+#[cfg(feature = "web-server")]
+mod route_parity_sit;
+#[cfg(feature = "web-server")]
+mod cognitive_report_sit;
+#[cfg(feature = "web-server")]
+mod capability_catalog_sit;
 mod llm_integration_tests;
 #[cfg(all(feature = "web-server", feature = "grpc-server"))]
 mod mcp_server_sit;
@@ -76,3 +86,4 @@ mod epistemic_write_path_sit;
 mod cognitive_coherence_sit;
 mod content_change_soak_sit;
 mod field_soak_diary_sit;
+mod clarify_ladder_sit;

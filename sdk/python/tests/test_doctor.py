@@ -299,11 +299,18 @@ def test_doctor_offline_still_runs_skill_checks(tmp_path, monkeypatch):
 
 def test_doctor_health_ok_with_version(tmp_path, monkeypatch):
     monkeypatch.delenv("HIPCORTEX_DOCTOR_OFFLINE", raising=False)
+    from hipcortex import __version__ as client_version
     from hipcortex.doctor import doctor_exit_code, run_doctor
 
+    # What this test is about is "a server whose version satisfies the policy is ok",
+    # not "0.5.0 in particular is ok". Pinning a literal here is what let the test rot:
+    # the doctor compares the server's reported version against the *client's* version,
+    # so when the client moved past 0.5.x the mock kept claiming a version that could no
+    # longer match, the doctor correctly said `warn`, and the test kept asserting `ok`
+    # until it went red. Report the same version the doctor will compare against.
     sess = MagicMock()
     sess.get.return_value = _health_resp(
-        200, {"service": "hipcortex", "version": "0.5.0", "status": "ok"}
+        200, {"service": "hipcortex", "version": client_version, "status": "ok"}
     )
 
     report = run_doctor(
@@ -314,7 +321,7 @@ def test_doctor_health_ok_with_version(tmp_path, monkeypatch):
     by_name = {c.name: c for c in report.checks}
     assert by_name["health"].status == "ok"
     assert by_name["version"].status == "ok"
-    assert "0.5.0" in by_name["version"].message
+    assert client_version in by_name["version"].message
     assert by_name["skill_package"].status == "ok"
     sess.get.assert_called_once()
     assert sess.get.call_args[0][0] == "http://127.0.0.1:3030/health"

@@ -1083,6 +1083,10 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         from: &GoalStatus,
         to: &GoalStatus,
     ) -> Result<(), CognitiveError> {
+        // This table is the crate's single statement of which goal lifecycles are legal, so every
+        // transition the codebase actually performs has to appear here — otherwise the documented
+        // delta API rejects a transition the raw store path performs happily, and the two
+        // disagree about what a goal status means.
         let ok = matches!(
             (from, to),
             (GoalStatus::Pending, GoalStatus::InProgress)
@@ -1090,6 +1094,16 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
                 | (GoalStatus::InProgress, GoalStatus::Failed)
                 | (GoalStatus::Succeeded, GoalStatus::Succeeded)
                 | (GoalStatus::Failed, GoalStatus::Failed)
+                // WP10 repair edge. `POST /goal/:id/clarify` hands a factor-less goal an AC and
+                // then has to un-`Failed` it, because the ReAct loop fails a goal that never had
+                // a decidable acceptance criterion — and `/goal/:id/react` answers 422 telling
+                // the client to come to clarify. Without this edge the repair is performable
+                // only through the undocumented raw-store path: a client using
+                // `/v1/cognitive/transact` would be told the repair is illegal while the server
+                // was meanwhile performing it. The edge is deliberately one-directional and does
+                // not make `Failed` non-terminal — it says "a goal that gained a criterion is
+                // runnable again", not "any failed goal may be rerun".
+                | (GoalStatus::Failed, GoalStatus::Pending)
         );
         if ok {
             Ok(())

@@ -157,10 +157,33 @@ fn ac_gs10_drift_detection_bounded_resets_counter() {
         src.contains("consecutive_low_score = 0"),
         "AC-GS10: drift detection must reset consecutive_low_score = 0 after firing (bounded exit)"
     );
-    // ClarifyEngine MAX_CLARIFY_ROUNDS must still exist (no regression)
+    // ClarifyEngine must remain *bounded*. This was once asserted by grepping for
+    // `MAX_CLARIFY_ROUNDS`, the counter that was deleted when the round loop was replaced by the
+    // T0..T3 ladder. That grep kept passing only because the CoT header in `clarify_engine.rs`
+    // explains the replacement by naming the constant it removed — i.e. the assertion was
+    // satisfied by the obituary, not by a live bound, and would have stayed green even if every
+    // bound were deleted. Assert the bounds that are actually load-bearing instead: the ladder
+    // length and the per-goal invocation cap are what terminate the descent.
+    //
+    // A bound that is declared but never *applied* is not a bound, so assert the expressions that
+    // apply them, not just the constant names. A bare name check passes on a mention count, which
+    // survives deleting the enforcement as long as the name appears elsewhere (in the header
+    // prose, in a string literal, in another doc comment) — that is precisely how the old check
+    // rotted. These two expressions are the enforcement sites; delete either and this reddens.
+    //
+    // Known limitation, measured not assumed: rewriting `cycle_no > MAX_CLARIFY_CYCLES_PER_GOAL`
+    // as `cycle_no > 3` also reddens this, although the behaviour is identical. This is a
+    // *structural* guard — it pins the guard clause, not the semantics. The semantics are pinned
+    // behaviourally by `unit::clarify_ladder_tests::{ladder_lifetime_budget_exhaustion_is_terminal,
+    // ladder_budget_exhaustion_forces_t3_without_searching}`. Both are wanted: the unit tests
+    // catch a wrong cap, this catches a missing one.
     let clarify_src = slurp("src/clarify_engine.rs");
     assert!(
-        clarify_src.contains("MAX_CLARIFY_ROUNDS") || clarify_src.contains("max_rounds"),
-        "AC-GS10: ClarifyEngine must still have bounded max rounds (no regression)"
+        clarify_src.contains("[ClarifyTier; MAX_CLARIFY_TIERS as usize]"),
+        "AC-GS10: the ladder must be capped by MAX_CLARIFY_TIERS at its construction site"
+    );
+    assert!(
+        clarify_src.contains("cycle_no > MAX_CLARIFY_CYCLES_PER_GOAL"),
+        "AC-GS10: the per-goal invocation counter must still be compared against its cap"
     );
 }

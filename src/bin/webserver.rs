@@ -3,7 +3,7 @@ use hipcortex::aureus_bridge::AureusBridge;
 use hipcortex::coherence::CoherenceChecker;
 use hipcortex::memory_store::MemoryStore;
 use hipcortex::self_model::calibration::CalibrationTracker;
-use hipcortex::self_model::{CapabilityDescriptor, SelfModel};
+use hipcortex::self_model::SelfModel;
 use hipcortex::symbolic_store::{InMemoryGraph, SymbolicStore};
 use hipcortex::tx_log::TxLog;
 use hipcortex::web_server::{self, AppState};
@@ -54,35 +54,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let world_model = Arc::new(RwLock::new(world_model));
 
-    // ── SelfModel: bootstrap with registered capabilities ────────────────────
+    // ── SelfModel: bootstrap with the declared capability catalog ────────────
+    //
+    // H8: this used to be a 15-name literal — a fourth hand-maintained list,
+    // disjoint from the router and from `ALL_OPS`, which meant `can_execute`
+    // rejected every op it was ever asked about. The catalog now projects from
+    // the router (`ROUTE_TABLE`) and the agent-op vocabulary (`ALL_OPS`), so it
+    // holds no names of its own and cannot drift from either.
     let self_model = Arc::new(SelfModel::new());
-    for op in &[
-        "add_memory",
-        "search_memory",
-        "query_memory",
-        "ingest",
-        "bulk_add",
-        "forget",
-        "reflect",
-        "context",
-        "predict",
-        "rollout",
-        "temporal_insert",
-        "symbolic_add_node",
-        "symbolic_add_edge",
-        "fsm_advance",
-        "perception_adapt",
-    ] {
-        self_model
-            .register_capability(CapabilityDescriptor {
-                name: op.to_string(),
-                description: format!("HipCortex {} operation", op),
-                required_cpu_percent: 5.0,
-                required_memory_mb: 50.0,
-                limitations: vec![],
-            })
-            .ok();
-    }
+    let registered = hipcortex::capability_catalog::register_declared_capabilities(&self_model);
+    println!(
+        "SelfModel: registered {} declared capabilities (origin: router + agent-op catalog)",
+        registered.len()
+    );
 
     // ── Assemble AppState ────────────────────────────────────────────────────
     let archive_path = format!("{}/memory-archive.jsonl", data_dir);

@@ -231,8 +231,9 @@ beliefs = [r for r in recs if r["record_type"] == "Belief"]
 ok("VS1-D: Kimi persists 2 user preference beliefs", len(beliefs) == 2,
    f"found={len(beliefs)}")
 rpt = cognitive_report(A)
+# H6/WP8: `learned_beliefs` is a count; the beliefs are at `learned_beliefs_detail`.
 ok("VS1-D: preferences surface in cognitive report",
-   len(rpt.get("learned_beliefs", [])) >= 2)
+   rpt.get("learned_beliefs", 0) >= 2)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -391,7 +392,7 @@ ok("VS3-A: GLM 2 contradiction beliefs stored", len(beliefs) >= 2,
 rpt = cognitive_report(A)
 ok("VS3-A: learned_beliefs in cognitive report",
    "learned_beliefs" in rpt)
-show("GLM contradiction beliefs count", len(rpt.get("learned_beliefs", [])))
+show("GLM contradiction beliefs count", rpt.get("learned_beliefs"))
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -558,7 +559,7 @@ add(A, "learned", "User prefers Chinese responses",
 
 rpt = cognitive_report(A)
 ok("VS5-C: Kimi preference belief in cognitive report",
-   len(rpt.get("learned_beliefs", [])) >= 1)
+   rpt.get("learned_beliefs", 0) >= 1)
 ok("VS5-C: next_recommendation present",
    "recommended_op" in rpt.get("next_recommendation", {}))
 
@@ -847,7 +848,7 @@ for i in range(11):
 rpt = cognitive_report(f"{BASE_ACTOR}-agent0")
 ok("VS10-A: emergent_abstractions key exists in report",
    "emergent_abstractions" in rpt)
-beliefs_count = len(rpt.get("emergent_abstractions", []))
+beliefs_count = rpt.get("emergent_abstractions", 0)
 show("VS10-A: auto-synthesized beliefs", beliefs_count)
 if beliefs_count > 0:
     ok("VS10-A: EmergenceDetector synthesized ≥1 belief", True)

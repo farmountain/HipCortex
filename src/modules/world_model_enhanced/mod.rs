@@ -69,7 +69,10 @@ pub mod simulator;
 pub mod transition;
 mod uncertainty;
 
-pub use causal::{CausalEdge, CausalGraph, CausalNode, InterventionQuery};
+pub use causal::{
+    CausalEdge, CausalGraph, CausalNode, DirectionalSE, InterventionQuery, InterventionValue,
+    SeShape, StructuralEquation,
+};
 pub use constraint::{Constraint, ConstraintEngine, ConstraintSeverity};
 pub use entity::{Anomaly, EntityObservation, EntityState, EntityTracker};
 pub use metalaw::{InvariantType, MetaLaw, MetaLawEngine};
@@ -1177,6 +1180,7 @@ mod tests {
             intervention_value: 1.0,
             conditioned_on: HashMap::new(),
             intervention_label: None,
+            intervention_vector: None,
         };
         let res = wm.causal_intervention(q).unwrap();
         assert!(

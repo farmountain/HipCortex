@@ -250,12 +250,55 @@ async fn rta5_existing_aliases_still_map() {
 }
 
 #[tokio::test]
-async fn rta6_unknown_type_falls_to_temporal() {
+async fn rta6_unknown_type_is_rejected_not_coerced() {
+    // H3 / D11 (docs/superpowers/specs/2026-09-12-hipcortex-gap-closure-design.md):
+    // an unrecognised `record_type` must NOT be silently coerced to Temporal.
+    // Previously `_ => MemoryType::Temporal` meant a typo like "Symbolik"
+    // returned 200 and wrote a 24-hour decaying Temporal record while the caller
+    // believed they had stored a Symbolic one. This test is the regression guard
+    // for that coercion; it replaces the older assertion that the fallback was
+    // the correct behaviour.
     let (base, srv) = start_test_server(make_test_state()).await;
-    let body = add_and_query(&base, "Bogus", "rta_bogus").await;
+    let client = reqwest::Client::new();
+
+    let resp = client.post(format!("{}/memory/add", base))
+        .json(&serde_json::json!({
+            "actor": "rta_bogus", "action": "test", "target": "t",
+            "record_type": "Bogus",
+        }))
+        .send().await.unwrap();
+    let status = resp.status();
+    let body: serde_json::Value = resp.json().await.unwrap();
+
+    // A rejection must be actionable: name the bad value and list the good ones.
+    let nothing_written = client
+        .get(format!("{}/memory/query?actor=rta_bogus", base))
+        .send().await.unwrap().json::<serde_json::Value>().await.unwrap();
     srv.abort();
-    assert_eq!(body["records"][0]["record_type"], "Temporal",
-        "unknown type must default to Temporal: {body}");
+
+    assert_eq!(status, 400, "unknown record_type must be rejected, got {status}: {body}");
+    let err = body["error"].as_str().unwrap_or_default();
+    assert!(err.contains("Bogus"), "error must name the offending value: {body}");
+    let valid = body["warning"]["valid_record_types"]
+        .as_array()
+        .expect("400 must carry the accepted aliases so the caller can self-correct");
+    for expected in ["Temporal", "Symbolic", "Belief", "Goal"] {
+        assert!(valid.iter().any(|v| v == expected), "alias list missing {expected}: {valid:?}");
+    }
+    assert!(
+        nothing_written["records"].as_array().map(|a| a.is_empty()).unwrap_or(true),
+        "a rejected add must not persist anything: {nothing_written}"
+    );
+
+    // The same endpoint must still accept a real alias, so the guard did not
+    // simply break the happy path.
+    let ok = client.post(format!("{}/memory/add", base))
+        .json(&serde_json::json!({
+            "actor": "rta_after", "action": "test", "target": "t",
+            "record_type": "Semantic",
+        }))
+        .send().await.unwrap();
+    assert!(ok.status().is_success(), "valid alias must still be accepted: {}", ok.status());
 }
 
 // ── AC-5 (provenance bad UUID) ────────────────────────────────────────────────

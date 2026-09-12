@@ -12,7 +12,7 @@ use crate::memory_record::{MemoryRecord, MemoryType};
 #[cfg(feature = "web-server")]
 use crate::memory_store::MemoryStore;
 #[cfg(feature = "web-server")]
-use crate::openapi_spec::OPENAPI_SPEC;
+use crate::openapi_spec::spec_with_route_table;
 #[cfg(feature = "web-server")]
 use crate::persistence::MemoryBackend;
 #[cfg(feature = "web-server")]
@@ -58,6 +58,12 @@ pub struct ForgetActorResponse {
     records_deleted: usize,
     symbolic_nodes_deleted: usize,
     error: Option<String>,
+    /// Every record id erased by this call. `records_deleted` alone made the
+    /// erasure unverifiable: the ids were counted and then discarded, so a
+    /// success response was the only trace of what had been destroyed.
+    /// `#[serde(default)]` keeps older clients parseable.
+    #[serde(default)]
+    deleted_ids: Vec<String>,
 }
 
 #[cfg(feature = "web-server")]
@@ -364,9 +370,33 @@ pub struct GraphSearchParams {
 #[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
 pub struct ConsolidateParams {
-    actor: Option<String>,
-    threshold: Option<f64>, // keyword similarity threshold [0.0, 1.0], default 0.8
-    dry_run: Option<bool>,  // if true, show what would be merged without writing
+    /// REQUIRED. Only records whose `actor` matches are ever considered.
+    /// There is deliberately no "all actors" mode: the previous optional form let
+    /// an omitted `actor` delete records belonging to every other actor.
+    pub actor: String,
+    /// Jaccard similarity threshold over the record token set, in [0.0, 1.0]. Default 0.80.
+    pub threshold: Option<f64>,
+    /// Preview-only mode. Defaults to **true** (safe by default).
+    pub dry_run: Option<bool>,
+    /// Explicit acknowledgement required to mutate. Defaults to false.
+    /// Deletion happens only when `dry_run=false` AND `confirm=true`.
+    pub confirm: Option<bool>,
+}
+
+/// Optional JSON body for `POST /memory/consolidate`. Body values take precedence
+/// over query values.
+///
+/// This exists because `ConsolidateParams` previously declared `dry_run` as a
+/// query parameter while callers passed `{"dry_run": true}` in the body, where it
+/// was silently discarded — which is how three intended dry runs destroyed live
+/// records. Guarded by `tests/integration/consolidate_safety.rs`.
+#[cfg(feature = "web-server")]
+#[derive(Serialize, Deserialize, Default)]
+pub struct ConsolidateBody {
+    pub actor: Option<String>,
+    pub threshold: Option<f64>,
+    pub dry_run: Option<bool>,
+    pub confirm: Option<bool>,
 }
 
 /// POST /memory/ingest — zero-config smart memory ingest.
@@ -742,9 +772,13 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
     };
     let consolidate_route = {
         let store = memory_store.clone();
-        post(move |Query(params): Query<ConsolidateParams>| async move {
-            handle_consolidate(store, Query(params)).await
-        })
+        let arc = archive_store.clone();
+        post(
+            move |Query(params): Query<ConsolidateParams>,
+                  body: Option<Json<ConsolidateBody>>| async move {
+                handle_consolidate(store, arc, Query(params), body).await
+            },
+        )
     };
 
     let memory_link_route: axum::routing::MethodRouter = {
@@ -1467,11 +1501,18 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
             let cog = cognitive.clone();
             get(move |axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>| async move {
                 let cog = cog.clone();
-                let actor = params.get("actor").cloned().unwrap_or_else(|| "default".to_string());
                 let health = cog.self_model.get_health().map(|h| h.overall as f32).unwrap_or(1.0);
-                let store = cog.memory.lock().unwrap();
-                let report = crate::cognitive_report::build_report(&*store, &actor, health);
-                drop(store);
+                // H4/D9: an omitted `actor` must be visible, not guessed. Defaulting
+                // to a magic actor returns that actor's beliefs dressed up as a
+                // global answer — "worse than empty: it looks like it works".
+                // Absent ⇒ an explicitly empty, `actor_scoped: false` report.
+                let report = match params.get("actor").filter(|a| !a.trim().is_empty()) {
+                    Some(actor) => {
+                        let store = cog.memory.lock().unwrap();
+                        crate::cognitive_report::build_report(&*store, actor, health)
+                    }
+                    None => crate::cognitive_report::build_unscoped_report(health),
+                };
                 axum::Json(serde_json::to_value(report).unwrap_or_default())
             })
         })
@@ -1825,19 +1866,56 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
         })
         .route("/goal/:id/react", {
             let store = memory_store.clone();
-            post(move |Path(id): Path<String>| async move {
+            post(move |Path(id): Path<String>, body: Option<axum::Json<serde_json::Value>>| async move {
                 let goal_id = match uuid::Uuid::parse_str(&id) {
                     Ok(u) => u,
-                    Err(_) => return axum::Json(serde_json::json!({"error": "invalid uuid"})),
+                    Err(_) => {
+                        return (
+                            axum::http::StatusCode::BAD_REQUEST,
+                            axum::Json(serde_json::json!({"error": "invalid uuid"})),
+                        )
+                    }
                 };
+                // Schema-mismatch tolerance (AC-G1): a missing, malformed or unexpected
+                // body must not panic the handler. We normalise it to the default and let
+                // the goal's own stored payload drive the run.
+                let _body: serde_json::Value = body.map(|axum::Json(b)| b).unwrap_or_default();
                 let mut engine = crate::loop_engine::ReactEngine::new();
                 let result = {
                     let mut s = store.lock().unwrap();
                     engine.run(&mut s, goal_id, 0)
                 };
                 match result {
-                    Ok(status) => axum::Json(serde_json::json!({"goal_id": goal_id.to_string(), "status": format!("{:?}", status)})),
-                    Err(e) => axum::Json(serde_json::json!({"error": e})),
+                    Ok(status) => {
+                        // The ReAct engine already ran the clarify ladder, so "this goal
+                        // still has no success factor" means the substrate either asked the
+                        // user or could not resolve it. Report that as 422 with the /clarify
+                        // redirect instead of a 200 that hides a goal which cannot progress.
+                        let still_uncheckable = {
+                            let s = store.lock().unwrap();
+                            s.find_by_id(goal_id)
+                                .and_then(|r| serde_json::from_value::<crate::payloads::GoalPayload>(r.metadata.clone()).ok())
+                                .map(|g| g.success_factors.is_empty())
+                                .unwrap_or(false)
+                        };
+                        if still_uncheckable {
+                            return (
+                                axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+                                axum::Json(serde_json::json!({
+                                    "error": "goal must be clarified before react: POST /goal/{id}/clarify",
+                                    "goal_id": goal_id.to_string(),
+                                })),
+                            );
+                        }
+                        (
+                            axum::http::StatusCode::OK,
+                            axum::Json(serde_json::json!({"goal_id": goal_id.to_string(), "status": format!("{:?}", status)})),
+                        )
+                    }
+                    Err(e) => (
+                        axum::http::StatusCode::BAD_REQUEST,
+                        axum::Json(serde_json::json!({"error": e})),
+                    ),
                 }
             })
         })
@@ -1852,7 +1930,317 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
                     let s = store.lock().unwrap();
                     s.all().iter().filter(|r| r.derived_from == Some(goal_id)).cloned().collect()
                 };
-                axum::Json(serde_json::json!({"goal_id": goal_id.to_string(), "records": records, "count": records.len()}))
+                // The ladder is the part of the trace a human most needs and the part least
+                // legible as raw records: the rungs are `Reflexion`s set apart only by their
+                // `action`, and the *reason* the ladder stopped lives in exit evidence rather
+                // than in any one record. Project both explicitly from the same ledger the
+                // engine writes — a projection, never a second opinion, so the trace can never
+                // disagree with the goal report about which rungs ran.
+                let (ladder, exits) = {
+                    let s = store.lock().unwrap();
+                    (
+                        crate::clarify_engine::ClarifyEngine::ladder_rungs(&s, goal_id),
+                        crate::clarify_engine::ClarifyEngine::ladder_exit_reasons(&s, goal_id),
+                    )
+                };
+                axum::Json(serde_json::json!({
+                    "goal_id": goal_id.to_string(),
+                    "records": records,
+                    "count": records.len(),
+                    "clarify_ladder": ladder,
+                    "clarify_exit_reasons": exits,
+                }))
+            })
+        })
+        // ── H1a: routes that previously existed ONLY on the unreachable
+        // `run_with_both_stores` router, so they 404'd in production. The
+        // clarify route in particular is the REST trigger for the
+        // self-clarification protocol, and `/goal/:id/verify` is the exit gate
+        // for goals-driven acceptance. Registration order matters: these must
+        // stay in the same router as every other route or the drift returns.
+        .route("/goal/:id/verify", {
+            let store = memory_store.clone();
+            get(move |Path(id): Path<String>| async move {
+                let goal_id = match uuid::Uuid::parse_str(&id) {
+                    Ok(u) => u,
+                    Err(_) => return axum::Json(serde_json::json!({"error": "invalid uuid"})),
+                };
+                let report = {
+                    let s = store.lock().unwrap();
+                    s.all()
+                        .iter()
+                        .filter(|r| r.derived_from == Some(goal_id) && r.action == "verifier_report")
+                        .cloned()
+                        .last()
+                };
+                match report {
+                    Some(r) => axum::Json(serde_json::json!({
+                        "goal_id": goal_id.to_string(),
+                        "verified": r.metadata.get("verified").and_then(|v| v.as_bool()).unwrap_or(false),
+                        "final_status": r.metadata.get("final_status").and_then(|v| v.as_str()).unwrap_or("unknown"),
+                        "factor_scores": r.metadata.get("factor_scores"),
+                        "confidence": r.confidence,
+                    })),
+                    None => axum::Json(serde_json::json!({
+                        "goal_id": goal_id.to_string(),
+                        "verified": false,
+                        "error": "no verifier report found — goal may still be running",
+                    })),
+                }
+            })
+        })
+        .route("/goal/:id/clarify", {
+            let store = memory_store.clone();
+            let clarify_wm = world_model.clone();
+            post(move |Path(id): Path<String>, Json(body): Json<serde_json::Value>| async move {
+                let goal_id = match uuid::Uuid::parse_str(&id) {
+                    Ok(u) => u,
+                    Err(_) => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"error": "invalid uuid"}))),
+                };
+                let mut s = store.lock().unwrap();
+                let rec = match s.find_by_id(goal_id) {
+                    Some(r) => r.clone(),
+                    None => return (axum::http::StatusCode::NOT_FOUND, axum::Json(serde_json::json!({"error": "goal not found"}))),
+                };
+                let mut payload = serde_json::from_value::<crate::payloads::GoalPayload>(rec.metadata.clone())
+                    .unwrap_or_default();
+                // Refuse only when clarification cannot help. A `Succeeded` goal is finished and
+                // its AC is what the verifier report was judged against, so rewriting it would
+                // invalidate an audit. A `Failed` goal is different: the ReAct loop fails a goal
+                // that never had a decidable AC, and `/goal/:id/react` answers 422 telling the
+                // client to come *here*. Refusing a factor-less failed goal therefore made that
+                // advice a dead end and the failure permanent — the redirect was reachable but
+                // not actionable. The gate is "no longer repairable": terminal, with nothing
+                // left to clarify.
+                let terminal = matches!(
+                    payload.status,
+                    crate::payloads::GoalStatus::Succeeded | crate::payloads::GoalStatus::Failed
+                );
+                let succeeded = matches!(payload.status, crate::payloads::GoalStatus::Succeeded);
+                if terminal && (succeeded || !payload.success_factors.is_empty()) {
+                    return (axum::http::StatusCode::CONFLICT, axum::Json(serde_json::json!({"error": "cannot clarify completed goal"})));
+                }
+
+                // Two ways to clarify, and they must not be conflated.
+                //
+                // (a) The caller supplies acceptance criteria. That is a *human answer* to a
+                //     T3 question, so it wins outright and is merged exactly as before.
+                // (b) The caller supplies nothing. Then the substrate must clarify itself — and
+                //     this is the whole point of the route: `POST /goal/:id/react` answers 422
+                //     with "POST /goal/{id}/clarify" as the fix, so if this branch did not run
+                //     the ladder, following that advice would merge nothing, answer 200, and
+                //     send the client straight back to the same 422. The redirect would point
+                //     at a no-op and the loop would be closed but never exited.
+                let supplied = body.get("success_factors").is_some()
+                    || body.get("acceptance_criteria").is_some();
+
+                if let Some(factors) = body.get("success_factors") {
+                    if let Ok(sf) = serde_json::from_value::<Vec<crate::payloads::SuccessFactor>>(factors.clone()) {
+                        payload.success_factors = sf;
+                    }
+                }
+                if let Some(ac) = body.get("acceptance_criteria") {
+                    if let Ok(criteria) = serde_json::from_value::<Vec<String>>(ac.clone()) {
+                        payload.acceptance_criteria = criteria;
+                    }
+                }
+                if supplied {
+                    let new_meta = serde_json::to_value(&payload).unwrap_or_default();
+                    if let Err(e) = s.update_record(goal_id, None, None, None, None, Some(new_meta)) {
+                        return (axum::http::StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({"error": e.to_string()})));
+                    }
+                }
+
+                // Self-clarification. The trigger selection mirrors `loop_engine` so the route
+                // and the ReAct loop cannot disagree about *why* the ladder was entered.
+                let mut outcome: Option<crate::clarify_engine::ClarifyOutcome> = None;
+                if !supplied {
+                    let trigger = if payload.success_factors.is_empty() && payload.acceptance_criteria.is_empty() {
+                        Some(crate::clarify_engine::ClarifyTrigger::EmptyAC)
+                    } else if payload.success_factors.is_empty() {
+                        Some(crate::clarify_engine::ClarifyTrigger::UntestableAC)
+                    } else {
+                        // Already decidable — entering the ladder could only spend budget to
+                        // re-derive what the goal already states.
+                        None
+                    };
+                    if let Some(trigger) = trigger {
+                        // Lock order: memory (held) then world, matching `substrate_daemon`.
+                        let wm_guard = clarify_wm.read().ok();
+                        outcome = Some(crate::clarify_engine::ClarifyEngine::run(
+                            &mut s,
+                            goal_id,
+                            &rec.actor,
+                            trigger,
+                            wm_guard.as_deref(),
+                        ));
+                    }
+                }
+
+                // Re-read so the response describes the post-clarification goal rather than the
+                // one the request arrived with: the ladder writes AC, and reporting the stale
+                // counts would tell a client its goal is still unclarifiable after it was just
+                // clarified.
+                let mut payload = s
+                    .find_by_id(goal_id)
+                    .and_then(|r| serde_json::from_value::<crate::payloads::GoalPayload>(r.metadata.clone()).ok())
+                    .unwrap_or_default();
+                // A goal that just gained an AC is repairable only once its status stops saying
+                // "finished" — otherwise the 422 → clarify → react cycle fails on its second pass
+                // and the repair is a formality that cannot actually be used. Only goals that
+                // ended `Failed` *for want of an AC* reach here.
+                if !payload.success_factors.is_empty()
+                    && matches!(payload.status, crate::payloads::GoalStatus::Failed)
+                {
+                    payload.status = crate::payloads::GoalStatus::Pending;
+                    if let Err(e) = s.update_record(
+                        goal_id,
+                        None,
+                        None,
+                        None,
+                        None,
+                        Some(serde_json::to_value(&payload).unwrap_or_default()),
+                    ) {
+                        return (
+                            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                            axum::Json(serde_json::json!({"error": e.to_string()})),
+                        );
+                    }
+                }
+                let ladder = crate::clarify_engine::ClarifyEngine::ladder_rungs(&s, goal_id);
+                let exits = crate::clarify_engine::ClarifyEngine::ladder_exit_reasons(&s, goal_id);
+                (axum::http::StatusCode::OK, axum::Json(serde_json::json!({
+                    "goal_id": goal_id.to_string(),
+                    "success_factors": payload.success_factors.len(),
+                    "acceptance_criteria": payload.acceptance_criteria.len(),
+                    "status": format!("{:?}", payload.status),
+                    "outcome": outcome.as_ref().map(|o| format!("{o:?}")),
+                    "clarify_ladder": ladder,
+                    "clarify_exit_reasons": exits,
+                })))
+            })
+        })
+        .route("/memory/diff", {
+            let store = memory_store.clone();
+            post(move |Json(req): Json<serde_json::Value>| async move {
+                let from_id = req.get("from_id").and_then(|v| v.as_str()).and_then(|s| uuid::Uuid::parse_str(s).ok());
+                let to_id = req.get("to_id").and_then(|v| v.as_str()).and_then(|s| uuid::Uuid::parse_str(s).ok());
+                let (from_id, to_id) = match (from_id, to_id) {
+                    (Some(a), Some(b)) => (a, b),
+                    _ => return axum::Json(serde_json::json!({"error": "from_id and to_id required"})),
+                };
+                let (from, to) = {
+                    let s = store.lock().unwrap();
+                    let from = match s.find_by_id(from_id) {
+                        Some(r) => r.clone(),
+                        None => return axum::Json(serde_json::json!({"error": "from_id not found"})),
+                    };
+                    let to = match s.find_by_id(to_id) {
+                        Some(r) => r.clone(),
+                        None => return axum::Json(serde_json::json!({"error": "to_id not found"})),
+                    };
+                    (from, to)
+                };
+                let diff = crate::memory_diff::compute_diff(&from, &to);
+                axum::Json(serde_json::to_value(diff).unwrap_or(serde_json::json!({"error": "serialization failed"})))
+            })
+        })
+        .route("/v1/actions/authorized-wm", {
+            let sm = self_model_arc.clone();
+            let wm = world_model.clone();
+            get(move || async move {
+                let ops = if let Ok(wm_guard) = wm.read() {
+                    crate::action_registry::list_authorized_world_model(&sm, &*wm_guard)
+                } else {
+                    vec![]
+                };
+                (axum::http::StatusCode::OK, axum::Json(serde_json::json!({ "authorized": ops })))
+            })
+        })
+        .route("/v1/workspace/:id/renew", {
+            let registry = workspace_registry.clone();
+            post(move |Path(id): Path<String>, body: Option<Json<serde_json::Value>>| async move {
+                let ws_uuid = match uuid::Uuid::parse_str(&id) {
+                    Ok(u) => u,
+                    Err(_) => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"error": "invalid workspace id"}))),
+                };
+                let secs = body.and_then(|Json(v)| v.get("secs").and_then(|s| s.as_u64())).unwrap_or(3600);
+                let ws_id = crate::workspace::WorkspaceId(ws_uuid);
+                let result = registry.lock().map(|mut r| r.renew(&ws_id, secs));
+                match result {
+                    Ok(Ok(())) => (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"renewed": true, "secs": secs}))),
+                    Ok(Err(e)) => (axum::http::StatusCode::NOT_FOUND, axum::Json(serde_json::json!({"error": e}))),
+                    Err(_) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({"error": "registry lock poisoned"}))),
+                }
+            })
+        })
+        .route("/v1/loop/omega", {
+            let tg = topo_arc.clone();
+            post(move |Json(_req): Json<serde_json::Value>| async move {
+                let topo_clone = match tg.lock() {
+                    Ok(t) => t.clone(),
+                    Err(_) => return axum::Json(serde_json::json!({"ok": false, "error": "topo lock failed"})),
+                };
+                let mut engine = crate::loop_engine::LoopEngine::new(topo_clone);
+                match engine.run_omega_loop() {
+                    Ok(()) => axum::Json(serde_json::json!({"ok": true, "iterations": engine.metrics.iterations})),
+                    Err(e) => axum::Json(serde_json::json!({"ok": false, "error": e})),
+                }
+            })
+        })
+        .route("/v1/loop/subscribe", {
+            let dmn = daemon.clone();
+            let cog = cognitive.clone();
+            post(move |Json(req): Json<serde_json::Value>| async move {
+                let actor = req.get("actor").and_then(|v| v.as_str()).unwrap_or("daemon").to_string();
+                let cfg = req.get("config")
+                    .and_then(|c| serde_json::from_value::<crate::substrate_daemon::CognitiveLoopConfig>(c.clone()).ok())
+                    .unwrap_or_default();
+                match dmn.lock() {
+                    Ok(mut d) => {
+                        let id = d.subscribe_with_config(actor, cog, cfg);
+                        axum::Json(serde_json::json!({"ok": true, "handle_id": id}))
+                    }
+                    Err(_) => axum::Json(serde_json::json!({"ok": false, "error": "daemon lock failed"})),
+                }
+            })
+        })
+        .route("/v1/loop/stop/:handle", {
+            let dmn = daemon.clone();
+            post(move |Path(handle): Path<String>| async move {
+                let id = match uuid::Uuid::parse_str(&handle) {
+                    Ok(u) => u,
+                    Err(_) => return axum::Json(serde_json::json!({"ok": false, "error": "invalid handle UUID"})),
+                };
+                match dmn.lock() {
+                    Ok(d) => {
+                        let stopped = d.stop(id);
+                        axum::Json(serde_json::json!({"ok": true, "stopped": stopped}))
+                    }
+                    Err(_) => axum::Json(serde_json::json!({"ok": false, "error": "daemon lock failed"})),
+                }
+            })
+        })
+        .route("/v1/loop/status/:handle", {
+            let dmn = daemon.clone();
+            get(move |Path(handle): Path<String>| async move {
+                let id = match uuid::Uuid::parse_str(&handle) {
+                    Ok(u) => u,
+                    Err(_) => return axum::Json(serde_json::json!({"ok": false, "error": "invalid handle UUID"})),
+                };
+                match dmn.lock() {
+                    Ok(d) => match d.status(id) {
+                        Some(info) => axum::Json(serde_json::json!({
+                            "ok": true,
+                            "handle_id": info.id,
+                            "actor": info.actor,
+                            "iterations": info.iterations,
+                            "status": info.status,
+                        })),
+                        None => axum::Json(serde_json::json!({"ok": false, "error": "handle not found"})),
+                    },
+                    Err(_) => axum::Json(serde_json::json!({"ok": false, "error": "daemon lock failed"})),
+                }
             })
         })
         .layer(middleware::from_fn({
@@ -2473,7 +2861,12 @@ async fn handle_pricing() -> Html<&'static str> {
 
 #[cfg(feature = "web-server")]
 async fn handle_openapi() -> Json<serde_json::Value> {
-    Json(serde_json::from_str(OPENAPI_SPEC).expect("openapi spec is valid JSON"))
+    // Merged, not raw: `OPENAPI_SPEC` is hand-authored prose and has lagged the
+    // router before. `spec_with_route_table` guarantees every route declared in
+    // `ROUTE_TABLE` is described, so a client generating from this document
+    // never misses a live endpoint. The table itself is checked against the
+    // source by `tests/integration/route_parity_sit.rs`.
+    Json(spec_with_route_table())
 }
 
 #[cfg(feature = "web-server")]
@@ -2606,7 +2999,21 @@ async fn handle_bulk_add<B: MemoryBackend + Send + Sync + 'static>(
         Ok(mut ms) => {
             for (idx, r) in req.records.into_iter().enumerate() {
                 let actor_name = r.actor.clone();
-                let record_type = parse_record_type_alias(r.record_type.as_deref());
+                let record_type = match parse_record_type_alias(r.record_type.as_deref()) {
+                    Ok(t) => t,
+                    Err(bad) => {
+                        errors.push(crate::memory_store::BulkAddError {
+                            index: idx,
+                            actor: actor_name,
+                            reason: format!(
+                                "unknown record_type {:?}; valid values: {}",
+                                bad,
+                                RECORD_TYPE_ALIASES.join(", ")
+                            ),
+                        });
+                        continue;
+                    }
+                };
                 let record = MemoryRecord::new(
                     record_type,
                     r.actor,
@@ -3300,86 +3707,315 @@ async fn handle_memory_search_related<B: MemoryBackend + Send + Sync + 'static>(
     }
 }
 
-/// POST /memory/consolidate — merge near-duplicate records for an actor.
-/// Keyword-similarity based dedup. Executes deletes when dry_run=false (default).
+/// Normalise a record into a lowercased token set for duplicate detection.
+///
+/// Covers `target`, `action`, and every string/number/bool value in `metadata`, so
+/// records that differ only in their metadata are not treated as duplicates.
+/// (`target` alone was the previous behaviour, and was the source of false merges.)
+#[cfg(feature = "web-server")]
+fn consolidate_tokens(r: &crate::memory_record::MemoryRecord) -> std::collections::HashSet<String> {
+    let mut buf = String::new();
+    buf.push_str(&r.target);
+    buf.push(' ');
+    buf.push_str(&r.action);
+    if let Some(obj) = r.metadata.as_object() {
+        for (k, v) in obj {
+            buf.push(' ');
+            buf.push_str(k);
+            match v {
+                serde_json::Value::String(s) => {
+                    buf.push(' ');
+                    buf.push_str(s);
+                }
+                serde_json::Value::Number(nu) => {
+                    buf.push(' ');
+                    buf.push_str(&nu.to_string());
+                }
+                serde_json::Value::Bool(b) => {
+                    buf.push(' ');
+                    buf.push_str(if *b { "true" } else { "false" });
+                }
+                _ => {}
+            }
+        }
+    }
+    buf.to_lowercase()
+        .split_whitespace()
+        .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()).to_string())
+        .filter(|w| !w.is_empty())
+        .collect()
+}
+
+/// True Jaccard similarity: `|A ∩ B| / |A ∪ B|`.
+///
+/// The previous implementation used `|A ∩ B| / max(|A|,|B|)` — a containment ratio
+/// that lets short targets clear any threshold.
+#[cfg(feature = "web-server")]
+fn jaccard_similarity(
+    a: &std::collections::HashSet<String>,
+    b: &std::collections::HashSet<String>,
+) -> f64 {
+    if a.is_empty() || b.is_empty() {
+        return 0.0;
+    }
+    let inter = a.intersection(b).count() as f64;
+    let union = a.union(b).count() as f64;
+    if union == 0.0 {
+        0.0
+    } else {
+        inter / union
+    }
+}
+
+/// Disjoint-set (union-find) with path compression.
+///
+/// Consolidation requires a *partition*: every record belongs to exactly one
+/// cluster. The previous pairwise loop consulted its `drop_set` only for the
+/// second member, so a record already marked for dropping could later be elected
+/// as a survivor, and one record could appear in many pairs.
+#[cfg(feature = "web-server")]
+struct UnionFind {
+    parent: Vec<usize>,
+}
+
+#[cfg(feature = "web-server")]
+impl UnionFind {
+    fn new(n: usize) -> Self {
+        Self {
+            parent: (0..n).collect(),
+        }
+    }
+    fn find(&mut self, mut x: usize) -> usize {
+        while self.parent[x] != x {
+            self.parent[x] = self.parent[self.parent[x]];
+            x = self.parent[x];
+        }
+        x
+    }
+    fn union(&mut self, a: usize, b: usize) {
+        let (ra, rb) = (self.find(a), self.find(b));
+        if ra != rb {
+            self.parent[rb] = ra;
+        }
+    }
+}
+
+/// POST /memory/consolidate — merge near-duplicate records **for one actor**.
+///
+/// # Safety contract
+///
+/// 1. `actor` is **required**; cross-actor consolidation is not expressible.
+/// 2. `dry_run` defaults to **true** — this endpoint previews unless the caller
+///    passes `dry_run=false` **and** `confirm=true` (body or query).
+/// 3. Only records of the same `MemoryType` may share a cluster, and a `pinned`
+///    record is never clustered with a non-pinned one.
+/// 4. Similarity is true Jaccard over `target + action + metadata`.
+/// 5. Clusters are disjoint (union-find), and each yields exactly one survivor:
+///    highest confidence, then newest, then most existing evidence.
+/// 6. Non-survivors are appended to the Cold Store **before** removal, so
+///    consolidation is recoverable. Survivors absorb their ids into `evidence`.
+/// 7. Every mutation appends a `Reflexion` journal record naming all affected ids.
 #[cfg(feature = "web-server")]
 async fn handle_consolidate<B: MemoryBackend + Send + Sync + 'static>(
     store: Arc<Mutex<MemoryStore<B>>>,
-    Query(params): Query<ConsolidateParams>,
-) -> Json<serde_json::Value> {
-    let threshold = params.threshold.unwrap_or(0.80).clamp(0.0, 1.0);
-    let dry_run = params.dry_run.unwrap_or(false);
+    archive: Arc<Mutex<ArchiveStore>>,
+    Query(qp): Query<ConsolidateParams>,
+    body: Option<Json<ConsolidateBody>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let body = body.map(|Json(b)| b).unwrap_or_default();
 
-    match store.lock() {
-        Err(e) => Json(serde_json::json!({"error": format!("Lock error: {}", e)})),
-        Ok(mut ms) => {
-            let records = ms.all().to_vec(); // clone to release borrow before mutations
-            let now_ts_consolidate = chrono::Utc::now().timestamp();
-            let candidates: Vec<_> = records
-                .iter()
-                .filter(|r| params.actor.as_ref().map_or(true, |a| &r.actor == a))
-                .filter(|r| r.expires_at.map_or(true, |exp| exp > now_ts_consolidate))
-                .collect();
+    let threshold = body
+        .threshold
+        .or(qp.threshold)
+        .unwrap_or(0.80)
+        .clamp(0.0, 1.0);
+    // Safe by default: preview unless mutation is explicitly acknowledged twice.
+    let dry_run = body.dry_run.or(qp.dry_run).unwrap_or(true);
+    let confirm = body.confirm.or(qp.confirm).unwrap_or(false);
+    let actor = body.actor.clone().unwrap_or_else(|| qp.actor.clone());
+    let will_mutate = !dry_run && confirm;
 
-            // Find near-duplicate pairs by Jaccard token similarity on `.target`
-            let mut pairs: Vec<(String, String, u32)> = Vec::new(); // (keep_id, drop_id, pct)
-            let mut drop_set: std::collections::HashSet<String> = std::collections::HashSet::new();
-            for i in 0..candidates.len() {
-                for j in (i + 1)..candidates.len() {
-                    // Skip records already marked for dropping
-                    if drop_set.contains(&candidates[j].id.to_string()) {
-                        continue;
-                    }
-                    let words_i: std::collections::HashSet<&str> =
-                        candidates[i].target.split_whitespace().collect();
-                    let words_j: std::collections::HashSet<&str> =
-                        candidates[j].target.split_whitespace().collect();
-                    if words_i.is_empty() || words_j.is_empty() {
-                        continue;
-                    }
-                    let intersection = words_i.intersection(&words_j).count();
-                    let sim = intersection as f64 / words_i.len().max(words_j.len()) as f64;
-                    if sim >= threshold {
-                        // Keep newer; drop older
-                        let (keep, drop) = if candidates[i].timestamp >= candidates[j].timestamp {
-                            (candidates[i].id.to_string(), candidates[j].id.to_string())
-                        } else {
-                            (candidates[j].id.to_string(), candidates[i].id.to_string())
-                        };
-                        drop_set.insert(drop.clone());
-                        pairs.push((keep, drop, (sim * 100.0) as u32));
-                    }
-                }
+    let mut ms = store.lock().map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": format!("Lock error: {}", e)})),
+        )
+    })?;
+
+    let records = ms.all().to_vec(); // clone to release the borrow before mutations
+    let now_ts = chrono::Utc::now().timestamp();
+
+    // Actor is mandatory: never scan records belonging to another actor.
+    let candidates: Vec<_> = records
+        .iter()
+        .filter(|r| r.actor == actor)
+        .filter(|r| r.expires_at.map_or(true, |exp| exp > now_ts))
+        .collect();
+
+    let tokens: Vec<_> = candidates.iter().map(|r| consolidate_tokens(r)).collect();
+
+    // Build similarity edges under the type/priority guards, then close them
+    // transitively so the result is a true partition.
+    let n = candidates.len();
+    let mut uf = UnionFind::new(n);
+    for i in 0..n {
+        for j in (i + 1)..n {
+            if candidates[i].record_type != candidates[j].record_type {
+                continue;
             }
+            if (candidates[i].priority == "pinned") != (candidates[j].priority == "pinned") {
+                continue;
+            }
+            if jaccard_similarity(&tokens[i], &tokens[j]) >= threshold {
+                uf.union(i, j);
+            }
+        }
+    }
 
-            let found = pairs.len();
-            let mut deleted = 0usize;
+    let mut clusters: std::collections::HashMap<usize, Vec<usize>> =
+        std::collections::HashMap::new();
+    for i in 0..n {
+        let root = uf.find(i);
+        clusters.entry(root).or_default().push(i);
+    }
 
-            if !dry_run && !pairs.is_empty() {
-                for (_, drop_id, _) in &pairs {
-                    if let Ok(uuid) = uuid::Uuid::parse_str(drop_id) {
-                        if ms.delete_by_id(uuid) {
-                            deleted += 1;
+    let mut roots: Vec<usize> = clusters.keys().copied().collect();
+    roots.sort_unstable();
+    let mut plan: Vec<(usize, Vec<usize>)> = Vec::new();
+    for root in roots {
+        let members = clusters.remove(&root).unwrap_or_default();
+        if members.len() < 2 {
+            continue;
+        }
+        let keep = *members
+            .iter()
+            .max_by(|&&a, &&b| {
+                candidates[a]
+                    .confidence
+                    .partial_cmp(&candidates[b].confidence)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| candidates[a].timestamp.cmp(&candidates[b].timestamp))
+                    .then_with(|| {
+                        candidates[a]
+                            .evidence
+                            .len()
+                            .cmp(&candidates[b].evidence.len())
+                    })
+            })
+            .unwrap();
+        let drops: Vec<usize> = members.into_iter().filter(|&m| m != keep).collect();
+        plan.push((keep, drops));
+    }
+
+    let mut archived = 0usize;
+    let mut archived_ids: Vec<String> = Vec::new();
+    let mut survivors: Vec<String> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
+
+    if will_mutate {
+        for (keep, drops) in &plan {
+            let keep_rec = candidates[*keep].clone();
+            let drop_recs: Vec<crate::memory_record::MemoryRecord> =
+                drops.iter().map(|&d| candidates[d].clone()).collect();
+
+            // (1) Archive every non-survivor to the Cold Store BEFORE removing it.
+            match archive.lock() {
+                Ok(mut arc) => {
+                    for rec in &drop_recs {
+                        match arc.append(rec.clone()) {
+                            Ok(()) => {
+                                archived += 1;
+                                archived_ids.push(rec.id.to_string());
+                            }
+                            Err(e) => errors.push(format!("archive {}: {}", rec.id, e)),
                         }
                     }
                 }
+                Err(e) => errors.push(format!("archive lock failed: {}", e)),
             }
 
-            Json(serde_json::json!({
-                "found_duplicates": found,
-                "dry_run": dry_run,
-                "deleted": deleted,
-                "pairs": pairs.iter().map(|(k, d, s)| serde_json::json!({
-                    "keep": k, "drop": d, "similarity_pct": s
-                })).collect::<Vec<_>>(),
-                "note": if dry_run {
-                    "Dry run — no changes made. Re-run without ?dry_run=true to execute."
-                } else {
-                    "Duplicates deleted. Re-run with ?dry_run=true to preview without changes."
-                }
-            }))
+            // (2) Survivor absorbs the cluster's provenance, then duplicates go.
+            let mut survivor = keep_rec.clone();
+            survivor.evidence.extend(drop_recs.iter().map(|r| r.id));
+            if let Some(obj) = survivor.metadata.as_object_mut() {
+                obj.insert(
+                    "consolidated_from".to_string(),
+                    serde_json::json!(
+                        drop_recs
+                            .iter()
+                            .map(|r| r.id.to_string())
+                            .collect::<Vec<_>>()
+                    ),
+                );
+                obj.insert(
+                    "consolidated_at".to_string(),
+                    serde_json::json!(chrono::Utc::now().to_rfc3339()),
+                );
+            }
+            ms.delete_by_id(keep_rec.id);
+            // Re-seal the record: `MemoryStore::add` stores verbatim, so mutating
+            // `evidence`/`metadata` in place would leave a stale SHA-256 integrity
+            // hash on disk. Mirrors `MemoryStore::update_record`.
+            survivor.integrity = Some(survivor.compute_hash());
+            if let Err(e) = ms.add(survivor) {
+                errors.push(format!("reinsert survivor {}: {}", keep_rec.id, e));
+            }
+            survivors.push(keep_rec.id.to_string());
+
+            for rec in &drop_recs {
+                ms.delete_by_id(rec.id);
+            }
+        }
+
+        // (3) Journal the whole operation so the ids are attributable later.
+        if !plan.is_empty() {
+            let journal = crate::memory_record::MemoryRecord::new(
+                crate::memory_record::MemoryType::Reflexion,
+                actor.clone(),
+                "consolidate".to_string(),
+                format!("consolidated {} cluster(s)", plan.len()),
+                serde_json::json!({
+                    "kept": survivors.clone(),
+                    "archived": archived_ids.clone(),
+                    "threshold": threshold,
+                    "errors": errors.clone(),
+                }),
+            );
+            if let Err(e) = ms.add(journal) {
+                eprintln!("[Consolidate] journal write failed: {}", e);
+            }
         }
     }
+
+    let duplicates_found: usize = plan.iter().map(|(_, d)| d.len()).sum();
+
+    Ok(Json(serde_json::json!({
+        "actor": actor,
+        "threshold": threshold,
+        "dry_run": dry_run,
+        "confirm": confirm,
+        "mutated": will_mutate,
+        "candidate_records": n,
+        "clusters_found": plan.len(),
+        "duplicates_found": duplicates_found,
+        "survivors": survivors,
+        "archived": archived,
+        "archived_ids": archived_ids,
+        "errors": errors,
+        "clusters": plan.iter().map(|(keep, drops)| serde_json::json!({
+            "keep": candidates[*keep].id.to_string(),
+            "record_type": format!("{:?}", candidates[*keep].record_type),
+            "drop": drops.iter().map(|&d| candidates[d].id.to_string()).collect::<Vec<_>>(),
+        })).collect::<Vec<_>>(),
+        "note": if will_mutate {
+            "Duplicates archived to the Cold Store and removed from the Hot Store. \
+             Each survivor absorbed its cluster's ids into `evidence`."
+        } else if !confirm {
+            "Preview only. Pass {\"dry_run\": false, \"confirm\": true} in the body to execute."
+        } else {
+            "dry_run is still true — pass dry_run=false AND confirm=true to mutate."
+        }
+    })))
 }
 
 #[cfg(feature = "web-server")]
@@ -3534,818 +4170,6 @@ async fn handle_graph_search(
     }
 }
 
-#[cfg(feature = "web-server")]
-pub async fn run_with_both_stores<B: MemoryBackend + Send + Sync + 'static>(
-    addr: SocketAddr,
-    symbolic_store: Arc<Mutex<SymbolicStore<InMemoryGraph>>>,
-    memory_store: Arc<Mutex<MemoryStore<B>>>,
-) {
-    // Backward-compat: no AppState available here, use a no-op world model
-    let world_model: Arc<RwLock<WorldModelEnhanced>> =
-        Arc::new(RwLock::new(WorldModelEnhanced::new()));
-    let archive_store: Arc<Mutex<ArchiveStore>> = Arc::new(Mutex::new(ArchiveStore::new(
-        std::env::temp_dir().join("hipcortex-archive.jsonl"),
-    )));
-    let tx_log_arc: Option<Arc<TxLog>> = None;
-    let calibration: Arc<CalibrationTracker> = Arc::new(CalibrationTracker::new());
-    let self_model: Arc<SelfModel> = Arc::new(SelfModel::new());
-    let workspace_registry: Arc<Mutex<WorkspaceRegistry>> =
-        Arc::new(Mutex::new(WorkspaceRegistry::new()));
-    let topo_arc = Arc::new(Mutex::new(crate::topological_memory::CausalTopoGraph::new()));
-    let daemon = Arc::new(Mutex::new(crate::substrate_daemon::SubstrateDaemon::new()));
-    let cognitive = Arc::new(crate::cognitive_state::CognitiveHandle::new(
-        memory_store.clone(),
-        Arc::new(std::sync::RwLock::new(WorldModelEnhanced::new())),
-        Arc::new(SelfModel::new()),
-        None,
-        Arc::new(crate::coherence::CoherenceChecker::new()),
-        calibration.clone(),
-        Arc::new(crate::cognitive_gc::CognitiveGC::new()),
-    ));
-    let passive_capture_on = crate::passive_capture::passive_capture_enabled();
-
-    // Symbolic store routes
-    let graph_route = {
-        let store = symbolic_store.clone();
-        get(move || async move {
-            let store = store.lock().unwrap();
-            let graph = store.export_graph();
-            Json(graph)
-        })
-    };
-    let node_route = {
-        let store = symbolic_store.clone();
-        get(move |Path(id): Path<String>| async move {
-            let node = {
-                let store = store.lock().unwrap();
-                uuid::Uuid::parse_str(&id)
-                    .ok()
-                    .and_then(|u| store.get_node(u))
-            };
-            Json(node)
-        })
-    };
-
-    // Memory store routes
-    let add_memory_route = {
-        let store = memory_store.clone();
-        let wm = world_model.clone();
-        let arc = archive_store.clone();
-        let sym = symbolic_store.clone();
-        let txl = tx_log_arc.clone();
-        let cal = calibration.clone();
-        post(move |Json(req): Json<AddMemoryRequest>| async move {
-            handle_add_memory(store, wm, arc, sym, txl, cal, req).await
-        })
-    };
-
-    let bulk_add_route = {
-        let store = memory_store.clone();
-        post(move |Json(req): Json<BulkAddRequest>| async move {
-            handle_bulk_add(store, Json(req)).await
-        })
-    };
-
-    let query_memory_route = {
-        let store = memory_store.clone();
-        get(move |Query(params): Query<QueryMemoryParams>| async move {
-            handle_query_memory(store, params).await
-        })
-    };
-
-    // Semantic / keyword search: POST /memory/search
-    let search_route = {
-        let store = memory_store.clone();
-        post(move |Json(req): Json<SearchMemoryRequest>| async move {
-            handle_search_memory(store, Json(req)).await
-        })
-    };
-
-    // GDPR forget: DELETE /memory/forget/:actor
-    let forget_route = {
-        let ms = memory_store.clone();
-        let ss = symbolic_store.clone();
-        delete(
-            move |Path(actor): Path<String>| async move { handle_forget_actor(ms, ss, actor).await },
-        )
-    };
-
-    // Embed and add: POST /memory/embed
-    let embed_add_route = {
-        let store = memory_store.clone();
-        post(move |Json(req): Json<EmbedAndAddRequest>| async move {
-            handle_embed_and_add(store, Json(req)).await
-        })
-    };
-
-    // Coherence status: GET /coherence/status (backward-compat: fresh checker per request)
-    let coherence_route = {
-        let c = Arc::new(CoherenceChecker::new());
-        get(move || {
-            let cc = c.clone();
-            async move { handle_coherence_status(cc).await }
-        })
-    };
-
-    // Live stats: GET /stats
-    let stats_route = {
-        let store = memory_store.clone();
-        get(move || handle_stats(store))
-    };
-
-    // Data export: GET /memory/export?actor=optional
-    let export_route = {
-        let store = memory_store.clone();
-        get(move |Query(params): Query<QueryMemoryParams>| async move {
-            handle_export_memory(store, Query(params)).await
-        })
-    };
-
-    // Flat search: GET /memory/search-flat?query=&actor=&limit=
-    let search_flat_route = {
-        let store = memory_store.clone();
-        get(move |Query(params): Query<SearchFlatParams>| async move {
-            handle_search_flat(store, Query(params)).await
-        })
-    };
-
-    // PATCH /memory/update/:id — versioned in-place update
-    let update_route = {
-        let store = memory_store.clone();
-        patch(
-            move |Path(id): Path<String>, Json(req): Json<UpdateMemoryRequest>| async move {
-                handle_update_memory(store, id, Json(req)).await
-            },
-        )
-    };
-
-    // GET /memory/latest — most recent unique fact per (actor, action)
-    let latest_route = {
-        let store = memory_store.clone();
-        get(move |Query(params): Query<LatestMemoryParams>| async move {
-            handle_latest_memory(store, Query(params)).await
-        })
-    };
-
-    let audit_verify_route = {
-        let store = memory_store.clone();
-        get(move || {
-            let s = store.clone();
-            async move { handle_audit_verify(s).await }
-        })
-    };
-    let audit_export_route = {
-        let store = memory_store.clone();
-        get(move || {
-            let s = store.clone();
-            async move { handle_audit_export(s).await }
-        })
-    };
-
-    let create_node_route = {
-        let ss = symbolic_store.clone();
-        post(move |Json(req): Json<CreateNodeRequest>| async move {
-            handle_create_node(ss, Json(req)).await
-        })
-    };
-    let create_edge_route = {
-        let ss = symbolic_store.clone();
-        post(move |Json(req): Json<CreateEdgeRequest>| async move {
-            handle_create_edge(ss, Json(req)).await
-        })
-    };
-    let delete_node_route = {
-        let ss = symbolic_store.clone();
-        delete(move |Path(id): Path<String>| async move { handle_delete_node(ss, id).await })
-    };
-    let graph_search_route = {
-        let ss = symbolic_store.clone();
-        get(move |Query(params): Query<GraphSearchParams>| async move {
-            handle_graph_search(ss, Query(params)).await
-        })
-    };
-    let consolidate_route = {
-        let store = memory_store.clone();
-        post(move |Query(params): Query<ConsolidateParams>| async move {
-            handle_consolidate(store, Query(params)).await
-        })
-    };
-
-    let ingest_route = {
-        let store = memory_store.clone();
-        let wm = world_model.clone();
-        post(move |Json(req): Json<IngestRequest>| async move {
-            handle_ingest(store, wm, Json(req)).await
-        })
-    };
-
-    let quarantine_route = {
-        let store = memory_store.clone();
-        post(move |Path(id): Path<String>| {
-            let s = store.clone();
-            async move { handle_quarantine_memory(s, id).await }
-        })
-    };
-    let restore_route = {
-        let store = memory_store.clone();
-        post(move |Path(id): Path<String>| {
-            let s = store.clone();
-            async move { handle_restore_memory(s, id).await }
-        })
-    };
-    let corroborate_route = {
-        let store = memory_store.clone();
-        post(move |Path(id): Path<String>| {
-            let s = store.clone();
-            async move { handle_corroborate(s, id).await }
-        })
-    };
-    let contradict_route = {
-        let store = memory_store.clone();
-        post(move |Path(id): Path<String>| {
-            let s = store.clone();
-            async move { handle_contradict(s, id).await }
-        })
-    };
-    let context_route = {
-        let store = memory_store.clone();
-        post(move |Json(req): Json<ContextRequest>| async move {
-            handle_memory_context(store, Json(req)).await
-        })
-    };
-
-    let metrics_route = {
-        let store = memory_store.clone();
-        get(move || {
-            let s = store.clone();
-            async move { handle_prometheus_metrics(s).await }
-        })
-    };
-
-    let goal_react_route = {
-        let store = memory_store.clone();
-        post(move |Path(id): Path<String>| async move {
-            let goal_id = match uuid::Uuid::parse_str(&id) {
-                Ok(u) => u,
-                Err(_) => return (StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"error": "invalid uuid"}))),
-            };
-            // Clarify gate: reject if goal has no success_factors.
-            // unwrap_or_default() ensures schema mismatch → empty GoalPayload → caught here (C2).
-            {
-                let s = store.lock().unwrap();
-                if let Some(rec) = s.find_by_id(goal_id) {
-                    let payload = serde_json::from_value::<crate::payloads::GoalPayload>(rec.metadata.clone())
-                        .unwrap_or_default();
-                    if payload.success_factors.is_empty() {
-                        return (
-                            StatusCode::UNPROCESSABLE_ENTITY,
-                            axum::Json(serde_json::json!({
-                                "error": "goal must be clarified before react: POST /goal/{id}/clarify",
-                                "goal_id": goal_id.to_string()
-                            })),
-                        );
-                    }
-                }
-            }
-            let mut engine = crate::loop_engine::ReactEngine::new();
-            let result = {
-                let mut s = store.lock().unwrap();
-                engine.run(&mut s, goal_id, 0)
-            };
-            match result {
-                Ok(status) => (StatusCode::OK, axum::Json(
-                    serde_json::json!({"goal_id": goal_id.to_string(), "status": format!("{:?}", status)}),
-                )),
-                Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, axum::Json(serde_json::json!({"error": e}))),
-            }
-        })
-    };
-
-    let goal_trace_route = {
-        let store = memory_store.clone();
-        get(move |Path(id): Path<String>| async move {
-            let goal_id = match uuid::Uuid::parse_str(&id) {
-                Ok(u) => u,
-                Err(_) => return Json(serde_json::json!({"error": "invalid uuid"})),
-            };
-            let records: Vec<_> = {
-                let s = store.lock().unwrap();
-                s.all()
-                    .iter()
-                    .filter(|r| r.derived_from == Some(goal_id))
-                    .cloned()
-                    .collect()
-            };
-            let count = records.len();
-            Json(
-                serde_json::json!({"goal_id": goal_id.to_string(), "trace": records, "count": count}),
-            )
-        })
-    };
-
-    // GET /goal/:id/verify — return the verifier_report Belief written by ReactEngine.
-    let goal_verify_route = {
-        let store = memory_store.clone();
-        get(move |Path(id): Path<String>| async move {
-            let goal_id = match uuid::Uuid::parse_str(&id) {
-                Ok(u) => u,
-                Err(_) => return Json(serde_json::json!({"error": "invalid uuid"})),
-            };
-            let report = {
-                let s = store.lock().unwrap();
-                s.all()
-                    .iter()
-                    .filter(|r| {
-                        r.derived_from == Some(goal_id) && r.action == "verifier_report"
-                    })
-                    .cloned()
-                    .last()
-            };
-            match report {
-                Some(r) => Json(serde_json::json!({
-                    "goal_id": goal_id.to_string(),
-                    "verified": r.metadata.get("verified").and_then(|v| v.as_bool()).unwrap_or(false),
-                    "final_status": r.metadata.get("final_status").and_then(|v| v.as_str()).unwrap_or("unknown"),
-                    "factor_scores": r.metadata.get("factor_scores"),
-                    "confidence": r.confidence,
-                })),
-                None => Json(serde_json::json!({
-                    "goal_id": goal_id.to_string(),
-                    "verified": false,
-                    "error": "no verifier report found — goal may still be running",
-                })),
-            }
-        })
-    };
-
-    // GET /v1/actions/authorized-wm — list world-model ops approved by SelfModel + WM state (Phase 3c / Gap 6)
-    let v1_authorized_wm_route = {
-        let sm = self_model.clone();
-        let wm = world_model.clone();
-        get(move || async move {
-            let ops = if let Ok(wm_guard) = wm.read() {
-                crate::action_registry::list_authorized_world_model(&sm, &*wm_guard)
-            } else {
-                vec![]
-            };
-            (StatusCode::OK, axum::Json(serde_json::json!({ "authorized": ops })))
-        })
-    };
-
-    // POST /v1/workspace/:id/renew — renew workspace lease (Phase 3a)
-    let workspace_renew_route = {
-        let registry = workspace_registry.clone();
-        post(
-            move |Path(id): Path<String>, body: Option<Json<serde_json::Value>>| async move {
-                let ws_uuid = match uuid::Uuid::parse_str(&id) {
-                    Ok(u) => u,
-                    Err(_) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            axum::Json(serde_json::json!({"error": "invalid workspace id"})),
-                        )
-                    }
-                };
-                let secs = body
-                    .and_then(|Json(v)| v.get("secs").and_then(|s| s.as_u64()))
-                    .unwrap_or(3600);
-                let ws_id = crate::workspace::WorkspaceId(ws_uuid);
-                match registry.lock().unwrap().renew(&ws_id, secs) {
-                    Ok(()) => (
-                        StatusCode::OK,
-                        axum::Json(serde_json::json!({"renewed": true, "secs": secs})),
-                    ),
-                    Err(e) => (
-                        StatusCode::NOT_FOUND,
-                        axum::Json(serde_json::json!({"error": e})),
-                    ),
-                }
-            },
-        )
-    };
-
-    // POST /goal/:id/clarify — set success_factors + acceptance_criteria before InProgress
-    let goal_clarify_route = {
-        let store = memory_store.clone();
-        post(move |Path(id): Path<String>, Json(body): Json<serde_json::Value>| async move {
-            let goal_id = match uuid::Uuid::parse_str(&id) {
-                Ok(u) => u,
-                Err(_) => return (StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"error": "invalid uuid"}))),
-            };
-            let mut s = store.lock().unwrap();
-            let rec = match s.find_by_id(goal_id) {
-                Some(r) => r.clone(),
-                None => return (StatusCode::NOT_FOUND, axum::Json(serde_json::json!({"error": "goal not found"}))),
-            };
-            let mut payload = serde_json::from_value::<crate::payloads::GoalPayload>(rec.metadata.clone())
-                .unwrap_or_default();
-            if matches!(payload.status, crate::payloads::GoalStatus::Succeeded | crate::payloads::GoalStatus::Failed) {
-                return (StatusCode::CONFLICT, axum::Json(serde_json::json!({"error": "cannot clarify completed goal"})));
-            }
-            if let Some(factors) = body.get("success_factors") {
-                if let Ok(sf) = serde_json::from_value::<Vec<crate::payloads::SuccessFactor>>(factors.clone()) {
-                    payload.success_factors = sf;
-                }
-            }
-            if let Some(ac) = body.get("acceptance_criteria") {
-                if let Ok(criteria) = serde_json::from_value::<Vec<String>>(ac.clone()) {
-                    payload.acceptance_criteria = criteria;
-                }
-            }
-            let new_meta = serde_json::to_value(&payload).unwrap_or_default();
-            let _ = s.update_record(goal_id, None, None, None, None, Some(new_meta.clone()));
-            (StatusCode::OK, axum::Json(serde_json::json!({
-                "goal_id": goal_id.to_string(),
-                "success_factors": payload.success_factors.len(),
-                "acceptance_criteria": payload.acceptance_criteria.len(),
-                "status": format!("{:?}", payload.status),
-            })))
-        })
-    };
-
-    let memory_diff_route = {
-        let store = memory_store.clone();
-        post(move |Json(req): Json<serde_json::Value>| async move {
-            let from_id = req
-                .get("from_id")
-                .and_then(|v| v.as_str())
-                .and_then(|s| uuid::Uuid::parse_str(s).ok());
-            let to_id = req
-                .get("to_id")
-                .and_then(|v| v.as_str())
-                .and_then(|s| uuid::Uuid::parse_str(s).ok());
-            let (from_id, to_id) = match (from_id, to_id) {
-                (Some(a), Some(b)) => (a, b),
-                _ => return Json(serde_json::json!({"error": "from_id and to_id required"})),
-            };
-            let (from, to) = {
-                let s = store.lock().unwrap();
-                let from = match s.find_by_id(from_id) {
-                    Some(r) => r.clone(),
-                    None => return Json(serde_json::json!({"error": "from_id not found"})),
-                };
-                let to = match s.find_by_id(to_id) {
-                    Some(r) => r.clone(),
-                    None => return Json(serde_json::json!({"error": "to_id not found"})),
-                };
-                (from, to)
-            };
-            let diff = crate::memory_diff::compute_diff(&from, &to);
-            Json(
-                serde_json::to_value(diff)
-                    .unwrap_or(serde_json::json!({"error": "serialization failed"})),
-            )
-        })
-    };
-
-    // POST /v1/state/diff — tx-range StateDiff
-    let v1_state_diff_route = {
-        let store = memory_store.clone();
-        let txl = tx_log_arc.clone();
-        post(move |Json(req): Json<serde_json::Value>| async move {
-            let from_tx = req.get("from_tx").and_then(|v| v.as_u64()).unwrap_or(0);
-            let to_tx = req.get("to_tx").and_then(|v| v.as_u64()).unwrap_or(0);
-            match &txl {
-                None => Json(serde_json::json!({"error": "tx_log not configured"})),
-                Some(log) => {
-                    let ms = store.lock().unwrap();
-                    match crate::state_diff::compute_tx_diff(log, from_tx, to_tx, &*ms) {
-                        Ok(diff) => Json(
-                            serde_json::to_value(diff)
-                                .unwrap_or(serde_json::json!({"error": "serialization failed"})),
-                        ),
-                        Err(e) => Json(serde_json::json!({"error": e})),
-                    }
-                }
-            }
-        })
-    };
-
-    // POST /v1/memory/consolidate — manual consolidation trigger
-    let v1_consolidate_route = {
-        let store = memory_store.clone();
-        let arc = archive_store.clone();
-        let sym = symbolic_store.clone();
-        let txl = tx_log_arc.clone();
-        post(move |Json(req): Json<serde_json::Value>| async move {
-            let strategy = req.get("strategy").and_then(|v| v.as_str()).unwrap_or("bulk");
-            let actor = req.get("actor").and_then(|v| v.as_str()).unwrap_or("system");
-            let min_frequency = req.get("min_frequency").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
-            let dummy_log;
-            let log_ref: &crate::tx_log::TxLog = match &txl {
-                Some(l) => l,
-                None => {
-                    let dir = std::env::temp_dir();
-                    dummy_log =
-                        crate::tx_log::TxLog::open(dir.join("hc-consolidate-tmp.jsonl")).unwrap();
-                    &dummy_log
-                }
-            };
-            let mut ms = store.lock().unwrap();
-            if strategy == "motif" {
-                match crate::consolidation::mine_and_consolidate(&mut ms, None, None, Some(log_ref), min_frequency, actor) {
-                    Ok(r) => Json(serde_json::to_value(r).unwrap_or(serde_json::json!({"error": "serialization failed"}))),
-                    Err(e) => Json(serde_json::json!({"error": e})),
-                }
-            } else {
-                let min_group = req.get("min_group_size").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
-                let config = crate::consolidation::ConsolidationConfig {
-                    min_group_size: min_group,
-                    ..Default::default()
-                };
-                let mut arc = arc.lock().unwrap();
-                let mut sym = sym.lock().unwrap();
-                match crate::consolidation::consolidate(&mut ms, &mut arc, &mut sym, log_ref, &config) {
-                    Ok(r) => Json(serde_json::to_value(r).unwrap_or(serde_json::json!({"error": "serialization failed"}))),
-                    Err(e) => Json(serde_json::json!({"error": e})),
-                }
-            }
-        })
-    };
-
-    // POST /v1/loop/omega — run one omega loop iteration
-    let v1_loop_omega_route = {
-        let tg = topo_arc.clone();
-        post(move |Json(_req): Json<serde_json::Value>| async move {
-            let topo_clone = match tg.lock() {
-                Ok(t) => t.clone(),
-                Err(_) => {
-                    return Json(serde_json::json!({"ok": false, "error": "topo lock failed"}))
-                }
-            };
-            let mut engine = crate::loop_engine::LoopEngine::new(topo_clone);
-            match engine.run_omega_loop() {
-                Ok(()) => Json(serde_json::json!({
-                    "ok": true,
-                    "iterations": engine.metrics.iterations,
-                })),
-                Err(e) => Json(serde_json::json!({"ok": false, "error": e})),
-            }
-        })
-    };
-
-    // GET /v1/state/tx — current tx counter
-    let v1_state_tx_route = {
-        let txl = tx_log_arc.clone();
-        get(move || async move {
-            match &txl {
-                None => Json(serde_json::json!({"current_tx": null, "configured": false})),
-                Some(log) => {
-                    Json(serde_json::json!({"current_tx": log.current_tx(), "configured": true}))
-                }
-            }
-        })
-    };
-
-    let v1_beliefs_route = {
-        let store = memory_store.clone();
-        get(
-            move |axum::extract::Query(params): axum::extract::Query<
-                std::collections::HashMap<String, String>,
-            >| async move {
-                let min_conf: f32 = params
-                    .get("min_conf")
-                    .and_then(|v| v.parse().ok())
-                    .unwrap_or(0.0);
-                handle_v1_beliefs(store, min_conf).await
-            },
-        )
-    };
-
-    // POST /v1/loop/subscribe — spawn a background SubstrateDaemon handle
-    let v1_loop_subscribe_route = {
-        let dmn = daemon.clone();
-        let cog = cognitive.clone();
-        post(move |Json(req): Json<serde_json::Value>| async move {
-            let actor = req
-                .get("actor")
-                .and_then(|v| v.as_str())
-                .unwrap_or("daemon")
-                .to_string();
-            let cfg = req.get("config").and_then(|c| {
-                serde_json::from_value::<crate::substrate_daemon::CognitiveLoopConfig>(c.clone()).ok()
-            }).unwrap_or_default();
-            match dmn.lock() {
-                Ok(mut d) => {
-                    let id = d.subscribe_with_config(actor, cog, cfg);
-                    Json(serde_json::json!({"ok": true, "handle_id": id}))
-                }
-                Err(_) => Json(serde_json::json!({"ok": false, "error": "daemon lock failed"})),
-            }
-        })
-    };
-
-    // POST /v1/loop/stop/:handle — signal a daemon handle to stop
-    let v1_loop_stop_route = {
-        let dmn = daemon.clone();
-        post(
-            move |axum::extract::Path(handle): axum::extract::Path<String>| async move {
-                let id = match uuid::Uuid::parse_str(&handle) {
-                    Ok(u) => u,
-                    Err(_) => return Json(serde_json::json!({"ok": false, "error": "invalid handle UUID"})),
-                };
-                match dmn.lock() {
-                    Ok(d) => {
-                        let stopped = d.stop(id);
-                        Json(serde_json::json!({"ok": true, "stopped": stopped}))
-                    }
-                    Err(_) => Json(serde_json::json!({"ok": false, "error": "daemon lock failed"})),
-                }
-            },
-        )
-    };
-
-    // GET /v1/loop/status/:handle — retrieve handle info
-    let v1_loop_status_route = {
-        let dmn = daemon.clone();
-        get(
-            move |axum::extract::Path(handle): axum::extract::Path<String>| async move {
-                let id = match uuid::Uuid::parse_str(&handle) {
-                    Ok(u) => u,
-                    Err(_) => {
-                        return Json(
-                            serde_json::json!({"ok": false, "error": "invalid handle UUID"}),
-                        )
-                    }
-                };
-                match dmn.lock() {
-                    Ok(d) => match d.status(id) {
-                        Some(info) => Json(serde_json::json!({
-                            "ok": true,
-                            "handle_id": info.id,
-                            "actor": info.actor,
-                            "iterations": info.iterations,
-                            "status": info.status,
-                        })),
-                        None => {
-                            Json(serde_json::json!({"ok": false, "error": "handle not found"}))
-                        }
-                    },
-                    Err(_) => {
-                        Json(serde_json::json!({"ok": false, "error": "daemon lock failed"}))
-                    }
-                }
-            },
-        )
-    };
-
-    let app = Router::new()
-        .route(
-            "/",
-            get(|| async { axum::response::Redirect::permanent("/pricing") }),
-        )
-        .route(
-            "/health",
-            get(|| async {
-                axum::Json(serde_json::json!({
-                    "service": "hipcortex",
-                    "version": env!("CARGO_PKG_VERSION"),
-                    "status": "ok"
-                }))
-            }),
-        )
-        .route("/graph", graph_route)
-        .route("/node/:id", node_route)
-        .route("/memory/add", add_memory_route)
-        .route("/memory/bulk", bulk_add_route)
-        .route("/memory/embed", embed_add_route)
-        .route("/memory/query", query_memory_route)
-        .route("/memory/search", search_route)
-        .route("/memory/export", export_route)
-        .route("/memory/forget/:actor", forget_route)
-        .route("/memory/search-flat", search_flat_route)
-        .route("/memory/update/:id", update_route)
-        .route("/memory/latest", latest_route)
-        .route("/audit/verify", audit_verify_route)
-        .route("/audit/export", audit_export_route)
-        .route("/coherence/status", coherence_route)
-        .route(
-            "/coherence/inconsistencies",
-            get(handle_coherence_inconsistencies_fresh),
-        )
-        .route("/worldmodel/status", {
-            let wm = world_model.clone();
-            get(move || {
-                let w = wm.clone();
-                async move { handle_worldmodel_status(w).await }
-            })
-        })
-        .route(
-            "/webhooks",
-            get(handle_list_webhooks).post(handle_register_webhook),
-        )
-        .route("/webhooks/:id", delete(handle_delete_webhook))
-        .route("/graph/node", create_node_route)
-        .route("/graph/edge", create_edge_route)
-        .route("/graph/node/:id", delete_node_route)
-        .route("/graph/search", graph_search_route)
-        .route("/memory/consolidate", consolidate_route)
-        .route("/memory/ingest", ingest_route)
-        .route("/memory/quarantine/:id", quarantine_route)
-        .route("/memory/restore/:id", restore_route)
-        .route("/memory/corroborate/:id", corroborate_route)
-        .route("/memory/contradict/:id", contradict_route)
-        .route("/memory/context", context_route)
-        .route("/metrics", metrics_route)
-        .route("/stats", stats_route)
-        .route("/tier", get(handle_tier))
-        .route("/pricing", get(handle_pricing))
-        .route("/openapi.json", get(handle_openapi))
-        .route("/ns", get(handle_list_namespaces))
-        .route(
-            "/regulatory/hold",
-            get(handle_list_regulatory_holds).post(handle_set_regulatory_hold),
-        )
-        .route(
-            "/regulatory/hold/:actor",
-            delete(handle_release_regulatory_hold),
-        )
-        .route("/goal/:id/react", goal_react_route)
-        .route("/goal/:id/trace", goal_trace_route)
-        .route("/goal/:id/verify", goal_verify_route)
-        .route("/goal/:id/clarify", goal_clarify_route)
-        .route("/v1/workspace/:id/renew", workspace_renew_route)
-        .route("/v1/actions/authorized-wm", v1_authorized_wm_route)
-        .route("/memory/diff", memory_diff_route)
-        .route("/v1/state/diff", v1_state_diff_route)
-        .route("/v1/memory/consolidate", v1_consolidate_route)
-        .route("/v1/state/tx", v1_state_tx_route)
-        .route("/v1/beliefs", v1_beliefs_route)
-        .route("/v1/loop/omega", v1_loop_omega_route)
-        .route("/v1/loop/subscribe", v1_loop_subscribe_route)
-        .route("/v1/loop/status/:handle", v1_loop_status_route)
-        .route("/v1/loop/stop/:handle", v1_loop_stop_route)
-        // ── v2.3.0: Intent/Receipt seam ──────────────────────────────────────
-        .route("/intent/open", {
-            let cog_post = cognitive.clone();
-            let cog_get  = cognitive.clone();
-            let ph = post(move |Json(req): Json<serde_json::Value>| async move {
-                let cog = cog_post.clone();
-                let actor = req.get("actor").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                if actor.is_empty() {
-                    return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "actor required"})));
-                }
-                let target_entity = match req.get("target_entity").and_then(|v| v.as_str()) {
-                    Some(e) => e.to_string(),
-                    None => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "target_entity required"}))),
-                };
-                let deadline_ms = req.get("deadline_ms").and_then(|v| v.as_u64()).unwrap_or(30_000);
-                let goal_id: Option<uuid::Uuid> = req.get("goal_id").and_then(|v| v.as_str()).and_then(|s| uuid::Uuid::parse_str(s).ok());
-                let intent = crate::action_intent::ActionIntent::new_probe(actor.clone(), target_entity, goal_id, deadline_ms);
-                let intent_id = intent.id;
-                match cog.transact(crate::cognitive_state::CognitiveDelta::OpenIntent(intent), &actor) {
-                    Ok(_) => (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"ok": true, "intent_id": intent_id.to_string()}))),
-                    Err(e) => (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
-                }
-            });
-            let gh = axum::routing::get(move |axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>| async move {
-                let cog = cog_get.clone();
-                let af = params.get("actor").cloned().unwrap_or_default();
-                let intents = cog.open_intents.lock()
-                    .map(|g| g.iter().filter(|i| af.is_empty() || i.actor == af).cloned().collect::<Vec<_>>())
-                    .unwrap_or_default();
-                let count = intents.len();
-                axum::Json(serde_json::json!({"ok": true, "intents": intents, "count": count}))
-            });
-            ph.merge(gh)
-        })
-        .route("/intent/receipt", {
-            let cog = cognitive.clone();
-            post(move |Json(req): Json<serde_json::Value>| async move {
-                let cog = cog.clone();
-                let actor = req.get("actor").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                if actor.is_empty() {
-                    return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "actor required"})));
-                }
-                let intent_id = match req.get("intent_id").and_then(|v| v.as_str()).and_then(|s| uuid::Uuid::parse_str(s).ok()) {
-                    Some(id) => id,
-                    None => return (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": "intent_id (uuid) required"}))),
-                };
-                let ok_flag = req.get("ok").and_then(|v| v.as_bool()).unwrap_or(true);
-                let observation = req.get("observation").cloned().unwrap_or(serde_json::json!({}));
-                let sensor_path = req.get("sensor_path").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
-                let receipt = crate::action_intent::ActionReceipt { intent_id, ok: ok_flag, observation, sensor_path, ts: chrono::Utc::now() };
-                match cog.transact(crate::cognitive_state::CognitiveDelta::AcceptReceipt(receipt), &actor) {
-                    Ok(_) => (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"ok": true}))),
-                    Err(e) => (axum::http::StatusCode::BAD_REQUEST, axum::Json(serde_json::json!({"ok": false, "error": e.to_string()}))),
-                }
-            })
-        })
-        .layer(middleware::from_fn({
-            let store = memory_store.clone();
-            let enabled = passive_capture_on;
-            move |req, next| {
-                let s = store.clone();
-                crate::passive_capture::passive_capture_mw(s, enabled, req, next)
-            }
-        }))
-        .layer(middleware::from_fn(api_key_middleware));
-
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
-        .await
-        .expect("server failed");
-}
 
 /// Heuristic memory classification — no ML required.
 /// Returns (record_type, priority, ttl_seconds, confidence, actor, action, tags)
@@ -4859,23 +4683,45 @@ async fn handle_ingest<B: MemoryBackend + Send + Sync + 'static>(
     }
 }
 
+/// Every alias accepted by [`parse_record_type_alias`], used to build error messages.
 #[cfg(feature = "web-server")]
-fn parse_record_type_alias(s: Option<&str>) -> crate::memory_record::MemoryType {
+const RECORD_TYPE_ALIASES: &[&str] = &[
+    "Temporal", "Episodic", "ShortTerm", "Working", "Symbolic", "Semantic", "LongTerm",
+    "Procedural", "Reflexion", "Reflexive", "Perception", "Perceptual", "Goal", "Skill",
+    "Belief", "Decision", "Intent", "Receipt",
+];
+
+/// Map a caller-supplied record-type alias onto a [`crate::memory_record::MemoryType`].
+///
+/// Returns `Err(offending_value)` for unrecognised input. The previous version
+/// ended with `_ => MemoryType::Temporal`, so a typo such as `"Symbolik"` was
+/// silently accepted as a 24-hour decaying Temporal record — the caller saw a
+/// success response for a record that was not the type they asked for and would
+/// not survive the day.
+///
+/// Matching is case-insensitive and trims surrounding whitespace, so this is
+/// strictly more permissive than before for every valid alias.
+#[cfg(feature = "web-server")]
+fn parse_record_type_alias(s: Option<&str>) -> Result<crate::memory_record::MemoryType, String> {
     use crate::memory_record::MemoryType;
-    match s {
-        Some("Temporal") | Some("Episodic") | Some("ShortTerm") | Some("Working") => {
-            MemoryType::Temporal
-        }
-        Some("Symbolic") | Some("Semantic") | Some("LongTerm") => MemoryType::Symbolic,
-        Some("Procedural") => MemoryType::Procedural,
-        Some("Reflexion") | Some("Reflexive") => MemoryType::Reflexion,
-        Some("Perception") | Some("Perceptual") => MemoryType::Perception,
-        Some("Goal")     => MemoryType::Goal,
-        Some("Skill")    => MemoryType::Skill,
-        Some("Belief")   => MemoryType::Belief,
-        Some("Decision") => MemoryType::Decision,
-        _ => MemoryType::Temporal, // Default
-    }
+    let raw = s.map(|v| v.trim()).unwrap_or("Temporal");
+    let normalized = raw.to_lowercase();
+    let t = match normalized.as_str() {
+        // An omitted (or empty) field legitimately defaults to Temporal.
+        "" | "temporal" | "episodic" | "shortterm" | "short_term" | "working" => MemoryType::Temporal,
+        "symbolic" | "semantic" | "longterm" | "long_term" => MemoryType::Symbolic,
+        "procedural" => MemoryType::Procedural,
+        "reflexion" | "reflexive" | "reflection" => MemoryType::Reflexion,
+        "perception" | "perceptual" => MemoryType::Perception,
+        "goal" => MemoryType::Goal,
+        "skill" => MemoryType::Skill,
+        "belief" => MemoryType::Belief,
+        "decision" => MemoryType::Decision,
+        "intent" => MemoryType::Intent,
+        "receipt" => MemoryType::Receipt,
+        _ => return Err(raw.to_string()),
+    };
+    Ok(t)
 }
 
 #[cfg(feature = "web-server")]
@@ -4906,7 +4752,27 @@ async fn handle_add_memory<B: MemoryBackend + Send + Sync + 'static>(
         }
     }
 
-    let record_type = parse_record_type_alias(req.record_type.as_deref());
+    let record_type = match parse_record_type_alias(req.record_type.as_deref()) {
+        Ok(t) => t,
+        Err(bad) => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(AddMemoryResponse {
+                    success: false,
+                    record_id: None,
+                    error: Some(format!(
+                        "unknown record_type {:?}; valid values: {}",
+                        bad,
+                        RECORD_TYPE_ALIASES.join(", ")
+                    )),
+                    warning: Some(serde_json::json!({
+                        "valid_record_types": RECORD_TYPE_ALIASES,
+                        "reason": "record_type was previously coerced to Temporal on unrecognised input"
+                    })),
+                }),
+            ));
+        }
+    };
 
     // AcceptReceipt adapter: env Temporal observations must use POST /intent/receipt.
     // Returning 400 with redirect advice enforces the seam at the API boundary.
@@ -5253,28 +5119,57 @@ async fn handle_forget_actor<B: MemoryBackend + Send + Sync + 'static>(
                     records_deleted: 0,
                     symbolic_nodes_deleted: 0,
                     error: Some("Regulatory hold active — GDPR forget blocked. Release hold first via DELETE /regulatory/hold/:actor".to_string()),
+                    deleted_ids: vec![],
                 }),
             ));
         }
     }
 
-    // Delete from temporal/procedural/reflexion memory store
-    let records_deleted = match memory_store.lock() {
-        Ok(mut ms) => match ms.delete_by_actor(&actor) {
-            Ok(ids) => ids.len(),
-            Err(e) => {
-                return Err((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ForgetActorResponse {
-                        success: false,
-                        actor,
-                        records_deleted: 0,
-                        symbolic_nodes_deleted: 0,
-                        error: Some(e.to_string()),
-                    }),
-                ))
+    // Erase from temporal/procedural/reflexion memory store.
+    //
+    // Ordering matters: snapshot the victim ids and journal the erasure *before*
+    // the delete, so the operation is attributable even if the process dies
+    // mid-erasure. The journal record is written under the actor "gdpr-erasure"
+    // (never the erased actor) so it survives the erasure it describes.
+    let (records_deleted, deleted_ids) = match memory_store.lock() {
+        Ok(mut ms) => {
+            let victims: Vec<String> = ms
+                .find_by_actor(&actor)
+                .iter()
+                .map(|r| r.id.to_string())
+                .collect();
+
+            let journal = crate::memory_record::MemoryRecord::new(
+                crate::memory_record::MemoryType::Reflexion,
+                "gdpr-erasure".to_string(),
+                "forget_actor".to_string(),
+                format!("erased {} record(s) for actor {}", victims.len(), actor),
+                serde_json::json!({
+                    "erased_actor": actor,
+                    "deleted_ids": victims,
+                }),
+            );
+            if let Err(e) = ms.add(journal) {
+                eprintln!("[GDPR] erasure journal write failed for actor {}: {}", actor, e);
             }
-        },
+
+            match ms.delete_by_actor(&actor) {
+                Ok(ids) => (ids.len(), victims),
+                Err(e) => {
+                    return Err((
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ForgetActorResponse {
+                            success: false,
+                            actor,
+                            records_deleted: 0,
+                            symbolic_nodes_deleted: 0,
+                            error: Some(e.to_string()),
+                            deleted_ids: vec![],
+                        }),
+                    ))
+                }
+            }
+        }
         Err(e) => {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -5284,6 +5179,7 @@ async fn handle_forget_actor<B: MemoryBackend + Send + Sync + 'static>(
                     records_deleted: 0,
                     symbolic_nodes_deleted: 0,
                     error: Some(format!("Lock error: {}", e)),
+                    deleted_ids: vec![],
                 }),
             ))
         }
@@ -5309,6 +5205,7 @@ async fn handle_forget_actor<B: MemoryBackend + Send + Sync + 'static>(
             "actor": actor,
             "records_deleted": records_deleted,
             "symbolic_nodes_deleted": symbolic_nodes_deleted,
+            "deleted_ids": deleted_ids,
         }),
     );
 
@@ -5318,6 +5215,7 @@ async fn handle_forget_actor<B: MemoryBackend + Send + Sync + 'static>(
         records_deleted,
         symbolic_nodes_deleted,
         error: None,
+        deleted_ids,
     }))
 }
 
@@ -6418,6 +6316,7 @@ async fn handle_wm_causal_intervention(
         intervention_value,
         conditioned_on,
         intervention_label: None,
+        intervention_vector: None,
     };
 
     match world_model.read() {
@@ -6556,16 +6455,12 @@ async fn handle_worldmodel_status(
     }))
 }
 
-/// GET /coherence/inconsistencies — list currently detected inconsistencies
-#[cfg(feature = "web-server")]
-/// Backward-compat wrapper: creates fresh CoherenceChecker per request.
-/// Used by run_with_both_stores only.
-#[cfg(feature = "web-server")]
-async fn handle_coherence_inconsistencies_fresh() -> Json<serde_json::Value> {
-    let checker = Arc::new(CoherenceChecker::new());
-    handle_coherence_inconsistencies(checker).await
-}
-
+/// GET /coherence/inconsistencies — list currently detected inconsistencies.
+///
+/// Always served against the shared `CoherenceChecker` from `AppState`; the
+/// former per-request `_fresh` wrapper existed only for the deleted
+/// `run_with_both_stores` router and was removed with it so no handler is
+/// reachable from nowhere.
 async fn handle_coherence_inconsistencies(
     coherence: Arc<CoherenceChecker>,
 ) -> Json<serde_json::Value> {
@@ -6683,19 +6578,15 @@ async fn handle_self_health(
 }
 
 /// GET /self/capabilities — list registered capability descriptors
+///
+/// H8: this used to iterate an 8-name literal, so an endpoint whose name is
+/// "list capabilities" reported a fixed subset and could disagree with what was
+/// actually registered. It now enumerates the registry itself, so the response
+/// is the registry's truth and not a second copy of it.
 #[cfg(feature = "web-server")]
 async fn handle_self_capabilities(self_model: Arc<SelfModel>) -> Json<serde_json::Value> {
-    let ops = [
-        "add_memory",
-        "search_memory",
-        "query_memory",
-        "ingest",
-        "bulk_add",
-        "forget",
-        "reflect",
-        "context",
-    ];
-    let capabilities: Vec<serde_json::Value> = ops
+    let registered = self_model.list_capabilities();
+    let capabilities: Vec<serde_json::Value> = registered
         .iter()
         .map(|op| match self_model.get_capability(op) {
             Ok(cap) => serde_json::json!({
@@ -6703,6 +6594,8 @@ async fn handle_self_capabilities(self_model: Arc<SelfModel>) -> Json<serde_json
                 "description": cap.description,
                 "required_cpu_percent": cap.required_cpu_percent,
                 "required_memory_mb": cap.required_memory_mb,
+                "origin": crate::capability_catalog::origin_of(&cap.name),
+                "registered": true,
             }),
             Err(_) => serde_json::json!({"name": op, "registered": false}),
         })

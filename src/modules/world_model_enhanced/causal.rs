@@ -11,9 +11,39 @@ use std::sync::Arc;
 
 use crate::topological_memory::CausalTopoGraph;
 
+/// H10 (spec §2.1): how many flat slots an equation consumes, and whether they include a
+/// direction block. Additive — `Scalar` is the default, so every existing impl is unchanged.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SeShape {
+    Scalar,
+    Directional { dim: usize },
+}
+
 pub trait StructuralEquation: Send + Sync + std::fmt::Debug {
     fn evaluate(&self, parents: &[f64], u: f64) -> f64;
     fn invert_for_u(&self, parents: &[f64], observed: f64) -> f64;
+
+    /// H10 (spec §2.1). Defaulted to `Scalar` so no existing impl changes.
+    fn shape(&self) -> SeShape {
+        SeShape::Scalar
+    }
+
+    /// H10 (spec §2.1). Directional evaluation; the default is the scalar fallback, which is
+    /// exactly correct for `SeShape::Scalar` and a deliberate no-op for an equation that
+    /// declares `Directional` but does not override this.
+    fn evaluate_directional(&self, parents: &[f64], _dir: &[f64], u: f64) -> f64 {
+        self.evaluate(parents, u)
+    }
+
+    /// H10 abduction. Required to make the directional form invertible: the scalar
+    /// `invert_for_u` cannot subtract `<w_dir, dir>`, so a round-trip through it would
+    /// recover `u + <w_dir, dir>` rather than `u`. Defaulted to the scalar inverse so
+    /// scalar equations are untouched. (Spec §2.1 lists only `shape`/`evaluate_directional`,
+    /// but §5's "`DirectionalSE` evaluation and abduction round-trip" test cannot be
+    /// satisfied without this inverse; recorded here so it is not re-litigated.)
+    fn invert_for_u_directional(&self, parents: &[f64], _dir: &[f64], observed: f64) -> f64 {
+        self.invert_for_u(parents, observed)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -27,6 +57,103 @@ impl StructuralEquation for LinearSE {
     }
     fn invert_for_u(&self, parents: &[f64], observed: f64) -> f64 {
         observed - self.weights.iter().zip(parents).map(|(w, p)| w * p).sum::<f64>()
+    }
+}
+
+/// H10 (spec §2.1): directional linear structural equation.
+///
+/// `outcome = <weights, parents> + <dir_weights, dir> + u`
+///
+/// `dir` is a vector on the unit sphere $S^{d-1}$ (a Kakeya/KARM swept direction). The
+/// direction is carried *separately* from the parents so an intervention can pin it and
+/// hold it fixed while the parents evolve.
+#[derive(Debug, Clone)]
+pub struct DirectionalSE {
+    pub weights: Vec<f64>,
+    pub dir_weights: Vec<f64>,
+    pub dim: usize,
+}
+
+impl DirectionalSE {
+    pub fn new(weights: Vec<f64>, dir_weights: Vec<f64>) -> Self {
+        let dim = dir_weights.len();
+        Self {
+            weights,
+            dir_weights,
+            dim,
+        }
+    }
+
+    /// Flat slots consumed: `|weights|` parents + `dim` direction components + 1 noise.
+    pub fn flat_slots(&self) -> usize {
+        self.weights.len() + self.dim + 1
+    }
+
+    fn parent_dot(&self, parents: &[f64]) -> f64 {
+        self.weights.iter().zip(parents).map(|(w, p)| w * p).sum()
+    }
+
+    pub fn dir_dot(&self, dir: &[f64]) -> f64 {
+        self.dir_weights.iter().zip(dir).map(|(w, d)| w * d).sum()
+    }
+}
+
+impl StructuralEquation for DirectionalSE {
+    fn evaluate(&self, parents: &[f64], u: f64) -> f64 {
+        self.parent_dot(parents) + u
+    }
+
+    fn invert_for_u(&self, parents: &[f64], observed: f64) -> f64 {
+        observed - self.parent_dot(parents)
+    }
+
+    fn shape(&self) -> SeShape {
+        SeShape::Directional { dim: self.dim }
+    }
+
+    fn evaluate_directional(&self, parents: &[f64], dir: &[f64], u: f64) -> f64 {
+        self.parent_dot(parents) + self.dir_dot(dir) + u
+    }
+
+    fn invert_for_u_directional(&self, parents: &[f64], dir: &[f64], observed: f64) -> f64 {
+        observed - self.parent_dot(parents) - self.dir_dot(dir)
+    }
+}
+
+/// H10 (spec §2.1): a vector intervention.
+///
+/// `Scalar` preserves the existing wire format exactly (`InterventionQuery::intervention_value`
+/// stays an `f64` and stays authoritative). `Direction` carries a norm plus a direction on
+/// $S^{d-1}$, which is what the Kakeya seam needs to hold fixed.
+#[derive(Debug, Clone, PartialEq)]
+pub enum InterventionValue {
+    Scalar(f64),
+    /// `(norm, direction)` — `direction` is expected to be unit-length.
+    Direction(f64, Vec<f64>),
+}
+
+impl InterventionValue {
+    pub fn norm(&self) -> f64 {
+        match self {
+            Self::Scalar(v) => *v,
+            Self::Direction(n, _) => *n,
+        }
+    }
+
+    /// Scalar projection, for the scalar code paths that must keep working.
+    pub fn as_scalar(&self) -> f64 {
+        self.norm()
+    }
+
+    pub fn direction(&self) -> Option<&[f64]> {
+        match self {
+            Self::Scalar(_) => None,
+            Self::Direction(_, d) => Some(d.as_slice()),
+        }
+    }
+
+    pub fn is_directional(&self) -> bool {
+        matches!(self, Self::Direction(..))
     }
 }
 
@@ -52,9 +179,31 @@ pub struct AttributionReport {
 pub struct CausalNode {
     pub id: String,
     pub properties: HashMap<String, String>,
+    /// `embedding` is the direction-block user for a `DirectionalSE` (H10). A node with an
+    /// embedding and a directional equation can be evaluated with the embedding as `dir`.
     pub embedding: Option<[f32; 128]>,
     pub equation: Option<Arc<dyn StructuralEquation>>,
     pub noise_var: f64,
+    /// H10: per-component noise variance, populated only for directional nodes.
+    /// `None` for every scalar node, so the scalar contract is unchanged. Summing this
+    /// vector reproduces the scalar `noise_var` for a well-formed directional node.
+    pub noise_var_vector: Option<Vec<f64>>,
+}
+
+impl CausalNode {
+    /// H10: the embedding as a direction slice, if this node has one.
+    pub fn direction_block(&self) -> Option<Vec<f64>> {
+        self.embedding
+            .map(|e| e.iter().map(|x| *x as f64).collect::<Vec<f64>>())
+    }
+
+    /// H10: true when this node's equation declares a direction block.
+    pub fn is_directional(&self) -> bool {
+        matches!(
+            self.equation.as_ref().map(|e| e.shape()),
+            Some(SeShape::Directional { .. })
+        )
+    }
 }
 
 /// Directed causal edge A → B
@@ -83,6 +232,24 @@ pub struct InterventionQuery {
     /// String label for discrete interventions (e.g. action names).
     /// When set, used as the distribution lookup key instead of intervention_value.to_string().
     pub intervention_label: Option<String>,
+
+    /// H10 (spec §2.1): optional direction block for a vector intervention.
+    ///
+    /// `None` (the default at every existing call site) means the intervention is the scalar
+    /// `intervention_value`, so the JSON contract is unchanged. `Some(dir)` means the
+    /// intervention is `InterventionValue::Direction(intervention_value, dir)` — `dir` is
+    /// held fixed (see `apply_directional_intervention` / `pinned_direction`).
+    pub intervention_vector: Option<Vec<f64>>,
+}
+
+impl InterventionQuery {
+    /// H10: the intervention as a tagged value, scalar or directional.
+    pub fn intervention(&self) -> InterventionValue {
+        match &self.intervention_vector {
+            Some(d) => InterventionValue::Direction(self.intervention_value, d.clone()),
+            None => InterventionValue::Scalar(self.intervention_value),
+        }
+    }
 }
 
 /// Causal graph supporting do-calculus and counterfactual reasoning
@@ -106,6 +273,11 @@ pub struct CausalGraph {
 
     /// Pinned values from do-operator interventions
     pinned: HashMap<String, f64>,
+
+    /// H10: pinned *directions* from directional interventions.
+    /// A direction pinned here is held fixed across a rollout — it is read, never re-derived
+    /// per step, which is exactly the property the Kakeya seam needs.
+    pinned_dir: HashMap<String, Vec<f64>>,
 }
 
 impl CausalGraph {
@@ -118,6 +290,7 @@ impl CausalGraph {
             distributions: HashMap::new(),
             topo: CausalTopoGraph::new(),
             pinned: HashMap::new(),
+            pinned_dir: HashMap::new(),
         }
     }
 
@@ -133,6 +306,7 @@ impl CausalGraph {
             embedding: None,
             equation: None,
             noise_var: 0.0,
+            noise_var_vector: None,
         };
         self.nodes.insert(id.clone(), node);
         self.edges.insert(id.clone(), HashSet::new());
@@ -163,6 +337,7 @@ impl CausalGraph {
                 embedding: Some(embedding),
                 equation: None,
                 noise_var: 0.0,
+                noise_var_vector: None,
             },
         );
         self.edges.insert(id.clone(), HashSet::new());
@@ -325,6 +500,236 @@ impl CausalGraph {
 
     pub fn pinned_value(&self, var: &str) -> Option<f64> {
         self.pinned.get(var).copied()
+    }
+
+    /// H10: directional graph surgery. Removes incoming edges to `var`, pins the scalar norm,
+    /// and pins the *direction*. The direction stored here is what a rollout holds fixed.
+    ///
+    /// Returns `Err` for a non-unit or empty direction rather than silently normalising,
+    /// because a silent renormalisation would defeat a caller that is deliberately sweeping
+    /// directions on $S^{d-1}$ and needs to know the direction it asked for is the one used.
+    pub fn apply_directional_intervention(
+        &mut self,
+        var: &str,
+        norm: f64,
+        dir: &[f64],
+    ) -> Result<(), String> {
+        if dir.is_empty() {
+            return Err("directional intervention needs a non-empty direction".into());
+        }
+        let len_sq: f64 = dir.iter().map(|d| d * d).sum();
+        if (len_sq - 1.0).abs() > 1e-6 {
+            return Err(format!(
+                "direction must be unit-length on S^(d-1) (|dir|^2 = {}, expected 1.0)",
+                len_sq
+            ));
+        }
+        for targets in self.edges.values_mut() {
+            targets.remove(var);
+        }
+        self.edge_data.retain(|(_, to), _| to.as_str() != var);
+        self.pinned.insert(var.to_string(), norm);
+        self.pinned_dir.insert(var.to_string(), dir.to_vec());
+        Ok(())
+    }
+
+    /// H10: the direction pinned on `var`, if any. This is the single source of truth a
+    /// rollout consults, so the direction cannot drift between steps.
+    pub fn pinned_direction(&self, var: &str) -> Option<&[f64]> {
+        self.pinned_dir.get(var).map(|d| d.as_slice())
+    }
+
+    /// H10: the pinned intervention on `var` as a tagged value (directional if a direction
+    /// was pinned, scalar otherwise).
+    pub fn pinned_intervention_value(&self, var: &str) -> Option<InterventionValue> {
+        let norm = self.pinned.get(var).copied()?;
+        match self.pinned_dir.get(var) {
+            Some(d) => Some(InterventionValue::Direction(norm, d.clone())),
+            None => Some(InterventionValue::Scalar(norm)),
+        }
+    }
+
+    /// H10: Pearl abduction-action-prediction for a *directional* intervention.
+    ///
+    /// Identical to `compute_scm_counterfactual` except that the abduction and prediction
+    /// steps route through `invert_for_u_directional` / `evaluate_directional` when the node
+    /// carries a directional equation, using the pinned direction. When no node is
+    /// directional this reduces exactly to the scalar path.
+    pub fn compute_scm_counterfactual_directional(
+        &self,
+        observed_state: &HashMap<String, f64>,
+        intervention_var: &str,
+        value: &InterventionValue,
+    ) -> Result<HashMap<String, f64>, String> {
+        if !self.nodes.contains_key(intervention_var) {
+            return Err(format!(
+                "Intervention variable '{}' not found in causal graph",
+                intervention_var
+            ));
+        }
+
+        // The direction used for every node is the one pinned on the intervened variable.
+        // Reading it once here is what "held fixed across a rollout" means operationally.
+        let dir: Option<Vec<f64>> = match value {
+            InterventionValue::Direction(_, d) => Some(d.clone()),
+            InterventionValue::Scalar(_) => self.pinned_direction(intervention_var).map(|d| d.to_vec()),
+        };
+
+        let dir_zeros: Vec<f64> = dir
+            .as_ref()
+            .map(|d| vec![0.0; d.len()])
+            .unwrap_or_default();
+
+        // ── Abduction ────────────────────────────────────────────────────────────────
+        let mut u_terms: HashMap<String, f64> = HashMap::new();
+        for (node_id, node) in &self.nodes {
+            let v_obs = *observed_state.get(node_id).unwrap_or(&0.0);
+            let parents = self.get_parents(node_id);
+            let parent_vals: Vec<f64> = parents
+                .iter()
+                .map(|p| *observed_state.get(p).unwrap_or(&0.0))
+                .collect();
+
+            let u_v = match &node.equation {
+                Some(eq) => {
+                    let d = dir.as_deref().unwrap_or(dir_zeros.as_slice());
+                    eq.invert_for_u_directional(&parent_vals, d, v_obs)
+                }
+                None => {
+                    let mut parent_contrib = 0.0;
+                    for (i, parent_id) in parents.iter().enumerate() {
+                        let w = *self
+                            .edge_data
+                            .get(&(parent_id.clone(), node_id.clone()))
+                            .unwrap_or(&1.0);
+                        parent_contrib += w * parent_vals[i];
+                    }
+                    v_obs - parent_contrib
+                }
+            };
+            u_terms.insert(node_id.clone(), u_v);
+        }
+
+        // ── Topological order ────────────────────────────────────────────────────────
+        let topo_order = self.topological_order();
+
+        // ── Action + Prediction ─────────────────────────────────────────────────────
+        let mut counterfactual_state: HashMap<String, f64> = HashMap::new();
+        for node_id in topo_order {
+            if node_id == intervention_var {
+                counterfactual_state.insert(node_id, value.norm());
+                continue;
+            }
+            let node = self.nodes.get(&node_id);
+            let parents = self.get_parents(&node_id);
+            let parent_vals: Vec<f64> = parents
+                .iter()
+                .map(|p| *counterfactual_state.get(p).unwrap_or(&0.0))
+                .collect();
+            let u_v = *u_terms.get(&node_id).unwrap_or(&0.0);
+
+            let v_cf = match node.and_then(|n| n.equation.as_ref()) {
+                Some(eq) => {
+                    let d = dir.as_deref().unwrap_or(dir_zeros.as_slice());
+                    eq.evaluate_directional(&parent_vals, d, u_v)
+                }
+                None => {
+                    let mut parent_contrib = 0.0;
+                    for (i, parent_id) in parents.iter().enumerate() {
+                        let w = *self
+                            .edge_data
+                            .get(&(parent_id.clone(), node_id.clone()))
+                            .unwrap_or(&1.0);
+                        parent_contrib += w * parent_vals[i];
+                    }
+                    parent_contrib + u_v
+                }
+            };
+            counterfactual_state.insert(node_id, v_cf);
+        }
+
+        Ok(counterfactual_state)
+    }
+
+    /// H10: Kahn topological order, extracted so the scalar and directional counterfactuals
+    /// share one implementation (previously inlined in `compute_scm_counterfactual`).
+    fn topological_order(&self) -> Vec<String> {
+        let mut in_degree: HashMap<String, usize> = HashMap::new();
+        for node_id in self.nodes.keys() {
+            in_degree.insert(node_id.clone(), self.get_parents(node_id).len());
+        }
+
+        let mut queue: VecDeque<String> = VecDeque::new();
+        for (node_id, &deg) in &in_degree {
+            if deg == 0 {
+                queue.push_back(node_id.clone());
+            }
+        }
+
+        let mut topo_order = Vec::new();
+        while let Some(curr) = queue.pop_front() {
+            topo_order.push(curr.clone());
+            for child in self.get_children(&curr) {
+                if let Some(deg) = in_degree.get_mut(&child) {
+                    *deg = deg.saturating_sub(1);
+                    if *deg == 0 {
+                        queue.push_back(child);
+                    }
+                }
+            }
+        }
+
+        for node_id in self.nodes.keys() {
+            if !topo_order.contains(node_id) {
+                topo_order.push(node_id.clone());
+            }
+        }
+
+        topo_order
+    }
+
+    /// H10: hold a directional intervention fixed across a multi-step rollout.
+    ///
+    /// Each step re-reads the *pinned* direction; it is never re-derived from the evolving
+    /// state or embedding. A caller that swept `dir` on $S^{d-1}$ therefore gets exactly the
+    /// direction it asked for on every step, which is the `SUBSTRATE_CONTRACT.md §0.3`
+    /// requirement.
+    ///
+    /// Returns the trajectory including step 0 (`initial_state`).
+    pub fn rollout_directional(
+        &self,
+        initial_state: &HashMap<String, f64>,
+        var: &str,
+        steps: usize,
+    ) -> Result<Vec<HashMap<String, f64>>, String> {
+        let value = self
+            .pinned_intervention_value(var)
+            .ok_or_else(|| format!("no pinned intervention on '{}'", var))?;
+
+        let mut trajectory = Vec::with_capacity(steps + 1);
+        trajectory.push(initial_state.clone());
+
+        let mut current = initial_state.clone();
+        for _ in 0..steps {
+            // `pinned_intervention_value` is re-read every step and must be identical each
+            // time — the pinned direction is immutable for the life of the intervention.
+            let step_dir = self
+                .pinned_intervention_value(var)
+                .ok_or_else(|| format!("pinned intervention on '{}' vanished mid-rollout", var))?;
+            if step_dir != value {
+                return Err(format!(
+                    "pinned intervention on '{}' changed mid-rollout ({:?} -> {:?}); \
+                     a swept direction must be held fixed",
+                    var, value, step_dir
+                ));
+            }
+
+            let next = self.compute_scm_counterfactual_directional(&current, var, &value)?;
+            trajectory.push(next.clone());
+            current = next;
+        }
+
+        Ok(trajectory)
     }
 
     pub fn node_exists(&self, id: &str) -> bool {
@@ -843,36 +1248,8 @@ impl CausalGraph {
             u_terms.insert(node_id.clone(), u_v);
         }
 
-        let mut in_degree: HashMap<String, usize> = HashMap::new();
-        for node_id in self.nodes.keys() {
-            in_degree.insert(node_id.clone(), self.get_parents(node_id).len());
-        }
-
-        let mut queue: VecDeque<String> = VecDeque::new();
-        for (node_id, &deg) in &in_degree {
-            if deg == 0 {
-                queue.push_back(node_id.clone());
-            }
-        }
-
-        let mut topo_order = Vec::new();
-        while let Some(curr) = queue.pop_front() {
-            topo_order.push(curr.clone());
-            for child in self.get_children(&curr) {
-                if let Some(deg) = in_degree.get_mut(&child) {
-                    *deg = deg.saturating_sub(1);
-                    if *deg == 0 {
-                        queue.push_back(child);
-                    }
-                }
-            }
-        }
-
-        for node_id in self.nodes.keys() {
-            if !topo_order.contains(node_id) {
-                topo_order.push(node_id.clone());
-            }
-        }
+        // Shared with the directional path (H10) so the two cannot drift apart.
+        let topo_order = self.topological_order();
 
         let mut counterfactual_state: HashMap<String, f64> = HashMap::new();
         for node_id in topo_order {
@@ -1084,6 +1461,7 @@ mod tests {
             intervention_value: 1.0,
             conditioned_on: HashMap::new(),
             intervention_label: None,
+            intervention_vector: None,
         };
 
         let result = graph.compute_intervention(&query);
@@ -1254,6 +1632,7 @@ mod tests {
             intervention_value: 1.0,
             conditioned_on: HashMap::new(),
             intervention_label: Some("1".to_string()),
+            intervention_vector: None,
         };
 
         let result = graph.compute_intervention(&query).unwrap();

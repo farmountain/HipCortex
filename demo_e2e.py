@@ -124,6 +124,9 @@ rpt1_keys = list(rpt1.keys())
 show("Cognitive report keys (10 cognitive questions)", rpt1_keys)
 
 # The 10 question-keys from CognitiveStateReport
+# H6/WP8: `learned_beliefs` and `emergent_abstractions` are counts now; the
+# beliefs themselves are at `learned_beliefs_detail` /
+# `emergent_abstractions_detail`.
 COGNITIVE_KEYS = [
     "active_goals", "learned_beliefs", "valid_assumptions",
     "recent_decisions", "recent_failures", "emergent_abstractions",
@@ -247,8 +250,9 @@ else:
     print(f"  {INFO} REST path calls add_memory which routes through the detector.")
     print(f"  {INFO} Verifying via cognitive report 'emergent_abstractions' key instead...")
     rpt_em = cognitive_report(A3)
-    abstractions = rpt_em.get("emergent_abstractions", [])
-    show("emergent_abstractions in report", abstractions)
+    abstractions = rpt_em.get("emergent_abstractions_detail", [])
+    show("emergent_abstractions count", rpt_em.get("emergent_abstractions"))
+    show("emergent_abstractions_detail in report", abstractions)
     ok("emergent_abstractions key present in report", "emergent_abstractions" in rpt_em)
 
 # ── 3b: BeliefInvalidator ────────────────────────────────────
@@ -283,8 +287,10 @@ if decayed:
 else:
     # Check via cognitive report — invalidator may log to learned_beliefs
     rpt_bi = cognitive_report(A3)
-    lb = rpt_bi.get("learned_beliefs", [])
-    show("learned_beliefs in report", lb)
+    lb_count = rpt_bi.get("learned_beliefs")
+    lb = rpt_bi.get("learned_beliefs_detail", [])
+    show("learned_beliefs count in report", lb_count)
+    show("learned_beliefs_detail in report", lb)
     ok("BeliefInvalidator ran (beliefs stored, report has learned_beliefs)",
        "learned_beliefs" in rpt_bi)
 

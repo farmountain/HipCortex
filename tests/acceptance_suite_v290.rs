@@ -8,7 +8,8 @@
 /// AC-S2: C6 — future-deadline intents do not count toward invalidated_count
 /// AC-E1: C7 — Q10 recommends task_complete when actor's goal has GoalStatus::Succeeded
 /// AC-E2: C7 — assess_completion returns Complete when all success_factors.satisfied
-/// AC-C1: ClarifyEngine self-prompts (≤ MAX_CLARIFY_ROUNDS) before writing belief
+/// AC-C1: ClarifyEngine self-prompts (bounded: the T0..T3 ladder, at most MAX_CLARIFY_TIERS rungs
+///        per pass and MAX_CLARIFY_CYCLES_PER_GOAL passes per goal) before writing belief
 /// AC-C2: ClarifyEngine writes exactly 1 Belief{clarify_needed} per goal (idempotent)
 
 use std::fs;
@@ -190,24 +191,37 @@ fn ac_e2_assess_completion_returns_complete_when_all_factors_satisfied() {
 }
 
 // ── AC-C1 ─────────────────────────────────────────────────────────────────────
+/// The AC's intent is "self-prompt is *bounded* before a belief is written". That was once
+/// expressed as a `while round < MAX_CLARIFY_ROUNDS` counter loop; the counter was replaced
+/// by a four-rung ladder whose termination is structural (each rung runs at most once, per
+/// goal, recorded in the ledger). The assertions below check the *guarantees*, not the
+/// spelling of the old loop.
 #[test]
 fn ac_c1_clarify_engine_self_prompts_before_writing_belief() {
     let src = fs::read_to_string("src/clarify_engine.rs").unwrap();
     assert!(
-        src.contains("MAX_CLARIFY_ROUNDS"),
-        "ClarifyEngine must define MAX_CLARIFY_ROUNDS for bounded self-prompt exit"
+        src.contains("MAX_CLARIFY_TIERS"),
+        "ClarifyEngine must bound the search ladder"
+    );
+    assert!(
+        src.contains("MAX_CLARIFY_CYCLES_PER_GOAL"),
+        "ClarifyEngine must bound total invocations per goal (anti-spin exit)"
     );
     assert!(
         src.contains("ClarifiedBySubstrate"),
         "ClarifyEngine must return ClarifiedBySubstrate when memory resolves ambiguity"
     );
     assert!(
-        src.contains("while round < MAX_CLARIFY_ROUNDS"),
-        "ClarifyEngine self-prompt loop must be bounded by MAX_CLARIFY_ROUNDS"
-    );
-    assert!(
         src.contains("restate_if_env_changed"),
         "ClarifyEngine must attempt env-change restatement before user clarify"
+    );
+    assert!(
+        src.contains("CLARIFY_TIER_ACTION"),
+        "the ladder must record each tier so monotonicity survives a restart"
+    );
+    assert!(
+        src.contains("ladder_exhausted"),
+        "ClarifyEngine must name the ladder-exhaustion exit"
     );
 }
 

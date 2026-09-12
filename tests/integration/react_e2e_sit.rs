@@ -198,7 +198,7 @@ mod tests {
     }
 
     /// E2E-Gap7: ReactEngine::run() defers to ClarifyEngine when goal has no success_factors.
-    /// ClarifyEngine exhausts MAX_CLARIFY_ROUNDS (no substrate resolution) → Ok(Pending) +
+    /// ClarifyEngine exhausts the whole ladder (no substrate resolution) → Ok(Pending) +
     /// exactly one Belief{clarify_needed} written (C2 cohesion).
     #[test]
     fn test_react_loop_rejects_goal_with_no_success_factors() {

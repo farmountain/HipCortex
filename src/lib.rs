@@ -164,6 +164,8 @@ pub mod grpc_server;
 pub mod mcp_server;
 #[cfg(feature = "web-server")]
 pub mod openapi_spec;
+#[cfg(feature = "web-server")]
+pub mod capability_catalog;
 pub mod vision_encoder;
 #[cfg(feature = "web-server")]
 pub mod web_server;

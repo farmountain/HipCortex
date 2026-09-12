@@ -8,8 +8,8 @@
 // - Calibration improves with samples
 
 use hipcortex::world_model_enhanced::{
-    CausalGraph, EntityObservation, EntityState, EntityTracker, StateTransition, TransitionModel,
-    UncertaintyEstimator,
+    CausalGraph, DirectionalSE, EntityObservation, EntityState, EntityTracker, InterventionValue,
+    SeShape, StateTransition, StructuralEquation, TransitionModel, UncertaintyEstimator,
 };
 use proptest::prelude::*;
 use std::time::Instant;
@@ -363,6 +363,164 @@ proptest! {
 
             let sum: f64 = pred.probabilities.values().sum();
             prop_assert!((sum - 1.0).abs() < 1e-6, "Even single observation should sum to 1.0");
+        }
+    }
+}
+
+// ============================================================================
+// Invariant 10 (H10): directional SCM
+// ============================================================================
+
+proptest! {
+    /// A `DirectionalSE` must be exactly invertible for the direction block: abduction
+    /// recovers the noise term that prediction consumed, for any parents, any unit
+    /// direction on S^(d-1), and any noise.
+    #[test]
+    fn directional_se_abduction_round_trip(
+        theta in 0.0f64..std::f64::consts::TAU,
+        parents in prop::collection::vec(-100.0f64..100.0, 1..4),
+        u in -100.0f64..100.0,
+    ) {
+        let dir = vec![theta.cos(), theta.sin()];
+        let dir_weights: Vec<f64> = (0..dir.len()).map(|i| (i as f64 + 1.0) * 1.5).collect();
+        let se = DirectionalSE::new(vec![1.0; parents.len()], dir_weights);
+
+        let observed = se.evaluate_directional(&parents, &dir, u);
+        let recovered = se.invert_for_u_directional(&parents, &dir, observed);
+
+        prop_assert!(
+            (recovered - u).abs() < 1e-6,
+            "round-trip failed: u={} recovered={} (theta={})",
+            u, recovered, theta
+        );
+        prop_assert_eq!(se.shape(), SeShape::Directional { dim: 2 });
+    }
+}
+
+proptest! {
+    /// WP9 acceptance, generalised: for any unit direction and any norm, every step of a
+    /// rollout uses the pinned direction unchanged. A drifted direction is a hard failure.
+    #[test]
+    fn directional_intervention_is_held_fixed_across_rollout(
+        theta in 0.0f64..std::f64::consts::TAU,
+        norm in -50.0f64..50.0,
+        steps in 1usize..6,
+        observed_parent_ref in -5.0f64..5.0,
+    ) {
+        let dir = vec![theta.cos(), theta.sin()];
+
+        let mut g = CausalGraph::new();
+        g.add_node("x".into()).unwrap();
+        g.add_node("y".into()).unwrap();
+        g.add_edge("x".into(), "y".into()).unwrap();
+
+        // A recording equation so we can inspect the direction actually used.
+        #[derive(Debug)]
+        struct Rec {
+            inner: DirectionalSE,
+            seen: std::sync::Arc<std::sync::Mutex<Vec<Vec<f64>>>>,
+        }
+        impl StructuralEquation for Rec {
+            fn evaluate(&self, parents: &[f64], u: f64) -> f64 {
+                self.inner.evaluate(parents, u)
+            }
+            fn invert_for_u(&self, parents: &[f64], observed: f64) -> f64 {
+                self.inner.invert_for_u(parents, observed)
+            }
+            fn shape(&self) -> SeShape {
+                self.inner.shape()
+            }
+            fn evaluate_directional(&self, parents: &[f64], dir: &[f64], u: f64) -> f64 {
+                self.seen.lock().unwrap().push(dir.to_vec());
+                self.inner.evaluate_directional(parents, dir, u)
+            }
+            fn invert_for_u_directional(&self, parents: &[f64], dir: &[f64], observed: f64) -> f64 {
+                self.inner.invert_for_u_directional(parents, dir, observed)
+            }
+        }
+
+        let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        if let Some(n) = g.node_mut("y") {
+            n.equation = Some(std::sync::Arc::new(Rec {
+                inner: DirectionalSE::new(vec![1.0], vec![1.0, 1.0]),
+                seen: seen.clone(),
+            }));
+        }
+
+        prop_assume!(g.apply_directional_intervention("x", norm, &dir).is_ok());
+
+        let init = std::collections::HashMap::from([
+            ("x".to_string(), observed_parent_ref),
+            ("y".to_string(), observed_parent_ref * 2.0),
+        ]);
+        let traj = g.rollout_directional(&init, "x", steps).unwrap();
+
+        prop_assert_eq!(traj.len(), steps + 1);
+        // Step 0 echoes the observed anchor untouched; the pin applies to the rollout steps.
+        prop_assert!(
+            (traj[0]["x"] - observed_parent_ref).abs() < 1e-9,
+            "step 0 must echo the observed anchor, got {}", traj[0]["x"]
+        );
+        for (i, step) in traj.iter().enumerate().skip(1) {
+            prop_assert!(
+                (step["x"] - norm).abs() < 1e-9,
+                "step {}: pinned norm violated: {} vs {}",
+                i, step["x"], norm
+            );
+        }
+
+        let seen = seen.lock().unwrap();
+        prop_assert_eq!(seen.len(), steps, "one directional eval per step");
+        for (i, d) in seen.iter().enumerate() {
+            prop_assert_eq!(
+                d.clone(), dir.clone(),
+                "step {}: direction drifted instead of being held fixed", i
+            );
+        }
+    }
+}
+
+proptest! {
+    /// The directional counterfactual must not change scalar semantics: on a graph whose
+    /// nodes carry no structural equations at all, the directional path and the existing
+    /// scalar path must agree exactly.
+    #[test]
+    fn directional_path_matches_scalar_path_on_equation_free_graphs(
+        n_nodes in 2usize..5,
+        obs in prop::collection::vec(-10.0f64..10.0, 2..5),
+        intervention_value in -10.0f64..10.0,
+    ) {
+        let mut g = CausalGraph::new();
+        for i in 0..n_nodes {
+            let _ = g.add_node(format!("n{}", i));
+        }
+        // Chain n0 -> n1 -> ... so there is a real topological order.
+        for i in 1..n_nodes {
+            let _ = g.add_edge(format!("n{}", i - 1), format!("n{}", i));
+        }
+
+        let state: std::collections::HashMap<String, f64> = (0..n_nodes)
+            .map(|i| (format!("n{}", i), obs.get(i).copied().unwrap_or(0.0)))
+            .collect();
+
+        let scalar = g
+            .compute_scm_counterfactual(&state, "n0", intervention_value)
+            .unwrap();
+        let directional = g
+            .compute_scm_counterfactual_directional(
+                &state,
+                "n0",
+                &InterventionValue::Scalar(intervention_value),
+            )
+            .unwrap();
+
+        prop_assert_eq!(scalar.len(), directional.len());
+        for (k, v) in &scalar {
+            let d = directional.get(k).copied().unwrap_or(f64::NAN);
+            prop_assert!(
+                (d - v).abs() < 1e-9,
+                "directional path diverged on '{}': scalar={} directional={}", k, v, d
+            );
         }
     }
 }

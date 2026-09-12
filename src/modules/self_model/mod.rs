@@ -144,6 +144,27 @@ impl SelfModel {
         caps.get(name)
     }
 
+    /// Names of every registered capability, sorted.
+    ///
+    /// `GET /self/capabilities` uses this instead of its own literal list (H8),
+    /// so the response is the registry's truth rather than a second copy of it.
+    pub fn list_capabilities(&self) -> Vec<String> {
+        let mut names = match self.capabilities.read() {
+            Ok(caps) => caps.list_capabilities(),
+            Err(_) => Vec::new(),
+        };
+        names.sort();
+        names
+    }
+
+    /// Number of registered capabilities.
+    pub fn capability_count(&self) -> usize {
+        self.capabilities
+            .read()
+            .map(|caps| caps.count())
+            .unwrap_or(0)
+    }
+
     /// Check if system can execute an operation
     ///
     /// This is the main decision point - evaluates:

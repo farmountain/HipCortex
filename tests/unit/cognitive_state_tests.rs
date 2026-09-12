@@ -1,4 +1,4 @@
-use hipcortex::cognitive_state::{CognitiveDelta, CognitiveError, CognitiveSnapshot};
+use hipcortex::cognitive_state::{CognitiveDelta, CognitiveError};
 use hipcortex::memory_record::{MemoryRecord, MemoryType};
 use hipcortex::payloads::{BeliefPayload, EpistemicStatus, GoalStatus, SkillPayload};
 use uuid::Uuid;
@@ -190,7 +190,7 @@ fn test_transact_register_skill() {
 #[test]
 fn test_transact_advance_goal_illegal_transition_err() {
     use hipcortex::cognitive_state::CognitiveError;
-    use hipcortex::payloads::{GoalPayload, SuccessFactor};
+    use hipcortex::payloads::GoalPayload;
     let handle = make_handle();
     let goal_payload = GoalPayload {
         target_state: "done".into(),
@@ -210,6 +210,60 @@ fn test_transact_advance_goal_illegal_transition_err() {
         .transact(CognitiveDelta::AdvanceGoal { id: goal_id, status: GoalStatus::Succeeded }, "a")
         .unwrap_err();
     assert!(matches!(err, CognitiveError::DeltaInvalid(_)));
+}
+
+/// WP10: one new lifecycle edge, `Failed → Pending`, and *only* that one.
+///
+/// `POST /goal/:id/clarify` gives a factor-less goal an AC and then has to un-`Failed` it so the
+/// 422 → clarify → react repair loop can re-run. `validate_goal_transition` is the crate's single
+/// statement of legal lifecycles, so leaving it stale meant the documented delta API rejected a
+/// transition the server performs — a client using `/v1/cognitive/transact` would be told the
+/// repair is illegal while the server was doing exactly that.
+///
+/// The second half matters as much as the first: "a repair path now exists" is only reassuring if
+/// the loosening cannot be widened by accident, so this asserts the neighbouring shape that must
+/// still be refused. A test that only checked the happy path would pass just as well against a
+/// table that had been replaced by `Ok(())`.
+#[test]
+fn test_advance_goal_repair_edge_is_legal_from_failed_only() {
+    use hipcortex::payloads::GoalPayload;
+
+    fn seed_goal(handle: &CognitiveHandle<InMemoryBackend>, status: GoalStatus) -> Uuid {
+        let payload = GoalPayload { status, ..Default::default() };
+        let meta = serde_json::to_value(&payload).unwrap();
+        let r = MemoryRecord::new(MemoryType::Goal, "a".into(), "create".into(), "goal".into(), meta);
+        let id = r.id;
+        handle.transact(CognitiveDelta::AddMemory(r), "a").unwrap();
+        id
+    }
+
+    let handle = make_handle();
+
+    // The repair edge: legal.
+    let failed = seed_goal(&handle, GoalStatus::Failed);
+    let res = handle.transact(
+        CognitiveDelta::AdvanceGoal { id: failed, status: GoalStatus::Pending },
+        "a",
+    );
+    assert!(
+        res.is_ok(),
+        "WP10: a Failed goal that gained an AC must be re-runnable, so the table has to admit \
+         Failed → Pending: {:?}",
+        res.err()
+    );
+
+    // The loosening is exactly one edge wide — `Succeeded` stays terminal (its AC is what the
+    // verifier report was judged against, so rewriting it would invalidate an audit).
+    let succeeded = seed_goal(&handle, GoalStatus::Succeeded);
+    for to in [GoalStatus::Pending, GoalStatus::InProgress] {
+        let err = handle
+            .transact(CognitiveDelta::AdvanceGoal { id: succeeded, status: to.clone() }, "a")
+            .unwrap_err();
+        assert!(
+            matches!(err, CognitiveError::DeltaInvalid(_)),
+            "a completed goal must stay completed; {to:?} was wrongly admitted"
+        );
+    }
 }
 
 // ─── Task 6: snapshot + entropy tests ───────────────────────────────────────

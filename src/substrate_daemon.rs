@@ -223,6 +223,16 @@ impl SubstrateDaemon {
                     };
                     // Stage 1 clarify: run ClarifyEngine on any unclarified InProgress goal (P0-A).
                     if let Ok(mut ms) = cognitive.memory.lock() {
+                        // Pass the world model through so the ladder's T2 (causal attribution)
+                        // rung is reachable here. With `None` the rung can only ever return
+                        // `Unavailable`, which silently downgrades every daemon clarification
+                        // to "ask the human" — the substrate would never self-resolve a goal
+                        // whose failure a broken structural equation already explains.
+                        //
+                        // Lock order: `memory` is taken first, then `world` (read). Every other
+                        // site in this daemon takes `world` alone, so this cannot invert.
+                        let wm_guard = cognitive.world.read().ok();
+                        let wm = wm_guard.as_deref();
                         let unclarified: Vec<uuid::Uuid> = ms
                             .search_by_goal_status(&actor_clone, "InProgress")
                             .into_iter()
@@ -236,7 +246,7 @@ impl SubstrateDaemon {
                             let _ = crate::clarify_engine::ClarifyEngine::run(
                                 &mut ms, gid, &actor_clone,
                                 crate::clarify_engine::ClarifyTrigger::EmptyAC,
-                                None,
+                                wm,
                             );
                         }
                     }
@@ -340,12 +350,16 @@ impl SubstrateDaemon {
                                 // After ≥3 consecutive vetoes, run ClarifyEngine to self-resolve (P0-A).
                                 if consecutive_veto_count >= 3 {
                                     if let Ok(mut ms) = cognitive.memory.lock() {
+                                        // World model passed through as above: a veto storm is
+                                        // exactly the case where T2 should be tried before the
+                                        // human is asked.
+                                        let wm_guard = cognitive.world.read().ok();
                                         let _ = crate::clarify_engine::ClarifyEngine::run(
                                             &mut ms, *goal_id_s3, &actor_clone,
                                             crate::clarify_engine::ClarifyTrigger::RepeatedVeto {
                                                 veto_count: consecutive_veto_count,
                                             },
-                                            None,
+                                            wm_guard.as_deref(),
                                         );
                                     }
                                 }
@@ -512,12 +526,13 @@ impl SubstrateDaemon {
                                         && !pre_payload.success_factors.is_empty()
                                     {
                                         if let Ok(mut ms) = cognitive.memory.lock() {
+                                            let wm_guard = cognitive.world.read().ok();
                                             let _ = crate::clarify_engine::ClarifyEngine::run(
                                                 &mut ms,
                                                 *goal_id_v,
                                                 &actor_clone,
                                                 crate::clarify_engine::ClarifyTrigger::PreSuccess,
-                                                None,
+                                                wm_guard.as_deref(),
                                             );
                                         }
                                     }

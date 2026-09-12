@@ -107,6 +107,48 @@ def _delete(path: str) -> dict:
     resp.raise_for_status()
     return resp.json()
 
+def _req(method: str, path: str, payload: dict | None = None) -> dict:
+    """Issue an arbitrary-method request against HipCortex and decode the response.
+
+    Returns the decoded JSON body on success. On a transport failure or a non-2xx
+    status it returns ``{"error": ...}`` instead of raising, matching the
+    fail-silent contract used by the passive observers: an MCP tool call must
+    always produce a result the model can read, even when the server is down or
+    the route does not exist.
+
+    ``_post``/``_get``/``_delete`` raise via ``raise_for_status()``, which made
+    every caller of this helper crash with ``NameError`` before this definition
+    existed — 17 handlers referenced ``_req`` and none could ever succeed.
+    """
+    url = f"{HIPCORTEX_URL}{path}"
+    try:
+        resp = requests.request(
+            method.upper(),
+            url,
+            json=payload,
+            headers=_headers(),
+            timeout=TIMEOUT,
+        )
+    except Exception as exc:  # noqa: BLE001 — fail-silent by contract
+        return {"error": f"{method.upper()} {path} failed: {exc}"}
+
+    if not resp.ok:
+        detail = (resp.text or "").strip()
+        if len(detail) > 500:
+            detail = detail[:500] + "..."
+        return {
+            "error": f"{method.upper()} {path} -> HTTP {resp.status_code}",
+            "status": resp.status_code,
+            "detail": detail,
+        }
+
+    if resp.status_code == 204 or not resp.content:
+        return {}
+    try:
+        return resp.json()
+    except ValueError:
+        return {"raw": resp.text}
+
 # ---------------------------------------------------------------------------
 # MCP tool definitions
 # ---------------------------------------------------------------------------

@@ -146,7 +146,7 @@ ClarifyEngine wired into ReactEngine. Q10 can stop because goal succeeded. Q8 sp
 | **Discrepancy spike** | `update_from_receipt` returns `was_surprising`; `flag_discrepancy()` stamps `ContactKind::DiscrepancyDetected`; discrepancy `Belief{confidence=0.3}` → Q8 `uncertain_beliefs` |
 | **Runner silence** | Q8 scans all `Intent` records at read-time; past-deadline Open/InFlight folded into `invalidated_count` |
 | **Goal completion** | Q10 `task_complete` branch for `GoalStatus::Succeeded`; `assess_completion(goal_id, store)` API |
-| **ClarifyEngine in loop** | `ReactEngine::run` calls `ClarifyEngine(EmptyAC)` on empty success_factors — bounded by `MAX_CLARIFY_ROUNDS=3` |
+| **ClarifyEngine in loop** | `ReactEngine::run` calls `ClarifyEngine(EmptyAC)` on empty success_factors — descends the 4-rung ladder (T0 env → T1 prior art → T2 causal → T3 ask user), bounded by `MAX_CLARIFY_TIERS=3` and `MAX_CLARIFY_CYCLES_PER_GOAL=3` |
 
 ---
 

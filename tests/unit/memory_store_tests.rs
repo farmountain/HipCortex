@@ -43,6 +43,7 @@ fn test_goal_payload_roundtrips_via_metadata() {
             name: "uptime".to_string(),
             weight: 1.0,
             satisfied: false,
+            observation_pattern: None,
         }],
         max_react_iterations: 5,
         status: GoalStatus::Pending,

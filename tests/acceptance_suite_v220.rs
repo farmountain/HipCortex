@@ -74,15 +74,18 @@ fn main() {
 
         let report = build_report(&store, "agent", 1.0);
 
+        // H6/WP8: Q2's array is now `learned_beliefs_detail`; `learned_beliefs` is
+        // its count. The AC-Q2 requirement (In+conf>0.3 in, Out out) is unchanged.
+        assert_eq!(report.learned_beliefs, report.learned_beliefs_detail.len());
         assert!(
-            report.learned_beliefs.iter().any(|b| b.id == in_id),
+            report.learned_beliefs_detail.iter().any(|b| b.id == in_id),
             "Q2 must include In+conf>0.3 belief; got: {:?}",
-            report.learned_beliefs.iter().map(|b| b.proposition.clone()).collect::<Vec<_>>()
+            report.learned_beliefs_detail.iter().map(|b| b.proposition.clone()).collect::<Vec<_>>()
         );
         assert!(
-            !report.learned_beliefs.iter().any(|b| b.id == out_id),
+            !report.learned_beliefs_detail.iter().any(|b| b.id == out_id),
             "Q2 must exclude Out belief even at conf=0.85; got: {:?}",
-            report.learned_beliefs.iter().map(|b| b.proposition.clone()).collect::<Vec<_>>()
+            report.learned_beliefs_detail.iter().map(|b| b.proposition.clone()).collect::<Vec<_>>()
         );
     });
 
@@ -266,17 +269,17 @@ fn main() {
         let s = MemoryStore::new(&path).unwrap();
         let report = build_report(&s, "agent", 1.0);
 
-        let in_in_q2 = report.learned_beliefs.iter()
+        let in_in_q2 = report.learned_beliefs_detail.iter()
             .any(|b| b.proposition == "new_system_ready");
-        let out_in_q2 = report.learned_beliefs.iter()
+        let out_in_q2 = report.learned_beliefs_detail.iter()
             .any(|b| b.proposition == "legacy_system_active");
 
         assert!(in_in_q2,
             "Q2 must include In+conf>0.3 belief after JSONL reload; got: {:?}",
-            report.learned_beliefs.iter().map(|b| b.proposition.clone()).collect::<Vec<_>>());
+            report.learned_beliefs_detail.iter().map(|b| b.proposition.clone()).collect::<Vec<_>>());
         assert!(!out_in_q2,
             "Q2 must exclude Out belief (conf=0.88) after JSONL reload; got: {:?}",
-            report.learned_beliefs.iter().map(|b| b.proposition.clone()).collect::<Vec<_>>());
+            report.learned_beliefs_detail.iter().map(|b| b.proposition.clone()).collect::<Vec<_>>());
     });
 
     println!("\n=== Acceptance v2.2.0 (Epistemic Filter Closure): 6/6 passed ===");

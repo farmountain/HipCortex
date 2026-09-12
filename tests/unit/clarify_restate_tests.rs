@@ -89,9 +89,9 @@ fn run_returns_clarified_when_env_blocks_factor() {
     env_signal(&mut store, "offline", "deploy_production");
 
     let outcome = ClarifyEngine::run(&mut store, goal_id, "agent", ClarifyTrigger::EmptyAC, None);
-    assert_eq!(
-        outcome, ClarifyOutcome::ClarifiedBySubstrate,
-        "env-blocked goal must return ClarifiedBySubstrate"
+    assert!(
+        matches!(outcome, ClarifyOutcome::ClarifiedBySubstrate { .. }),
+        "env-blocked goal must return ClarifiedBySubstrate, got {outcome:?}"
     );
 }
 

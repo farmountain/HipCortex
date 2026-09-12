@@ -4,7 +4,7 @@
 /// - EmptyAC trigger → NeedsUserClarification (no beliefs to self-resolve)
 /// - EmptyAC trigger + matching belief → ClarifiedBySubstrate
 /// - AlreadyClear when success_factors non-empty
-/// - MAX_CLARIFY_ROUNDS exit: second call returns NeedsUserClarification (deduped)
+/// - lifetime-bounded exit: second call returns NeedsUserClarification (deduped)
 use hipcortex::clarify_engine::{ClarifyEngine, ClarifyOutcome, ClarifyTrigger};
 use hipcortex::memory_record::{MemoryRecord, MemoryType};
 use hipcortex::memory_store::MemoryStore;
@@ -70,10 +70,9 @@ fn clarify_engine_matching_belief_self_resolves() {
     store.add(belief_rec).unwrap();
 
     let outcome = ClarifyEngine::run(&mut store, gid, "agent-2", ClarifyTrigger::EmptyAC, None);
-    assert_eq!(
-        outcome,
-        ClarifyOutcome::ClarifiedBySubstrate,
-        "Matching belief in store → ClarifyEngine self-resolves"
+    assert!(
+        matches!(outcome, ClarifyOutcome::ClarifiedBySubstrate { .. }),
+        "Matching belief in store → ClarifyEngine self-resolves, got {outcome:?}"
     );
     let self_clarified = store
         .all_by_type(MemoryType::Reflexion)
@@ -93,6 +92,15 @@ fn clarify_engine_non_empty_factors_already_clear() {
         outcome,
         ClarifyOutcome::AlreadyClear,
         "Non-empty success_factors with EmptyAC trigger → AlreadyClear"
+    );
+    // Where this is decided is load-bearing. The ladder answers `AlreadyClear` for a goal that
+    // already carries factors *after* the T0 environment rung has been attempted, not before it.
+    // An environment-blocked goal also arrives with factors and `EmptyAC`, so deciding this first
+    // would silently declare such a goal clear instead of letting T0 restate the blocked factors.
+    assert_eq!(
+        ClarifyEngine::ladder_rungs(&store, gid).len(),
+        1,
+        "the T0 rung must have been attempted before the goal was declared clear"
     );
 }
 

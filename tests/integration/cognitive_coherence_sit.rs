@@ -135,7 +135,7 @@ fn clarify_restates_when_env_signal_blocks_factor() {
     temporal(&mut store, "failed", "deploy_server", None);
 
     let outcome = ClarifyEngine::run(&mut store, goal_id, "agent", ClarifyTrigger::EmptyAC, None);
-    assert_eq!(outcome, ClarifyOutcome::ClarifiedBySubstrate,
+    assert!(matches!(outcome, ClarifyOutcome::ClarifiedBySubstrate { .. }),
         "env-blocked factor must yield ClarifiedBySubstrate");
 
     // Factor must be renamed

@@ -417,6 +417,7 @@ fn test_causal_intervention_empty_graph() {
         intervention_value: 1.0,
         conditioned_on: std::collections::HashMap::new(),
         intervention_label: None,
+        intervention_vector: None,
     });
     // May succeed or fail on empty graph — must not panic
     let _ = result;

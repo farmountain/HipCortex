@@ -142,7 +142,7 @@ fn main() {
 
         // ClarifyEngine must detect env block and restate
         let outcome = ClarifyEngine::run(&mut store, goal_id, "agent", ClarifyTrigger::EmptyAC, None);
-        assert_eq!(outcome, ClarifyOutcome::ClarifiedBySubstrate,
+        assert!(matches!(outcome, ClarifyOutcome::ClarifiedBySubstrate { .. }),
             "env-blocked goal must return ClarifiedBySubstrate, got {:?}", outcome);
 
         // Factor must be renamed to *_when_available

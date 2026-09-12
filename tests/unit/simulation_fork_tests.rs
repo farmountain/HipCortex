@@ -238,6 +238,7 @@ fn test_rollout_goal_distance_and_drift_fields_present() {
             name: "test-factor".into(),
             weight: 1.0,
             satisfied: false,
+            observation_pattern: None,
         };
         let payload = GoalPayload {
             target_state: "reach-x".into(),

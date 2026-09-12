@@ -45,7 +45,7 @@ fn main() {
             target_state: "ac_r1_goal".to_string(),
             status: GoalStatus::InProgress,
             success_factors: vec![SuccessFactor {
-                name: "done".to_string(), weight: 1.0, satisfied: false,
+                name: "done".to_string(), weight: 1.0, satisfied: false, observation_pattern: None,
             }],
             ..Default::default()
         };
@@ -126,9 +126,12 @@ fn main() {
         }
         let s = MemoryStore::new(&path).unwrap();
         let report = build_report(&s, "agent", 0.9);
-        let found = report.emergent_abstractions.iter()
+        // H6/WP8: the array moved to `emergent_abstractions_detail`; the count is
+        // `emergent_abstractions`. The assertion is unchanged.
+        let found = report.emergent_abstractions_detail.iter()
             .any(|b| b.proposition.contains("backoff_retry") && b.epistemic_status == "Skill");
         assert!(found, "Skill must appear in emergent_abstractions after restart");
+        assert_eq!(report.emergent_abstractions, report.emergent_abstractions_detail.len());
     }),
 
     // AC-R5: WorldModel transition data survives save+load cycle

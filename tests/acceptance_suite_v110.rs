@@ -205,16 +205,47 @@ fn main() {
     }),
 
     // AC-10: CognitiveStateReport.next_recommendation populated
+    //
+    // Two paths, both pinned. v2.9.0/C2 made Q10 answer `clarify_goal` when the active goal has
+    // no `success_factors`, because `ReactEngine::run` refuses to react on such a goal (422 →
+    // `/goal/:id/clarify`). This AC predates that change and asserted `react_loop` for the
+    // factor-less goal, so it was red against committed HEAD — the recommendation had changed by
+    // design and the AC was never updated. Asserting a literal op for *one* goal shape is what
+    // let it rot, so this now pins the intent (populated, actionable, explained) plus the two
+    // distinct ops, one per shape.
     ac!("AC-10 CognitiveStateReport.next_recommendation populated", {
+        // Shape 1: a goal with a decidable AC → the scheduler may recommend work on it.
         let mut store = MemoryStore::new_in_memory();
         let gp = GoalPayload {
             target_state: "ac10_goal".into(), urgency: 0.7,
+            success_factors: vec![SuccessFactor {
+                name: "deployed".into(), weight: 1.0, satisfied: false,
+                observation_pattern: Some("deployed".into()),
+            }],
             status: GoalStatus::InProgress, ..Default::default()
         };
         store.add(MemoryRecord::new(MemoryType::Goal, "agent".into(), "p".into(), "ac10_goal".into(), serde_json::to_value(&gp).unwrap())).unwrap();
         let report = build_report(&store, "agent", 1.0);
         assert!(report.next_recommendation.goal_id.is_some(), "next_recommendation.goal_id must be Some");
-        assert_eq!(report.next_recommendation.recommended_op, "react_loop");
+        assert_eq!(report.next_recommendation.recommended_op, "react_loop",
+            "a goal with a decidable AC must be reactable");
+        assert!(!report.next_recommendation.rationale.is_empty(), "rationale must not be empty");
+    }),
+
+    // AC-10b: the same goal shape *without* an AC must be routed to clarification, not ignored.
+    // This is the half of the behaviour that the original AC-10 was silently contradicting.
+    ac!("AC-10b factor-less goal is routed to clarify_goal, not react_loop", {
+        let mut store = MemoryStore::new_in_memory();
+        let gp = GoalPayload {
+            target_state: "ac10b_goal".into(), urgency: 0.7,
+            status: GoalStatus::InProgress, ..Default::default()
+        };
+        assert!(gp.success_factors.is_empty(), "fixture must have no AC");
+        store.add(MemoryRecord::new(MemoryType::Goal, "agent".into(), "p".into(), "ac10b_goal".into(), serde_json::to_value(&gp).unwrap())).unwrap();
+        let report = build_report(&store, "agent", 1.0);
+        assert!(report.next_recommendation.goal_id.is_some(), "the goal must still be surfaced");
+        assert_eq!(report.next_recommendation.recommended_op, "clarify_goal",
+            "a goal with no AC cannot be react_loop'd; the recommendation must say so");
         assert!(!report.next_recommendation.rationale.is_empty(), "rationale must not be empty");
     }),
 

@@ -713,6 +713,7 @@ fn ac_react_daemon_drives_react_goal_to_terminal() {
             name: "must_complete".to_string(),
             weight: 1.0,
             satisfied: false,
+            observation_pattern: None,
         }],
         status: GoalStatus::InProgress,
         max_react_iterations: 2,
@@ -1121,7 +1122,7 @@ fn ac_critic_gate_dynamic_threshold_raises_bar() {
         target_state: "t".into(),
         status: GoalStatus::InProgress,
         success_factors: (0..4usize).map(|i| SuccessFactor {
-            name: format!("f{i}"), weight: 1.0, satisfied: i < 1,
+            name: format!("f{i}"), weight: 1.0, satisfied: i < 1, observation_pattern: None,
         }).collect(),
         ..Default::default()
     };
@@ -1142,7 +1143,7 @@ fn ac_critic_gate_dynamic_threshold_raises_bar() {
 fn ac_clarify_self_resolves_from_belief() {
     use hipcortex::clarify_engine::{ClarifyEngine, ClarifyOutcome, ClarifyTrigger};
     use hipcortex::memory_record::{MemoryRecord, MemoryType};
-    use hipcortex::payloads::{BeliefPayload, GoalPayload, GoalStatus, SuccessFactor, EpistemicStatus};
+    use hipcortex::payloads::{BeliefPayload, GoalPayload, GoalStatus, EpistemicStatus};
     use hipcortex::memory_store::MemoryStore;
 
     let mut store = MemoryStore::new_in_memory();
@@ -1175,7 +1176,7 @@ fn ac_clarify_self_resolves_from_belief() {
     store.add(belief_rec).unwrap();
 
     let outcome = ClarifyEngine::run(&mut store, goal_id, "agent", ClarifyTrigger::EmptyAC, None);
-    assert_eq!(outcome, ClarifyOutcome::ClarifiedBySubstrate,
+    assert!(matches!(outcome, ClarifyOutcome::ClarifiedBySubstrate { .. }),
         "matching belief must self-resolve as ClarifiedBySubstrate");
 
     // Must have written Reflexion{self_clarified}
@@ -1218,7 +1219,7 @@ fn ac_clarify_escalates_after_max_rounds() {
 
 #[test]
 fn ac_clarify_deduplicates_clarify_needed() {
-    use hipcortex::clarify_engine::{ClarifyEngine, ClarifyOutcome, ClarifyTrigger};
+    use hipcortex::clarify_engine::{ClarifyEngine, ClarifyTrigger};
     use hipcortex::memory_record::{MemoryRecord, MemoryType};
     use hipcortex::payloads::{GoalPayload, GoalStatus};
     use hipcortex::memory_store::MemoryStore;
@@ -1366,8 +1367,10 @@ fn q7_includes_skill_records() {
     );
     store.add(rec).unwrap();
     let report = build_report(&store, "agent", 1.0);
-    let found = report.emergent_abstractions.iter().any(|b| b.proposition.contains("retry_with_backoff"));
+    // H6/WP8: array is `emergent_abstractions_detail`, count is `emergent_abstractions`.
+    let found = report.emergent_abstractions_detail.iter().any(|b| b.proposition.contains("retry_with_backoff"));
     assert!(found, "Skill record must appear in Q7 emergent_abstractions");
+    assert_eq!(report.emergent_abstractions, report.emergent_abstractions_detail.len());
 }
 
 #[test]

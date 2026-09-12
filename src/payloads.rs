@@ -49,10 +49,23 @@ pub enum GoalExecutionMode {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct GoalPayload {
     pub target_state: String,
+    // These three carry no `#[serde(default)]` until WP10, which meant the JSON contract
+    // disagreed with the Rust one: every field below already defaulted, and `GoalPayload`
+    // derives `Default`, yet a client sending the minimal body its Rust default represents was
+    // rejected. Concretely, `/memory/add` with `{"target_state":"x"}` — or with just
+    // `status` added, which is what `tests/integration/v110_rest_sit.rs` sends — produced a
+    // Goal record that *no* consumer could parse: `ReactEngine::run` errored, `/goal/:id/verify`
+    // failed, and the clarify ladder reported it as "needs user clarification" (see the
+    // `Err` arm in `clarify_engine::run_with_budget`). Only `target_state` is genuinely
+    // required: a goal with no target is not a goal, but a goal with no AC yet is exactly the
+    // case the clarify ladder exists to handle.
+    #[serde(default)]
     pub acceptance_criteria: Vec<String>,
+    #[serde(default)]
     pub success_factors: Vec<SuccessFactor>,
     #[serde(default = "default_max_iterations")]
     pub max_react_iterations: u32,
+    #[serde(default)]
     pub status: GoalStatus,
     #[serde(default)]
     pub current_iteration: u32,
@@ -78,8 +91,14 @@ fn default_urgency() -> f64 {
     0.5
 }
 
+/// Default `GoalPayload::estimated_cost` — the risk weight used when a goal does not declare
+/// one. Public because consumers that reason about the cost of getting a goal wrong (e.g.
+/// `clarify_engine`'s ask-cost gate) must fall back to the same number the parser would use,
+/// rather than inventing their own.
+pub const DEFAULT_GOAL_COST: f64 = 1.0;
+
 fn default_cost() -> f64 {
-    1.0
+    DEFAULT_GOAL_COST
 }
 
 /// Payload for MemoryType::Decision — records an act-phase choice with rationale.
@@ -167,6 +186,15 @@ pub struct BeliefPayload {
     /// None = legacy/unspecified — included in Q3 by default (backward compat).
     #[serde(default)]
     pub contact_kind: Option<crate::action_intent::ContactKind>,
+
+    /// Questions a human must answer to unblock the goal.
+    ///
+    /// Populated when `clarify_engine` reaches its terminal rung (T3) and decides asking is
+    /// worth the cost; the *phrasing* comes from `agent_guidance::clarify_goal`, which is
+    /// stateless by design. Empty for every other belief, including ones written before
+    /// this field existed — hence `#[serde(default)]`.
+    #[serde(default)]
+    pub clarifying_questions: Vec<String>,
 }
 
 fn default_belief_confidence() -> f32 {

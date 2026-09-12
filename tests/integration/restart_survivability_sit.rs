@@ -171,8 +171,10 @@ fn restart_coherent_snapshot() {
     );
 
     // Q7 — Skill abstraction survives restart
+    // H6/WP8: the Q7 array lives at `emergent_abstractions_detail`; the count is
+    // `emergent_abstractions`.
     let skill_entry = report
-        .emergent_abstractions
+        .emergent_abstractions_detail
         .iter()
         .find(|b| b.proposition.contains("retry_with_backoff"));
     assert!(
@@ -352,7 +354,7 @@ fn skill_abstractions_survive_restart() {
 
     for proc in &procedures {
         let found = report
-            .emergent_abstractions
+            .emergent_abstractions_detail
             .iter()
             .any(|b| b.proposition.contains(proc) && b.epistemic_status == "Skill");
         assert!(
@@ -363,12 +365,17 @@ fn skill_abstractions_survive_restart() {
     }
     assert_eq!(
         report
-            .emergent_abstractions
+            .emergent_abstractions_detail
             .iter()
             .filter(|b| b.epistemic_status == "Skill")
             .count(),
         procedures.len(),
         "All {} Skill records must be present after restart",
         procedures.len()
+    );
+    assert_eq!(
+        report.emergent_abstractions,
+        report.emergent_abstractions_detail.len(),
+        "H6/WP8: the Q7 count must equal its detail length"
     );
 }

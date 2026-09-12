@@ -75,6 +75,8 @@ fn bench_causal_ops(c: &mut Criterion) {
             intervention_var: "node_1".into(),
             intervention_value: 1.0,
             conditioned_on: HashMap::new(),
+            intervention_label: None,
+            intervention_vector: None,
         };
         b.iter(|| wm.causal_intervention(query.clone()));
     });

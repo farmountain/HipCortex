@@ -61,10 +61,39 @@ pub struct NextAction {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CognitiveStateReport {
     pub actor: String,
+    /// True when every field was filtered to `actor`.
+    ///
+    /// A `false` value means the caller did not name an actor, so the report is
+    /// deliberately **empty** rather than a cross-actor aggregate. Silently
+    /// falling back to a magic actor would look like a working report while
+    /// answering a different question than the caller asked — the failure mode
+    /// H4/D9 calls out as *"worse than empty: it looks like it works"*. Clients
+    /// must check this flag before trusting the body.
+    pub actor_scoped: bool,
     // Q1: What is the goal?
     pub active_goals: Vec<GoalSummary>,
     // Q2: What have we learned?
-    pub learned_beliefs: Vec<BeliefSummary>,
+    //
+    // H6/WP8: this is a **count**, and the beliefs themselves live in
+    // `learned_beliefs_detail`. The report answers "what have we learned?" on
+    // behalf of an autonomous loop, and a loop that must decide whether it has
+    // learned enough wants the cardinality, not the payload. Returning the
+    // array under the question's own key made the cost of asking Q2 grow with
+    // how much the system had learned, so the one question whose answer is a
+    // single integer was the most expensive one to ask.
+    //
+    // Note on the compatibility clause: the spec's WP8 row says the arrays are
+    // "retained under explicit `*_detail` keys" and its acceptance row says
+    // "existing consumers unaffected". On a JSON wire those two cannot both
+    // hold for the *same* key — a key is either a number or an array. The
+    // resolution taken here is the first clause (explicit naming), because it
+    // is the specific instruction, and "unaffected" is honoured by keeping
+    // every element reachable at a predictable key rather than by freezing the
+    // shape. All in-repo consumers were updated in the same change; AC-Q2 and
+    // AC-R4 still assert on the same sets, only via `*_detail`.
+    pub learned_beliefs: usize,
+    /// The beliefs counted by `learned_beliefs` (Q2), in full.
+    pub learned_beliefs_detail: Vec<BeliefSummary>,
     // Q3: What assumptions are still valid?
     pub valid_assumptions: Vec<BeliefSummary>,
     // Q4 + Q5: What decisions have been made and why?
@@ -72,13 +101,33 @@ pub struct CognitiveStateReport {
     // Q6: What failed?
     pub recent_failures: Vec<FailureSummary>,
     // Q7: What abstractions have emerged?
-    pub emergent_abstractions: Vec<BeliefSummary>,
+    //
+    // H6/WP8: count, with the array under `emergent_abstractions_detail`. Same
+    // reasoning as Q2 — Q7 is asked every loop iteration, and its answer is a
+    // cardinality ("have abstractions formed yet?"), not a catalogue.
+    pub emergent_abstractions: usize,
+    /// The abstractions counted by `emergent_abstractions` (Q7), in full.
+    pub emergent_abstractions_detail: Vec<BeliefSummary>,
     // Q8: What remains uncertain?
     pub open_uncertainties: UncertaintySummary,
     // Q9: What actions are currently authorized?
     pub authorized_actions: Vec<String>,
     // Q10: What should happen next?
     pub next_recommendation: NextAction,
+    /// WP10/§3.5 — why the substrate did or did not ask the user to clarify.
+    ///
+    /// The clarification ladder (T0 environment → T1 prior art → T2 causal → T3 ask)
+    /// is already *recorded* in the ledger, one `Reflexion` per rung, and therefore
+    /// already visible on `GET /goal/:id/trace`. That is enough for a forensic
+    /// reader but not for a human skimming the report, who sees only
+    /// `next_recommendation.recommended_op == "clarify_goal"` with no way to tell
+    /// whether the ladder was tried or skipped. This field is that missing "why",
+    /// flattened to one entry per rung: `{tier, outcome, evidence}`.
+    ///
+    /// Empty when there is no active goal, or when the goal never entered the
+    /// ladder — an empty ladder is a statement ("nothing was ambiguous enough to
+    /// trigger it"), not an error.
+    pub clarify_ladder: Vec<crate::clarify_engine::LadderRung>,
 }
 
 pub fn build_report<B: MemoryBackend>(
@@ -107,9 +156,12 @@ pub fn build_report<B: MemoryBackend>(
         .collect();
 
     // Q2 — collect raw beliefs retaining JTMS label for Q3 filter (P0-E).
+    // Actor-scoped: questions are asked on behalf of one actor, so another actor's
+    // beliefs must never be reported as this actor's knowledge.
     let all_belief_pairs: Vec<(crate::payloads::JtmsLabel, BeliefSummary)> = store
         .all_by_type(MemoryType::Belief)
         .into_iter()
+        .filter(|r| r.actor == actor)
         .filter_map(|r| {
             let p: BeliefPayload = serde_json::from_value(r.metadata.clone()).ok()?;
             let label = p.jtms_label.clone();
@@ -122,22 +174,24 @@ pub fn build_report<B: MemoryBackend>(
         })
         .collect();
 
-    let all_beliefs: Vec<BeliefSummary> =
-        all_belief_pairs.iter().map(|(_, b)| b.clone()).collect();
     // Q2: JTMS-gated — only In-labelled beliefs above 0.3 qualify as "learned".
     // Out beliefs excluded even at high confidence (split state prevention).
-    let learned_beliefs: Vec<BeliefSummary> =
+    let learned_beliefs_detail: Vec<BeliefSummary> =
         all_belief_pairs
             .iter()
             .filter(|(label, b)| matches!(label, crate::payloads::JtmsLabel::In) && b.confidence > 0.3)
             .map(|(_, b)| b.clone())
             .collect();
+    // H6/WP8: the count is derived from the detail vector, never maintained
+    // alongside it, so the two can never disagree.
+    let learned_beliefs = learned_beliefs_detail.len();
 
     // Q3 — valid assumptions: JTMS In authoritative; Unknown+0.5 included but marked Provisional.
     // Exclude beliefs whose contact_kind == PredictedOnly (Kalman fill-in ≠ valid assumption).
     let predicted_only_ids: std::collections::HashSet<uuid::Uuid> = store
         .all_by_type(MemoryType::Belief)
         .into_iter()
+        .filter(|r| r.actor == actor)
         .filter_map(|r| {
             let p: BeliefPayload = serde_json::from_value(r.metadata.clone()).ok()?;
             if matches!(p.contact_kind, Some(crate::action_intent::ContactKind::PredictedOnly)) {
@@ -166,10 +220,11 @@ pub fn build_report<B: MemoryBackend>(
         })
         .collect();
 
-    // Q4+Q5 — recent decisions (last 10)
+    // Q4+Q5 — recent decisions (last 10), actor-scoped
     let recent_decisions: Vec<DecisionSummary> = store
         .all_by_type(MemoryType::Decision)
         .into_iter()
+        .filter(|r| r.actor == actor)
         .rev()
         .take(10)
         .filter_map(|r| {
@@ -220,10 +275,10 @@ pub fn build_report<B: MemoryBackend>(
     recent_failures.truncate(10);
 
     // Q7 — emergent abstractions: emerge-sensor beliefs + Skill records + high-conf derived beliefs.
-    let mut emergent_abstractions: Vec<BeliefSummary> = store
+    let mut emergent_abstractions_detail: Vec<BeliefSummary> = store
         .all_by_type(MemoryType::Belief)
         .into_iter()
-        .filter(|r| r.action == "emerge")
+        .filter(|r| r.actor == actor && r.action == "emerge")
         .filter_map(|r| {
             let p: BeliefPayload = serde_json::from_value(r.metadata.clone()).ok()?;
             Some(BeliefSummary {
@@ -238,6 +293,7 @@ pub fn build_report<B: MemoryBackend>(
     let skill_abstractions: Vec<BeliefSummary> = store
         .all_by_type(MemoryType::Skill)
         .into_iter()
+        .filter(|r| r.actor == actor)
         .filter_map(|r| {
             let p: crate::payloads::SkillPayload = serde_json::from_value(r.metadata.clone()).ok()?;
             Some(BeliefSummary {
@@ -248,7 +304,7 @@ pub fn build_report<B: MemoryBackend>(
             })
         })
         .collect();
-    emergent_abstractions.extend(skill_abstractions);
+    emergent_abstractions_detail.extend(skill_abstractions);
     // High-confidence beliefs with derived_from set are law-like derived abstractions.
     let derived_abstractions: Vec<BeliefSummary> = all_belief_pairs
         .iter()
@@ -256,7 +312,9 @@ pub fn build_report<B: MemoryBackend>(
         .filter(|(_, b)| store.find_by_id(b.id).map(|r| r.derived_from.is_some()).unwrap_or(false))
         .map(|(_, b)| b.clone())
         .collect();
-    emergent_abstractions.extend(derived_abstractions);
+    emergent_abstractions_detail.extend(derived_abstractions);
+    // H6/WP8: derived from the detail vector — the count cannot drift from it.
+    let emergent_abstractions = emergent_abstractions_detail.len();
 
     // Q8 — uncertainties: Unknown-labelled beliefs are uncertain regardless of confidence;
     // low-confidence In/Out beliefs also qualify.
@@ -266,15 +324,19 @@ pub fn build_report<B: MemoryBackend>(
             .filter(|(label, b)| matches!(label, crate::payloads::JtmsLabel::Unknown) || b.confidence < 0.6)
             .map(|(_, b)| b.clone())
             .collect();
+    // Actor-scoped: another actor's invalidated beliefs are not this actor's uncertainty.
     let invalidated_count = store
-        .find_by_action("belief_invalidated")
-        .len();
+        .find_by_actor(actor)
+        .iter()
+        .filter(|r| r.action == "belief_invalidated")
+        .count();
     // Expired intents = host silence — first-class uncertainty holes.
     // Also count Open/InFlight intents whose deadline_ms is already past (C6: runner silence).
     let now_ms = chrono::Utc::now().timestamp_millis();
     let expired_intent_count = store
         .all_by_type(MemoryType::Intent)
         .iter()
+        .filter(|r| r.actor == actor)
         .filter(|r| {
             let status = r.metadata.get("status").and_then(|s| s.as_str());
             status == Some("Expired") || {
@@ -404,14 +466,63 @@ pub fn build_report<B: MemoryBackend>(
 
     CognitiveStateReport {
         actor: actor.to_string(),
+        actor_scoped: true,
         active_goals,
         learned_beliefs,
+        learned_beliefs_detail,
         valid_assumptions,
         recent_decisions,
         recent_failures,
         emergent_abstractions,
+        emergent_abstractions_detail,
         open_uncertainties,
         authorized_actions,
         next_recommendation,
+        // WP10/§3.5: the ladder for the goal Q10 is actually recommending action on.
+        clarify_ladder: active_goal_id
+            .map(|gid| crate::clarify_engine::ClarifyEngine::ladder_rungs(store, gid))
+            .unwrap_or_default(),
     }
 }
+
+/// The report returned when the caller did not name an actor.
+///
+/// Every question is answered with *nothing* and `actor_scoped` is `false`, so
+/// the response cannot be mistaken for a global view. H4/D9: the alternative —
+/// picking a default actor — produces an answer that looks correct and is not,
+/// which is exactly the bug this type exists to prevent.
+///
+/// `health` is still reported via `next_recommendation.rationale` so a caller
+/// debugging an omitted parameter can see the system is alive.
+pub fn build_unscoped_report(health: f32) -> CognitiveStateReport {
+    CognitiveStateReport {
+        actor: String::new(),
+        actor_scoped: false,
+        active_goals: Vec::new(),
+        learned_beliefs: 0,
+        learned_beliefs_detail: Vec::new(),
+        valid_assumptions: Vec::new(),
+        recent_decisions: Vec::new(),
+        recent_failures: Vec::new(),
+        emergent_abstractions: 0,
+        emergent_abstractions_detail: Vec::new(),
+        open_uncertainties: UncertaintySummary {
+            uncertain_beliefs: Vec::new(),
+            invalidated_count: 0,
+        },
+        authorized_actions: Vec::new(),
+        next_recommendation: NextAction {
+            goal_id: None,
+            goal_target: None,
+            recommended_op: "supply_actor".to_string(),
+            rationale: format!(
+                "no `actor` query parameter was supplied, so no memory was read; \
+                 every field is empty by construction (health={health:.3})"
+            ),
+        },
+        // An unscoped report reads no memory, so it cannot show a ladder. Empty
+        // for the same reason every other field is empty.
+        clarify_ladder: Vec::new(),
+    }
+}
+
