@@ -28,6 +28,7 @@ file by the next task.
 from __future__ import annotations
 
 import ast
+import builtins
 from pathlib import Path
 
 import pytest
@@ -265,3 +266,145 @@ def test_forget_actor_accepts_every_shape_its_schema_advertises():
     # and the error must name what is missing
     with pytest.raises(ValueError):
         module.dispatch_tool("forget_actor", {})
+
+
+# ── every name a dispatched handler reads must resolve ───────────────────────────
+#
+# This is the general form of the incident that motivated test_mcp_server_req.py:
+# 17 handlers called `_req` while nothing defined it, so every one of them raised
+# `NameError` on first use and the model saw JSON-RPC -32000. That file asserts the
+# specific case; the rules below assert the property for every dispatched handler, so
+# the next missing name is caught whichever handler it lands in.
+#
+# Resolution is deliberately conservative. A name counts as resolved if it is bound at
+# module scope (including inside a module-level if/try/with/for, which is how `_req`'s
+# neighbours are declared), bound inside the function itself (parameter, local,
+# comprehension target, lambda parameter, except-as, import), or is a builtin.
+#
+# The user-space artifacts are also checked. And because a check that cannot fail is
+# not evidence, it is pointed at a copy that *does* have the defect —
+# `sdk/python/build/lib/hipcortex/install/mcp_server.py`, gitignored build output that
+# predates `_req` — and asserted to fail there.
+
+_STALE_BUILD_COPY = (
+    _REPO_ROOT / "sdk" / "python" / "build" / "lib" / "hipcortex" / "install" / "mcp_server.py"
+)
+
+_BUILTINS = set(dir(builtins))
+
+
+def _bound_names(target: ast.AST) -> set:
+    return {n.id for n in ast.walk(target) if isinstance(n, ast.Name)}
+
+
+def _module_scope_names(tree: ast.Module) -> set:
+    """Names bound at module level, descending into module-level if/try/with/for."""
+    names = set()
+
+    def visit(body) -> None:
+        # `names.update(...)`, never `names |= ...`: an augmented assignment would
+        # rebind `names` as a local of `visit` and the outer set would stay empty.
+        for node in body:
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                for alias in node.names:
+                    names.add((alias.asname or alias.name).split(".")[0])
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                names.add(node.name)
+            elif isinstance(node, ast.Assign):
+                for target in node.targets:
+                    names.update(_bound_names(target))
+            elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+                names.update(_bound_names(node.target))
+            elif isinstance(node, (ast.If, ast.Try, ast.With, ast.For, ast.While)):
+                if isinstance(node, ast.For):
+                    names.update(_bound_names(node.target))
+                visit(node.body)
+                visit(getattr(node, "orelse", []) or [])
+                visit(getattr(node, "finalbody", []) or [])
+                for handler in getattr(node, "handlers", []) or []:
+                    visit(handler.body)
+
+    visit(tree.body)
+    return names
+
+
+def _local_names(fn: ast.FunctionDef) -> set:
+    """Parameters, locals, comprehension/loop targets, lambda args and except-as bindings."""
+    args = fn.args
+    names = {a.arg for a in args.args + args.kwonlyargs + args.posonlyargs}
+    if args.vararg:
+        names.add(args.vararg.arg)
+    if args.kwarg:
+        names.add(args.kwarg.arg)
+    for node in ast.walk(fn):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            names.add(node.id)
+        elif isinstance(node, ast.Lambda):
+            for a in node.args.args + node.args.kwonlyargs + node.args.posonlyargs:
+                names.add(a.arg)
+            if node.args.vararg:
+                names.add(node.args.vararg.arg)
+            if node.args.kwarg:
+                names.add(node.args.kwarg.arg)
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            names.add(node.name)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                names.add((alias.asname or alias.name).split(".")[0])
+    return names
+
+
+def _unresolved_globals(path: Path) -> dict:
+    """handler name -> the sorted names it reads that resolve at no scope."""
+    tree = _tree(path)
+    module_scope = _module_scope_names(tree)
+    defs = _defs(tree)
+    out = {}
+    for handler_name in sorted(set(_handlers(tree).values())):
+        fn = defs.get(handler_name)
+        if fn is None:
+            continue
+        known = module_scope | _local_names(fn) | _BUILTINS
+        missing = sorted(
+            {
+                node.id
+                for node in ast.walk(fn)
+                if isinstance(node, ast.Name)
+                and isinstance(node.ctx, ast.Load)
+                and node.id not in known
+            }
+        )
+        if missing:
+            out[handler_name] = missing
+    return out
+
+
+def test_every_dispatched_handler_reads_only_names_that_resolve():
+    missing = _unresolved_globals(_CANONICAL)
+    assert not missing, (
+        "an MCP handler reads a name that resolves at no scope, so the tool call "
+        f"will raise NameError and reach the model as -32000: {missing}"
+    )
+
+
+def test_the_bundled_copy_also_has_no_unresolved_globals():
+    assert _BUNDLED.exists(), f"{_BUNDLED} is missing"
+    missing = _unresolved_globals(_BUNDLED)
+    assert not missing, f"the artifact a PyPI install runs would fail: {missing}"
+
+
+def test_the_check_reproduces_the_req_defect_on_the_stale_copy():
+    """Falsification: the rule must fail on an input known to violate it."""
+    if not _STALE_BUILD_COPY.exists():
+        pytest.skip(
+            "no stale build copy to validate against; the check is unproven until "
+            "one is supplied"
+        )
+    missing = _unresolved_globals(_STALE_BUILD_COPY)
+    assert missing, (
+        "the resolution check found nothing wrong with a copy that is known to call "
+        "_req without defining it — the check cannot fail and proves nothing"
+    )
+    assert any("req" in name for names in missing.values() for name in names), (
+        f"the _req call sites must be flagged: {missing}"
+    )
