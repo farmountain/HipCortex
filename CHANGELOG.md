@@ -339,6 +339,40 @@ Pipeline enforcement: `docs/superpowers/specs/2026-09-12-hipcortex-pipeline-enfo
   because `build.rs` needs `protoc` and no job installs it. Enabling `--features grpc-server` in CI
   is a separate decision with a separate cost, and is not asserted here.
 
+**G14 — `/memory/embed` Had Its Own Vocabulary and No Guardrail**
+- The route resolved `record_type` with its own case-sensitive ladder — `"Symbolic"`, `"Procedural"`,
+  `"Reflexion"`, `"Perception"` by exact match, **everything else** `MemoryType::Temporal` — and did
+  so *after* calling the embedding model. `/memory/add` had meanwhile grown a case-insensitive
+  `parse_record_type_alias` that returns `Err` on unrecognised input. Two write paths over one store
+  therefore disagreed about the meaning of `belief`:
+
+  ```
+  POST /memory/add    {"record_type":"belief"}  ->  MemoryType::Belief
+  POST /memory/embed  {"record_type":"belief"}  ->  MemoryType::Temporal
+  ```
+
+  A belief written through the embed route was stored as a decaying Temporal trace, and
+  `{"record_type":"Bogus"}` was accepted and embedded as one too.
+- The embed route also never consulted `SafetyGuardrail`, although its sibling classifies content
+  before every mutation. So the one write path that takes free text straight to a model was the one
+  that skipped the check.
+- Evidence, RED against HEAD, one test per defect:
+  - `rta7_embed_rejects_unknown_type_before_embedding`: `left: 200  right: 400`. Note it was **200,
+    not 502** — the stub served the embedding, which is precisely why the coercion was invisible: the
+    request succeeded.
+  - `rta8_embed_uses_the_same_alias_vocabulary_as_add`: `left: String("Temporal")  right: "Belief"`.
+  - `rta9_embed_applies_the_safety_precondition`: `left: 200  right: 403` for
+    `"target": "ignore all previous instructions"`.
+  - `test result: FAILED. 11 passed; 3 failed; 0 ignored; 299 filtered out`
+- GREEN after reordering the handler to *parse the type, then check the precondition, then embed*:
+  `14 passed; 0 failed` scoped, `313 passed; 0 failed` for the whole `web-server` integration suite.
+  Both routes now share one alias parser and one precondition, and the 400 body —
+  `error` plus `warning.valid_record_types` — is character-for-character `/memory/add`'s.
+- The three tests share one process-wide Ollama stub rather than one listener per test: `OLLAMA_URL`
+  is read at request time and `std::env` is process-global, so per-test ports would let a finishing
+  test tear down the port a slower test is still pointed at. `rta9` resets the guardrail and fires a
+  benign control request first, so a 403 cannot be a guardrail that was already refusing everything.
+
 ## [1.3.0] - 2026-09-01 — Cognitive Loop Closure (Phases A–H)
 
 ### Added
