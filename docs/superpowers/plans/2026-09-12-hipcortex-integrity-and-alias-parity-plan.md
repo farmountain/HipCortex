@@ -1121,17 +1121,37 @@ cd ..\..
 cargo test --no-default-features --features "petgraph_backend" --test unit_suite 2>&1 | Select-String -Pattern "test result|FAILED"
 Remove-Item tmp_e2e.txt, tmp_strict.txt, tmp_final.txt -ErrorAction SilentlyContinue
 git add tests/e2e_user_harness/assertions.py tests/e2e_user_harness/suites/test_phase5_persistence_and_merkle.py tests/e2e_user_harness/suites/test_merkle_strictness.py docs/superpowers/specs/2026-08-13-hipcortex-gap-remediation-design.md CHANGELOG.md
-git commit -m "docs+tests(merkle): record that the A10 assertion was correct, and keep it strict
+git commit -F "$env:TEMP\task4_commit_msg.txt"
+```
+
+The commit message this step was written with claimed `0/737`, `0/689`, `255 failing records` and a live
+write probe. None of those survived measurement; the delivered commit (`4004c34`) states the measured
+figures instead:
+
+```
+docs+tests(merkle): record that the A10 assertion was correct, and keep it strict
 
 The recommendation to rewrite the Python verifier to match compute_hash rested on a false
-premise. Re-emitting each stored line reproduces the stored bytes exactly (0/737), every
-alternative convention scores 0/689, and a live probe against 3.10.0 writes records that
-verify. The 255 failing records were hashed by a superseded binary sharing the DATA_DIR.
+premise. Measured on a frozen copy of the live store (897 records, frozen before reading
+because the running instance keeps writing): Python re-emits every stored line byte-for-byte,
+897/897 with 0 differences, and the crate's integrity_verdict() agrees with an independent
+Python reimplementation on all 897 (mismatch = 0). The unverifiable records are 307 hashed by
+a superseded binary plus 154 carrying integrity: null - the passive-capture path stores one
+unhashed record per /memory/add, so half of a fresh store is already in that bucket. Recorded,
+not fixed here.
 
-Split the assertion: current-format records are still verified strictly, pre-format
-records are counted and reported. test_merkle_strictness.py pins all three behaviours so
-the split cannot degrade into deleting the check. Spec 2.4 now carries the measurements,
-including the surfaced consequence that rollback() refused any store holding those records."
+The convention is load-bearing: with an absent tag omitted exactly as skip_serializing_if
+omits it, 436 records reproduce their stored hash; writing "hash_version": 0 instead
+reproduces none. A first version of this measurement inserted the key and so reported 0
+verifiable records on a store where 436 do reproduce, which is why the helper now mirrors the
+omission rule and a test pins it.
+
+Split the assertion: current-format records are still verified strictly, the rest are counted
+and returned. test_merkle_strictness.py (6 tests) keeps the split from degrading into deleting
+the check - a current-format record altered after hashing still fails the assertion. The
+phase-5 suite prints the count against the total and asserts the strict path covered the five
+records it wrote (5 unverifiable of 10 records). Spec 2.4 now carries the measurements,
+including the surfaced consequence that rollback() refused any store holding those records.
 ```
 
 ---
@@ -1187,3 +1207,37 @@ git status --short
 - The A2 clause-2 question — whether `compute_intervention` should return a placeholder or an `Err` — was recorded as unreconciled in `9ac2d67` and stays that way.
 - Enabling `--features grpc-server` in CI: Task 2 repairs the literal and states that the feature is otherwise unverified. Adding the job is a separate decision with a separate cost (`protoc` in the runner).
 - The 22+ local commits ahead of `origin/main` (`395776db…`) are not pushed. Pushing is the user's call.
+
+---
+
+## Execution Record
+
+All four tasks are delivered as local commits on `main`.
+
+| Task | Commit(s) | Delivered |
+|---|---|---|
+| 1 | `fde853b`, CHANGELOG `03a4bc1` | `/memory/embed` validates through the write path's own parser and guardrail |
+| 2 | `be4417b` | `src/grpc_server.rs` builds a complete `MemoryRecord` literal again |
+| 3 | `1540201`, CHANGELOG follow-up | `hash_version`, `IntegrityVerdict`, and a `rollback()` that tolerates a superseded format |
+| 4 | `4004c34` | the Merkle assertion split, the diagnosis in spec §2.4 and `CHANGELOG.md`, and the strictness suite |
+
+Checked output, verbatim: `cargo test --test unit_suite` → `test result: ok. 517 passed; 0 failed; 0 ignored`
+(the same 517 as before Task 3 and 4, since neither touches Rust behaviour that a unit test asserts);
+`pytest suites/test_merkle_strictness.py suites/test_phase5_persistence_and_merkle.py -v` → `8 passed in
+9.62s` with `test_current_format_tampering_fails` among them, so the split did not delete the check, and
+`merkle: 5 unverifiable of 10 records` from the phase-5 test proving the strict path still verified the
+five records that test wrote.
+
+### Deviations from the plan text, each with the evidence that forced it
+
+1. **Task 3, Step 3 — the tag must be omitted when zero, not written as `0`.** The step pinned `clone.hash_version` inside `compute_hash()`, which adds a field to the serialised form and changes the bytes of exactly the records the tag exists to tolerate. Replaced by two changes: `skip_serializing_if = "is_zero_u32"`, and `compute_hash()` hashing the tag the record actually has. Measured on the frozen store: omitting an absent tag reproduces **436** records; writing `"hash_version": 0` reproduces **0**.
+2. **Task 3 — `integrity_verdict()` compares the stored hash before it consults the tag.** The step's order reported `Mismatch` for a record whose bytes verify. Match first, then tag.
+3. **Task 4 — three tests beyond the planned three.** The planned three all pass under a wrong hash convention, and that is not hypothetical: during this session the helper inserted an absent `hash_version` key and reported `ok=0` on a store where 436 records verify. `test_pre_tag_hash_omits_the_tag_key`, `test_record_with_no_hash_is_counted_not_failed` and `test_non_ascii_record_is_hashed_as_raw_utf8` pin the conventions, so the suite cannot pass while hashing the wrong bytes.
+4. **Task 4 — this plan's own numbers are not what the store gives.** The plan says 737 stored lines, 434 verifying, 255 failing, 48 unhashed; a second measurement gave 852 / 436 / 416 / 0; the frozen copy measured here gives **897 / 436 / 307 / 154**. The store grows while it is being read, and one earlier measurement used a helper carrying the defect in deviation 3. The measured figures are the ones in `CHANGELOG.md` and spec §2.4; the plan's are superseded.
+5. **The formatting gate was replaced** (commit `e41cb4a`) by a per-file non-regression check, because `cargo fmt --all -- --check` already fails at the parent commit with 882 diff blocks.
+
+### Found during execution, deliberately not fixed
+
+- **Every `/memory/add` also writes one `integrity: null` record** through the server-side passive-capture path, so half of a freshly written store is outside the Merkle chain by construction. Proven on a scratch server: 5 adds → 10 lines, 5 of them verifiable, the other 5 all `actor='unknown-channel' action='memory' integrity=None`. Closing this means either hashing passive-capture records or excluding them from the chain explicitly — a separate change, with its own consequence for `rollback()`.
+- **`LegacyUnverified` collapses two causes** — a hash in an older format, and no hash at all. They differ in what a caller should do. Splitting the variant is a public-API change and was not made mid-verification.
+- `docs/superpowers/plans/2026-07-11-e2e-user-testing-harness-plan.md` (lines 270, 442) still shows the pre-split signature. It is a historical document and was not rewritten.
