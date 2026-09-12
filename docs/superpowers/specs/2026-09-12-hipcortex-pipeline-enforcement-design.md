@@ -678,8 +678,26 @@ lowercase `"belief"` therefore stores `Temporal` on *any* released build, a corr
 the two binaries that disagreed about it were HEAD and the release, not 3.5.0 and 3.10.0. The
 stale-binary finding stands on the version literal and the `/health` output alone.
 
-*Not claimed:* no CI job runs the extension's jest suite, so these 8 tests are still exercised by hand
-only; the `release.yml` gate is the fix's sole automated consumer.
+*Residual, recorded as open when this section was written:* no CI job ran the extension's jest suite,
+so these 8 tests were exercised by hand only and the `release.yml` gate was the fix's sole automated
+consumer. The next section closes it.
+
+### 3.14 G12b — the suite that had no owner
+
+That residual was left open on purpose — it is the G10 shape, and naming it is the point — and then
+closed in the same window for the same reason G10 was: a test suite nothing runs is documentation.
+`ci.yml` now carries a `vscode-extension` job (`actions/setup-node@v4` caching npm against
+`vscode-extension/package-lock.json`, `npm ci`, `npm test`). It needs neither a Rust toolchain nor a
+server, so it belongs in the always-on pipeline rather than in the release path.
+
+The gate itself is deliberately *not* run there. `vscode-extension/server/` is untracked, so on a
+fresh checkout `--check` reports `absent` for all five platforms and exits 1 — correct for
+`release.yml`, where `build-release` has just populated that tree and absence means the packaging job
+has nothing to seal, and wrong for `ci.yml`, where absence is the normal state. The same binary that
+is a gate in one job is a false alarm in the other; the placement is the design.
+
+*Verification:* `npm ci` exit 0 and `npm test` **87 passed / 2 suites** on a clean install, run
+locally against the committed lockfile.
 
 ---
 
@@ -700,6 +718,7 @@ only; the `release.yml` gate is the fix's sole automated consumer.
 | G10 | `test_worldmodel_rollout_endpoint` in `v040_contract_sit.rs`, reachable only because the `web-tests` job now names the standalone target (`cargo test --test v040_contract_sit`); target 6 passed / 0 failed, `web-server` integration 310, 0 failed |
 | G11 | `link_does_not_classify_identifiers_as_pii` in `tests/integration/rest_contract_safety_sit.rs` — asserts 404 rather than 403 for a link whose UUIDs carry the phone shape; `web-server` integration 310, 0 failed |
 | G12 | `vscode-extension/src/test/fetch-bins.test.ts` (8 tests: version literal required, stale 3.5.0 body rejected for 3.10.0, oversized HTML rejected, undersized rejected, missing invalid, `EXPECTED_VERSION` equals the repo `VERSION`, `RELEASE_TAG` derived from it); the gate itself is `node scripts/fetch-bins.js --check`, exit 1 → 0 across `npm run fetch-bins`, and it is now called by `release.yml`'s `package-vsix` before `vsce package` |
+| G12b | the `vscode-extension` job in `ci.yml` runs `npm ci` then `npm test` — the first CI step that executes this suite; locally `npm ci` exit 0, `npm test` 87 passed / 2 suites |
 
 Plus the existing regression set, which must stay green and unmodified:
 `unit_suite` 502 → 510, `integration_suite` 306 → 310 (`web-server`, the +4 being G5's consolidation

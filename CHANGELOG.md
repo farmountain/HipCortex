@@ -295,9 +295,15 @@ Pipeline enforcement: `docs/superpowers/specs/2026-09-12-hipcortex-pipeline-enfo
   so a lowercase `"belief"` stores `Temporal` on *any* released build, including a correct one. The
   divergence that symptom exposed was HEAD-versus-released, not 3.5.0-versus-3.10.0. The
   stale-binary finding stands on the version literal and the `/health` output alone.
-- Open, and deliberately not claimed as closed: no CI job runs the extension's jest suite, so these
-  8 tests are still run only by hand. The `release.yml` gate is the only automated consumer of the
-  fix.
+- Closing the residual the first draft of this entry left open: no CI job ran the extension's jest
+  suite, so these 8 tests were hand-run only. `ci.yml` now carries a `vscode-extension` job —
+  `actions/setup-node@v4` with the npm cache keyed on `vscode-extension/package-lock.json`, then
+  `npm ci`, then `npm test` — verified here by running exactly those commands: `npm ci` exit 0 and
+  `npm test` **87 passed / 2 suites** on a clean install. The suite needs no Rust toolchain and no
+  server, which is why it can live in the always-on pipeline instead of the release job.
+  `node scripts/fetch-bins.js --check` is deliberately *not* in that job: `vscode-extension/server/`
+  is untracked, so a fresh checkout reports `absent` for all five platforms and the gate correctly
+  exits 1 — the staged tree exists only in `release.yml`, after `build-release` has populated it.
 
 ## [1.3.0] - 2026-09-01 — Cognitive Loop Closure (Phases A–H)
 

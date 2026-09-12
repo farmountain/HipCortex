@@ -266,6 +266,33 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/sdk/python
 
   # ------------------------------------------------------------------
+  # VS Code extension suite — jest, no server and no Rust toolchain required.
+  # The G12 fetch-bins version gate is pinned here and nowhere else: release.yml
+  # executes the gate before packaging, but nothing ran the tests that define what
+  # "valid" means, so the gate's own behaviour was hand-verified only.
+  # ------------------------------------------------------------------
+  vscode-extension:
+    name: VS Code extension tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: vscode-extension/package-lock.json
+
+      - name: Install extension deps
+        working-directory: vscode-extension
+        run: npm ci
+
+      - name: Run extension tests (jest)
+        working-directory: vscode-extension
+        run: npm test
+
+  # ------------------------------------------------------------------
   # Host MCP install E2E smoke — pure filesystem, no live hosts
   # Antigravity / Hermes / OpenClaw / Grok installers + unit coverage
   # ------------------------------------------------------------------
