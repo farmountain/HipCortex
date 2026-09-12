@@ -134,13 +134,25 @@ jobs:
         working-directory: vscode-extension
         run: node scripts/fetch-bins.js --check
 
+      # G20: the next two steps glob `vscode-extension/*.vsix`. VSIXs from older releases are
+      # tracked in git, so a checkout contains them too, and the glob sealed all of them into
+      # the artifact and attached all of them to the release. v3.6.0 shipped one VSIX, v3.7.0
+      # two, v3.8.0 three, v3.9.0 four, v3.11.0 five - a stale 3.6.0 sitting on a release page
+      # titled 3.11.0. Delete every pre-existing VSIX first, then assert exactly one is built,
+      # so the glob can only ever match the VSIX this job just produced.
       - name: Build extension + VSIX
         working-directory: vscode-extension
         run: |
+          rm -f *.vsix
           npm ci || npm install
           npm run package
           npx --yes @vscode/vsce package --no-dependencies
           ls -la *.vsix
+          count=$(ls -1 *.vsix 2>/dev/null | wc -l)
+          if [ "$count" != "1" ]; then
+            echo "expected exactly 1 VSIX, found $count - the upload globs would ship stale builds"
+            exit 1
+          fi
 
       - name: Upload VSIX to release
         if: github.event_name == 'release'
