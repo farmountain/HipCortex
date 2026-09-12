@@ -129,6 +129,69 @@ Pipeline enforcement: `docs/superpowers/specs/2026-09-12-hipcortex-pipeline-enfo
 
 ### Fixed
 
+**The MCP Tool Surface Contradicted Itself**
+Design: `docs/superpowers/specs/2026-09-12-hipcortex-mcp-tool-surface-design.md`.
+- `TOOLS` advertised `forget_actor` **twice** with incompatible schemas: one required `actor`, the
+  other required `actor_id`. `dispatch_tool` resolves handlers through a `dict`, so only the second
+  handler existed, and it read `args["actor_id"]` — which the schema a client is most likely to read
+  does not declare. A conforming call therefore raised `KeyError: 'actor_id'` and reached the model
+  as JSON-RPC `-32000`. It is now one contract, one handler: `actor` is required, `actor_id` is an
+  accepted legacy alias for it, and a call missing both fails with `forget_actor requires 'actor'`
+  instead of a bare `KeyError`. The handler performs a `ForgetActor` delta on
+  `POST /v1/cognitive/transact`, which is what the shadowing handler did anyway; the dead
+  definition, and the `DELETE /memory/forget/{actor}` call it was the last reachable path to, are
+  gone.
+- `add_memory` read `intent_id` and `consolidate_memory` read `actor` without declaring either, so
+  both had a routing input no client could discover from the schema. Both are declared now.
+- `CLAUDE.md` described the surface as "18 tools + 3 resources". The `TOOLS` literal declares 61
+  (61 unique) and `RESOURCES` declares 7; "18 tools" was the figure for a *different* artifact, the
+  deployed `~/.hipcortex-mcp/server.py`. The section named 3 of the 7 resources, leaving
+  `beliefs/live`, `state/diff`, `self/health` and `experience/tiers` undocumented, and carried three
+  false `version 0.6.0` claims while every artifact declares 3.10.0.
+- `docs/superpowers/specs/2026-09-12-hipcortex-gap-closure-design.md` undercounted the `_req` blast
+  radius as **6** call sites in four places. It is **17**. The fix for that defect was correct; the
+  record of its size was not, and the six sites it named were a sample from one reading.
+
+**`sdk/python/tests/test_mcp_tool_surface.py` — the surface now has to agree with itself**
+- `ast`-parses `sdk/mcp/server.py` and asserts, over every tool that `dispatch_tool` can reach: names
+  are unique; every name maps to a handler that resolves at module scope; every key a schema marks
+  `required` is actually read by that handler; and every key a handler reads is declared.
+- It deliberately does **not** assert the converse — that every declared key is read. `twin_create`
+  reads its optional keys via `{k: args[k] for k in ("dim", "dt", "max_covariance") if k in args}`,
+  so a declared-but-unread assertion would report a working tool as broken.
+- A second rule asserts that every name a dispatched handler reads resolves — at module scope,
+  in the function, or as a builtin — which is the general form of the `_req` defect that
+  `test_mcp_server_req.py` pins by name. The rule is validated against an input known to violate it
+  rather than assumed sound: pointed at the gitignored build output in `sdk/python/build/lib/`, which
+  predates the `_req` fix, it flags 17 handlers, 17 names, all of them `_req`, and nothing else.
+- Two of these assertions would have passed on the original broken file, and the plan said so: a
+  `dict`-keyed unique-name check cannot see a duplicate schema entry at all. That defect was
+  established by calling the tool, not by reading it. The count assertion
+  (`len(TOOLS) == len(unique)`) is what now keeps it caught.
+
+**`sdk/mcp/test_server.py` — the self-test no job ran, and the four tests it was failing**
+- No workflow referenced `sdk/mcp/test_server.py`; `ci.yml` ran `pytest sdk/python/tests/ -q` and
+  nothing else. Run correctly it was **4 failed, 8 passed**, and had been for as long as the tool
+  surface has been growing. It now runs in that same step, which already carried a comment
+  recording that `sdk/python/tests/` had been left out of the pipeline for the identical reason.
+- It was also easy to believe it had passed, because `python test_server.py` prints nothing and exits
+  `0`: the file is a pytest module and has no `__main__`. The plan that prompted this work named
+  exactly that invocation as a verification gate, so the gate reported success without evaluating an
+  assertion. The suite now says which invocation it needs, and resolves its own path from `__file__`
+  rather than the relative `"sdk/mcp/server.py"` — which is why it previously only worked from the
+  repository root.
+- None of the four is a regression, and that is measured rather than assumed: the same four fail
+  against `fa3c234:sdk/mcp/server.py`, staged byte-exact and run with today's test file.
+  `test_initialize` asserted `capabilities == {"tools": {}}` and never learned about the `resources`
+  capability; `test_tools_list` asserted an exact set of 18 names against a `TOOLS` literal declaring
+  61; and the two harness tests read `_live_beliefs_seen`, a boolean the implementation had
+  deliberately refined into `_live_beliefs_seen_actors`, a per-actor set. Those two assigned the dead
+  attribute and then asserted it, so the assertion could never hold and the failure could not say why.
+- No assertion was weakened to make the file green: two were widened to bind to a declaration
+  (`resources` present exactly when `RESOURCES` is non-empty; the advertised names equal
+  `{t["name"] for t in TOOLS}`, with the original 18 kept as a floor) and two were corrected to the
+  mechanism that actually exists.
+
 **G4b — Consolidation Removals Survive a Restart**
 - `MemoryStore::delete_by_id` emptied `records` and rebuilt every index, but touched neither the
   backend nor the pending write buffer. `MemoryBackend` exposes `load`/`append`/`flush`/`clear` and
