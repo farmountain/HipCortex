@@ -49,7 +49,7 @@ endpoint was called during this verification.** Handlers were read first.
 | **H5** | `/memory/consolidate` destroys data | CRITICAL | `web_server.rs:3306-3395` read in full. All 8 filed defects present + 2 new (§1.3) |
 | **H9** | `DELETE /memory/forget/:actor` un-auditable | MEDIUM | `web_server.rs:5238` read. `records_deleted = ids.len()` — **ids counted then discarded** |
 | **H4** | `/v1/cognitive/report` ignores `actor` | HIGH | `cognitive_report.rs:112,166` — `store.all_by_type(MemoryType::Belief)` and `MemoryType::Decision` with **no actor filter** |
-| **H2** | MCP bridge dead | HIGH | `sdk/mcp/server.py:1628,1639,1643,1652,1659,1668` call `_req(...)`; **no `def _req` exists** |
+| **H2** | MCP bridge dead | HIGH | `sdk/mcp/server.py:1628,1639,1643,1652,1659,1668` call `_req(...)`; **no `def _req` exists**. *(Count corrected: this was a sample, not the population — **17** dispatched handlers reference `_req`, each with one call site. Measured against the copy that still carries the defect, `sdk/python/build/lib/hipcortex/install/mcp_server.py`, by `test_mcp_tool_surface.py`.)* |
 | **H8** | Capability registry is a 4th hand-maintained list | LOW-MED | `src/bin/webserver.rs:59-73` — 15 names hardcoded at bootstrap |
 | **H3** | Unknown `record_type` silently coerced | MEDIUM | `web_server.rs:4863-4880` — `_ => MemoryType::Temporal` |
 | **H6** | `learned_beliefs` / `emergent_abstractions` are arrays | LOW | `cognitive_report.rs` returns `Vec<BeliefSummary>` |
@@ -124,9 +124,9 @@ of the 9429 ids appear in `memory-archive.jsonl`. *"The archive is an overlappin
 `sdk/mcp/server.py` uses **two** HTTP helper conventions:
 
 - `_post(path, body)` — **exists**; used by the older handlers (`handle_consolidate_memory`, `handle_twin_create`, …).
-- `_req(method, path, payload)` — **does not exist**; used by the 6 newest SCM/MGV/report handlers only.
+- `_req(method, path, payload)` — **does not exist**; referenced by **17** dispatched handlers (the SCM/MGV/report group and more). The "6" this section originally reported was the six sites visible in one reading, not the population.
 
-So the fix is to define one small `_req`, not to rewrite the six call sites — a **surgical** change (Karpathy §3).
+So the fix is to define one small `_req`, not to rewrite the seventeen call sites — a **surgical** change (Karpathy §3).
 
 ### 1.5 H10 — directional `StructuralEquation` (listed by no document)
 
@@ -194,7 +194,7 @@ Residual, agent-found gaps:
 | **D7** | `/memory/consolidate`: true **Jaccard**, over `target + action + sorted metadata keys`, gated to **same `MemoryType`** and never crossing `pinned` with non-pinned. Emit a `Reflexion{consolidated}` audit record carrying the full id list. | H5 defects 1, 2, 7, 9. |
 | **D8** | `/memory/forget/:actor`: return **`deleted_ids`** and write an audit record **before** deleting. Keep the hard delete. | H9. GDPR erasure *must* erase content; the audit may lawfully record **ids only** (provenance metadata, not content). |
 | **D9** | `/v1/cognitive/report`: scope beliefs, decisions, and `predicted_only_ids` by `actor`. Omitting `actor` returns `actor_scoped: false` rather than silently returning everyone's data. | H4. The handover's note — *"Worse than empty: it looks like it works"* — is the reason this must be explicit. |
-| **D10** | Define `_req(method, path, payload=None)` in `sdk/mcp/server.py` in terms of the existing transport, failing **silent to `{"error": …}`**. Do not touch the 6 call sites. | H2. Minimal diff. |
+| **D10** | Define `_req(method, path, payload=None)` in `sdk/mcp/server.py` in terms of the existing transport, failing **silent to `{"error": …}`**. Do not touch the **17** call sites. | H2. Minimal diff. |
 | **D11** | `parse_record_type_alias` returns `Result`; unknown values produce **HTTP 400** listing the accepted aliases. | H3. Never silently coerce. |
 | **D12** | H10: keep `evaluate(&self, parents: &[f64], u: f64)` **unchanged** and additive. | Roadmap §5 verbatim: *"Design the StructuralEquation interface so that parents can be vectors without breaking existing scalar code paths."* |
 
@@ -317,7 +317,7 @@ unblock the seam and the user's cross-cutting requirement.
 | **WP1 (H5)** | Consolidate: require `actor`; body+query `dry_run`; **preview default** + `confirm=true`; union-find partition; merge provenance; archive survivors' duplicates; true Jaccard; type/pinned guards; audit `Reflexion`. | — | `dry_run` in body is honoured; omitted `actor` → 400; a 3-way near-duplicate cluster yields **1 survivor + 2 archived**, never 3 deletions; every archived id appears in the audit record; no `delete_by_id` remains in the handler. |
 | **WP2 (H9)** | Forget: return `deleted_ids`; audit before delete. | — | Response contains every victim id; the audit record precedes deletion; a wrong-actor call records 0 ids and destroys 0 records. |
 | **WP3 (H4)** | Report actor scoping. | — | A fabricated actor returns **0** beliefs and **0** decisions; omitted `actor` sets `actor_scoped: false`. |
-| **WP4 (H2)** | Define `_req`. | — | All 6 call sites work against the live server; a transport failure returns `{"error":…}` and never raises. |
+| **WP4 (H2)** | Define `_req`. | — | All **17** call sites work against the live server; a transport failure returns `{"error":…}` and never raises. |
 | **WP5 (H1a/H1b/H1c)** | Port the 9 dead-only routes; delete the dead router; extract `register_routes`; derive OpenAPI from the router; add the parity test. | WP1–WP4 (they touch the same file) | Live router path set == OpenAPI path set == dispatch set, enforced by a test; `/goal/:id/clarify` returns non-404; `/memory/diff` returns non-404; zero unreferenced `Router::new()` blocks remain. |
 | **WP6 (H3)** | `parse_record_type_alias` → `Result`; unknown ⇒ 400. | WP5 | `{"record_type":"Fact"}` → 400 naming the valid aliases; `"Semantic"` still → `Symbolic`; `"Temporal"` → 200. |
 | **WP7 (H8)** | Derive the capability registry from the router + OpenAPI instead of the hardcoded list. | WP5 | Removing a route removes its capability; adding a route registers it; the 15-name literal is gone. |
