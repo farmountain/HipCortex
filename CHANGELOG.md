@@ -3,7 +3,7 @@
 All notable changes to HipCortex are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased] — Gap Closure H1–H10 + Pipeline Enforcement
+## [3.11.0] - 2026-09-12 — Gap Closure H1–H10 + Pipeline Enforcement
 
 Design: `docs/superpowers/specs/2026-09-12-hipcortex-gap-closure-design.md`.
 Pipeline enforcement: `docs/superpowers/specs/2026-09-12-hipcortex-pipeline-enforcement-design.md`.
@@ -490,6 +490,47 @@ Design: `docs/superpowers/specs/2026-09-12-hipcortex-mcp-tool-surface-design.md`
   fails the assertion**, so the split is not a deletion of the check; a pre-tag record and an
   unhashed record are counted, not failed; a pre-tag digest omits the tag key; and the digest covers
   raw UTF-8, because escaping non-ASCII would invent corruption in healthy records.
+
+**G17 — HipCortexMemory Could Not Be Constructed on Any Machine With LangChain Installed**
+- The shipped LangChain drop-in — the pattern the README and this class's own docstring document —
+  raised on construction: `ValueError: "HipCortexMemory" object has no field "client"`. The class
+  subclassed `langchain_core.memory.BaseMemory`, which under the pinned 0.x line is a pydantic **v1**
+  model with **zero declared fields** and `Extra.ignore`, while `__init__` assigned `self.client`,
+  `self.session_id`, `self.memory_key` and the rest as bare attributes. A stale comment claimed the
+  class avoided pydantic "to stay LangChain version-agnostic"; it did not. `from_settings()`,
+  `use_live_beliefs`, the `Usage:` example and `ConversationChain(memory=...)` were therefore
+  unreachable on exactly the machines that would use them.
+- Fixed by declaring the fields and binding them through `super().__init__(...)`, which is also what
+  initialises pydantic's `__fields_set__` — required when the object is a field of a validating chain
+  model, i.e. the real `ConversationChain(memory=...)` path — with the bookkeeping flag written via
+  `object.__setattr__`, because the v1 shim rejects `self._x = ...` and importing `PrivateAttr` from
+  the wrong pydantic generation would break the other. The module already documented both idioms in
+  `langchain_contrib/hipcortex_memory.py`; the fix mirrors it and drops its v1-only `class Config`.
+- Why it survived: `sdk/python/tests/` had never run in CI. The job added by G12b and handover G1 is
+  the first to execute it, and three of its tests failed on the first run. The suite is 262 passed /
+  0 failed now, and the fix was verified beyond those three: the object survives being bound to a
+  validating pydantic model with its client intact, live-beliefs injection still happens exactly once
+  per instance, per-instance state is not shared, and the no-LangChain fallback — with both
+  `langchain` and `langchain_core` import-blocked — still constructs, loads history, and routes
+  `save_context` / `clear`.
+
+**G18 — A Test Asserted on a Directory That Is Not in a Fresh Checkout**
+- `extension.test.ts` asserted `fs.existsSync('server/win32/hipcortex-windows-amd64.exe')` and that
+  the file was a valid binary. `vscode-extension/server/` is gitignored and populated only by
+  `fetch-bins.js`, so the test could pass only on a machine that had already staged the release
+  assets. It failed the moment G12b's `vscode-extension` CI job ran it — the first time this suite
+  executed anywhere but a developer's working copy. A gate with an unstated precondition, not a
+  regression.
+- Replaced with synthetic fixtures, and the replacement is strictly stronger: the old test never
+  exercised the placeholder/HTML logic it was named for, because its negative twin used an 18-byte
+  file that returns `false` at the **size** check and never reaches the `<!` / `PLACEHOLDER` prefix
+  guard. The new pair covers the accept path and the HTML-prefix rejection *above* the size threshold
+  — the case that guard exists for, a release download that returned an HTML error page. The artifact
+  invariant is not lost: it is `node scripts/fetch-bins.js --check` in `release.yml`'s `package-vsix`,
+  which runs where the binaries exist and checks the *version*, stronger than size plus magic bytes.
+  `MIN_BINARY_BYTES` is exported so the fixture binds to the real threshold instead of restating it.
+  The suite is **88 passed / 2 suites**, verified with `server/` moved aside — the exact CI condition
+  — as well as with it staged.
 
 ## [1.3.0] - 2026-09-01 — Cognitive Loop Closure (Phases A–H)
 
