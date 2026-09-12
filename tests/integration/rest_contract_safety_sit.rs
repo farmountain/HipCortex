@@ -6,6 +6,9 @@
 ///   input, so a typo turned a belief into an episode with no error returned.
 /// * WP2 / H9 — `DELETE /memory/forget/:actor` was unactionable for compliance:
 ///   it reported a count but never disclosed *which* records it destroyed.
+/// * WP6 / H3 (read path) — `GET /memory/query` kept its own five-name,
+///   case-sensitive `record_type` list, so it rejected records the write path
+///   had accepted moments earlier (`Goal`, `Semantic`). One vocabulary now.
 ///
 /// Uses a real TCP server + reqwest to avoid axum-test / axum-0.6 version skew.
 #[cfg(feature = "web-server")]
@@ -146,21 +149,15 @@ mod tests {
                 .await
                 .unwrap();
             assert_eq!(resp.status().as_u16(), 200, "alias {alias} must be accepted");
-        }
 
-        let ms = store.lock().unwrap();
-        for expected in [
-            MemoryType::Temporal,
-            MemoryType::Symbolic,
-            MemoryType::Reflexion,
-            MemoryType::Goal,
-            MemoryType::Receipt,
-        ] {
+            // Accepted is not enough — the alias must have resolved to the
+            // documented type rather than being coerced to something else.
+            let ms = store.lock().unwrap();
             assert!(
                 ms.find_by_actor("alias-author")
                     .iter()
                     .any(|r| r.record_type == expected),
-                "alias for {expected:?} did not resolve"
+                "alias {alias} did not resolve to {expected:?}"
             );
         }
     }
@@ -193,6 +190,86 @@ mod tests {
             "bulk error must name the bad value, got {reason}"
         );
         assert_eq!(v["errors"][0]["index"], 1, "bulk error must name the index");
+    }
+
+    // AC: the read path accepts exactly the vocabulary the write path accepts.
+    // A record must be readable back through the same `record_type` string that
+    // created it — anything else makes the type system a write-only fiction.
+    #[tokio::test]
+    async fn query_record_type_shares_the_write_path_vocabulary() {
+        let (state, _store) = make_test_state();
+        let (base, _srv) = start_test_server(state).await;
+        let client = reqwest::Client::new();
+
+        for (actor, action, target, record_type) in [
+            ("query-author", "planned", "ship it", "Goal"),
+            ("query-author", "believed", "sky is blue", "semantic"),
+        ] {
+            let resp = client
+                .post(format!("{}/memory/add", base))
+                .json(&serde_json::json!({
+                    "actor": actor,
+                    "action": action,
+                    "target": target,
+                    "record_type": record_type
+                }))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(
+                resp.status().as_u16(),
+                200,
+                "write path must accept {record_type}"
+            );
+        }
+
+        // (alias as supplied on write, the type echoed back on read)
+        for (alias, echoed) in [("Goal", "Goal"), ("semantic", "Symbolic")] {
+            let resp = client
+                .get(format!(
+                    "{}/memory/query?actor=query-author&record_type={}",
+                    base, alias
+                ))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(
+                resp.status().as_u16(),
+                200,
+                "read path must accept {alias}, the alias the write path accepted"
+            );
+            let v: serde_json::Value = resp.json().await.unwrap();
+            assert_eq!(
+                v["total"], 1,
+                "expected exactly one {echoed} record, got {}",
+                v["total"]
+            );
+            assert_eq!(
+                v["records"][0]["record_type"], echoed,
+                "filtering by {alias} must return the {echoed} record it created"
+            );
+        }
+
+        // An unknown type is still rejected — widening the vocabulary must not
+        // turn the read path back into a silent-accept surface.
+        let resp = client
+            .get(format!(
+                "{}/memory/query?actor=query-author&record_type=Fact",
+                base
+            ))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status().as_u16(), 400, "an unknown type must be a 400");
+
+        // Both records really exist and are not being hidden by a filter.
+        let resp = client
+            .get(format!("{}/memory/query?actor=query-author", base))
+            .send()
+            .await
+            .unwrap();
+        let v: serde_json::Value = resp.json().await.unwrap();
+        assert_eq!(v["total"], 2, "both records must be visible unfiltered");
     }
 
     // ── H9: GDPR erasure must be id-attributable ──────────────────────────────
