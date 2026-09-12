@@ -30,6 +30,11 @@ except ImportError:
     _LANGCHAIN_AVAILABLE = False
     # Provide a no-op base so the class can be imported without LangChain installed
     class BaseMemory:  # type: ignore[no-redef]
+        def __init__(self, **kwargs: Any) -> None:
+            # Mirrors pydantic field binding closely enough for the no-LangChain path.
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+
         def save_context(self, inputs: Dict, outputs: Dict) -> None: ...
         def load_memory_variables(self, inputs: Dict) -> Dict: ...
         def clear(self) -> None: ...
@@ -50,7 +55,24 @@ class HipCortexMemory(BaseMemory):
                     ``load_memory_variables`` call (token-saving substrate bootstrap).
     """
 
-    # Not using pydantic model here to stay LangChain version-agnostic
+    # Declared fields: langchain-core's ``BaseMemory`` is a pydantic model (the
+    # 0.x line pins the pydantic v1 shim, 0.3+ uses pydantic v2 natively) and
+    # both generations reject assignment to undeclared attributes. Assigning
+    # them through ``super().__init__`` also initialises pydantic's
+    # ``__fields_set__``, which copy-on-validation needs when this memory is
+    # bound to a chain (``ConversationChain(memory=...)``).
+    client: Any
+    session_id: str = "default"
+    memory_key: str = "history"
+    human_prefix: str = "Human"
+    ai_prefix: str = "AI"
+    max_records: int = 50
+    use_live_beliefs: bool = False
+
+    # Bookkeeping flag, not a pydantic field. Written with ``object.__setattr__``
+    # (the v1 shim rejects ``self._x = ...``, and importing ``PrivateAttr`` from
+    # the wrong pydantic generation would break the other one).
+    _live_beliefs_injected: bool = False
 
     def __init__(
         self,
@@ -62,14 +84,15 @@ class HipCortexMemory(BaseMemory):
         max_records: int = 50,
         use_live_beliefs: bool = False,
     ) -> None:
-        self.client = client
-        self.session_id = session_id
-        self.memory_key = memory_key
-        self.human_prefix = human_prefix
-        self.ai_prefix = ai_prefix
-        self.max_records = max_records
-        self.use_live_beliefs = use_live_beliefs
-        self._live_beliefs_injected = False
+        super().__init__(
+            client=client,
+            session_id=session_id,
+            memory_key=memory_key,
+            human_prefix=human_prefix,
+            ai_prefix=ai_prefix,
+            max_records=max_records,
+            use_live_beliefs=use_live_beliefs,
+        )
 
     @classmethod
     def from_settings(
@@ -129,7 +152,7 @@ class HipCortexMemory(BaseMemory):
             beliefs = bootstrap_live_beliefs(
                 self.client, actor=self.session_id, limit=5
             )
-            self._live_beliefs_injected = True
+            object.__setattr__(self, "_live_beliefs_injected", True)
             if beliefs:
                 history = beliefs + ("\n" + history if history else "")
 
