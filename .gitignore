@@ -27,6 +27,10 @@ vscode-extension/server/
 
 # SQLite files
 *.db
+# SQLite sidecars: WAL and shared-memory files belong to a *.db and are
+# recreated on open, so they must never be committed alongside it.
+*.db-wal
+*.db-shm
 *.sqlite
 *.sqlite3
 
