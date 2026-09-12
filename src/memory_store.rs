@@ -226,6 +226,11 @@ impl<B: MemoryBackend> MemoryStore<B> {
     /// Remove the single record with the given `id`.
     /// Rebuilds indices if a record was deleted.
     /// Returns `true` if a record was found and removed, `false` if not found.
+    ///
+    /// NOTE: this removes the record from memory only. It does not purge the pending write
+    /// buffer and it does not rewrite the backend, so the removal is not durable -- a record
+    /// already flushed to disk comes back on the next `load()`. For a durable removal use
+    /// [`MemoryStore::delete_by_ids`], which is the documented contract.
     pub fn delete_by_id(&mut self, id: uuid::Uuid) -> bool {
         let before = self.records.len();
         self.records.retain(|r| r.id != id);
@@ -235,6 +240,89 @@ impl<B: MemoryBackend> MemoryStore<B> {
             true
         } else {
             false
+        }
+    }
+
+    /// Persist exactly the records currently held, then empty the pending write buffer.
+    ///
+    /// `MemoryBackend` exposes `load`/`append`/`flush`/`clear` and no `delete`, so rewriting
+    /// the backend is the only way to make a removal or a replacement durable. The buffer must
+    /// be emptied first: re-appending `records` already persists everything still pending, so
+    /// leaving the buffer intact would write those records a second time on the next `flush`.
+    /// Callers are responsible for having updated `records` and the indices.
+    fn rewrite_backend(&mut self) -> Result<()> {
+        self.buffer.clear();
+        self.backend.clear()?;
+        let snapshot = self.records.clone();
+        for record in &snapshot {
+            self.backend.append(record)?;
+        }
+        self.backend.flush()?;
+        Ok(())
+    }
+
+    /// Remove every record whose id appears in `ids`, durably.
+    ///
+    /// Purges `records` and the pending write buffer, rewrites the backend without the removed
+    /// records (the same contract as `delete_by_actor`), and rebuilds the indices once -- where
+    /// `delete_by_id` rebuilds them once *per* record. Returns the number of records actually
+    /// removed, so a caller can distinguish "nothing matched" from "all matched".
+    pub fn delete_by_ids(&mut self, ids: &[uuid::Uuid]) -> Result<usize> {
+        if ids.is_empty() {
+            return Ok(0);
+        }
+
+        let before = self.records.len();
+        self.records.retain(|r| !ids.contains(&r.id));
+        let removed = before - self.records.len();
+        if removed == 0 {
+            return Ok(0);
+        }
+
+        self.rebuild_indices();
+        self.rewrite_backend()?;
+
+        self.audit.append(
+            "memory_store",
+            "delete_by_ids",
+            &format!("purged {} records", removed),
+        )?;
+
+        Ok(removed)
+    }
+
+    /// Insert `record`, or replace the existing record that shares its id.
+    ///
+    /// `add` always appends, so a caller that mutates a record and re-inserts it (consolidation
+    /// absorbing `evidence`, for example) otherwise has to `delete_by_id` + `add`. That pair
+    /// rebuilds every index twice, leaves the removal non-durable, and appends a second copy
+    /// instead of replacing the first. This is the single-step version.
+    ///
+    /// The record is stored **verbatim**, exactly like `add` -- the integrity hash is the
+    /// caller's to recompute, so `upsert` does not touch `version` or `integrity`.
+    pub fn upsert(&mut self, mut record: MemoryRecord) -> Result<()> {
+        // Auto-tag with namespace for multi-tenant isolation (mirrors `add`)
+        if let Some(ref ns) = self.namespace {
+            let ns_tag = format!("ns:{}", ns);
+            if !record.tags.contains(&ns_tag) {
+                record.tags.push(ns_tag);
+            }
+        }
+
+        match self.records.iter().position(|r| r.id == record.id) {
+            Some(idx) => {
+                self.records[idx] = record;
+                self.rebuild_indices();
+                self.rewrite_backend()?;
+                let (actor, target) = {
+                    let rec = &self.records[idx];
+                    (rec.actor.clone(), rec.target.clone())
+                };
+                self.audit.append(&actor, "upsert_replace", &target)?;
+                Ok(())
+            }
+            // Same behaviour as a first-time write, including buffering and the flush threshold.
+            None => self.add(record),
         }
     }
 
