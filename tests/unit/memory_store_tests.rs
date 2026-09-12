@@ -1,4 +1,6 @@
-use hipcortex::memory_record::{MemoryRecord, MemoryType};
+use hipcortex::memory_record::{
+    IntegrityVerdict, MemoryRecord, MemoryType, INTEGRITY_FORMAT_VERSION,
+};
 use hipcortex::memory_store::MemoryStore;
 use std::fs;
 
@@ -236,6 +238,182 @@ fn test_rocksdb_backend() {
     assert_eq!(store.all().len(), 1);
     std::fs::remove_dir_all(path).unwrap();
     std::fs::remove_file("rocks_test.audit.log").unwrap();
+}
+
+// ── Integrity format tagging ────────────────────────────────────────────────────────────────────
+
+/// The record shape this file already builds inline. `MemoryStore::new_in_memory()` is deliberately
+/// **not** used for the rollback tests: it installs a sink audit log (`AuditLog::new_sink()`,
+/// `src/memory_store.rs:126`) whose `append` returns early, so `audit_export()` would be empty and
+/// the assertion that unverifiable records were *counted* could not be made.
+fn make_record(action: &str) -> MemoryRecord {
+    MemoryRecord::new(
+        MemoryType::Temporal,
+        "a".into(),
+        action.into(),
+        "target".into(),
+        serde_json::json!({}),
+    )
+}
+
+/// A record hashed before the format tag existed deserialises with `hash_version == 0` and can never
+/// re-verify, because the bytes it was hashed from are gone. That is not tampering, and `rollback()`
+/// must not refuse the store because of it. Measured on the operator's live store: 255 of the
+/// integrity-bearing records are in this state.
+#[test]
+fn rollback_tolerates_records_hashed_by_a_superseded_format() {
+    let dir = std::env::temp_dir().join(format!("hipcortex-hv-legacy-{}", std::process::id()));
+    std::fs::remove_dir_all(&dir).ok();
+    std::fs::create_dir_all(&dir).unwrap();
+    let snap = dir.join("snap.jsonl");
+
+    let mut store = MemoryStore::new(dir.join("store.jsonl")).unwrap();
+    store.add(make_record("legacy")).unwrap();
+    store.snapshot(&snap).unwrap();
+
+    // Rewrite the line as a pre-tag record whose content also changed: the stored hash cannot be
+    // reproduced, and the record says the format it was written in is older than this build.
+    let text = std::fs::read_to_string(&snap).unwrap();
+    let mut value: serde_json::Value = serde_json::from_str(text.trim()).unwrap();
+    value.as_object_mut().unwrap().remove("hash_version");
+    value["action"] = serde_json::json!("changed-after-hashing");
+    std::fs::write(
+        &snap,
+        format!("{}\n", serde_json::to_string(&value).unwrap()),
+    )
+    .unwrap();
+
+    let mut restored = MemoryStore::new(dir.join("restored.jsonl")).unwrap();
+    restored
+        .rollback(&snap)
+        .expect("a pre-tag record must not make rollback fail");
+    assert_eq!(restored.all().len(), 1);
+
+    // And the fact that it could not be verified is recorded, not swallowed.
+    let audit = restored.audit_export().unwrap();
+    let entry = audit.last().expect("rollback must write an audit entry");
+    assert_eq!(entry.action, "rollback");
+    assert!(
+        entry.outcome.contains("legacy_unverified=1"),
+        "unverified records must be counted in the audit trail, got {:?}",
+        entry.outcome
+    );
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A record carrying the *current* format tag whose content changed after hashing is the case the
+/// check exists for. It must still fail.
+#[test]
+fn rollback_refuses_current_format_records_that_do_not_verify() {
+    let dir = std::env::temp_dir().join(format!("hipcortex-hv-tamper-{}", std::process::id()));
+    std::fs::remove_dir_all(&dir).ok();
+    std::fs::create_dir_all(&dir).unwrap();
+    let snap = dir.join("snap.jsonl");
+
+    let mut store = MemoryStore::new(dir.join("store.jsonl")).unwrap();
+    store.add(make_record("tampered")).unwrap();
+    store.snapshot(&snap).unwrap();
+
+    let text = std::fs::read_to_string(&snap).unwrap();
+    let mut value: serde_json::Value = serde_json::from_str(text.trim()).unwrap();
+    assert_eq!(
+        value["hash_version"],
+        serde_json::json!(INTEGRITY_FORMAT_VERSION),
+        "records written now must carry the current format tag"
+    );
+    value["action"] = serde_json::json!("changed-after-hashing");
+    std::fs::write(
+        &snap,
+        format!("{}\n", serde_json::to_string(&value).unwrap()),
+    )
+    .unwrap();
+
+    let mut restored = MemoryStore::new(dir.join("restored.jsonl")).unwrap();
+    let err = restored.rollback(&snap).unwrap_err().to_string();
+    assert!(
+        err.contains("integrity mismatch"),
+        "a tampered current-format record must be refused, got {err:?}"
+    );
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// The positive control for the two tests above: a snapshot this build wrote, restored without being
+/// touched, must verify — and must report `ok` rather than counting itself unverifiable. Without
+/// this, "tolerates legacy records" could be satisfied by tolerating everything.
+#[test]
+fn rollback_of_an_untouched_snapshot_reports_ok() {
+    let dir = std::env::temp_dir().join(format!("hipcortex-hv-ok-{}", std::process::id()));
+    std::fs::remove_dir_all(&dir).ok();
+    std::fs::create_dir_all(&dir).unwrap();
+    let snap = dir.join("snap.jsonl");
+
+    let mut store = MemoryStore::new(dir.join("store.jsonl")).unwrap();
+    store.add(make_record("intact")).unwrap();
+    store.snapshot(&snap).unwrap();
+
+    let mut restored = MemoryStore::new(dir.join("restored.jsonl")).unwrap();
+    restored
+        .rollback(&snap)
+        .expect("an untouched snapshot must restore");
+    assert_eq!(restored.all().len(), 1);
+
+    let audit = restored.audit_export().unwrap();
+    let entry = audit.last().expect("rollback must write an audit entry");
+    assert_eq!(
+        entry.outcome, "ok",
+        "a snapshot written and restored by this build has nothing unverifiable in it"
+    );
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A freshly written record verifies, and says so through the new seam.
+#[test]
+fn freshly_written_records_verify_and_report_ok() {
+    let mut store = MemoryStore::new_in_memory();
+    let rec = make_record("fresh");
+    let stored = rec.clone();
+    store.add(rec).unwrap();
+    assert_eq!(stored.hash_version, INTEGRITY_FORMAT_VERSION);
+    assert_eq!(stored.integrity_verdict(), IntegrityVerdict::Ok);
+
+    // An absent hash means there is nothing to verify — not evidence of tampering.
+    let mut bare = stored.clone();
+    bare.integrity = None;
+    assert_eq!(bare.integrity_verdict(), IntegrityVerdict::LegacyUnverified);
+}
+
+/// The tag is serialised only when it is non-zero, so a record written before the tag existed still
+/// hashes to the bytes it was written with and verifies normally instead of being written off as
+/// merely old. This is the property that keeps existing records verifiable: pinning the tag inside
+/// `compute_hash()` instead would silently demote every record written by every earlier build.
+#[test]
+fn zero_tag_records_keep_the_bytes_they_were_written_with() {
+    let rec = make_record("pre-tag");
+    let mut value = serde_json::to_value(&rec).unwrap();
+    assert_eq!(
+        value["hash_version"],
+        serde_json::json!(INTEGRITY_FORMAT_VERSION),
+        "a record written now carries the tag"
+    );
+
+    // Strip the tag exactly as an older build's output would have it, then re-deserialise.
+    value.as_object_mut().unwrap().remove("hash_version");
+    let mut old: MemoryRecord = serde_json::from_value(value).unwrap();
+    assert_eq!(old.hash_version, 0, "an absent tag means format 0");
+    assert!(
+        !serde_json::to_string(&old)
+            .unwrap()
+            .contains("hash_version"),
+        "a zero tag must not appear in the serialised record, or the bytes it was written with \
+         cannot be reproduced"
+    );
+
+    // The record's own hash reproduces, and reproducing is the stronger evidence.
+    old.integrity = Some(old.compute_hash());
+    assert_eq!(old.integrity_verdict(), IntegrityVerdict::Ok);
 }
 
 #[test]

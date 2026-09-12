@@ -4,7 +4,7 @@ pub mod grpc {
 }
 
 #[cfg(feature = "grpc-server")]
-use crate::memory_record::{MemoryRecord, MemoryType};
+use crate::memory_record::{MemoryRecord, MemoryType, INTEGRITY_FORMAT_VERSION};
 #[cfg(feature = "grpc-server")]
 use crate::memory_store::MemoryStore;
 #[cfg(feature = "grpc-server")]
@@ -64,6 +64,7 @@ impl<B: MemoryBackend + Send + 'static> MemoryService for MemoryServiceImpl<B> {
             // The gRPC payload carries none of the fields below; these mirror the defaults in
             // MemoryRecord::new. Omitting them was an E0063 that nothing here could see, because
             // no CI job builds --features grpc-server and `protoc` is not installed.
+            hash_version: INTEGRITY_FORMAT_VERSION,
             access_count: 0,
             last_accessed: chrono::Utc
                 .timestamp_opt(rec.timestamp, 0)

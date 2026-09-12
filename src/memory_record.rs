@@ -18,6 +18,33 @@ pub enum MemoryType {
     Receipt,
 }
 
+/// Version of the integrity-hash format.
+///
+/// `compute_hash()` serialises a record and hashes the bytes, so a hash is only meaningful against
+/// the exact struct layout that produced it. Records written before this tag existed deserialise
+/// with `hash_version == 0` and can no longer be re-verified — not because they were altered, but
+/// because a build that no longer exists emitted their bytes. This tag is what lets a reader tell
+/// that case apart from tampering.
+///
+/// This is a corruption check, not a tamper-proof seal: the store carries no key or signature, so an
+/// actor who can rewrite the file can always strip the tag or the whole hash and be tolerated as
+/// legacy. It says so here rather than implying a guarantee it cannot make.
+pub const INTEGRITY_FORMAT_VERSION: u32 = 1;
+
+/// Outcome of verifying a record's stored integrity hash.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IntegrityVerdict {
+    /// The stored hash reproduces from the record's current bytes.
+    Ok,
+    /// The stored hash does not reproduce and the record predates the current hash format, so the
+    /// bytes it was hashed from are unrecoverable: tampering can be neither confirmed nor excluded.
+    /// A record with no hash at all also lands here — there is nothing to check.
+    LegacyUnverified,
+    /// The record carries a current-format hash that does not reproduce: its content changed after
+    /// it was hashed.
+    Mismatch,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryRecord {
     pub id: Uuid,
@@ -30,6 +57,13 @@ pub struct MemoryRecord {
     pub metadata: serde_json::Value,
     #[serde(default)]
     pub integrity: Option<String>,
+    /// Version of the hash format used to compute `integrity`. 0 = written before the tag existed.
+    ///
+    /// Omitted from the serialised form when 0, so that a record predating the tag still hashes to
+    /// the exact bytes it was written with and keeps verifying. Emitting it unconditionally would
+    /// demote every record written by every earlier build to `LegacyUnverified`.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub hash_version: u32,
     // Optimization fields
     #[serde(default)]
     pub access_count: u32,
@@ -92,6 +126,12 @@ fn default_priority() -> String {
     "normal".to_string()
 }
 
+/// `skip_serializing_if` predicate for `hash_version`. Kept as a free function because serde needs a
+/// path, and named so the reason is visible at both the field and the call site.
+fn is_zero_u32(v: &u32) -> bool {
+    *v == 0
+}
+
 impl MemoryRecord {
     pub fn new(
         record_type: MemoryType,
@@ -110,6 +150,7 @@ impl MemoryRecord {
             target,
             metadata,
             integrity: None,
+            hash_version: INTEGRITY_FORMAT_VERSION,
             access_count: 0,
             last_accessed: now,
             relevance_score: 1.0,
@@ -133,6 +174,11 @@ impl MemoryRecord {
 
     pub fn compute_hash(&self) -> String {
         use sha2::{Digest, Sha256};
+        // `hash_version` is deliberately left as the record has it, not pinned to the current
+        // version. Pinning would change the bytes of every pre-tag record and make hashes that
+        // reproduce today stop reproducing, which would turn a corruption check into a
+        // build-version check. Hashing the record as it is keeps reproducing the stronger
+        // evidence, and `integrity_verdict` is what separates an old format from tampering.
         let mut clone = self.clone();
         clone.integrity = None;
         clone.content_hash = None;
@@ -141,6 +187,24 @@ impl MemoryRecord {
         let data = serde_json::to_vec(&clone).unwrap();
         let hash = Sha256::digest(&data);
         hex::encode(hash)
+    }
+
+    /// Verify `integrity` against this record's bytes, distinguishing an old format from tampering.
+    ///
+    /// Match is checked first: a pre-tag record that still reproduces is `Ok`, because reproducing
+    /// is the stronger evidence — the bytes are accounted for rather than merely old.
+    pub fn integrity_verdict(&self) -> IntegrityVerdict {
+        let Some(stored) = self.integrity.as_deref() else {
+            return IntegrityVerdict::LegacyUnverified;
+        };
+        if stored == self.compute_hash() {
+            return IntegrityVerdict::Ok;
+        }
+        if self.hash_version >= INTEGRITY_FORMAT_VERSION {
+            IntegrityVerdict::Mismatch
+        } else {
+            IntegrityVerdict::LegacyUnverified
+        }
     }
 
     /// Mark this memory as accessed, updating access tracking

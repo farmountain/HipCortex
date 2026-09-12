@@ -5,7 +5,7 @@ use std::path::Path;
 
 use crate::audit_log::AuditLog;
 use crate::embedding_provider::EmbeddingProvider;
-use crate::memory_record::MemoryRecord;
+use crate::memory_record::{IntegrityVerdict, MemoryRecord};
 use crate::persistence::{FileBackend, InMemoryBackend, MemoryBackend};
 #[cfg(feature = "rocksdb-backend")]
 use crate::rocksdb_backend::RocksDbBackend;
@@ -988,15 +988,24 @@ impl<B: MemoryBackend> MemoryStore<B> {
         let file = std::fs::File::open(&path)?;
         let reader = std::io::BufReader::new(file);
         let mut records = Vec::new();
+        let mut legacy_unverified = 0usize;
         for line in reader.lines() {
             let line = line?;
             if line.trim().is_empty() {
                 continue;
             }
             let rec: MemoryRecord = serde_json::from_str(&line)?;
-            if let Some(hash) = &rec.integrity {
-                if *hash != rec.compute_hash() {
-                    return Err(anyhow::anyhow!("integrity mismatch"));
+            // Refuse only what the verdict calls tampering. A record hashed by a superseded build
+            // cannot re-verify no matter how intact it is, and treating that as corruption made
+            // every long-lived store unrollbackable.
+            match rec.integrity_verdict() {
+                IntegrityVerdict::Ok => {}
+                IntegrityVerdict::LegacyUnverified => legacy_unverified += 1,
+                IntegrityVerdict::Mismatch => {
+                    return Err(anyhow::anyhow!(
+                        "integrity mismatch for record {}: content changed after it was hashed",
+                        rec.id
+                    ));
                 }
             }
             records.push(rec);
@@ -1027,7 +1036,14 @@ impl<B: MemoryBackend> MemoryStore<B> {
             self.backend.append(rec)?;
         }
         self.backend.flush()?;
-        self.audit.append("system", "rollback", "ok")?;
+        // Record what could not be verified rather than silently accepting it: an operator reading
+        // the audit trail must be able to see that part of the restore was unverifiable.
+        let outcome = if legacy_unverified == 0 {
+            "ok".to_string()
+        } else {
+            format!("ok legacy_unverified={}", legacy_unverified)
+        };
+        self.audit.append("system", "rollback", &outcome)?;
         Ok(())
     }
 }

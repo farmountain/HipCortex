@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 #[cfg(feature = "web-server")]
-use crate::memory_record::{MemoryRecord, MemoryType};
+use crate::memory_record::{MemoryRecord, MemoryType, INTEGRITY_FORMAT_VERSION};
 #[cfg(feature = "web-server")]
 use crate::memory_store::MemoryStore;
 #[cfg(feature = "web-server")]
@@ -145,6 +145,7 @@ pub async fn passive_capture_mw<ReqBody: Send + 'static, MB: MemoryBackend + Sen
                     "source": "server-passive-capture"
                 }),
                 integrity: None,
+                hash_version: INTEGRITY_FORMAT_VERSION,
                 access_count: 0,
                 last_accessed: now,
                 relevance_score: 0.5,
