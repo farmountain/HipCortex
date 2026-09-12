@@ -346,7 +346,9 @@ fn h10_directional_se_abduction_round_trip() {
     let weights = vec![0.5, -1.5];
     let dir_weights = vec![3.0, 4.0];
 
-    for theta in [0.0, 0.9272952180016122, 1.5707963267948966, 2.5, 4.0] {
+    // `FRAC_PI_2` rather than its decimal expansion: the perpendicular-to-weights
+    // direction is the interesting case here, and the named constant says so.
+    for theta in [0.0, 0.9272952180016122, std::f64::consts::FRAC_PI_2, 2.5, 4.0] {
         let dir = unit_dir2(theta);
         for u in [-2.0, 0.0, 0.5, 7.25] {
             let se = DirectionalSE::new(weights.clone(), dir_weights.clone());
