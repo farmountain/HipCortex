@@ -1,4 +1,5 @@
 export const StatusBarAlignment = { Right: 2, Left: 1 };
+export const ConfigurationTarget = { Global: 1, Workspace: 2, WorkspaceFolder: 3 };
 
 export const Uri = {
     file: (p: string) => ({ fsPath: p, toString: () => p }),

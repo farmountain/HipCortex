@@ -1665,6 +1665,140 @@ export function formatMemoryDetailMessage(record: MemoryRecord): string {
     );
 }
 
+// ── MCP auto-registration ─────────────────────────────────────────────────────
+
+async function detectPythonPath(): Promise<string | null> {
+    const pyExt = vscode.extensions.getExtension('ms-python.python');
+    if (pyExt) {
+        try {
+            const api = pyExt.isActive ? pyExt.exports : await pyExt.activate();
+            const exec: string[] | undefined = api?.settings?.getExecutionDetails?.()?.execCommand;
+            if (exec && exec[0] && fs.existsSync(exec[0])) {
+                return exec[0];
+            }
+        } catch { /* ignore */ }
+    }
+    for (const cmd of ['python3', 'python']) {
+        try {
+            cp.execSync(`${cmd} --version`, { stdio: 'ignore' });
+            return cmd;
+        } catch { /* not on PATH */ }
+    }
+    return null;
+}
+
+function readJsonFile(filePath: string): Record<string, unknown> {
+    try {
+        if (fs.existsSync(filePath)) {
+            return JSON.parse(fs.readFileSync(filePath, 'utf8')) as Record<string, unknown>;
+        }
+    } catch { /* parse error or missing */ }
+    return {};
+}
+
+function isMcpEntryValid(extensionPath: string): boolean {
+    const claudeCfg = path.join(os.homedir(), '.claude', 'mcp.json');
+    const cfg = readJsonFile(claudeCfg) as any;
+    const entry = cfg?.mcpServers?.hipcortex;
+    if (!entry) { return false; }
+    const expected = path.join(extensionPath, 'server', 'launcher.py');
+    return Array.isArray(entry.args) && entry.args[0] === expected;
+}
+
+function writeMcpEntries(extensionPath: string, pythonPath: string, workspaceFolder: string | undefined, homeDir?: string): void {
+    const launcherPath = path.join(extensionPath, 'server', 'launcher.py');
+    const stdioEntry = {
+        type: 'stdio',
+        command: pythonPath,
+        args: [launcherPath],
+        env: { HIPCORTEX_URL: 'http://localhost:3030', HIPCORTEX_TIMEOUT: '15' },
+    };
+
+    // 1. Claude Code — ~/.claude/mcp.json
+    const claudeDir  = path.join(homeDir ?? os.homedir(), '.claude');
+    const claudeCfg  = path.join(claudeDir, 'mcp.json');
+    const claudeJson = readJsonFile(claudeCfg) as any;
+    if (!claudeJson.mcpServers) { claudeJson.mcpServers = {}; }
+    claudeJson.mcpServers.hipcortex = stdioEntry;
+    if (!fs.existsSync(claudeDir)) { fs.mkdirSync(claudeDir, { recursive: true }); }
+    fs.writeFileSync(claudeCfg, JSON.stringify(claudeJson, null, 2), 'utf8');
+
+    // 2. VS Code workspace — .vscode/mcp.json (skip when no open folder)
+    if (workspaceFolder) {
+        const vsDir  = path.join(workspaceFolder, '.vscode');
+        const vsCfg  = path.join(vsDir, 'mcp.json');
+        const vsJson = readJsonFile(vsCfg) as any;
+        if (!vsJson.servers) { vsJson.servers = {}; }
+        vsJson.servers.hipcortex = stdioEntry;
+        if (!fs.existsSync(vsDir)) { fs.mkdirSync(vsDir, { recursive: true }); }
+        fs.writeFileSync(vsCfg, JSON.stringify(vsJson, null, 2), 'utf8');
+    }
+
+    // 3. VS Code global settings — mcp.servers (1.99+)
+    const mcpCfg  = vscode.workspace.getConfiguration('mcp');
+    const current = mcpCfg.get<Record<string, unknown>>('servers', {});
+    current['hipcortex'] = { type: stdioEntry.type, command: stdioEntry.command, args: stdioEntry.args };
+    mcpCfg.update('servers', current, vscode.ConfigurationTarget.Global).then(() => {}, () => {});
+}
+
+async function ensureMcpRegistered(context: vscode.ExtensionContext): Promise<void> {
+    const offered  = context.globalState.get<boolean>('mcpRegistrationOffered');
+    const accepted = context.globalState.get<boolean>('mcpRegistrationAccepted');
+
+    if (offered) {
+        if (!accepted) { return; }
+        // Previously accepted but extension re-installed to a new path — silently re-register
+        if (!isMcpEntryValid(context.extensionPath)) {
+            const py = await detectPythonPath();
+            if (py) {
+                const wf = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                writeMcpEntries(context.extensionPath, py, wf);
+            }
+        }
+        return;
+    }
+
+    if (isMcpEntryValid(context.extensionPath)) {
+        await context.globalState.update('mcpRegistrationOffered', true);
+        await context.globalState.update('mcpRegistrationAccepted', true);
+        return;
+    }
+
+    const choice = await vscode.window.showInformationMessage(
+        'HipCortex: Register MCP server with Claude Code / Cursor / VS Code?',
+        'Add MCP Server',
+        'Skip'
+    );
+    await context.globalState.update('mcpRegistrationOffered', true);
+
+    if (choice !== 'Add MCP Server') { return; }
+
+    const pythonPath = await detectPythonPath();
+    if (!pythonPath) {
+        vscode.window.showErrorMessage(
+            'HipCortex: Python 3 not found. Install Python 3.9+ then run "HipCortex: Register MCP Server" from the command palette.'
+        );
+        return;
+    }
+
+    try {
+        const wf = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        writeMcpEntries(context.extensionPath, pythonPath, wf);
+        await context.globalState.update('mcpRegistrationAccepted', true);
+        vscode.window.showInformationMessage(
+            'HipCortex MCP server registered. Restart Claude Code / Cursor to activate.'
+        );
+    } catch (err) {
+        vscode.window.showErrorMessage(
+            `HipCortex: MCP registration failed: ${err instanceof Error ? err.message : String(err)}`
+        );
+    }
+}
+
+export { detectPythonPath, readJsonFile, isMcpEntryValid, writeMcpEntries };
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function activate(context: vscode.ExtensionContext) {
     extensionInstallPath = context.extensionPath;
     console.log('🧠 HipCortex Memory Extension v3.11.0 active');
@@ -1682,6 +1816,10 @@ export function activate(context: vscode.ExtensionContext) {
         }
     }).catch(err => {
         serverChannel.appendLine(`Startup error: ${err instanceof Error ? err.message : String(err)}`);
+    });
+
+    ensureMcpRegistered(context).catch(err => {
+        serverChannel.appendLine(`MCP registration check error: ${err instanceof Error ? err.message : String(err)}`);
     });
 
     // ── Status bar ────────────────────────────────────────────────────────────
@@ -2276,7 +2414,13 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    context.subscriptions.push(addMemoryCommand, queryMemoryCommand, testExtensionCommand, restartServerCommand, systemHealthCommand, stateDiffCommand, cognitiveHealthCommand, cognitiveSnapshotCommand, twinCreateCommand, twinStepCommand, twinRolloutCommand, twinGetCommand, experienceTiersCommand);
+    const registerMcpCommand = vscode.commands.registerCommand('hipcortex.registerMcpServer', async () => {
+        await context.globalState.update('mcpRegistrationOffered', false);
+        await context.globalState.update('mcpRegistrationAccepted', false);
+        await ensureMcpRegistered(context);
+    });
+
+    context.subscriptions.push(addMemoryCommand, queryMemoryCommand, testExtensionCommand, restartServerCommand, systemHealthCommand, stateDiffCommand, cognitiveHealthCommand, cognitiveSnapshotCommand, twinCreateCommand, twinStepCommand, twinRolloutCommand, twinGetCommand, experienceTiersCommand, registerMcpCommand);
 
     // Show status bar only after ALL commands are registered. This prevents the race
     // condition where clicking the status bar before registerCommand() fires throws

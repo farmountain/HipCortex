@@ -23,7 +23,11 @@ yarn-error.log*
 vscode-extension/out/
 vscode-extension/dist/
 # Platform server binaries from npm run fetch-bins (not committed)
-vscode-extension/server/
+vscode-extension/server/win32/
+vscode-extension/server/darwin/
+vscode-extension/server/linux/
+# mcp_server.py is auto-synced from sdk/mcp/server.py at build time
+vscode-extension/server/mcp_server.py
 
 # SQLite files
 *.db
