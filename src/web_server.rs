@@ -67,6 +67,24 @@ pub struct ForgetActorResponse {
 }
 
 #[cfg(feature = "web-server")]
+#[derive(Deserialize)]
+struct ActorMergeRequest {
+    source: String,
+    target: String,
+}
+
+#[cfg(feature = "web-server")]
+#[derive(Serialize)]
+struct ActorMergeResponse {
+    ok: bool,
+    source: String,
+    target: String,
+    moved: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+#[cfg(feature = "web-server")]
 #[derive(Serialize, Deserialize)]
 pub struct CoherenceStatusResponse {
     coherence_score: f64,
@@ -672,6 +690,14 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
         })
     };
 
+    // Actor merge: POST /v1/actor/merge
+    let actor_merge_route = {
+        let ms = memory_store.clone();
+        post(move |Json(req): Json<ActorMergeRequest>| async move {
+            handle_actor_merge(ms, Json(req)).await
+        })
+    };
+
     // GDPR forget: DELETE /memory/forget/:actor
     let forget_route = {
         let ms = memory_store.clone();
@@ -990,6 +1016,7 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
         .route("/memory/search", search_route)
         .route("/memory/export", export_route)
         .route("/memory/forget/:actor", forget_route)
+        .route("/v1/actor/merge", actor_merge_route)
         .route("/memory/search-flat", search_flat_route)
         .route("/memory/update/:id", update_route)
         .route("/memory/latest", latest_route)
@@ -5364,6 +5391,76 @@ async fn handle_forget_actor<B: MemoryBackend + Send + Sync + 'static>(
         error: None,
         deleted_ids,
     }))
+}
+
+/// POST /v1/actor/merge — move all records from source actor to target actor (MOVE semantics).
+#[cfg(feature = "web-server")]
+async fn handle_actor_merge<B: MemoryBackend + Send + Sync + 'static>(
+    memory_store: Arc<Mutex<MemoryStore<B>>>,
+    Json(req): Json<ActorMergeRequest>,
+) -> Json<ActorMergeResponse> {
+    let source = req.source.trim().to_string();
+    let target = req.target.trim().to_string();
+
+    if source.is_empty() || target.is_empty() {
+        return Json(ActorMergeResponse {
+            ok: false,
+            source,
+            target,
+            moved: 0,
+            error: Some("source and target must be non-empty".to_string()),
+        });
+    }
+    if source == target {
+        return Json(ActorMergeResponse {
+            ok: true,
+            source,
+            target,
+            moved: 0,
+            error: None,
+        });
+    }
+
+    match memory_store.lock() {
+        Ok(mut ms) => {
+            let to_move: Vec<crate::memory_record::MemoryRecord> = ms
+                .find_by_actor(&source)
+                .iter()
+                .map(|r| {
+                    let mut rec = (*r).clone();
+                    rec.actor = target.clone();
+                    rec
+                })
+                .collect();
+            let moved = to_move.len();
+            for rec in to_move {
+                if let Err(e) = ms.add(rec) {
+                    return Json(ActorMergeResponse {
+                        ok: false,
+                        source,
+                        target,
+                        moved: 0,
+                        error: Some(e.to_string()),
+                    });
+                }
+            }
+            let _ = ms.delete_by_actor(&source);
+            Json(ActorMergeResponse {
+                ok: true,
+                source,
+                target,
+                moved,
+                error: None,
+            })
+        }
+        Err(e) => Json(ActorMergeResponse {
+            ok: false,
+            source,
+            target,
+            moved: 0,
+            error: Some(format!("lock error: {}", e)),
+        }),
+    }
 }
 
 /// POST /webhooks — register a new webhook URL

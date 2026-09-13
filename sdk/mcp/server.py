@@ -234,6 +234,22 @@ TOOLS = [
         },
     },
     {
+        "name": "merge_actor",
+        "description": (
+            "Move all memory records from one actor to another (MOVE semantics: "
+            "source actor records are deleted after being re-assigned to target). "
+            "Use to consolidate two agent identities or rename an actor."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "required": ["source", "target"],
+            "properties": {
+                "source": {"type": "string", "description": "Actor whose records to move away from"},
+                "target": {"type": "string", "description": "Actor to receive the moved records"},
+            },
+        },
+    },
+    {
         "name": "get_stats",
         "description": "Get memory store statistics: total records, types, unique actors.",
         "inputSchema": {"type": "object", "properties": {}},
@@ -1428,6 +1444,13 @@ def handle_forget_actor(args: dict) -> str:
     delta = {"type": "ForgetActor", "actor": actor}
     return json.dumps(_post("/v1/cognitive/transact", {"delta": delta, "actor": "mcp"}))
 
+def handle_merge_actor(args: dict) -> str:
+    source = args.get("source", "").strip()
+    target = args.get("target", "").strip()
+    if not source or not target:
+        raise ValueError("merge_actor requires 'source' and 'target'")
+    return json.dumps(_post("/v1/actor/merge", {"source": source, "target": target}))
+
 def handle_archive_record(args: dict) -> str:
     delta = {"type": "ArchiveRecord", "id": args["id"]}
     return json.dumps(_post("/v1/cognitive/transact", {"delta": delta, "actor": "mcp"}))
@@ -1777,6 +1800,7 @@ def dispatch_tool(name: str, args: dict) -> str:
         "add_memory":       handle_add_memory,
         "search_memory":    handle_search_memory,
         "forget_actor":     handle_forget_actor,
+        "merge_actor":      handle_merge_actor,
         "get_stats":        handle_get_stats,
         "search_code":      handle_search_code,
         "link_memories":    handle_link_memories,

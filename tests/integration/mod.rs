@@ -91,3 +91,5 @@ mod clarify_ladder_sit;
 mod graceful_shutdown_sit;
 #[cfg(feature = "web-server")]
 mod backup_sit;
+#[cfg(feature = "web-server")]
+mod actor_merge_sit;
