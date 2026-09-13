@@ -89,3 +89,5 @@ mod field_soak_diary_sit;
 mod clarify_ladder_sit;
 #[cfg(feature = "web-server")]
 mod graceful_shutdown_sit;
+#[cfg(feature = "web-server")]
+mod backup_sit;

@@ -145,6 +145,7 @@ pub const ROUTE_TABLE: &[(&str, &str)] = &[
     ("POST", "/v1/state/diff"),
     ("GET", "/v1/state/export"),
     ("POST", "/v1/server/shutdown"),
+    ("POST", "/v1/backup"),
     ("GET", "/v1/state/tx"),
     ("POST", "/v1/twin"),
     ("GET", "/v1/twin/:twin_id"),

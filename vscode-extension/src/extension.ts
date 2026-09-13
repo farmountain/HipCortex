@@ -242,6 +242,11 @@ async function killKnownHipcortexPid(_port: number, log?: (msg: string) => void)
     log?.(`Stopping known HipCortex PID ${pid} (shared pid/lock only)`);
     if (_port > 0) {
         try {
+            await axios.post(`http://127.0.0.1:${_port}/v1/backup`, null, { timeout: 5000 });
+        } catch {
+            // best-effort backup before shutdown
+        }
+        try {
             await axios.post(`http://127.0.0.1:${_port}/v1/server/shutdown`, null, { timeout: 2000 });
             await new Promise<void>(resolve => setTimeout(resolve, 300));
         } catch {

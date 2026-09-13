@@ -1335,6 +1335,29 @@ def cmd_restore(args: argparse.Namespace) -> None:
         __import__('sys').exit(1)
 
 
+def cmd_snapshot(args: argparse.Namespace) -> None:
+    """Trigger server-side full data-directory backup (tar.gz)."""
+    import json, urllib.request, urllib.error
+    url = (getattr(args, "url", None) or os.environ.get("HIPCORTEX_URL", DEFAULT_URL)).rstrip("/")
+    req = urllib.request.Request(
+        f"{url}/v1/backup",
+        data=b"{}",
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            result = json.loads(r.read().decode("utf-8"))
+        if result.get("ok"):
+            print(f"✓ Snapshot created: {result.get('path', '(server did not return path)')}")
+        else:
+            print(f"✗ Snapshot failed: {result.get('error', 'unknown')}", file=__import__('sys').stderr)
+            __import__('sys').exit(1)
+    except Exception as e:
+        print(f"✗ Snapshot failed: {e}", file=__import__('sys').stderr)
+        __import__('sys').exit(1)
+
+
 def _channels_yaml_candidates() -> list[Path]:
     """Resolve docs/channels.yaml from repo checkout or CWD."""
     here = Path(__file__).resolve()
@@ -1597,6 +1620,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_restore.add_argument("file", help="Backup file path (.json)")
     p_restore.add_argument("--url", help="Server URL")
 
+    # snapshot
+    p_snapshot = sub.add_parser("snapshot", help="Trigger server-side data directory backup (tar.gz)")
+    p_snapshot.add_argument("--url", help="Server URL")
+
     # index
     p_index = sub.add_parser("index", help="Index a codebase into the HipCortex knowledge graph")
     p_index.add_argument("path", nargs="?", default=".", help="Directory or file to index (default: current dir)")
@@ -1666,6 +1693,8 @@ def main() -> None:
         cmd_backup(args)
     elif args.command == "restore":
         cmd_restore(args)
+    elif args.command == "snapshot":
+        cmd_snapshot(args)
     elif args.command == "index":
         cmd_index(args)
     elif args.command == "channels":

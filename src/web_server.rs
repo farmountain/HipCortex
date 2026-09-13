@@ -2275,6 +2275,46 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
             })
         })
         .route(
+            "/v1/backup",
+            post({
+                let wm_b = world_model.clone();
+                let wp_b = wm_path.clone();
+                move || async move {
+                    if let Some(ref path) = wp_b {
+                        if let Ok(m) = wm_b.read() {
+                            let _ = m.save(path.as_str());
+                        }
+                    }
+                    let data_dir = wp_b
+                        .as_ref()
+                        .map(|p| {
+                            std::path::Path::new(p.as_str())
+                                .parent()
+                                .unwrap_or(std::path::Path::new("."))
+                                .to_path_buf()
+                        })
+                        .unwrap_or_else(|| std::path::PathBuf::from("."));
+                    let backup_dir = data_dir
+                        .parent()
+                        .unwrap_or(&data_dir)
+                        .join("backups");
+                    match crate::snapshot_manager::SnapshotManager::backup_data_dir(
+                        &data_dir,
+                        &backup_dir,
+                    ) {
+                        Ok(p) => axum::Json(serde_json::json!({
+                            "ok": true,
+                            "path": p.to_string_lossy()
+                        })),
+                        Err(e) => axum::Json(serde_json::json!({
+                            "ok": false,
+                            "error": e.to_string()
+                        })),
+                    }
+                }
+            }),
+        )
+        .route(
             "/v1/server/shutdown",
             post({
                 let wm = world_model.clone();
@@ -2587,6 +2627,7 @@ async fn api_key_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Respons
         || path == "/graph/search"
         || path == "/v1/state/export"
         || path == "/v1/server/shutdown"
+        || path == "/v1/backup"
     {
         return Ok(next.run(req).await);
     }

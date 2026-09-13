@@ -1,6 +1,7 @@
 /target
 **/*.rs.bk
 Cargo.lock
+/backups/
 .idea/
 .vscode/
 .DS_Store
