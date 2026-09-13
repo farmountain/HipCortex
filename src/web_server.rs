@@ -172,6 +172,8 @@ pub struct AppState<B: MemoryBackend + Send + Sync + 'static> {
     pub workspace_registry: Arc<Mutex<WorkspaceRegistry>>,
     /// Resolved once at server start from `HIPCORTEX_PASSIVE_CAPTURE` env var.
     pub passive_capture_enabled: bool,
+    /// Path to worldmodel.json — set by production server, None in tests.
+    pub wm_path: Option<Arc<String>>,
 }
 
 /// Manual Clone: all fields are Arc<…> so clone is a ref-count bump regardless of B.
@@ -195,6 +197,7 @@ impl<B: MemoryBackend + Send + Sync + 'static> Clone for AppState<B> {
             daemon: self.daemon.clone(),
             workspace_registry: self.workspace_registry.clone(),
             passive_capture_enabled: self.passive_capture_enabled,
+            wm_path: self.wm_path.clone(),
         }
     }
 }
@@ -582,6 +585,7 @@ pub async fn run_with_memory<B: MemoryBackend + Send + Sync + 'static>(
         daemon: Arc::new(Mutex::new(crate::substrate_daemon::SubstrateDaemon::new())),
         workspace_registry: Arc::new(Mutex::new(WorkspaceRegistry::new())),
         passive_capture_enabled: crate::passive_capture::passive_capture_enabled(),
+        wm_path: None,
     };
     run_with_state(addr, state).await;
 }
@@ -609,6 +613,7 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
     let twins = state.twins.clone();
     let daemon = state.daemon.clone();
     let workspace_registry = state.workspace_registry.clone();
+    let wm_path = state.wm_path.clone();
 
     // ── Symbolic store routes ─────────────────────────────────────────────
     let graph_route = {
@@ -2269,6 +2274,26 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
                 }
             })
         })
+        .route(
+            "/v1/server/shutdown",
+            post({
+                let wm = world_model.clone();
+                let wp = wm_path.clone();
+                move || async move {
+                    if let Some(ref path) = wp {
+                        if let Ok(m) = wm.read() {
+                            let _ = m.save(path.as_str());
+                        }
+                    }
+                    tokio::spawn(async {
+                        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                        #[cfg(not(test))]
+                        std::process::exit(0);
+                    });
+                    axum::Json(serde_json::json!({"status": "shutting down"}))
+                }
+            }),
+        )
         .layer(middleware::from_fn({
             let store = memory_store.clone();
             let enabled = passive_capture_on;
@@ -2561,6 +2586,7 @@ async fn api_key_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Respons
         || path == "/worldmodel/uncertainty"
         || path == "/graph/search"
         || path == "/v1/state/export"
+        || path == "/v1/server/shutdown"
     {
         return Ok(next.run(req).await);
     }

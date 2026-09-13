@@ -240,6 +240,14 @@ async function killKnownHipcortexPid(_port: number, log?: (msg: string) => void)
         return;
     }
     log?.(`Stopping known HipCortex PID ${pid} (shared pid/lock only)`);
+    if (_port > 0) {
+        try {
+            await axios.post(`http://127.0.0.1:${_port}/v1/server/shutdown`, null, { timeout: 2000 });
+            await new Promise<void>(resolve => setTimeout(resolve, 300));
+        } catch {
+            // best-effort — fall through to force kill
+        }
+    }
     await killPidBestEffort(pid);
     // Clear stale metadata after kill attempt
     try {

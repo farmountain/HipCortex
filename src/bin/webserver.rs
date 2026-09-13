@@ -106,6 +106,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         daemon: Arc::new(Mutex::new(hipcortex::substrate_daemon::SubstrateDaemon::new())),
         workspace_registry: Arc::new(Mutex::new(hipcortex::workspace::WorkspaceRegistry::new())),
         passive_capture_enabled: hipcortex::passive_capture::passive_capture_enabled(),
+        wm_path: Some(Arc::new(wm_path.clone())),
     };
 
     // ── Periodic WorldModel flush every 5 minutes ────────────────────────────

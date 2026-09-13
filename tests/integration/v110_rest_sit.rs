@@ -60,6 +60,7 @@ fn make_test_state() -> TestState {
         daemon: Arc::new(Mutex::new(SubstrateDaemon::new())),
         workspace_registry: Arc::new(Mutex::new(WorkspaceRegistry::new())),
         passive_capture_enabled: true,
+        wm_path: None,
     }
 }
 

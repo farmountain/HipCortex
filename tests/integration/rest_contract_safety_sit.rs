@@ -76,6 +76,7 @@ mod tests {
             daemon: Arc::new(Mutex::new(SubstrateDaemon::new())),
             workspace_registry: Arc::new(Mutex::new(WorkspaceRegistry::new())),
             passive_capture_enabled: false,
+            wm_path: None,
         };
         (state, store_ref)
     }
