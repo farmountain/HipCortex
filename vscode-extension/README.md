@@ -1,13 +1,27 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.11.0`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.12.0`)
 
-[![Version](https://img.shields.io/badge/version-v3.11.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v3.12.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
 **Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — universal server-side passive capture (any channel, zero client changes), transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, grounded probe planning, OpEx budget metering, field-proven two-process WAL persistence, and topological graph tools.**
 
-VSIX **3.11.0** (Authoritative Clarify Ladder · Durable Removals · Pipeline Enforcement) · server/pip **3.11.0** · npm source **3.11.0** (registry still serves `0.5.2` — see *Channel state* below). 366 lib + 517 unit + 182 minimal / 313 web-server integration + 59 property + standalone `v040_contract_sit` + 4 AC-PC (v3.10.0) + 10 AC-390 (v3.9.0) + 10 AC-GS (v3.8.0) + 10 AC-LR (v3.7.0) + 10 AC-UA (v3.6.0) + 8 AC-ES (v3.5.0) + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+VSIX **3.12.0** (Graceful Backup · Actor Merge · HIPCORTEX_ACTOR · VSIX Dedup Guard) · server/pip **3.12.0** · npm source **3.12.0** (registry still serves `0.5.2` — see *Channel state* below). 366 lib + 521 unit + 182 minimal / 318 web-server integration + 59 property + standalone `v040_contract_sit` + 9 AC-BK/AM/SC (v3.12.0) + 4 AC-PC (v3.10.0) + 10 AC-390 (v3.9.0) + 10 AC-GS (v3.8.0) + 10 AC-LR (v3.7.0) + 10 AC-UA (v3.6.0) + 8 AC-ES (v3.5.0) + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v3.12.0 — Graceful Backup, Actor Merge, HIPCORTEX_ACTOR, VSIX Dedup Guard
+
+| Change | Details |
+|--------|---------|
+| **Graceful shutdown + auto-backup** | Extension calls `POST /v1/backup` (5 s timeout) before `POST /v1/server/shutdown` — tars `memory.jsonl`, `worldmodel.json`, `memory-archive.jsonl`, `memory-tx.jsonl` into a timestamped `.tar.gz` under `~/.hipcortex-vscode/backups/`. Python CLI: `hipcortex snapshot`. |
+| **Actor merge** | `POST /v1/actor/merge {source, target}` MOVE-semantics: clones every Hot Store record from `source` actor to `target`, then deletes source records. MCP tool `merge_actor` calls the same endpoint. Idempotent: empty or same-actor requests are no-ops. |
+| **`HIPCORTEX_ACTOR` env auto-set** | `writeMcpEntries` now injects `HIPCORTEX_ACTOR=<workspace-basename>` into the MCP stdio env block — every MCP host spawned from the VSIX gets repo-scoped attribution automatically. |
+| **VSIX dedup guard** | `_write_mcp_servers` in `install_hosts.py` detects a VSIX-managed entry (`args[0]` ends with `launcher.py`) and returns `INSTALL_UNCHANGED` instead of overwriting — prevents the Python installer from clobbering the VSIX-managed config. |
+| **Schema-compat proven** | Four unit tests assert `MemoryRecord` serde round-trips through: new → old field order, extra unknown fields, missing-with-default, and forward/backward compat. WAL and JSONL upgrades are safe across minor versions. |
+| **62 MCP tools** | `merge_actor` added to the MCP TOOLS list — tool surface grows from 61 to 62. |
+| **9 structural ACs** | `tests/integration/backup_sit.rs` (2), `tests/integration/actor_merge_sit.rs` (3), `tests/unit/schema_compat_tests.rs` (4). |
 
 ---
 
@@ -367,10 +381,10 @@ Extension registers **10** tools with `vscode.lm` (requires host LM tool API):
 
 ---
 
-## MCP Integration (61 tools, 7 resources)
+## MCP Integration (62 tools, 7 resources)
 
 MCP hosts (Claude Code, Cursor, Windsurf, …) use the Python MCP server via `hipcortex install`.  
-61 tools + 7 auto-injected resources:
+62 tools + 7 auto-injected resources:
 
 - `hipcortex://context/relevant` — top-k semantically relevant memories
 - `hipcortex://beliefs/current` — active belief records
@@ -424,20 +438,20 @@ npm test
 npx @vscode/vsce package --no-dependencies
 ```
 
-Produces `hipcortex-memory-3.11.0.vsix` (the version comes from `package.json`, so the name follows the release automatically).
+Produces `hipcortex-memory-3.12.0.vsix` (the version comes from `package.json`, so the name follows the release automatically).
 
 ---
 
 ## Channel state for this release
 
-Published at **3.11.0**: the [GitHub release](https://github.com/farmountain/HipCortex/releases/tag/v3.11.0)
-with its five platform binaries, and **pip** — `pip install hipcortex` genuinely gets 3.11.0, with the
-bundled MCP server reporting `serverInfo` 3.11.0 and exposing 61 tools / 7 resources.
+Published at **3.12.0**: the [GitHub release](https://github.com/farmountain/HipCortex/releases/tag/v3.12.0)
+with its five platform binaries, and **pip** — `pip install hipcortex` genuinely gets 3.12.0, with the
+bundled MCP server reporting `serverInfo` 3.12.0 and exposing 62 tools / 7 resources.
 
-Two channels are **not** at 3.11.0, and in both cases it is a credential or namespace matter rather
+Two channels are **not** at 3.12.0, and in both cases it is a credential or namespace matter rather
 than a code one:
 
-- **npm** — the registry still serves `0.5.2`. The TypeScript source in this repository is `3.11.0`
+- **npm** — the registry still serves `0.5.2`. The TypeScript source in this repository is `3.12.0`
   and its build and test steps pass; the publish job stops at `ENEEDAUTH` because no `NPM_TOKEN`
   is configured.
 - **Open VSX** — no publisher holds this extension's namespace there, so nothing is published.

@@ -47,6 +47,24 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 | Fallback open kept dual path; count-based "done"; GoalRevision flag only; no measured multi-day log | `allow_open=False` in guided mode (hard single-role); `observation_pattern` predicate per `SuccessFactor`; `ClarifyEngine::apply_revision` synthesises new factors from active entities; `generate_field_log.py` produces 24h session artifact (v3.9.0) |
 | Passive capture required per-channel client instrumentation — VSIX break silently killed memory | Universal server-side Axum middleware captures every mutation (POST/PUT/DELETE) from any channel — MCP, VSIX, REST, CLI, LangChain — zero client changes; `X-Actor` header attribution; `AppState.passive_capture_enabled`; fire-and-forget Temporal write; 262 integration tests 0 failures (v3.10.0) |
 | Clarify ladder was advisory; a removal could not be persisted through the store's own primitives; `/memory/embed` and `/memory/query` drifted from the write path's vocabulary; CI never executed several suites that existed | Clarify H1–H10 closed and the ladder made authoritative; durable removals + `delete_by_ids`/`upsert`/`delete_by_actor` store primitives; one guardrail and one `record_type` vocabulary across `/memory/add`, `/memory/embed`, `/memory/query`; pipeline enforcement G1–G8 — CI now runs the suites it previously skipped (v3.11.0) |
+| Server crash before shutdown lost worldmodel state; no data snapshot before upgrade or restart; no actor rename/merge; VSIX and Python SDK wrote competing MCP entries; schema compat not unit-proven | `POST /v1/server/shutdown` flushes WM first; `POST /v1/backup` atomic tar.gz of 4 data files + Python `snapshot` CLI; `POST /v1/actor/merge` + MCP `merge_actor`; VSIX adds `HIPCORTEX_ACTOR`=repo-basename; `_is_vsix_managed_entry` dedup; 4 schema-compat unit tests (v3.12.0) |
+
+---
+
+## What's new in v3.12.0 — Operational Reliability: Graceful Shutdown, Backup/Restore, Actor Merge
+
+Closes 5 lifecycle gaps identified after v3.11.0: no safe stop path (worldmodel lost on crash), no data snapshot before upgrade, no actor identity consolidation, competing MCP registrations between VSIX and Python SDK, schema compat not unit-proven.
+
+| Change | Gap | Fix |
+|--------|-----|-----|
+| **Graceful shutdown** | Server stop discarded in-flight worldmodel state | `POST /v1/server/shutdown` flushes `worldmodel.json` before exit; VSIX calls it (2 s timeout) before `taskkill /F` |
+| **Backup / Restore** | No full data snapshot before upgrade or restart | `POST /v1/backup` atomic tar.gz of all 4 data files (`memory.jsonl`, `worldmodel.json`, `memory-archive.jsonl`, `memory-tx.jsonl`) to `{data_dir}/../backups/`; Python CLI `snapshot` command; VSIX calls backup (5 s timeout) before every shutdown |
+| **Actor Merge** | No way to consolidate two agent identities or rename an actor | `POST /v1/actor/merge` MOVE semantics — re-assigns all source records to target and hard-deletes source; MCP tool `merge_actor`; same-actor noop and empty-actor rejection handled |
+| **VSIX actor env var** | Passive captures not tagged to the workspace project | `writeMcpEntries` adds `HIPCORTEX_ACTOR`=`path.basename(workspaceFolder)` (falls back to `'vscode'`) — all passive captures tagged to the git repo automatically |
+| **MCP dedup guard** | Python SDK installer overwrote VSIX-managed MCP entries | `_is_vsix_managed_entry()` detects launcher.py entries; `_write_mcp_servers` returns `INSTALL_UNCHANGED` when VSIX already owns the slot — no dual-entry conflict |
+| **Schema compat proven** | `#[serde(default)]` coverage and worldmodel.json version stamp asserted in prose only | 4 unit tests: old MemoryRecord JSON (missing tags/priority/status/confidence) deserializes with correct defaults; `worldmodel.json` carries `"version"≥1`; old format without version key loads cleanly |
+
+Test coverage: 374 unit (incl. 4 schema-compat) + 320 integration (incl. 9 SIT: graceful shutdown ×2, backup ×2, actor merge ×3, schema compat ×4) + 8 MCP tool surface + 100 VSIX TS = **802 tests, 0 failures**.
 
 ---
 
