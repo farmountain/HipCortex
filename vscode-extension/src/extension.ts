@@ -1720,11 +1720,12 @@ function isMcpEntryValid(extensionPath: string): boolean {
 
 function writeMcpEntries(extensionPath: string, pythonPath: string, workspaceFolder: string | undefined, homeDir?: string): void {
     const launcherPath = path.join(extensionPath, 'server', 'launcher.py');
+    const actorName = workspaceFolder ? path.basename(workspaceFolder) : 'vscode';
     const stdioEntry = {
         type: 'stdio',
         command: pythonPath,
         args: [launcherPath],
-        env: { HIPCORTEX_URL: 'http://localhost:3030', HIPCORTEX_TIMEOUT: '15' },
+        env: { HIPCORTEX_URL: 'http://localhost:3030', HIPCORTEX_TIMEOUT: '15', HIPCORTEX_ACTOR: actorName },
     };
 
     // 1. Claude Code — ~/.claude/mcp.json

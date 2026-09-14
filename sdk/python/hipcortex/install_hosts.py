@@ -77,6 +77,16 @@ def _desired_mcp_entry(server_url: str) -> dict:
     }
 
 
+def _is_vsix_managed_entry(entry: object) -> bool:
+    """True if entry was written by the VS Code extension (args[0] ends in launcher.py)."""
+    if not isinstance(entry, dict):
+        return False
+    args = entry.get("args")
+    if not isinstance(args, list) or not args:
+        return False
+    return str(args[0]).endswith("launcher.py")
+
+
 def _atomic_write_text(path: Path, content: str) -> None:
     """Write text via temp file + os.replace (same-dir atomic swap)."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -133,6 +143,8 @@ def _write_mcp_servers(mcp_path: Path, server_url: str) -> str:
     mcp_servers = existing.setdefault("mcpServers", {})
     prev = mcp_servers.get("hipcortex")
     if prev == entry:
+        return INSTALL_UNCHANGED
+    if _is_vsix_managed_entry(prev):
         return INSTALL_UNCHANGED
 
     had_entry = prev is not None
