@@ -577,4 +577,4 @@ Engine internals are not reviewed here. See [DUAL_REPO.md](DUAL_REPO.md).
 | [DEPLOY.md](DEPLOY.md) | Self-host / Fly / Docker |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Historical in-tree build notes |
 
-**License:** [Apache-2.0](LICENSE) for this public repository · **Version:** `3.11.0` · VSIX `3.11.0` · MCP `3.11.0`
+**License:** [Apache-2.0](LICENSE) for this public repository · **Version:** `3.12.0` · VSIX `3.12.0` · MCP `3.12.0`

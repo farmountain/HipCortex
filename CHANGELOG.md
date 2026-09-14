@@ -10,6 +10,63 @@ rewritten — published history stays as published, and the corrections are reco
 
 ### Fixed
 
+**Channels still advertised 3.11.0 after the 3.12.0 release**
+
+`VERSION`, `Cargo.toml`, `pyproject.toml`, `hipcortex/__init__.py`, `vscode-extension/package.json`
+and `docs/channels.yaml` were all bumped to 3.12.0 by the release commit. The rest of the tree was
+not, so a 3.12.0 product described itself as 3.11.0 on nine further surfaces — including one that
+is executable, not prose.
+
+The load-bearing one: `vscode-extension/src/extension.ts` pinned
+`EXPECTED_SERVER_VERSION = '3.11.0'` while the shipped VSIX package was 3.12.0. That constant is
+the value the extension compares `GET /health` against and, in strict mode, kills and respawns the
+server over. A 3.12.0 VSIX was therefore configured to distrust a 3.12.0 server and trust the
+older one. `tests/e2e_user_harness/suites/test_phase8_substrate.py:666` already asserts
+`EXPECTED_SERVER_VERSION == VERSION` with the message *"it would refuse this server"* — the
+assertion was correct and simply had not been run.
+
+- `vscode-extension/src/extension.ts` — `EXPECTED_SERVER_VERSION` and the two user-visible
+  version banners moved to `3.12.0`.
+- `sdk/typescript/src/client.ts` — `HipCortexClient.VERSION` moved to `3.12.0`.
+- `src/openapi_spec.rs` — the served OpenAPI document's `info.version` moved to `3.12.0`. It is
+  read by clients that generate from the spec, so it was publishing the wrong contract version.
+- `sdk/python/hipcortex/client.py`, `sdk/python/setup.py` — moved to `3.12.0`. `pyproject.toml`'s
+  PEP 621 `[project].version` already won for real builds, so the wheel was correct; the stale
+  `setup.py` literal was reachable only by invoking `setup.py` directly. Both are now 3.12.0.
+- `sdk/python/hipcortex/cli.py` — `_fallback_channels()` named `hipcortex-memory-3.11.0.vsix`,
+  the asset a PyPI install is told to fetch. The published 3.11.0 wheel keeps its behaviour;
+  the next build carries the corrected name.
+- `sdk/typescript/package.json`, `sdk/typescript/package-lock.json`,
+  `vscode-extension/package-lock.json` — version fields moved to `3.12.0`.
+- `docs/channels.md` — the generated human table was a whole release behind, and its version
+  snapshot read `3.11.0` on all four rows. Regenerated to match `docs/channels.yaml`, which is the
+  declared single honesty source and had already been updated. The snapshot gained a Chrome/Edge
+  row.
+
+**Two different tool counts for one MCP server**
+
+`Cargo.toml`, `sdk/python/pyproject.toml`, `vscode-extension/package.json` and `docs/channels.yaml`
+all said **62 tools**. `sdk/typescript/package.json` said **61**, as did three READMEs, `CLAUDE.md`
+and an architecture document. The TypeScript SDK is the outlier and was corrected to 62 everywhere.
+
+**The browser extension was not a registered channel**
+
+HipCortex Memory (`hipcortex_memory_chrome_extension`, a separate repository) is a shipped
+distribution surface — a Chrome Web Store listing with its own version line — and appeared in
+neither `docs/channels.yaml` nor `docs/channels.md`. It is now registered in both, including the
+fact that matters for anyone reading the matrix: it is versioned independently of the core and
+**gates on no core version at all**. It reads `GET /health` and reports what it finds rather than
+comparing it to a constant, which is the opposite of the VSIX policy in the row above. Stating that
+in the matrix is the point; the two channels deliberately differ.
+
+### Verified
+
+The running server at `http://127.0.0.1:3030` reported `"version": "3.11.0"` throughout this work
+because the binary in service predates the 3.12.0 build. `hipcortex-windows-amd64.exe` is published
+as a `v3.12.0` release asset, so aligning the runtime is a download and a restart, not a rebuild.
+Source, every package manifest, every channel table and the served OpenAPI document are now
+mutually consistent at 3.12.0.
+
 **A claimed channel version that the registry does not serve**
 
 Three surfaces asserted that npm carried 3.11.0. The npm registry still serves `0.5.2`: the

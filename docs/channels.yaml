@@ -65,6 +65,13 @@ channels:
     install: "code --install-extension hipcortex-memory-3.12.0.vsix"
     notes: "Extension 3.12.0; chmod +x bundled Mac/Linux bins; 10 LM tools + dual health; expects server 3.12.0 (same major.minor OK); Antigravity = VS Code-compatible host"
 
+  - id: chrome-extension
+    name: Chrome / Edge (MV3 extension)
+    category: distribution
+    status: native
+    install: "Chrome Web Store, or load unpacked from dist/"
+    notes: "HipCortex Memory 0.1.0; perception layer only, in the separate hipcortex_memory_chrome_extension repo; captures ChatGPT/Claude/Grok/Gemini/DeepSeek and delivers by native messaging or loopback HTTP; versioned independently and gates on NO core version (reads /health and reports it, never refuses on it); measured against core 3.11.0"
+
   # ── Coding assistants (install registry) ───────────────────────────────
   - id: claude-code
     name: Claude Code
