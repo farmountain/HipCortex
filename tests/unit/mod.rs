@@ -76,4 +76,5 @@ mod epistemic_authority_tests;
 mod abstraction_gate_tests;
 mod belief_executive_tests;
 mod schema_induction_tests;
+mod schema_compat_tests;
 mod clarify_restate_tests;
