@@ -51,6 +51,21 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 ---
 
+## What's new in v3.13.0 — Gap Closure: Safety Body, Health Timeouts, Scorecard Seam, Clarify Gate
+
+Closes 4 gaps identified after the v3.12.0 substrate alignment audit: 16-digit CI run IDs triggered a bare 403 (MCP showed "server down"), VSIX health check timed out on loaded machines, passive-capture and env-receipt metrics were conflated in the scorecard, and `POST /goal/:id/react` with empty `success_factors` gave no guidance on next step.
+
+| Change | Gap | Fix |
+|--------|-----|-----|
+| **Safety 403 carries JSON body** | MCP `add_memory` showed "server down" when payload contained a 16-digit CI run ID (credit-card PII pattern); bare 403 discarded by `_post()` → `raise_for_status()` | `handle_add_memory` switched from `_post` to `_req`; parses `{"error":…}` from 403 body and surfaces it as `✗ Memory refused (HTTP 403): <reason>` |
+| **Health / MCP timeouts raised to 30 s** | VSIX health check used 3 s / 2 s timeouts; `/health` can take 22 s on a loaded Windows machine → "connection forcibly closed" | `extension.ts` health timeouts → 30 000 ms; `HIPCORTEX_TIMEOUT` env var → `'30'`; MCP server default timeout → `"30"` |
+| **Scorecard: `api_mutations_captured` vs `env_receipts`** | Passive-capture Temporal records (substrate API mutations) could be mistaken for env grounding (intent/receipt path) — no metric seam | `GET /substrate/scorecard?actor=…` `live` block now exposes both fields separately: `api_mutations_captured` (source=`server-passive-capture`) and `env_receipts` (action contains `receipt`) |
+| **Clarify gate 422 with questions + hint** | `POST /goal/:id/react` returned bare `422` with opaque error string when `success_factors` was empty — no guidance on how to proceed | 422 body now includes `clarify_questions` array (3 questions), `clarify_endpoint` with goal ID, and `hint: "self-prompt T0–T2 first; only escalate if substrate cannot resolve"` |
+
+Test coverage: 374 unit + 330 integration (incl. 10 new SIT: SM-1 ×3, SC-1 ×4, CG-1 ×3) + 8 MCP tool surface + 100 VSIX TS = **812 tests, 0 failures**.
+
+---
+
 ## What's new in v3.12.0 — Operational Reliability: Graceful Shutdown, Backup/Restore, Actor Merge
 
 Closes 5 lifecycle gaps identified after v3.11.0: no safe stop path (worldmodel lost on crash), no data snapshot before upgrade, no actor identity consolidation, competing MCP registrations between VSIX and Python SDK, schema compat not unit-proven.

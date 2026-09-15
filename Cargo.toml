@@ -1,6 +1,6 @@
 [package]
 name = "hipcortex"
-version = "3.12.0"
+version = "3.13.0"
 edition = "2021"
 description = "Cognitive state substrate for AI agents: graceful shutdown + auto-backup (POST /v1/backup tars 4 data files); actor merge (POST /v1/actor/merge + MCP merge_actor); HIPCORTEX_ACTOR env auto-set; VSIX dedup guard; schema-compat unit-proven; universal server-side passive capture; 62 MCP tools + 7 resources; WAL-persistent, MCP + REST"
 repository = "https://github.com/farmountain/HipCortex"

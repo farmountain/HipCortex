@@ -93,3 +93,9 @@ mod graceful_shutdown_sit;
 mod backup_sit;
 #[cfg(feature = "web-server")]
 mod actor_merge_sit;
+#[cfg(feature = "web-server")]
+mod safety_rejection_sit;
+#[cfg(feature = "web-server")]
+mod scorecard_metrics_sit;
+#[cfg(feature = "web-server")]
+mod clarify_gate_422_sit;

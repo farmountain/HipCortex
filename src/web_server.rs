@@ -1096,12 +1096,24 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
                     let actor = params.get("actor").cloned().unwrap_or_else(|| "default".to_string());
                     let live = ms.lock().ok().map(|store| {
                         let report = crate::cognitive_report::build_report(&*store, &actor, 0.8);
+                        let api_mutations_captured = store
+                            .all_by_type(crate::memory_record::MemoryType::Temporal)
+                            .iter()
+                            .filter(|r| r.actor == actor && r.source.as_deref() == Some("server-passive-capture"))
+                            .count();
+                        let env_receipts = store
+                            .all_by_type(crate::memory_record::MemoryType::Temporal)
+                            .iter()
+                            .filter(|r| r.actor == actor && r.action.contains("receipt"))
+                            .count();
                         serde_json::json!({
                             "actor": actor,
                             "uncertain_count": report.open_uncertainties.uncertain_beliefs.len(),
                             "invalidated_count": report.open_uncertainties.invalidated_count,
                             "recommended_op": report.next_recommendation.recommended_op,
                             "goal_target": report.next_recommendation.goal_target,
+                            "api_mutations_captured": api_mutations_captured,
+                            "env_receipts": env_receipts,
                         })
                     });
                     axum::Json(serde_json::json!({
@@ -1934,8 +1946,15 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
                             return (
                                 axum::http::StatusCode::UNPROCESSABLE_ENTITY,
                                 axum::Json(serde_json::json!({
-                                    "error": "goal must be clarified before react: POST /goal/{id}/clarify",
+                                    "error": "goal must be clarified: success_factors is empty",
                                     "goal_id": goal_id.to_string(),
+                                    "clarify_questions": [
+                                        "What specific observable output or state would prove this goal is complete?",
+                                        "What should be true in the environment after this goal succeeds?",
+                                        "What observation_pattern (substring match) would a sensor confirm?"
+                                    ],
+                                    "clarify_endpoint": format!("/goal/{}/clarify", goal_id),
+                                    "hint": "self-prompt T0\u{2013}T2 first; only escalate if substrate cannot resolve"
                                 })),
                             );
                         }

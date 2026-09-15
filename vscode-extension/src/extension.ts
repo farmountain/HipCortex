@@ -583,7 +583,7 @@ export class HipCortexAPI {
 
     async healthCheck(): Promise<boolean> {
         try {
-            const res = await axios.get(`${this.baseUrl}/health`, { timeout: 3000 });
+            const res = await axios.get(`${this.baseUrl}/health`, { timeout: 30000 });
             return parseHealthPayload(res.status, res.data).healthy;
         } catch {
             return false;
@@ -624,7 +624,7 @@ export class HipCortexAPI {
         let hipcortexService = false;
         let serverVersion: string | undefined;
         try {
-            const healthRes = await axios.get(`${this.baseUrl}/health`, { timeout: 2000 });
+            const healthRes = await axios.get(`${this.baseUrl}/health`, { timeout: 30000 });
             const parsed = parseHealthPayload(healthRes.status, healthRes.data);
             healthy = parsed.healthy;
             hipcortexService = parsed.service === 'hipcortex';
@@ -1725,7 +1725,7 @@ function writeMcpEntries(extensionPath: string, pythonPath: string, workspaceFol
         type: 'stdio',
         command: pythonPath,
         args: [launcherPath],
-        env: { HIPCORTEX_URL: 'http://localhost:3030', HIPCORTEX_TIMEOUT: '15', HIPCORTEX_ACTOR: actorName },
+        env: { HIPCORTEX_URL: 'http://localhost:3030', HIPCORTEX_TIMEOUT: '30', HIPCORTEX_ACTOR: actorName },
     };
 
     // 1. Claude Code — ~/.claude/mcp.json

@@ -33,7 +33,7 @@ import requests
 
 HIPCORTEX_URL = os.getenv("HIPCORTEX_URL", "http://localhost:3030").rstrip("/")
 API_KEY       = os.getenv("HIPCORTEX_API_KEY", "")
-TIMEOUT       = int(os.getenv("HIPCORTEX_TIMEOUT", "10"))
+TIMEOUT       = int(os.getenv("HIPCORTEX_TIMEOUT", "30"))
 
 # Session harness state (one MCP process lifetime). Soft substrate-first nudge:
 # prefer get_live_beliefs / reflect before search_memory. Never hard-blocks.
@@ -1059,7 +1059,14 @@ def handle_add_memory(args: dict) -> str:
         body["record_type"] = args["record_type"]
     if "ttl_seconds" in args:
         body["ttl_seconds"] = args["ttl_seconds"]
-    result = _post("/memory/add", body)
+    result = _req("POST", "/memory/add", body)
+    if "error" in result:
+        detail_str = result.get("detail", "")
+        try:
+            reason = json.loads(detail_str).get("error") or detail_str
+        except Exception:
+            reason = detail_str or result["error"]
+        return f"✗ Memory refused (HTTP {result.get('status', '?')}): {reason}"
     return f"✓ Memory stored (id: {result.get('record_id', 'unknown')})\n  [{args['action']}] {args['target']}"
 
 
@@ -1984,7 +1991,7 @@ def main() -> None:
             respond(id_, {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}, "resources": {}},
-                "serverInfo": {"name": "hipcortex", "version": "3.12.0"},
+                "serverInfo": {"name": "hipcortex", "version": "3.13.0"},
             })
         elif method == "initialized":
             pass  # notification — no response
