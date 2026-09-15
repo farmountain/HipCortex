@@ -282,12 +282,14 @@ def test_forget_actor_accepts_every_shape_its_schema_advertises():
 # comprehension target, lambda parameter, except-as, import), or is a builtin.
 #
 # The user-space artifacts are also checked. And because a check that cannot fail is
-# not evidence, it is pointed at a copy that *does* have the defect —
-# `sdk/python/build/lib/hipcortex/install/mcp_server.py`, gitignored build output that
-# predates `_req` — and asserted to fail there.
+# not evidence, it is pointed at a committed synthetic fixture that preserves the
+# pre-fix shape (handlers call _req, but _req is not defined at module scope) and
+# asserted to fail there. The original target was the gitignored build artifact at
+# sdk/python/build/lib/..., which is regenerated on every install and therefore cannot
+# serve as a stable fixture.
 
 _STALE_BUILD_COPY = (
-    _REPO_ROOT / "sdk" / "python" / "build" / "lib" / "hipcortex" / "install" / "mcp_server.py"
+    _REPO_ROOT / "sdk" / "python" / "tests" / "fixtures" / "mcp_server_req_defect.py"
 )
 
 _BUILTINS = set(dir(builtins))
