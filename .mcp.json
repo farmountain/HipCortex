@@ -2,8 +2,10 @@
   "mcpServers": {
     "hipcortex": {
       "type": "stdio",
-      "command": "python",
-      "args": ["D:/all_projects/hipcortex/sdk/mcp/server.py"],
+      "command": "C:/Users/user/AppData/Local/Microsoft/WindowsApps/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/python.exe",
+      "args": [
+        "D:/all_projects/HipCortex/scripts/hipcortex_mcp_launcher.py"
+      ],
       "env": {
         "HIPCORTEX_URL": "http://localhost:3030",
         "HIPCORTEX_TIMEOUT": "15"

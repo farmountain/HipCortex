@@ -11,10 +11,21 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Minimal proactive SKILL harness language (MUST + live_beliefs, case-sensitive)
+# Minimal proactive SKILL harness language. Markers are case-sensitive, and the last two
+# are discriminative: a pre-lifecycle SKILL carries MUST + live_beliefs but neither of
+# them, so those two alone cannot tell a current install from a stale one.
 _GOOD_SKILL = (
     "# HipCortex Memory\n\n"
     "MUST: Before questions call get_live_beliefs first.\n"
+    "Harness observations = live_beliefs (merged substrate).\n"
+    "## Lifecycle self-prompting (substrate-first at every stage)\n"
+    "EXIT: should_exit(iteration, max_iterations, progress_ratio, surprise_signal)\n"
+)
+# The pre-lifecycle revision, as measured on a real machine: MUST + live_beliefs present,
+# no lifecycle section. `hipcortex doctor` used to report this install as `ok`.
+_STALE_SKILL = (
+    "# HipCortex Memory\n\n"
+    "MUST: Before questions call search_memory or get_live_beliefs first.\n"
     "Harness observations = live_beliefs (merged substrate).\n"
 )
 _BAD_SKILL_NO_MUST = "# skill\nlive_beliefs only, no marker.\n"
@@ -179,10 +190,25 @@ def test_skill_package_template_has_harness_markers():
 def test_skill_missing_markers_case_sensitive():
     from hipcortex.doctor import skill_missing_markers
 
-    assert skill_missing_markers("must live_beliefs") == ["MUST"]
-    assert skill_missing_markers("MUST LIVE_BELIEFS") == ["live_beliefs"]
+    # Case-sensitive: a lowercased marker is a missing marker. Expected lists are exact,
+    # and follow SKILL_HARNESS_MARKERS declaration order.
+    assert skill_missing_markers("must live_beliefs") == [
+        "MUST",
+        "Lifecycle self-prompting",
+        "should_exit",
+    ]
+    assert skill_missing_markers("MUST LIVE_BELIEFS") == [
+        "live_beliefs",
+        "Lifecycle self-prompting",
+        "should_exit",
+    ]
     assert skill_missing_markers(_GOOD_SKILL) == []
-    assert set(skill_missing_markers(_BAD_SKILL_EMPTY)) == {"MUST", "live_beliefs"}
+    assert set(skill_missing_markers(_BAD_SKILL_EMPTY)) == {
+        "MUST",
+        "live_beliefs",
+        "Lifecycle self-prompting",
+        "should_exit",
+    }
 
 
 def test_doctor_skill_installed_missing_warns(tmp_path, monkeypatch):
@@ -230,6 +256,42 @@ def test_doctor_skill_installed_missing_live_beliefs_fails(tmp_path, monkeypatch
     assert by_name["skill_installed"].status == "fail"
     assert "live_beliefs" in by_name["skill_installed"].message
     assert report.ok is False
+
+
+def test_stale_pre_lifecycle_skill_fails(tmp_path, monkeypatch):
+    """The case the detector was blind to.
+
+    A pre-lifecycle SKILL carries MUST and live_beliefs — the two original markers — so
+    the doctor reported it `ok` while it was missing the entire self-prompting policy.
+    Markers must discriminate between revisions, not merely be present in both.
+    """
+    monkeypatch.setenv("HIPCORTEX_DOCTOR_OFFLINE", "1")
+    from hipcortex.doctor import doctor_exit_code, run_doctor
+
+    stale = _write_skill(tmp_path / "stale" / "SKILL.md", _STALE_SKILL)
+    report = run_doctor(**_skill_kw(tmp_path, installed=str(stale)))
+    by_name = {c.name: c for c in report.checks}
+    # The shipped template is current, so only the installed copy is at fault.
+    assert by_name["skill_package"].status == "ok"
+    assert by_name["skill_installed"].status == "fail"
+    assert "Lifecycle self-prompting" in by_name["skill_installed"].message
+    assert report.ok is False
+    assert doctor_exit_code(report) == 1
+
+
+def test_package_template_states_clarification_order():
+    """The ordering rule must be in the policy the agent actually reads.
+
+    Self-prompting outranks asking; the template previously instructed the inverse
+    (`if uncertainty_flags non-empty: ask user before proceeding`), which asks the user
+    before any self-prompt tier runs.
+    """
+    from hipcortex.doctor import package_skill_path
+
+    text = package_skill_path().read_text(encoding="utf-8")
+    assert "Clarification order" in text
+    assert "self-prompt first" in text.lower()
+    assert "ask user before proceeding" not in text
 
 
 def test_doctor_skill_package_missing_fails(tmp_path, monkeypatch):

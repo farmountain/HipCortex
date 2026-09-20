@@ -13,10 +13,30 @@ For any complex task, follow this sequence. Each step has an exit condition — 
 ### 1. Setup (once, before loop)
 ```
 recommend_tools(task)       → install recommended MCP servers + skills
-clarify_goal(task)          → structured GoalPayload + suggested success_factors + clarifying questions
-                              (if uncertainty_flags non-empty: ask user before proceeding)
+clarify_goal(task)          → GoalPayload + success_factors + decidable acceptance_criteria
 plan_validation(success_factors) → test plan: how to verify each factor
 ```
+
+### 1a. Clarification order (HARD — self-prompt first)
+
+Clarify the problem statement by **self-prompting before any question reaches the user**.
+The substrate owns a strictly-descending ladder (`clarify_engine`), walked in this order:
+
+```
+T0 environment   → rewrite criteria that contradict recent evidence
+T1 prior art     → adopt a decidable criterion from the substrate's own past
+T2 causal        → name the structural equation that explains the failure
+T3 ask the user  → only if every rung above is spent AND the question is critical
+```
+
+- **Self-prompting outranks asking.** Never ask the user while an unspent rung remains.
+- Ask at most **ONE** question per goal, and only when it is critical: ask iff
+  `P(unresolvable) × cost_of_wrong_execution > cost_of_asking`. If the gate declines,
+  keep the current reading and continue rather than blocking on the user.
+- Apply this at **every** stage — goal definition, acceptance criteria, validation
+  planning, unknown/uncertainty, planning, and the ReAct loop — not only at setup.
+- **Exit is bounded, never indefinite:** at most 3 rungs and 3 ladder invocations per goal,
+  T3 is terminal, and a no-progress ladder stops.
 
 ### 2. ReAct loop (per iteration — exits when should_exit ≠ continue)
 ```
@@ -26,7 +46,9 @@ ACT:      execute tool / write / call API
 STORE:    add_memory(actor, Temporal, observation)
           → auto-fires WMUpdater, BeliefInvalidator, EmergenceDetector
 PROGRESS: check_progress(success_factors, observations, iteration, max_iterations)
-          → if uncertainty_detected: POST /memory/reflect then POST /v1/loop/omega
+          → if uncertainty_detected: POST /memory/reflect then POST /v1/loop/omega,
+            and route_uncertainty(...) to self-prompt the next unspent tier
+            (ask the user only once the ladder is spent and the ask-cost gate fires)
 EXIT:     should_exit(iteration, max_iterations, progress_ratio, surprise_signal)
           → continue → next iteration
           → succeed  → store Reflexion summary, exit loop

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hipcortex"
-version = "3.13.0"
-description = "Cognitive state substrate for AI agents — Python SDK + CLI. Graceful shutdown + auto-backup (POST /v1/backup tars 4 data files); actor merge (merge_actor MCP tool); snapshot CLI; VSIX dedup guard; schema-compat proven; universal passive capture; 62-tool / 7-resource MCP server; WAL-persistent. LangChain, AutoGen, CrewAI, MCP"
+version = "3.14.0"
+description = "Cognitive state substrate for AI agents — Python SDK + CLI. Phase 1 decidable acceptance criteria; Phase 5 lifecycle self-prompting (route_uncertainty, self-prompt-first, T0→T3 ladder, ask-cost gate); discriminative doctor SKILL check (4 markers: MUST + live_beliefs + Lifecycle self-prompting + should_exit). 62-tool / 7-resource MCP server; WAL-persistent. LangChain, AutoGen, CrewAI, MCP"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.9"

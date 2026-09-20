@@ -34,8 +34,19 @@ OFFLINE_ENV = "HIPCORTEX_DOCTOR_OFFLINE"
 PROBE_REMOTE_ENV = "HIPCORTEX_DOCTOR_PROBE_REMOTE"
 _LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "0.0.0.0"})
 
-# Case-sensitive harness markers required in proactive SKILL.md
-SKILL_HARNESS_MARKERS = ("MUST", "live_beliefs")
+# Case-sensitive harness markers required in proactive SKILL.md.
+#
+# The last two are *discriminative* markers: they appear in the lifecycle revision of the
+# SKILL and not in the earlier conservative one. Without them the check passed on a stale
+# install, because "MUST" and "live_beliefs" are present in both revisions — the detector
+# could not see the difference it exists to detect. A marker earns its place here only if
+# it is absent from the revision it is meant to reject.
+SKILL_HARNESS_MARKERS = (
+    "MUST",
+    "live_beliefs",
+    "Lifecycle self-prompting",
+    "should_exit",
+)
 
 PathLike = Union[str, Path]
 
@@ -128,7 +139,7 @@ def check_skill_file(
     missing_status: str = "warn",
     incomplete_status: str = "fail",
 ) -> CheckResult:
-    """Verify a SKILL.md path contains MUST + live_beliefs harness language.
+    """Verify a SKILL.md path contains the required harness language.
 
     Args:
         report: DoctorReport to append to.
@@ -164,7 +175,7 @@ def check_skill_file(
     return report.add(
         name,
         "ok",
-        f"SKILL.md has MUST + live_beliefs ({path})",
+        f"SKILL.md satisfies harness markers ({path})",
         detail={"path": str(path)},
     )
 

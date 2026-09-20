@@ -1,8 +1,8 @@
 [package]
 name = "hipcortex"
-version = "3.13.0"
+version = "3.14.0"
 edition = "2021"
-description = "Cognitive state substrate for AI agents: graceful shutdown + auto-backup (POST /v1/backup tars 4 data files); actor merge (POST /v1/actor/merge + MCP merge_actor); HIPCORTEX_ACTOR env auto-set; VSIX dedup guard; schema-compat unit-proven; universal server-side passive capture; 62 MCP tools + 7 resources; WAL-persistent, MCP + REST"
+description = "Cognitive state substrate for AI agents. Phase 1 decidable acceptance criteria (clarify_goal emits AcceptanceCriterion 1:1 with success_factors, non-empty observation_pattern); Phase 5 lifecycle self-prompting (route_uncertainty: T0→T2 self-prompt rungs, T3 ask-cost gate — never asks while rung unspent); discriminative doctor SKILL check (4 markers). 62 MCP tools + 7 resources; WAL-persistent, MCP + REST; universal passive capture."
 repository = "https://github.com/farmountain/HipCortex"
 license = "Apache-2.0"
 readme = "README.md"

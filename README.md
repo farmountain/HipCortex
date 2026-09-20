@@ -51,6 +51,21 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 
 ---
 
+## What's new in v3.14.0 — Lifecycle Self-Prompting, Decidable Acceptance Criteria
+
+Closes 3 seams in the clarification and goal-execution lifecycle: Phase 1 output was rejected by the engine's own gate when `acceptance_criteria` were absent; uncertainty detection had no route to self-prompting before asking the user; and `hipcortex doctor` could not distinguish a current install from a stale pre-lifecycle one.
+
+| Change | Gap | Fix |
+|--------|-----|-----|
+| **Phase 1 decidable acceptance criteria** | `clarify_goal()` emitted `suggested_success_factors` but no decidable form — the engine's `EmptyAC`/`UntestableAC` gate rejected Phase 1 output on the first iteration | `GoalClarification` now carries `acceptance_criteria: Vec<AcceptanceCriterion>`, 1:1 with success factors; each criterion has a non-empty `observation_pattern`; unrecognised factors fall back to the factor name, never to the empty string |
+| **Phase 5 lifecycle self-prompting** | Uncertainty detection had no route — `route_uncertainty` did not exist; the clarify gate was consulted only after asking the user | `route_uncertainty(uncertainty_detected, tiers_spent, search_incomplete, cost_of_wrong_execution)` returns `SelfPrompt` while any ladder rung is unspent, `AskUser`/`DeclineAsk` only once the ladder is spent; self-prompting outranks asking regardless of cost |
+| **Discriminative doctor SKILL check** | `hipcortex doctor` checked 2 markers (MUST + live_beliefs); stale pre-lifecycle installs that carried both markers reported `ok` while missing the entire self-prompting policy | 4-marker check: MUST + live_beliefs + "Lifecycle self-prompting" + "should_exit"; stale installs now correctly report `fail` |
+| **SKILL.md lifecycle policy** | SKILL.md instructed agents to ask the user when `uncertainty_flags` were non-empty, before any self-prompt tier ran | "Clarification order (HARD — self-prompt first)" section documents the T0→T3 ladder and the ask-cost gate; `ask user before proceeding` clause removed |
+
+Test coverage: 371 lib + 521 unit + 182 integration + 59 property + 8 MCP tool surface + 43 Python doctor = **all green, 0 failures**.
+
+---
+
 ## What's new in v3.13.0 — Gap Closure: Safety Body, Health Timeouts, Scorecard Seam, Clarify Gate
 
 Closes 4 gaps identified after the v3.12.0 substrate alignment audit: 16-digit CI run IDs triggered a bare 403 (MCP showed "server down"), VSIX health check timed out on loaded machines, passive-capture and env-receipt metrics were conflated in the scorecard, and `POST /goal/:id/react` with empty `success_factors` gave no guidance on next step.
@@ -592,4 +607,4 @@ Engine internals are not reviewed here. See [DUAL_REPO.md](DUAL_REPO.md).
 | [DEPLOY.md](DEPLOY.md) | Self-host / Fly / Docker |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Historical in-tree build notes |
 
-**License:** [Apache-2.0](LICENSE) for this public repository · **Version:** `3.12.0` · VSIX `3.12.0` · MCP `3.12.0`
+**License:** [Apache-2.0](LICENSE) for this public repository · **Version:** `3.14.0` · VSIX `3.14.0` · MCP `3.14.0`

@@ -1,13 +1,24 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.12.0`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.14.0`)
 
-[![Version](https://img.shields.io/badge/version-v3.12.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v3.14.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
-**Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — universal server-side passive capture (any channel, zero client changes), transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, grounded probe planning, OpEx budget metering, field-proven two-process WAL persistence, and topological graph tools.**
+**Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — lifecycle self-prompting (self-prompt-first clarification before asking the user), decidable acceptance criteria, universal passive capture, transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, WAL persistence, and topological graph tools.**
 
-VSIX **3.12.0** (Graceful Backup · Actor Merge · HIPCORTEX_ACTOR · VSIX Dedup Guard) · server/pip **3.12.0** · npm source **3.12.0** (registry still serves `0.5.2` — see *Channel state* below). 366 lib + 521 unit + 182 minimal / 318 web-server integration + 59 property + standalone `v040_contract_sit` + 9 AC-BK/AM/SC (v3.12.0) + 4 AC-PC (v3.10.0) + 10 AC-390 (v3.9.0) + 10 AC-GS (v3.8.0) + 10 AC-LR (v3.7.0) + 10 AC-UA (v3.6.0) + 8 AC-ES (v3.5.0) + 6 AC-FS/WD (v3.4.0) + 10 AC-W/D/PA (v3.3.0) + 6 AC-B (v3.2.0) + 4 AC (v3.1.0) + 6 AC-F/C/S (v3.0.0) + 10 AC-G/D/S/E/C (v2.9.0) + 8 AC-P/T/M (v2.8.0) + 3 soak + 7 AC-A/B/C (v2.7.0) + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+VSIX **3.14.0** (Lifecycle Self-Prompting · Decidable AC · Discriminative Doctor) · server/pip **3.14.0** · npm source **3.14.0** (registry still serves `0.5.2` — see *Channel state* below). 371 lib + 521 unit + 182 minimal / 318 web-server integration + 59 property + 8 MCP tool surface + 43 Python doctor + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v3.14.0 — Lifecycle Self-Prompting, Decidable Acceptance Criteria
+
+| Change | Details |
+|--------|---------|
+| **Phase 1 decidable acceptance criteria** | `clarify_goal()` now emits `acceptance_criteria: Vec<AcceptanceCriterion>`, one per success factor; each carries a non-empty `observation_pattern` that the ReAct engine uses to decide criterion satisfaction — the `EmptyAC`/`UntestableAC` gate no longer rejects Phase 1 output on the first iteration. |
+| **Phase 5 lifecycle self-prompting** | `route_uncertainty(uncertainty_detected, tiers_spent, search_incomplete, cost_of_wrong_execution)` — self-prompting outranks asking regardless of cost; `SelfPrompt` is returned while any ladder rung (T0 environment → T1 prior art → T2 causal) is unspent; `AskUser`/`DeclineAsk` fires only once the ladder is spent and `P(unresolvable) × cost_of_wrong_execution > cost_of_asking`. |
+| **Discriminative doctor SKILL check** | `hipcortex doctor` now checks 4 markers (MUST + live\_beliefs + "Lifecycle self-prompting" + "should\_exit") — stale pre-lifecycle installs that carried only the first two now correctly report `fail`. |
+| **SKILL.md lifecycle policy** | "Clarification order (HARD — self-prompt first)" section documents the T0→T3 ladder; `ask user before proceeding` clause removed. |
 
 ---
 
@@ -438,20 +449,20 @@ npm test
 npx @vscode/vsce package --no-dependencies
 ```
 
-Produces `hipcortex-memory-3.12.0.vsix` (the version comes from `package.json`, so the name follows the release automatically).
+Produces `hipcortex-memory-3.14.0.vsix` (the version comes from `package.json`, so the name follows the release automatically).
 
 ---
 
 ## Channel state for this release
 
-Published at **3.12.0**: the [GitHub release](https://github.com/farmountain/HipCortex/releases/tag/v3.12.0)
-with its five platform binaries, and **pip** — `pip install hipcortex` genuinely gets 3.12.0, with the
-bundled MCP server reporting `serverInfo` 3.12.0 and exposing 62 tools / 7 resources.
+Published at **3.14.0**: the [GitHub release](https://github.com/farmountain/HipCortex/releases/tag/v3.14.0)
+with its five platform binaries, and **pip** — `pip install hipcortex` genuinely gets 3.14.0, with the
+bundled MCP server reporting `serverInfo` 3.14.0 and exposing 62 tools / 7 resources.
 
-Two channels are **not** at 3.12.0, and in both cases it is a credential or namespace matter rather
+Two channels are **not** at 3.14.0, and in both cases it is a credential or namespace matter rather
 than a code one:
 
-- **npm** — the registry still serves `0.5.2`. The TypeScript source in this repository is `3.12.0`
+- **npm** — the registry still serves `0.5.2`. The TypeScript source in this repository is `3.14.0`
   and its build and test steps pass; the publish job stops at `ENEEDAUTH` because no `NPM_TOKEN`
   is configured.
 - **Open VSX** — no publisher holds this extension's namespace there, so nothing is published.

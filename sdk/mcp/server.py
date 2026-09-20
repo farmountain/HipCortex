@@ -1991,7 +1991,7 @@ def main() -> None:
             respond(id_, {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}, "resources": {}},
-                "serverInfo": {"name": "hipcortex", "version": "3.13.0"},
+                "serverInfo": {"name": "hipcortex", "version": "3.14.0"},
             })
         elif method == "initialized":
             pass  # notification — no response
