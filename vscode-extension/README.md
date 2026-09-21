@@ -1,17 +1,17 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.15.0`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.15.1`)
 
-[![Version](https://img.shields.io/badge/version-v3.15.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v3.15.1-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
 **Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — lifecycle self-prompting (self-prompt-first clarification before asking the user), decidable acceptance criteria, universal passive capture, transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, WAL persistence, and topological graph tools.**
 
-VSIX **3.15.0** (Clarify Route Embedding · HC Offline Resilience · Lifecycle Self-Prompting · Decidable AC) · server/pip **3.15.0** · npm source **3.15.0** (registry still serves `0.5.2` — see *Channel state* below). 379 lib + 521 unit + 182 integration + 59 property + 258 Python (incl. 6 AC-L7 MCP + 43 doctor), **0 failures**. See [docs/channels.md](../docs/channels.md).
+VSIX **3.15.1** (Clarify Route Embedding · HC Offline Resilience · Lifecycle Self-Prompting · Decidable AC) · server/pip **3.15.1** · npm source **3.15.1** (registry still serves `0.5.2` — see *Channel state* below). 379 lib + 521 unit + 182 integration + 59 property + 258 Python (incl. 6 AC-L7 MCP + 43 doctor), **0 failures**. See [docs/channels.md](../docs/channels.md).
 
 ---
 
-## What's new in v3.15.0 — Clarify Route Embedding, HC Offline Resilience
+## What's new in v3.15.1 — Clarify Route Embedding, HC Offline Resilience
 
 Closes 2 cohesion gaps: lifecycle gates detected uncertainty but returned no clarification route in their response; HipCortex MCP went offline between sessions with no auto-recovery.
 

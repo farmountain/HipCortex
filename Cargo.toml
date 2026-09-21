@@ -1,6 +1,6 @@
 [package]
 name = "hipcortex"
-version = "3.15.0"
+version = "3.15.1"
 edition = "2021"
 description = "Cognitive state substrate for AI agents. Lifecycle gates embed ClarifyRouteInfo when uncertainty — check_progress/plan_validation/should_exit carry clarify_route (action/tier/rationale); tiers_spent + cost_of_wrong_execution wired agent→REST→MCP; clarify_exhausted on ExitDecision. HC offline resilience: SessionStart hook + extension 30s reconnect. Phase 5 route_uncertainty; Phase 1 decidable AC; discriminative doctor SKILL check (4 markers). 62 MCP tools + 7 resources; WAL-persistent, MCP + REST; universal passive capture."
 repository = "https://github.com/farmountain/HipCortex"
