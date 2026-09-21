@@ -1832,6 +1832,20 @@ export function activate(context: vscode.ExtensionContext) {
         serverChannel.appendLine(`Startup error: ${err instanceof Error ? err.message : String(err)}`);
     });
 
+    // Reconnect if backend dies mid-session (e.g. after VS Code restart or system sleep)
+    const _healthInterval = setInterval(async () => {
+        try {
+            const ok = await apiForStart.healthCheck();
+            if (!ok) {
+                serverChannel.appendLine('[hipcortex] backend unreachable — attempting restart...');
+                await apiForStart.autoStartServer(serverChannel);
+            }
+        } catch {
+            // ignore — server may be starting
+        }
+    }, 30_000);
+    context.subscriptions.push({ dispose: () => clearInterval(_healthInterval) });
+
     ensureMcpRegistered(context).catch(err => {
         serverChannel.appendLine(`MCP registration check error: ${err instanceof Error ? err.message : String(err)}`);
     });
