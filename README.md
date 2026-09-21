@@ -48,6 +48,23 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 | Passive capture required per-channel client instrumentation — VSIX break silently killed memory | Universal server-side Axum middleware captures every mutation (POST/PUT/DELETE) from any channel — MCP, VSIX, REST, CLI, LangChain — zero client changes; `X-Actor` header attribution; `AppState.passive_capture_enabled`; fire-and-forget Temporal write; 262 integration tests 0 failures (v3.10.0) |
 | Clarify ladder was advisory; a removal could not be persisted through the store's own primitives; `/memory/embed` and `/memory/query` drifted from the write path's vocabulary; CI never executed several suites that existed | Clarify H1–H10 closed and the ladder made authoritative; durable removals + `delete_by_ids`/`upsert`/`delete_by_actor` store primitives; one guardrail and one `record_type` vocabulary across `/memory/add`, `/memory/embed`, `/memory/query`; pipeline enforcement G1–G8 — CI now runs the suites it previously skipped (v3.11.0) |
 | Server crash before shutdown lost worldmodel state; no data snapshot before upgrade or restart; no actor rename/merge; VSIX and Python SDK wrote competing MCP entries; schema compat not unit-proven | `POST /v1/server/shutdown` flushes WM first; `POST /v1/backup` atomic tar.gz of 4 data files + Python `snapshot` CLI; `POST /v1/actor/merge` + MCP `merge_actor`; VSIX adds `HIPCORTEX_ACTOR`=repo-basename; `_is_vsix_managed_entry` dedup; 4 schema-compat unit tests (v3.12.0) |
+| Safety 403 used bare status code — MCP showed "server down" for PII-flagged payload; `/health` timed out on loaded Windows; passive-capture and env-receipt metrics conflated; clarify gate gave no recommendation on blocked goals | Safety 403 body surfaced as text; health/MCP timeouts → 30 s; `api_mutations_captured` + `env_receipts` separate scorecard fields; clarify gate returns self-prompt tier recommendation — always bounded and deduplicated (v3.13.0) |
+| `clarify_goal()` emitted success factors but no decidable AC — engine gate rejected Phase 1 output; uncertainty detection had no route to self-prompting; `hipcortex doctor` reported `ok` for stale pre-lifecycle installs | `AcceptanceCriterion` 1:1 with success factors + non-empty `observation_pattern`; `route_uncertainty` T0→T3 — self-prompt outranks asking regardless of cost; 4-marker discriminative SKILL check (v3.14.0) |
+| Lifecycle gates detected uncertainty but returned no clarification route — agents called `route_uncertainty` separately; agent's ladder position never passed to gates; HC MCP went offline between sessions with no auto-recovery | `check_progress`/`plan_validation`/`should_exit` embed `clarify_route: ClarifyRouteInfo` when uncertainty; `tiers_spent` + `cost_of_wrong_execution` wired agent→REST→MCP; `clarify_exhausted` on `ExitDecision`; SessionStart hook + extension 30 s reconnect (v3.15.0) |
+
+---
+
+## What's new in v3.15.0 — Clarify Route Embedding, HC Offline Resilience
+
+Closes 2 cohesion gaps: lifecycle gates detected uncertainty but returned no clarification route in their response; HipCortex MCP went offline between sessions with no auto-recovery.
+
+| Change | Gap | Fix |
+|--------|-----|-----|
+| **Clarify route embedded in lifecycle gates** | `check_progress`, `plan_validation`, `should_exit` detected uncertainty but returned no clarification advice — agents called `route_uncertainty` as a second pass | All three gates accept `tiers_spent` (+ `cost_of_wrong_execution` for `check_progress`) and embed `clarify_route: ClarifyRouteInfo` when uncertainty detected; `ExitDecision` gains `clarify_exhausted` flag |
+| **tiers_spent wired agent→REST→MCP** | Agent's position on the T0→T3 ladder was never passed to lifecycle gates — route decisions ignored how many self-prompt tiers had been spent | REST handlers extract `tiers_spent` / `cost_of_wrong_execution` from request body; MCP tool schemas expose them as optional params (default 0 / 1.0); 6 AC-L7 Python tests + 8 Rust AC-L1..L8 |
+| **HC offline resilience** | HC MCP went offline between sessions with no auto-recovery — agent sessions silently wrote to local files | `~/.claude/settings.json` SessionStart hook calls `scripts/hipcortex_start_if_dead.py` (checks :3030, spawns binary, waits 10 s); VS Code extension polls health every 30 s and restarts if unreachable; global `~/.claude/mcp.json` corrected to `scripts/hipcortex_mcp_launcher.py` |
+
+Test coverage: 379 lib + 521 unit + 182 integration + 59 property + 258 Python (incl. 6 AC-L7 MCP + 43 doctor) = **all green, 0 failures**.
 
 ---
 

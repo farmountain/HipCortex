@@ -1,13 +1,27 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.14.0`)
+# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.15.0`)
 
-[![Version](https://img.shields.io/badge/version-v3.14.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v3.15.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
 **Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — lifecycle self-prompting (self-prompt-first clarification before asking the user), decidable acceptance criteria, universal passive capture, transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, WAL persistence, and topological graph tools.**
 
-VSIX **3.14.0** (Lifecycle Self-Prompting · Decidable AC · Discriminative Doctor) · server/pip **3.14.0** · npm source **3.14.0** (registry still serves `0.5.2` — see *Channel state* below). 371 lib + 521 unit + 182 minimal / 318 web-server integration + 59 property + 8 MCP tool surface + 43 Python doctor + earlier suites, **0 failures**. See [docs/channels.md](../docs/channels.md).
+VSIX **3.15.0** (Clarify Route Embedding · HC Offline Resilience · Lifecycle Self-Prompting · Decidable AC) · server/pip **3.15.0** · npm source **3.15.0** (registry still serves `0.5.2` — see *Channel state* below). 379 lib + 521 unit + 182 integration + 59 property + 258 Python (incl. 6 AC-L7 MCP + 43 doctor), **0 failures**. See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v3.15.0 — Clarify Route Embedding, HC Offline Resilience
+
+Closes 2 cohesion gaps: lifecycle gates detected uncertainty but returned no clarification route in their response; HipCortex MCP went offline between sessions with no auto-recovery.
+
+| Change | Details |
+|--------|---------|
+| **Clarify route embedded in lifecycle gates** | `check_progress`, `plan_validation`, `should_exit` now accept `tiers_spent` (+ `cost_of_wrong_execution` for `check_progress`) and embed `clarify_route: ClarifyRouteInfo` when uncertainty detected; `ExitDecision` gains `clarify_exhausted` flag (true when `tiers_spent ≥ MAX_CLARIFY_TIERS` and progress stalled) |
+| **tiers_spent wired agent→REST→MCP** | REST handlers extract `tiers_spent` / `cost_of_wrong_execution` from request body; MCP schemas expose them as optional params (default 0 / 1.0); 6 AC-L7 Python tests + 8 Rust AC-L1..L8; backward-compatible defaults on external call sites in `loop_engine.rs` + `clarify_engine.rs` |
+| **HC offline resilience** | SessionStart hook spawns `scripts/hipcortex_start_if_dead.py` (checks :3030, spawns `webserver.exe`, waits 10 s); VS Code extension polls health every 30 s and restarts if unreachable; global `~/.claude/mcp.json` corrected to `scripts/hipcortex_mcp_launcher.py` |
+
+Test coverage: 379 lib + 521 unit + 182 integration + 59 property + 258 Python (incl. 6 AC-L7 MCP + 43 doctor) = **all green, 0 failures**.
 
 ---
 

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hipcortex"
-version = "3.14.0"
-description = "Cognitive state substrate for AI agents — Python SDK + CLI. Phase 1 decidable acceptance criteria; Phase 5 lifecycle self-prompting (route_uncertainty, self-prompt-first, T0→T3 ladder, ask-cost gate); discriminative doctor SKILL check (4 markers: MUST + live_beliefs + Lifecycle self-prompting + should_exit). 62-tool / 7-resource MCP server; WAL-persistent. LangChain, AutoGen, CrewAI, MCP"
+version = "3.15.0"
+description = "Cognitive state substrate for AI agents — Python SDK + CLI. Lifecycle gates embed ClarifyRouteInfo when uncertainty (check_progress/plan_validation/should_exit return clarify_route action/tier/rationale); tiers_spent + cost_of_wrong_execution pass through REST + MCP; clarify_exhausted on exit. HC offline resilience: SessionStart hook + extension reconnect. Phase 5 route_uncertainty; Phase 1 decidable AC; discriminative doctor SKILL check (4 markers). 62-tool / 7-resource MCP; WAL-persistent. LangChain, AutoGen, CrewAI, MCP"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.9"
