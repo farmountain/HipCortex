@@ -45,11 +45,13 @@ REFLECT:  POST /memory/reflect            → substrate CoT (before acting on am
 ACT:      execute tool / write / call API
 STORE:    add_memory(actor, Temporal, observation)
           → auto-fires WMUpdater, BeliefInvalidator, EmergenceDetector
-PROGRESS: check_progress(success_factors, observations, iteration, max_iterations)
+PROGRESS: check_progress(success_factors, observations, iteration, max_iterations, tiers_spent, cost_of_wrong_execution)
+          → clarify_route: {action, tier, rationale} when uncertainty_detected; increment tiers_spent after each SelfPrompt rung
           → if uncertainty_detected: POST /memory/reflect then POST /v1/loop/omega,
             and route_uncertainty(...) to self-prompt the next unspent tier
             (ask the user only once the ladder is spent and the ask-cost gate fires)
-EXIT:     should_exit(iteration, max_iterations, progress_ratio, surprise_signal)
+EXIT:     should_exit(iteration, max_iterations, progress_ratio, surprise_signal, tiers_spent)
+          → clarify_exhausted: true when tiers_spent>=MAX_CLARIFY_TIERS and progress stalled — informational, not a success/fail signal
           → continue → next iteration
           → succeed  → store Reflexion summary, exit loop
           → fail     → store partial results, report pending_factors to user, exit
