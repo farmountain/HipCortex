@@ -1068,7 +1068,7 @@ def handle_add_memory(args: dict) -> str:
     if "ttl_seconds" in args:
         body["ttl_seconds"] = args["ttl_seconds"]
     result = _req("POST", "/memory/add", body)
-    if "error" in result:
+    if result.get("error"):
         detail_str = result.get("detail", "")
         try:
             reason = json.loads(detail_str).get("error") or detail_str
@@ -1271,7 +1271,7 @@ def handle_simulate_rollout(args: dict) -> str:
         "max_depth": effective_depth,
     }
     result = _post("/worldmodel/rollout", payload)
-    if "error" in result:
+    if result.get("error"):
         return f"✗ Rollout failed: {result['error']}"
     uncertainty = result.get("uncertainty")
     unc_str = f"{uncertainty:.3f}" if isinstance(uncertainty, (int, float)) else "?"
@@ -1283,7 +1283,7 @@ def handle_simulate_rollout(args: dict) -> str:
 
 def handle_get_system_health(_args: dict) -> str:
     result = _get("/self/health")
-    if "error" in result:
+    if result.get("error"):
         return f"✗ Health check failed: {result['error']}"
     healthy = result.get("healthy", False)
     overall = result.get("overall", 0.0)
@@ -1495,7 +1495,7 @@ def handle_purge_expired(_args: dict) -> str:
 def handle_reflect(args: dict) -> str:
     query = args["query"]
     result = _post("/memory/reflect", {"query": query})
-    if "error" in result and "hypothesis" not in result:
+    if result.get("error") and "hypothesis" not in result:
         return f"✗ Reflect failed: {result.get('error')}"
     hyp = result.get("hypothesis", "")
     conf = result.get("confidence", 0)
@@ -1522,7 +1522,7 @@ def handle_predict(args: dict) -> str:
     state = args["state"]
     action = args["action"]
     result = _post("/worldmodel/predict", {"state": state, "action": action})
-    if "error" in result and "probabilities" not in result:
+    if result.get("error") and "probabilities" not in result:
         return f"✗ Predict failed: {result.get('error')}"
     probs = result.get("probabilities", {})
     entropy = result.get("entropy", 0)
@@ -1646,7 +1646,7 @@ def handle_compute_state_diff(args: dict) -> str:
     from_tx = int(args.get("from_tx", 0))
     to_tx   = int(args.get("to_tx",   0))
     result = _post("/v1/state/diff", {"from_tx": from_tx, "to_tx": to_tx})
-    if "error" in result:
+    if result.get("error"):
         return f"✗ StateDiff error: {result['error']}"
     md = result.get("memory_delta", {})
     wm = result.get("world_model_delta", {})
@@ -1666,7 +1666,7 @@ def handle_consolidate_memory(args: dict) -> str:
     if "min_group_size" in args:
         body["min_group_size"] = int(args["min_group_size"])
     result = _post("/v1/memory/consolidate", body)
-    if "error" in result:
+    if result.get("error"):
         return f"✗ Consolidate error: {result['error']}"
     return (
         f"Consolidated {result.get('groups_consolidated', 0)} groups — "
