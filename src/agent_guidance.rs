@@ -159,10 +159,12 @@ pub struct ValidationPlan {
     pub steps: Vec<ValidationStep>,
     pub unknown_factors: Vec<String>,
     pub validation_order: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub clarify_route: Option<ClarifyRouteInfo>,
 }
 
 /// Given a list of success_factors, returns a plan for how to verify each one.
-pub fn plan_validation(success_factors: &[&str]) -> ValidationPlan {
+pub fn plan_validation(success_factors: &[&str], tiers_spent: u32) -> ValidationPlan {
     let mut steps = Vec::new();
     let mut unknown = Vec::new();
 
@@ -222,10 +224,17 @@ pub fn plan_validation(success_factors: &[&str]) -> ValidationPlan {
         steps.push(step);
     }
 
+    let clarify_route = if !unknown.is_empty() {
+        Some(ClarifyRouteInfo::from(route_uncertainty(true, tiers_spent, true, 1.0)))
+    } else {
+        None
+    };
+
     ValidationPlan {
         steps,
         unknown_factors: unknown,
         validation_order: "validate in order: data/scrape → implementation → tests → deploy → review".into(),
+        clarify_route,
     }
 }
 
@@ -241,6 +250,8 @@ pub struct ProgressCheck {
     pub on_track: bool,
     pub recommended_action: String,
     pub uncertainty_detected: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub clarify_route: Option<ClarifyRouteInfo>,
 }
 
 /// Per-iteration check: given observations (stored Temporal record targets),
@@ -250,6 +261,8 @@ pub fn check_progress(
     observations: &[&str],
     iteration: u32,
     max_iterations: u32,
+    tiers_spent: u32,
+    cost_of_wrong_execution: f64,
 ) -> ProgressCheck {
     let obs_lower: Vec<String> = observations.iter().map(|o| o.to_lowercase()).collect();
 
@@ -289,6 +302,14 @@ pub fn check_progress(
         format!("continue: focus next iteration on satisfying: {}", pending.join(", "))
     };
 
+    let clarify_route = if uncertainty_detected {
+        Some(ClarifyRouteInfo::from(route_uncertainty(
+            true, tiers_spent, false, cost_of_wrong_execution,
+        )))
+    } else {
+        None
+    };
+
     ProgressCheck {
         iteration,
         max_iterations,
@@ -298,6 +319,7 @@ pub fn check_progress(
         on_track,
         recommended_action,
         uncertainty_detected,
+        clarify_route,
     }
 }
 
@@ -317,6 +339,7 @@ pub struct ExitDecision {
     pub action: ExitAction,
     pub rationale: String,
     pub next_step: String,
+    pub clarify_exhausted: bool,
 }
 
 /// Determines whether the ReAct loop should continue, succeed, fail, or escalate.
@@ -333,12 +356,15 @@ pub fn should_exit(
     max_iterations: u32,
     progress_ratio: f32,
     surprise_signal: f32,
+    tiers_spent: u32,
 ) -> ExitDecision {
+    let clarify_exhausted = tiers_spent >= MAX_CLARIFY_TIERS && progress_ratio < 0.1;
     if progress_ratio >= 1.0 {
         return ExitDecision {
             action: ExitAction::Succeed,
             rationale: "all success_factors satisfied".into(),
             next_step: "store final summary via add_memory(Reflexion), then exit loop".into(),
+            clarify_exhausted,
         };
     }
     if iteration >= max_iterations {
@@ -346,6 +372,7 @@ pub fn should_exit(
             action: ExitAction::Fail,
             rationale: format!("reached max_iterations={max_iterations} with progress={:.0}%", progress_ratio * 100.0),
             next_step: "store partial results via add_memory, report remaining pending_factors to user".into(),
+            clarify_exhausted,
         };
     }
     let pct = if max_iterations == 0 { 0.0 } else { iteration as f32 / max_iterations as f32 };
@@ -357,6 +384,7 @@ pub fn should_exit(
                 surprise_signal, pct * 100.0, progress_ratio * 100.0
             ),
             next_step: "call POST /memory/reflect, run omega loop, then ask user for clarification or reduced scope".into(),
+            clarify_exhausted,
         };
     }
     if progress_ratio < 0.01 && pct > 0.25 {
@@ -364,6 +392,7 @@ pub fn should_exit(
             action: ExitAction::Fail,
             rationale: format!("zero progress after {:.0}% of budget — agent is stuck", pct * 100.0),
             next_step: "call clarify_goal to reframe, or call recommend_tools to check missing tools, then restart".into(),
+            clarify_exhausted,
         };
     }
     ExitDecision {
@@ -373,6 +402,7 @@ pub fn should_exit(
             iteration, max_iterations, progress_ratio * 100.0
         ),
         next_step: "observe via get_live_beliefs → reflect → act → store observation → check_progress".into(),
+        clarify_exhausted,
     }
 }
 
@@ -393,6 +423,41 @@ pub enum ClarifyRoute {
     AskUser { tier: String, rationale: String },
     /// Every rung is spent and the gate declines: keep the current reading.
     DeclineAsk { tier: String, rationale: String },
+}
+
+/// JSON-serializable projection of [`ClarifyRoute`]. Embedded in lifecycle responses.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClarifyRouteInfo {
+    pub action: String,  // "no_clarification" | "self_prompt" | "ask_user" | "decline_ask"
+    pub tier: String,
+    pub rationale: String,
+}
+
+impl From<ClarifyRoute> for ClarifyRouteInfo {
+    fn from(r: ClarifyRoute) -> Self {
+        match r {
+            ClarifyRoute::NoClarification { rationale } => ClarifyRouteInfo {
+                action: "no_clarification".into(),
+                tier: "none".into(),
+                rationale,
+            },
+            ClarifyRoute::SelfPrompt { tier, rationale } => ClarifyRouteInfo {
+                action: "self_prompt".into(),
+                tier,
+                rationale,
+            },
+            ClarifyRoute::AskUser { tier, rationale } => ClarifyRouteInfo {
+                action: "ask_user".into(),
+                tier,
+                rationale,
+            },
+            ClarifyRoute::DeclineAsk { tier, rationale } => ClarifyRouteInfo {
+                action: "decline_ask".into(),
+                tier,
+                rationale,
+            },
+        }
+    }
 }
 
 /// Decide, for a goal that has detected uncertainty, whether to self-prompt or ask.
@@ -480,7 +545,7 @@ mod tests {
 
     #[test]
     fn test_plan_validation_known_factors() {
-        let plan = plan_validation(&["tests_passing", "auth_system_tested", "data_collected"]);
+        let plan = plan_validation(&["tests_passing", "auth_system_tested", "data_collected"], 0);
         assert_eq!(plan.steps.len(), 3);
         assert!(plan.steps[0].tool_or_command.contains("test"));
         assert!(plan.steps[2].tool_or_command.contains("memory"));
@@ -490,7 +555,7 @@ mod tests {
     fn test_check_progress_satisfied() {
         let factors = ["auth_complete", "tests_passing"];
         let obs = ["auth complete for JWT", "tests passing in CI"];
-        let p = check_progress(&factors, &obs, 5, 50);
+        let p = check_progress(&factors, &obs, 5, 50, 0, 1.0);
         assert!(p.progress_ratio > 0.0);
         assert!(!p.uncertainty_detected);
     }
@@ -499,40 +564,40 @@ mod tests {
     fn test_check_progress_uncertainty() {
         let factors = ["auth_complete", "tests_passing", "deploy_ready", "review_done"];
         let obs = ["started working on auth"];
-        let p = check_progress(&factors, &obs, 30, 50); // 60% budget, minimal progress
+        let p = check_progress(&factors, &obs, 30, 50, 0, 1.0); // 60% budget, minimal progress
         assert!(p.uncertainty_detected);
         assert!(p.recommended_action.contains("UNCERTAINTY"));
     }
 
     #[test]
     fn test_should_exit_succeed() {
-        let d = should_exit(10, 50, 1.0, 0.1);
+        let d = should_exit(10, 50, 1.0, 0.1, 0);
         assert_eq!(d.action, ExitAction::Succeed);
     }
 
     #[test]
     fn test_should_exit_max_iterations() {
-        let d = should_exit(50, 50, 0.6, 0.2);
+        let d = should_exit(50, 50, 0.6, 0.2, 0);
         assert_eq!(d.action, ExitAction::Fail);
         assert!(d.rationale.contains("max_iterations"));
     }
 
     #[test]
     fn test_should_exit_escalate() {
-        let d = should_exit(30, 50, 0.3, 0.9); // 60% budget, 30% progress, high surprise
+        let d = should_exit(30, 50, 0.3, 0.9, 0); // 60% budget, 30% progress, high surprise
         assert_eq!(d.action, ExitAction::Escalate);
     }
 
     #[test]
     fn test_should_exit_stuck() {
-        let d = should_exit(15, 50, 0.0, 0.2); // 30% budget, 0 progress
+        let d = should_exit(15, 50, 0.0, 0.2, 0); // 30% budget, 0 progress
         assert_eq!(d.action, ExitAction::Fail);
         assert!(d.rationale.contains("stuck"));
     }
 
     #[test]
     fn test_should_exit_continue() {
-        let d = should_exit(5, 50, 0.4, 0.3);
+        let d = should_exit(5, 50, 0.4, 0.3, 0);
         assert_eq!(d.action, ExitAction::Continue);
     }
 
@@ -637,5 +702,86 @@ mod tests {
         // to clarify.
         let none = route_uncertainty(false, 0, false, 1_000.0);
         assert!(matches!(none, ClarifyRoute::NoClarification { .. }));
+    }
+
+    // ── Lifecycle clarification wiring (AC-L1 .. AC-L8) ─────────────────────────
+
+    #[test]
+    fn test_ac_l1_check_progress_uncertainty_zero_tiers_gives_self_prompt_t0() {
+        let factors = ["deploy_ready", "tests_passing", "review_done", "auth_complete"];
+        let obs = ["started something"];
+        let p = check_progress(&factors, &obs, 30, 50, 0, 1.0);
+        assert!(p.uncertainty_detected);
+        let cr = p.clarify_route.expect("clarify_route must be Some when uncertainty_detected");
+        assert_eq!(cr.action, "self_prompt");
+        assert_eq!(cr.tier, "T0_environment");
+    }
+
+    #[test]
+    fn test_ac_l2_check_progress_ladder_spent_high_cost_asks_user() {
+        let factors = ["deploy_ready", "tests_passing", "review_done", "auth_complete"];
+        let obs = ["started something"];
+        // tiers_spent=3 (MAX), cost=1.0 → 1.0*1.0=1.0 > COST_OF_ASKING(0.25) → AskUser
+        let p = check_progress(&factors, &obs, 30, 50, 3, 1.0);
+        assert!(p.uncertainty_detected);
+        let cr = p.clarify_route.expect("clarify_route must be Some");
+        assert_eq!(cr.action, "ask_user");
+    }
+
+    #[test]
+    fn test_ac_l3_check_progress_ladder_spent_low_cost_declines() {
+        let factors = ["deploy_ready", "tests_passing", "review_done", "auth_complete"];
+        let obs = ["started something"];
+        // cost=0.1 → 1.0*0.1=0.1 ≤ COST_OF_ASKING(0.25) → DeclineAsk
+        let p = check_progress(&factors, &obs, 30, 50, 3, 0.1);
+        assert!(p.uncertainty_detected);
+        let cr = p.clarify_route.expect("clarify_route must be Some");
+        assert_eq!(cr.action, "decline_ask");
+    }
+
+    #[test]
+    fn test_ac_l4_check_progress_no_uncertainty_no_clarify_route() {
+        let factors = ["auth_complete", "tests_passing"];
+        let obs = ["auth complete for JWT", "tests passing in CI"];
+        let p = check_progress(&factors, &obs, 5, 50, 0, 1.0);
+        assert!(!p.uncertainty_detected);
+        assert!(p.clarify_route.is_none(), "no route when no uncertainty");
+    }
+
+    #[test]
+    fn test_ac_l5_plan_validation_unknown_factor_tiers_1_gives_t1() {
+        let plan = plan_validation(&["xyzzy_plugh_factor"], 1);
+        assert!(!plan.unknown_factors.is_empty());
+        let cr = plan.clarify_route.expect("clarify_route must be Some for unknown factors");
+        assert_eq!(cr.action, "self_prompt");
+        assert_eq!(cr.tier, "T1_prior_art");
+    }
+
+    #[test]
+    fn test_ac_l6_should_exit_clarify_exhausted_when_tiers_max_and_stalled() {
+        // tiers_spent=3 (MAX) and progress_ratio=0.05 (<0.1) → clarify_exhausted=true
+        let d = should_exit(10, 50, 0.05, 0.1, 3);
+        assert!(d.clarify_exhausted);
+        assert_eq!(d.action, ExitAction::Continue);
+    }
+
+    #[test]
+    fn test_ac_l6b_should_exit_not_exhausted_when_progress_above_threshold() {
+        let d = should_exit(10, 50, 0.5, 0.1, 3);
+        assert!(!d.clarify_exhausted);
+    }
+
+    #[test]
+    fn test_ac_l8_react_sim_tier_escalation() {
+        let factors = ["deploy_ready", "tests_passing", "review_done", "auth_complete"];
+        let obs = ["minimal observation"];
+        let expected_actions = ["self_prompt", "self_prompt", "self_prompt", "ask_user"];
+        let expected_tiers = ["T0_environment", "T1_prior_art", "T2_causal", "T3_ask_user"];
+        for (i, (exp_action, exp_tier)) in expected_actions.iter().zip(expected_tiers.iter()).enumerate() {
+            let p = check_progress(&factors, &obs, 30, 50, i as u32, 1.0);
+            let cr = p.clarify_route.expect("uncertainty triggers route");
+            assert_eq!(&cr.action, exp_action, "iter {i}");
+            assert_eq!(&cr.tier, exp_tier, "iter {i}");
+        }
     }
 }

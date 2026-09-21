@@ -814,12 +814,13 @@ impl ReactEngine {
                 max_iter,
                 progress_ratio,
                 surprise_signal,
+                0,
             );
             let progress_check = {
                 let names: Vec<&str> = goal_payload.success_factors.iter().map(|f| f.name.as_str()).collect();
                 let done: Vec<&str> = goal_payload.success_factors.iter()
                     .filter(|f| f.satisfied).map(|f| f.name.as_str()).collect();
-                crate::agent_guidance::check_progress(&names, &done, i, max_iter)
+                crate::agent_guidance::check_progress(&names, &done, i, max_iter, 0, 1.0)
             };
 
             if exit_decision.action == crate::agent_guidance::ExitAction::Succeed {
@@ -1189,6 +1190,7 @@ impl ReactEngine {
             max_iter,
             progress_ratio,
             1.0 - progress_ratio,
+            0,
         );
         if exit_decision.action == crate::agent_guidance::ExitAction::Succeed {
             payload.status = GoalStatus::Succeeded;

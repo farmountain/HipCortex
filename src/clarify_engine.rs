@@ -1092,7 +1092,7 @@ impl ClarifyEngine {
 
         // Validation plan for the factors we just made decidable.
         let names: Vec<&str> = updated.success_factors.iter().map(|f| f.name.as_str()).collect();
-        let plan = crate::agent_guidance::plan_validation(&names);
+        let plan = crate::agent_guidance::plan_validation(&names, 0);
         let mut plan_rec = MemoryRecord::new(
             MemoryType::Reflexion,
             actor.to_string(),
