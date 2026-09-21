@@ -7109,8 +7109,9 @@ async fn handle_agent_plan_validation(Json(req): Json<serde_json::Value>) -> Jso
     let factors: Vec<String> = req.get("success_factors")
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_default();
+    let tiers_spent = req.get("tiers_spent").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
     let refs: Vec<&str> = factors.iter().map(|s| s.as_str()).collect();
-    let plan = crate::agent_guidance::plan_validation(&refs);
+    let plan = crate::agent_guidance::plan_validation(&refs, tiers_spent);
     Json(serde_json::to_value(plan).unwrap_or(serde_json::json!({"error": "serialization failed"})))
 }
 
@@ -7125,7 +7126,9 @@ async fn handle_agent_check_progress(Json(req): Json<serde_json::Value>) -> Json
     let max = req.get("max_iterations").and_then(|v| v.as_u64()).unwrap_or(20) as u32;
     let f_refs: Vec<&str> = factors.iter().map(|s| s.as_str()).collect();
     let o_refs: Vec<&str> = obs.iter().map(|s| s.as_str()).collect();
-    let check = crate::agent_guidance::check_progress(&f_refs, &o_refs, iteration, max);
+    let tiers_spent = req.get("tiers_spent").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    let cost_of_wrong_execution = req.get("cost_of_wrong_execution").and_then(|v| v.as_f64()).unwrap_or(1.0);
+    let check = crate::agent_guidance::check_progress(&f_refs, &o_refs, iteration, max, tiers_spent, cost_of_wrong_execution);
     Json(serde_json::to_value(check).unwrap_or(serde_json::json!({"error": "serialization failed"})))
 }
 
@@ -7134,6 +7137,7 @@ async fn handle_agent_should_exit(Json(req): Json<serde_json::Value>) -> Json<se
     let max = req.get("max_iterations").and_then(|v| v.as_u64()).unwrap_or(20) as u32;
     let progress = req.get("progress_ratio").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
     let surprise = req.get("surprise_signal").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-    let decision = crate::agent_guidance::should_exit(iteration, max, progress, surprise);
+    let tiers_spent = req.get("tiers_spent").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    let decision = crate::agent_guidance::should_exit(iteration, max, progress, surprise, tiers_spent);
     Json(serde_json::to_value(decision).unwrap_or(serde_json::json!({"error": "serialization failed"})))
 }
