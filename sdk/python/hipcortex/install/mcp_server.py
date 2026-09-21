@@ -911,6 +911,11 @@ TOOLS = [
                     "items": {"type": "string"},
                     "description": "List of success_factors from the GoalPayload.",
                 },
+                "tiers_spent": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Self-prompt rungs spent so far for this goal (0 = none spent). Drives clarify_route tier in response.",
+                },
             },
             "required": ["success_factors"],
         },
@@ -925,6 +930,8 @@ TOOLS = [
                 "observations": {"type": "array", "items": {"type": "string"}, "description": "Temporal record targets from this session."},
                 "iteration": {"type": "integer"},
                 "max_iterations": {"type": "integer"},
+                "tiers_spent": {"type": "integer", "default": 0, "description": "Self-prompt rungs spent for this goal. Drives clarify_route.tier in response when uncertainty_detected."},
+                "cost_of_wrong_execution": {"type": "number", "default": 1.0, "description": "Relative cost of acting on a wrong assumption (0.0–2.0). Higher biases toward asking the user once the ladder is spent."},
             },
             "required": ["success_factors", "observations", "iteration", "max_iterations"],
         },
@@ -939,6 +946,7 @@ TOOLS = [
                 "max_iterations": {"type": "integer"},
                 "progress_ratio": {"type": "number", "description": "0.0–1.0, from check_progress.progress_ratio."},
                 "surprise_signal": {"type": "number", "description": "0.0–1.0 entropy/surprise from substrate. Use 0.0 if unknown."},
+                "tiers_spent": {"type": "integer", "default": 0, "description": "Self-prompt rungs spent. Populates clarify_exhausted=true when tiers_spent>=MAX_CLARIFY_TIERS and progress stalled."},
             },
             "required": ["iteration", "max_iterations", "progress_ratio"],
         },
@@ -1766,7 +1774,10 @@ def handle_clarify_goal(args: dict) -> str:
     return json.dumps(r)
 
 def handle_plan_validation(args: dict) -> str:
-    r = _req("POST", "/agent/plan-validation", {"success_factors": args.get("success_factors", [])})
+    r = _req("POST", "/agent/plan-validation", {
+        "success_factors": args.get("success_factors", []),
+        "tiers_spent": args.get("tiers_spent", 0),
+    })
     return json.dumps(r)
 
 def handle_check_progress(args: dict) -> str:
@@ -1775,6 +1786,8 @@ def handle_check_progress(args: dict) -> str:
         "observations": args.get("observations", []),
         "iteration": args.get("iteration", 0),
         "max_iterations": args.get("max_iterations", 20),
+        "tiers_spent": args.get("tiers_spent", 0),
+        "cost_of_wrong_execution": args.get("cost_of_wrong_execution", 1.0),
     })
     return json.dumps(r)
 
@@ -1784,6 +1797,7 @@ def handle_should_exit(args: dict) -> str:
         "max_iterations": args.get("max_iterations", 20),
         "progress_ratio": args.get("progress_ratio", 0.0),
         "surprise_signal": args.get("surprise_signal", 0.0),
+        "tiers_spent": args.get("tiers_spent", 0),
     })
     return json.dumps(r)
 
@@ -1991,7 +2005,7 @@ def main() -> None:
             respond(id_, {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}, "resources": {}},
-                "serverInfo": {"name": "hipcortex", "version": "3.13.0"},
+                "serverInfo": {"name": "hipcortex", "version": "3.14.0"},
             })
         elif method == "initialized":
             pass  # notification — no response
