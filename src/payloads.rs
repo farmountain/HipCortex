@@ -200,3 +200,45 @@ pub struct BeliefPayload {
 fn default_belief_confidence() -> f32 {
     0.5
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct LawPayload {
+    /// Structural equation, e.g. "effect ~ f(causes)".
+    pub equation: String,
+    #[serde(default)]
+    pub causal_variables: Vec<String>,
+    #[serde(default = "default_effect_variable")]
+    pub effect_variable: String,
+    #[serde(default)]
+    pub evidence_ids: Vec<Uuid>,
+    #[serde(default)]
+    pub mdl_score: f64,
+    #[serde(default)]
+    pub domain: Option<String>,
+    /// Whether do-calculus interventions hold for this law. Default true.
+    #[serde(default = "default_true_bool")]
+    pub holds_under_intervention: bool,
+}
+
+fn default_effect_variable() -> String {
+    "unknown".into()
+}
+
+fn default_true_bool() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PolicyPayload {
+    pub entity_id: Uuid,
+    pub trigger_condition: String,
+    pub action_fn: String,
+    #[serde(default)]
+    pub priority: u32,
+    /// Active by default — new Policies are immediately eligible.
+    #[serde(default = "default_true_bool")]
+    pub active: bool,
+    /// Law record this policy was derived from (provenance). None = manually defined.
+    #[serde(default)]
+    pub law_id: Option<Uuid>,
+}
