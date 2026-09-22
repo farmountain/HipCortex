@@ -12,6 +12,7 @@ mod aureus_bridge_tests;
 mod belief_payload_tests;
 mod calibration_tests;
 mod cognitive_gc_tests;
+mod cognitive_gc_law_tests;
 mod jtms_tests;
 // #[cfg(feature = "web-server")]
 // mod api_tests;

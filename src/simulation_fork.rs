@@ -433,6 +433,12 @@ impl<B: MemoryBackend + Send + Sync + 'static> SimulationFork<B> {
         self.steps.len()
     }
 
+    /// The most recently applied action string, if any. Read-only; used to verify
+    /// which action a policy-driven step actually executed.
+    pub fn last_action(&self) -> Option<&str> {
+        self.steps.last().map(String::as_str)
+    }
+
     /// Expose fork's internal store records for sync-back by DigitalTwin.
     pub fn all_records(&self) -> Vec<crate::memory_record::MemoryRecord> {
         self.store.all().to_vec()

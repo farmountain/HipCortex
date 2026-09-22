@@ -6,6 +6,14 @@
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
+/// MDL sparsity threshold above which a Law is always retained.
+///
+/// A Law's `mdl_score` measures how much description-length (compression) it earns.
+/// At or above this value the Law justifies its own storage cost regardless of how
+/// many Goals/Beliefs currently reference it, so [`CognitiveGC::gc_action_for_law`]
+/// returns [`GcAction::Keep`]. The comparison is inclusive (`>=`).
+pub const MDL_KEEP_THRESHOLD: f64 = 0.5;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum GcAction {
     /// Record is still live — decay score not yet 0.
@@ -46,6 +54,23 @@ impl CognitiveGC {
 
     /// Determine GC action for a record whose relevance_score has reached 0.
     pub fn gc_action(&self, record_id: Uuid) -> GcAction {
+        match self.references.get(&record_id) {
+            Some(refs) if !refs.is_empty() => GcAction::Archive,
+            _ => GcAction::Delete,
+        }
+    }
+
+    /// GC decision for Laws based on MDL (Minimum Description Length) sparsity pressure.
+    ///
+    /// Laws that pay for themselves in compression — `mdl_score >= MDL_KEEP_THRESHOLD` —
+    /// are always kept, even when no Goal/Belief currently references them: their value is
+    /// the sparsity they buy, not their in-degree. Below the threshold the standard
+    /// reference-based policy applies: `Archive` if still referenced (audit trail), `Delete`
+    /// if orphaned.
+    pub fn gc_action_for_law(&self, record_id: Uuid, mdl_score: f64) -> GcAction {
+        if mdl_score >= MDL_KEEP_THRESHOLD {
+            return GcAction::Keep;
+        }
         match self.references.get(&record_id) {
             Some(refs) if !refs.is_empty() => GcAction::Archive,
             _ => GcAction::Delete,

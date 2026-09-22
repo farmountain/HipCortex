@@ -99,3 +99,4 @@ mod safety_rejection_sit;
 mod scorecard_metrics_sit;
 #[cfg(feature = "web-server")]
 mod clarify_gate_422_sit;
+mod reconstruction_engine_sit;

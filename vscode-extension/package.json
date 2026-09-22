@@ -2,7 +2,7 @@
   "name": "hipcortex-memory",
   "displayName": "HipCortex Memory Engine & Cognitive OS",
   "description": "Cognitive OS for VS Code: lifecycle gates embed clarify_route when uncertainty (self-prompt-first, T0→T3 ladder, never asks while rung unspent); tiers_spent + cost_of_wrong_execution MCP params; HC offline auto-recovery (SessionStart hook + 30 s reconnect); Phase 1 decidable AC; discriminative SKILL check (4 markers); 62 MCP tools + 7 resources; WAL persistence — MCP + REST",
-  "version": "3.15.1",
+  "version": "3.16.0",
   "publisher": "farmountain",
   "repository": {
     "type": "git",

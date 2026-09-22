@@ -6,7 +6,7 @@ from .langchain_memory import HipCortexMemory, AsyncHipCortexMemory
 from .llamaindex_storage import HipCortexStorageContext
 from .substrate import HipCortexSubstrate
 
-__version__ = "3.15.1"
+__version__ = "3.16.0"
 __all__ = [
     "HipCortexClient",
     "AsyncHipCortexClient",

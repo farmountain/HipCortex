@@ -176,4 +176,10 @@ impl<B: MemoryBackend + Send + Sync + 'static> DigitalTwin<B> {
     pub fn records(&self) -> Vec<crate::memory_record::MemoryRecord> {
         self.fork.all_records()
     }
+
+    /// The action string most recently applied by a `step*` call. Read-only;
+    /// lets callers verify which action a policy-driven step actually executed.
+    pub fn last_action(&self) -> Option<&str> {
+        self.fork.last_action()
+    }
 }
