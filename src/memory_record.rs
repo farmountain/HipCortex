@@ -16,8 +16,8 @@ pub enum MemoryType {
     Decision,
     Intent,
     Receipt,
-    Law,     // structural equation elevated from anomaly evidence
-    Policy,  // reactive rule governing entity state evolution
+    Law,
+    Policy,
 }
 
 /// Version of the integrity-hash format.
