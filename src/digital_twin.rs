@@ -141,6 +141,32 @@ impl<B: MemoryBackend + Send + Sync + 'static> DigitalTwin<B> {
         self.fork.rollout_hybrid(actions, 1.0, Some(dyn_clone), None)
     }
 
+    /// Advance the twin by one step, consulting the [`PolicyRegistry`] for `entity_id`.
+    ///
+    /// The highest-priority active Policy whose `trigger_condition` is non-empty
+    /// overrides the caller-supplied `action`; if no such Policy exists the `action`
+    /// argument is used unchanged. The chosen action is then applied via [`step`].
+    ///
+    /// [`PolicyRegistry`]: crate::policy_registry::PolicyRegistry
+    /// [`step`]: Self::step
+    pub fn step_with_policies(
+        &mut self,
+        action: &str,
+        registry: &crate::policy_registry::PolicyRegistry,
+        entity_id: Uuid,
+    ) -> Result<Vec<f64>, CognitiveError> {
+        // active_for_entity is pre-sorted by priority descending, so the first
+        // Policy with a non-empty trigger is the highest-priority match.
+        let effective_action = registry
+            .active_for_entity(entity_id)
+            .into_iter()
+            .find(|p| !p.payload.trigger_condition.is_empty())
+            .map(|p| p.payload.action_fn.clone())
+            .unwrap_or_else(|| action.to_string());
+
+        self.step(&effective_action)
+    }
+
     /// All state vectors accumulated via step().
     pub fn trajectory(&self) -> &[Vec<f64>] {
         &self.trajectory

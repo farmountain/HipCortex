@@ -31,6 +31,7 @@ pub mod clarify_engine;
 pub mod cognitive_state;
 pub mod continuous_dynamics;
 pub mod digital_twin;
+pub mod policy_registry;
 pub mod experience_store;
 pub mod jtms;
 pub mod simulation_fork;
