@@ -2380,6 +2380,20 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
                 }
             }),
         )
+        .route("/laws", {
+            let ms = memory_store.clone();
+            get(move || {
+                let ms2 = ms.clone();
+                async move { handle_list_laws(ms2).await }
+            })
+        })
+        .route("/policies/:entity_id", {
+            let ms = memory_store.clone();
+            get(move |Path(eid): Path<String>| {
+                let ms2 = ms.clone();
+                async move { handle_list_policies(ms2, Path(eid)).await }
+            })
+        })
         .layer(middleware::from_fn({
             let store = memory_store.clone();
             let enabled = passive_capture_on;
@@ -7142,4 +7156,53 @@ async fn handle_agent_should_exit(Json(req): Json<serde_json::Value>) -> Json<se
     let tiers_spent = req.get("tiers_spent").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
     let decision = crate::agent_guidance::should_exit(iteration, max, progress, surprise, tiers_spent);
     Json(serde_json::to_value(decision).unwrap_or(serde_json::json!({"error": "serialization failed"})))
+}
+
+async fn handle_list_laws<B: MemoryBackend + Send + Sync + 'static>(
+    memory_store: Arc<Mutex<MemoryStore<B>>>,
+) -> Json<serde_json::Value> {
+    match memory_store.lock() {
+        Ok(store) => {
+            let laws: Vec<serde_json::Value> = store
+                .all_by_type(crate::memory_record::MemoryType::Law)
+                .iter()
+                .map(|r| serde_json::to_value(*r).unwrap_or_default())
+                .collect();
+            let count = laws.len();
+            Json(serde_json::json!({ "laws": laws, "count": count }))
+        }
+        Err(_) => Json(serde_json::json!({ "error": "store lock failed", "laws": [] })),
+    }
+}
+
+async fn handle_list_policies<B: MemoryBackend + Send + Sync + 'static>(
+    memory_store: Arc<Mutex<MemoryStore<B>>>,
+    Path(entity_id_str): Path<String>,
+) -> Json<serde_json::Value> {
+    let entity_uuid = match uuid::Uuid::parse_str(&entity_id_str) {
+        Ok(u) => u,
+        Err(_) => {
+            return Json(serde_json::json!({ "error": "invalid entity_id", "policies": [] }))
+        }
+    };
+    match memory_store.lock() {
+        Ok(store) => {
+            let policies: Vec<serde_json::Value> = store
+                .all_by_type(crate::memory_record::MemoryType::Policy)
+                .iter()
+                .filter(|r| {
+                    r.metadata
+                        .get("entity_id")
+                        .and_then(|v| v.as_str())
+                        .and_then(|s| uuid::Uuid::parse_str(s).ok())
+                        .map_or(false, |id| id == entity_uuid)
+                        && r.metadata.get("active").and_then(|v| v.as_bool()).unwrap_or(true)
+                })
+                .map(|r| serde_json::to_value(*r).unwrap_or_default())
+                .collect();
+            let count = policies.len();
+            Json(serde_json::json!({ "policies": policies, "count": count }))
+        }
+        Err(_) => Json(serde_json::json!({ "error": "store lock failed", "policies": [] })),
+    }
 }
