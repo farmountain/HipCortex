@@ -1,13 +1,28 @@
-# HipCortex Memory Engine & Cognitive OS for VS Code & Antigravity IDE (`v3.15.1`)
+# HipCortex Memory Engine & Cognitive Reconstruction Engine for VS Code & Antigravity IDE (`v3.16.0`)
 
-[![Version](https://img.shields.io/badge/version-v3.15.1-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v3.16.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
-**Give your AI coding assistant persistent, cross-session causal memory with a full cognitive OS substrate — lifecycle self-prompting (self-prompt-first clarification before asking the user), decidable acceptance criteria, universal passive capture, transactional belief revision, multi-agent workspaces, world-model rollout, DigitalTwin simulation, WAL persistence, and topological graph tools.**
+**Give your AI coding assistant persistent, cross-session causal memory with a full cognitive reconstruction engine — Laws extracted from surprising experiences (LawExtractor), Policies first-class in state evolution (PolicyRegistry + step_with_policies), MDL sparsity GC, lifecycle self-prompting (T0→T3 self-prompt first), decidable AC, universal passive capture, DigitalTwin simulation, WAL persistence.**
 
-VSIX **3.15.1** (Clarify Route Embedding · HC Offline Resilience · Lifecycle Self-Prompting · Decidable AC) · server/pip **3.15.1** · npm source **3.15.1** (registry still serves `0.5.2` — see *Channel state* below). 379 lib + 521 unit + 182 integration + 59 property + 258 Python (incl. 6 AC-L7 MCP + 43 doctor), **0 failures**. See [docs/channels.md](../docs/channels.md).
+VSIX **3.16.0** (Reconstruction Engine Foundation · Law/Policy MemoryTypes · MDL GC · REST /laws + /policies) · server/pip **3.16.0** · npm source **3.16.0** (registry still serves `0.5.2` — see *Channel state* below). 379 lib + 546 unit + 186 integration + 59 property + 258 Python, **0 failures**. See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v3.16.0 — Reconstruction Engine Foundation
+
+Closes 4 gaps turning HipCortex from "cognitive state substrate" into "dynamic reconstruction engine".
+
+| Change | Details |
+|--------|---------|
+| **Anomaly → axiomatic write-back** | `LawExtractor::attempt_extract()` clusters surprising Intent records by `target_entity`; ≥3 in cluster → writes `MemoryType::Law` (structural equation, no LLM, O(n)); idempotent; calls `route_uncertainty` (T0 self-prompt first) when < 2 causal variables identified |
+| **Policies as first-class citizens** | `PolicyRegistry` stores active `MemoryType::Policy` records by `entity_id` sorted by priority; `DigitalTwin::step_with_policies(action, registry, entity_id)` applies highest-priority matching Policy before dynamics — `S_{t+1} = f(S_t, Policy)` |
+| **MDL sparsity pressure on Laws** | `CognitiveGC::gc_action_for_law(id, mdl_score)`: score ≥ `MDL_KEEP_THRESHOLD` (0.5) → `Keep`; below → `Archive` if referenced, `Delete` if orphaned |
+| **REST surfaces** | `GET /laws` — all Law records; `GET /policies/:entity_id` — active Policies for entity sorted by priority desc |
+
+Test coverage: 379 lib + 546 unit (+4) + 186 integration (+4 SIT) + 59 property + 258 Python = **all green, 0 failures**.
 
 ---
 

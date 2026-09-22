@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "hipcortex"
 version = "3.16.0"
-description = "Cognitive state substrate for AI agents — Python SDK + CLI. Lifecycle gates embed ClarifyRouteInfo when uncertainty (check_progress/plan_validation/should_exit carry clarify_route); tiers_spent + cost_of_wrong_execution wired through REST + MCP; clarify_exhausted on ExitDecision. HC offline resilience. Phase 5 route_uncertainty; Phase 1 decidable AC; 62-tool / 7-resource MCP; WAL-persistent. LangChain, AutoGen, CrewAI, MCP"
+description = "Cognitive reconstruction engine for AI agents — Python SDK + CLI. Anomaly→Law axiomatic write-back (LawExtractor); PolicyRegistry + step_with_policies() — Policies first-class in state evolution; MDL sparsity GC; MemoryType::Law + Policy; lifecycle self-prompting (T0→T3 ClarifyRoute in every gate); 62-tool / 7-resource MCP; WAL-persistent. LangChain, AutoGen, CrewAI, MCP"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.9"

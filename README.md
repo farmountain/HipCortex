@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/farmountain/HipCortex)](https://github.com/farmountain/HipCortex/releases/latest)
 
-**Autonomous agents have no persistent cognitive state — goals lost between calls, beliefs stale, actions never feeding back into reasoning. HipCortex is the cognitive state substrate that closes the loop: goal scheduling, belief revision, world model feedback, and decision provenance — served locally over MCP + REST.**
+**Autonomous agents have no persistent cognitive state — goals lost between calls, beliefs stale, anomalies never elevating to reusable Laws. HipCortex is the cognitive reconstruction engine that closes the loop: Laws extracted from surprising experiences, Policies driving state evolution, causal SCM, goal scheduling, belief revision — served locally over MCP + REST.**
 
 ⭐ **If that solves a pain you feel, [star the repo](https://github.com/farmountain/HipCortex)** — it helps others find it.  
 💬 **Tried it?** [Open an issue](https://github.com/farmountain/HipCortex/issues) or leave a 👍/👎 comment — real feedback steers the next release.
@@ -51,6 +51,22 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 | Safety 403 used bare status code — MCP showed "server down" for PII-flagged payload; `/health` timed out on loaded Windows; passive-capture and env-receipt metrics conflated; clarify gate gave no recommendation on blocked goals | Safety 403 body surfaced as text; health/MCP timeouts → 30 s; `api_mutations_captured` + `env_receipts` separate scorecard fields; clarify gate returns self-prompt tier recommendation — always bounded and deduplicated (v3.13.0) |
 | `clarify_goal()` emitted success factors but no decidable AC — engine gate rejected Phase 1 output; uncertainty detection had no route to self-prompting; `hipcortex doctor` reported `ok` for stale pre-lifecycle installs | `AcceptanceCriterion` 1:1 with success factors + non-empty `observation_pattern`; `route_uncertainty` T0→T3 — self-prompt outranks asking regardless of cost; 4-marker discriminative SKILL check (v3.14.0) |
 | Lifecycle gates detected uncertainty but returned no clarification route — agents called `route_uncertainty` separately; agent's ladder position never passed to gates; HC MCP went offline between sessions with no auto-recovery | `check_progress`/`plan_validation`/`should_exit` embed `clarify_route: ClarifyRouteInfo` when uncertainty; `tiers_spent` + `cost_of_wrong_execution` wired agent→REST→MCP; `clarify_exhausted` on `ExitDecision`; SessionStart hook + extension 30 s reconnect (v3.15.0) |
+| Anomaly evidence accumulates but never elevates to reusable structural Laws; Policies not first-class in state evolution; GC has no sparsity pressure on weak Laws | `MemoryType::Law` + `Policy`; `LawExtractor` writes Laws from ≥3 surprising Intents (structural, no LLM); `PolicyRegistry` + `DigitalTwin::step_with_policies()` — Policies first-class in `S_{t+1} = f(S_t, Policy)`; MDL sparsity GC (`gc_action_for_law`, threshold=0.5); `GET /laws` + `GET /policies/:entity_id`; 379 lib + 546 unit + 186 integration + 59 property (v3.16.0) |
+
+---
+
+## What's new in v3.16.0 — Reconstruction Engine Foundation
+
+Closes 4 gaps turning HipCortex from "cognitive state substrate" into "dynamic reconstruction engine": surprising experiences now elevate to durable structural Laws; Policies are first-class objects driving entity state evolution; the GC applies MDL sparsity pressure so the long-term representation stays compressible; REST surfaces both.
+
+| Change | Gap | Fix |
+|--------|-----|-----|
+| **Anomaly → axiomatic write-back** | Surprising Intent records accumulated evidence but never elevated to reusable structural Laws — each anomaly was processed in isolation | `LawExtractor::attempt_extract()` clusters surprising Intents by `target_entity`; ≥3 in a cluster → writes `MemoryType::Law` via structural equation (no LLM, O(n)); idempotent; calls `route_uncertainty` when < 2 causal variables identified (T0 self-prompt first) |
+| **Policies as first-class citizens** | State evolution `S_{t+1} = f(S_t, action)` was driven by discrete memory records + goal/react cycles — no first-class reactive rules attached to entities | `PolicyRegistry` stores active `MemoryType::Policy` records keyed by `entity_id`, sorted by priority; `DigitalTwin::step_with_policies(action, registry, entity_id)` checks registry before applying dynamics — highest-priority matching Policy overrides the action arg |
+| **MDL sparsity pressure on Laws** | `CognitiveGC` archived/deleted records by reference count only — Laws with low information gain were kept indefinitely | `gc_action_for_law(record_id, mdl_score) -> GcAction`: score ≥ `MDL_KEEP_THRESHOLD` (0.5) → `Keep` regardless of references; below threshold → `Archive` if referenced, `Delete` if orphaned |
+| **REST surfaces for Laws + Policies** | No endpoints to inspect the live Law or Policy population | `GET /laws` returns all `MemoryType::Law` records; `GET /policies/:entity_id` returns active Policies for an entity sorted by priority desc |
+
+Test coverage: 379 lib + 546 unit (+4) + 186 integration (+4 SIT) + 59 property + 258 Python = **all green, 0 failures**.
 
 ---
 
