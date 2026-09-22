@@ -15,6 +15,7 @@ use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 use crate::agent_guidance::ClarifyRoute;
+use crate::clarify_engine::MAX_CLARIFY_TIERS;
 use crate::memory_record::{MemoryRecord, MemoryType};
 use crate::memory_store::MemoryStore;
 use crate::payloads::LawPayload;
@@ -56,6 +57,8 @@ impl LawExtractor {
 
         // Snapshot existing Law equations for idempotency (owned Strings, borrow released).
         let existing_equations = Self::existing_law_equations(store);
+        // Track equations written within this call to catch intra-call duplicates.
+        let mut written_this_call: HashSet<String> = HashSet::new();
         let mut written = Vec::new();
 
         // Deterministic cluster order so equal-sized runs behave reproducibly.
@@ -119,7 +122,7 @@ impl LawExtractor {
 
             // Still ambiguous after the T0 self-prompt — consult route_uncertainty.
             if causal_vars.len() < 2 {
-                let route = crate::agent_guidance::route_uncertainty(true, 0, false, 0.8);
+                let route = crate::agent_guidance::route_uncertainty(true, MAX_CLARIFY_TIERS, false, 0.8);
                 match route {
                     ClarifyRoute::SelfPrompt { .. } => {
                         // T0 fallback: use the entity name itself as a causal anchor.
@@ -141,8 +144,9 @@ impl LawExtractor {
                 .unwrap_or("unknown");
             let eq = format!("{} ~ {}({})", effect, primary_action, causal_vars.join(", "));
 
-            // Idempotency: skip if this exact equation was already coined.
-            if existing_equations.contains(&eq) {
+            // Idempotency: skip if this exact equation was already coined (pre-call
+            // snapshot) or written by an earlier cluster in this same call.
+            if existing_equations.contains(&eq) || written_this_call.contains(&eq) {
                 continue;
             }
 
@@ -172,6 +176,7 @@ impl LawExtractor {
             // MemoryStore::add returns Result<()>, so capture the id before the move.
             let rec_id = rec.id;
             if store.add(rec).is_ok() {
+                written_this_call.insert(eq.clone());
                 written.push(rec_id);
             }
         }

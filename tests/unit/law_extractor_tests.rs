@@ -86,3 +86,19 @@ fn non_surprising_intents_not_extracted() {
     let laws = LawExtractor::attempt_extract(&mut store, "agent");
     assert!(laws.is_empty());
 }
+
+#[test]
+fn actor_isolation_different_actors_independent() {
+    let mut store = make_store();
+    // Alice has 3 surprising intents — should produce a Law.
+    for _ in 0..3 {
+        add_surprising_intent(&mut store, "alice", "push", "ball");
+    }
+    // Bob has 0 — should produce nothing.
+    let bob_laws = LawExtractor::attempt_extract(&mut store, "bob");
+    assert!(bob_laws.is_empty(), "bob has no intents, should extract nothing");
+
+    // Alice extracts normally.
+    let alice_laws = LawExtractor::attempt_extract(&mut store, "alice");
+    assert!(!alice_laws.is_empty(), "alice has 3 intents, should extract a Law");
+}
