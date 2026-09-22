@@ -38,7 +38,11 @@ impl EmergenceDetector {
         if self.temporal_write_count % TRIGGER_EVERY != 0 {
             return Vec::new();
         }
-        Self::detect(store, actor)
+        let created = Self::detect(store, actor);
+        // Law extraction: cluster surprising Intents into reusable Laws at the same cadence
+        // as Belief emergence. Runs only past the TRIGGER_EVERY guard above.
+        let _law_ids = crate::law_extractor::LawExtractor::attempt_extract(store, actor);
+        created
     }
 
     /// Scan the last WINDOW Temporal records; synthesise Beliefs for recurring tokens.

@@ -19,6 +19,7 @@ pub mod epistemic_authority;
 pub mod abstraction_gate;
 pub mod cognitive_report;
 pub mod emergence;
+pub mod law_extractor;
 pub mod goal_scheduler;
 pub mod wm_updater;
 #[path = "modules/aureus_bridge.rs"]
