@@ -4879,7 +4879,7 @@ async fn handle_ingest<B: MemoryBackend + Send + Sync + 'static>(
 const RECORD_TYPE_ALIASES: &[&str] = &[
     "Temporal", "Episodic", "ShortTerm", "Working", "Symbolic", "Semantic", "LongTerm",
     "Procedural", "Reflexion", "Reflexive", "Perception", "Perceptual", "Goal", "Skill",
-    "Belief", "Decision", "Intent", "Receipt",
+    "Belief", "Decision", "Intent", "Receipt", "Law", "Policy",
 ];
 
 /// Map a caller-supplied record-type alias onto a [`crate::memory_record::MemoryType`].
@@ -4910,6 +4910,8 @@ fn parse_record_type_alias(s: Option<&str>) -> Result<crate::memory_record::Memo
         "decision" => MemoryType::Decision,
         "intent" => MemoryType::Intent,
         "receipt" => MemoryType::Receipt,
+        "law" => MemoryType::Law,
+        "policy" => MemoryType::Policy,
         _ => return Err(raw.to_string()),
     };
     Ok(t)

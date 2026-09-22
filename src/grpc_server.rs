@@ -43,6 +43,8 @@ impl<B: MemoryBackend + Send + 'static> MemoryService for MemoryServiceImpl<B> {
             "Procedural" => MemoryType::Procedural,
             "Reflexion" => MemoryType::Reflexion,
             "Perception" => MemoryType::Perception,
+            "Law" => MemoryType::Law,
+            "Policy" => MemoryType::Policy,
             _ => return Err(tonic::Status::invalid_argument("record_type")),
         };
         let mut record = MemoryRecord {
