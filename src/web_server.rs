@@ -2394,6 +2394,32 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
                 async move { handle_list_policies(ms2, Path(eid)).await }
             })
         })
+        .route("/snapshot/:actor/transitions", {
+            let cog = cognitive.clone();
+            axum::routing::get(move |Path(actor): Path<String>, axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>| {
+                let cog = cog.clone();
+                async move {
+                    let since_tx: u64 = params.get("since").and_then(|s| s.parse().ok()).unwrap_or(0);
+                    let views = cog.transitions_since(&actor, since_tx);
+                    let count = views.len();
+                    (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"transitions": views, "count": count})))
+                }
+            })
+        })
+        .route("/snapshot/:actor/prediction_error", {
+            let cog = cognitive.clone();
+            axum::routing::get(move |Path(_actor): Path<String>| {
+                let cog = cog.clone();
+                async move {
+                    let pe = cog.prediction_error();
+                    (axum::http::StatusCode::OK, axum::Json(serde_json::json!({
+                        "global_ewma": pe.global_ewma,
+                        "uncertain": pe.uncertain,
+                        "timestamp": pe.timestamp
+                    })))
+                }
+            })
+        })
         .layer(middleware::from_fn({
             let store = memory_store.clone();
             let enabled = passive_capture_on;
