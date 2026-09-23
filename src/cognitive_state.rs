@@ -17,7 +17,7 @@ use crate::coherence::CoherenceChecker;
 use crate::self_model::calibration::CalibrationTracker;
 use crate::self_model::SelfModel;
 use crate::world_model_enhanced::WorldModelEnhanced;
-use crate::payloads::{BeliefPayload, EpistemicStatus, GoalPayload, GoalStatus, JtmsLabel, SkillPayload};
+use crate::payloads::{BeliefPayload, EpistemicStatus, GoalPayload, GoalStatus, JtmsLabel, LawPayload, PolicyPayload, SkillPayload};
 use crate::jtms;
 use crate::persistence::MemoryBackend;
 use crate::workspace::{WorkspaceId, WorkspaceMode, WorkspaceRegistry};
@@ -189,6 +189,39 @@ pub struct ProvenanceSummary {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct LawSummary {
+    pub id: Uuid,
+    pub equation: String,
+    pub mdl_score: f64,
+    pub domain: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct PolicySummary {
+    pub id: Uuid,
+    pub entity_id: Uuid,
+    pub trigger_condition: String,
+    pub action_fn: String,
+    pub priority: u32,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
+pub struct FailureSummary {
+    pub id: Uuid,
+    pub actor: String,
+    pub description: String,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub record_type: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
+pub struct UncertaintySummary {
+    pub uncertain: bool,
+    pub epistemic_entropy: f32,
+    pub prediction_error_ewma: f32,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CognitiveSnapshot {
     pub id: Uuid,
     pub tx_cursor: u64,
@@ -200,6 +233,14 @@ pub struct CognitiveSnapshot {
     pub skills: Vec<SkillSnapshot>,
     pub beliefs: BeliefDistribution,
     pub provenance: ProvenanceSummary,
+    #[serde(default)]
+    pub laws: Vec<LawSummary>,
+    #[serde(default)]
+    pub policies: Vec<PolicySummary>,
+    #[serde(default)]
+    pub failures: Vec<FailureSummary>,
+    #[serde(default)]
+    pub uncertainty: UncertaintySummary,
 }
 
 // ─── CognitiveHandle ─────────────────────────────────────────────────────────
@@ -1237,6 +1278,66 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             evidence_edge_count: mem.evidence_edge_count(),
         };
 
+        // Laws (KARM read) — all Law records for actor
+        let laws: Vec<LawSummary> = mem
+            .all_by_type(MemoryType::Law)
+            .iter()
+            .filter(|r| actor.is_empty() || r.actor == actor)
+            .filter_map(|r| {
+                serde_json::from_value::<LawPayload>(r.metadata.clone()).ok().map(|p| LawSummary {
+                    id: r.id,
+                    equation: p.equation,
+                    mdl_score: p.mdl_score,
+                    domain: p.domain,
+                })
+            })
+            .collect();
+
+        // Policies (KARM read) — sorted by priority descending
+        let policies: Vec<PolicySummary> = {
+            use std::cmp::Reverse;
+            let mut v: Vec<PolicySummary> = mem
+                .all_by_type(MemoryType::Policy)
+                .iter()
+                .filter(|r| actor.is_empty() || r.actor == actor)
+                .filter_map(|r| {
+                    serde_json::from_value::<PolicyPayload>(r.metadata.clone()).ok().map(|p| PolicySummary {
+                        id: r.id,
+                        entity_id: p.entity_id,
+                        trigger_condition: p.trigger_condition,
+                        action_fn: p.action_fn,
+                        priority: p.priority,
+                    })
+                })
+                .collect();
+            v.sort_by_key(|p| Reverse(p.priority));
+            v
+        };
+
+        // Failures: last 10 Failed Goals + Reflexion records for actor
+        let failures: Vec<FailureSummary> = mem
+            .all()
+            .iter()
+            .filter(|r| actor.is_empty() || r.actor == actor)
+            .filter(|r| {
+                (r.record_type == MemoryType::Goal
+                    && serde_json::from_value::<GoalPayload>(r.metadata.clone())
+                        .ok()
+                        .map(|p| p.status == GoalStatus::Failed)
+                        .unwrap_or(false))
+                    || r.record_type == MemoryType::Reflexion
+            })
+            .rev()
+            .take(10)
+            .map(|r| FailureSummary {
+                id: r.id,
+                actor: r.actor.clone(),
+                description: r.action.clone(),
+                timestamp: r.timestamp,
+                record_type: format!("{:?}", r.record_type),
+            })
+            .collect();
+
         drop(mem); // release Mutex before acquiring RwLock
 
         // World state
@@ -1258,6 +1359,12 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             healthy: cal.healthy,
         };
 
+        let uncertainty = UncertaintySummary {
+            uncertain: cal.epistemic_entropy > 0.5 || cal.prediction_error_ewma > 0.3,
+            epistemic_entropy: cal.epistemic_entropy,
+            prediction_error_ewma: cal.prediction_error_ewma,
+        };
+
         let tx_cursor = self.tx_log.as_ref().map(|t| t.current_tx()).unwrap_or(0);
 
         Ok(CognitiveSnapshot {
@@ -1271,6 +1378,10 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             skills,
             beliefs,
             provenance,
+            laws,
+            policies,
+            failures,
+            uncertainty,
         })
     }
 
