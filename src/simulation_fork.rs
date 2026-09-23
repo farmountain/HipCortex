@@ -418,6 +418,10 @@ impl<B: MemoryBackend + Send + Sync + 'static> SimulationFork<B> {
             skills,
             beliefs,
             provenance,
+            laws: Vec::new(),
+            policies: Vec::new(),
+            failures: Vec::new(),
+            uncertainty: crate::cognitive_state::UncertaintySummary::default(),
         })
     }
 

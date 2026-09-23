@@ -1,7 +1,7 @@
 {
   "name": "hipcortex-memory",
   "displayName": "HipCortex Memory Engine & Cognitive OS",
-  "description": "Cognitive reconstruction engine for VS Code: Laws extracted from surprising experiences (LawExtractor); Policies first-class in state evolution (PolicyRegistry + step_with_policies); MDL sparsity GC; lifecycle gates embed clarify_route (T0→T3 self-prompt first); 62 MCP tools + 7 resources; WAL persistence — MCP + REST",
+  "description": "Cognitive reconstruction engine for VS Code: KARM contract surface — CognitiveSnapshot with laws/policies/failures/uncertainty; CognitiveStateProvider/Sink traits; TransitionView + PredictionError; REST /snapshot/:actor/transitions + /prediction_error; LawExtractor; PolicyRegistry; MDL sparsity GC; lifecycle gates embed clarify_route (T0→T3 self-prompt first); 62 MCP tools + 7 resources; WAL persistence — MCP + REST",
   "version": "3.17.0",
   "publisher": "farmountain",
   "repository": {

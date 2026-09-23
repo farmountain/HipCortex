@@ -52,6 +52,22 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 | `clarify_goal()` emitted success factors but no decidable AC — engine gate rejected Phase 1 output; uncertainty detection had no route to self-prompting; `hipcortex doctor` reported `ok` for stale pre-lifecycle installs | `AcceptanceCriterion` 1:1 with success factors + non-empty `observation_pattern`; `route_uncertainty` T0→T3 — self-prompt outranks asking regardless of cost; 4-marker discriminative SKILL check (v3.14.0) |
 | Lifecycle gates detected uncertainty but returned no clarification route — agents called `route_uncertainty` separately; agent's ladder position never passed to gates; HC MCP went offline between sessions with no auto-recovery | `check_progress`/`plan_validation`/`should_exit` embed `clarify_route: ClarifyRouteInfo` when uncertainty; `tiers_spent` + `cost_of_wrong_execution` wired agent→REST→MCP; `clarify_exhausted` on `ExitDecision`; SessionStart hook + extension 30 s reconnect (v3.15.0) |
 | Anomaly evidence accumulates but never elevates to reusable structural Laws; Policies not first-class in state evolution; GC has no sparsity pressure on weak Laws | `MemoryType::Law` + `Policy`; `LawExtractor` writes Laws from ≥3 surprising Intents (structural, no LLM); `PolicyRegistry` + `DigitalTwin::step_with_policies()` — Policies first-class in `S_{t+1} = f(S_t, Policy)`; MDL sparsity GC (`gc_action_for_law`, threshold=0.5); `GET /laws` + `GET /policies/:entity_id`; 379 lib + 546 unit + 186 integration + 59 property (v3.16.0) |
+| KARM had no read contract on HC snapshot — Laws/Policies/uncertainty/failures missing from `CognitiveSnapshot`; no Provider/Sink trait boundary; no unified TransitionView or PredictionError | `CognitiveSnapshot` extended with `laws`, `policies`, `failures`, `uncertainty` (`#[serde(default)]`, backward-safe); `CognitiveStateProvider` + `CognitiveStateSink` traits — KARM never locks MemoryStore directly; `transitions_since()` + `prediction_error()` from existing `open_intents` + `CalibrationTracker`; REST `GET /snapshot/:actor/transitions` + `/prediction_error`; 379 lib + 555 unit + 190 integration + 59 property (v3.17.0) |
+
+---
+
+## What's new in v3.17.0 — KARM Contract Surface
+
+Closes the KARM-readiness gap: `CognitiveSnapshot` was real and cursor-aware but incomplete for the KARM handover loop — Laws, Policies, uncertainty, and failures were absent from the view; there was no Provider/Sink trait boundary; and no unified TransitionView or PredictionError read model.
+
+| Change | Gap | Fix |
+|--------|-----|-----|
+| **Snapshot completeness** | `CognitiveSnapshot` omitted laws, policies, failures, uncertainty — KARM had to lock MemoryStore directly to assemble context | `CognitiveSnapshot` extended with 4 `#[serde(default)]` fields: `laws: Vec<LawSummary>`, `policies: Vec<PolicySummary>`, `failures: Vec<FailureSummary>`, `uncertainty: UncertaintySummary`; backward-safe (old JSON parses with defaults) |
+| **Provider/Sink trait boundary** | No formal trait boundary — KARM callers reached into MemoryStore/WorldModelEnhanced directly, creating lock-order risks | `CognitiveStateProvider` + `CognitiveStateSink` traits in `cognitive_contracts.rs`; `CognitiveHandle<B>` implements both; KARM reads/writes only through these traits |
+| **TransitionView + PredictionError read models** | Transition data distributed across open_intents + receipt logs with no unified view; prediction error not exposed outside CalibrationTracker | `TransitionView` (from `open_intents`, non-Open only) + `PredictionError` (from `CalibrationTracker::snapshot().prediction_error_ewma`) in `transition_view.rs`; `CognitiveHandle::transitions_since()` + `prediction_error()` |
+| **REST surfaces** | No endpoints for KARM to poll transitions or prediction error | `GET /snapshot/:actor/transitions?since=<tx>` + `GET /snapshot/:actor/prediction_error` |
+
+Test coverage: 379 lib + 555 unit (+9) + 190 integration (+4 SIT) + 59 property + 258 Python = **all green, 0 failures**.
 
 ---
 

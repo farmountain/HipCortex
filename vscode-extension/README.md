@@ -1,13 +1,28 @@
-# HipCortex Memory Engine & Cognitive Reconstruction Engine for VS Code & Antigravity IDE (`v3.16.0`)
+# HipCortex Memory Engine & Cognitive Reconstruction Engine for VS Code & Antigravity IDE (`v3.17.0`)
 
-[![Version](https://img.shields.io/badge/version-v3.16.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v3.17.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
-**Give your AI coding assistant persistent, cross-session causal memory with a full cognitive reconstruction engine — Laws extracted from surprising experiences (LawExtractor), Policies first-class in state evolution (PolicyRegistry + step_with_policies), MDL sparsity GC, lifecycle self-prompting (T0→T3 self-prompt first), decidable AC, universal passive capture, DigitalTwin simulation, WAL persistence.**
+**Give your AI coding assistant persistent, cross-session causal memory with a full cognitive reconstruction engine — KARM contract surface (CognitiveSnapshot + laws/policies/failures/uncertainty; CognitiveStateProvider/Sink traits; TransitionView + PredictionError), LawExtractor, PolicyRegistry, MDL sparsity GC, lifecycle self-prompting (T0→T3 self-prompt first), decidable AC, universal passive capture, DigitalTwin simulation, WAL persistence.**
 
-VSIX **3.16.0** (Reconstruction Engine Foundation · Law/Policy MemoryTypes · MDL GC · REST /laws + /policies) · server/pip **3.16.0** · npm source **3.16.0** (registry still serves `0.5.2` — see *Channel state* below). 379 lib + 546 unit + 186 integration + 59 property + 258 Python, **0 failures**. See [docs/channels.md](../docs/channels.md).
+VSIX **3.17.0** (KARM Contract Surface · CognitiveSnapshot laws/policies/failures/uncertainty · Provider/Sink traits · TransitionView + PredictionError · REST /snapshot/:actor/transitions + /prediction_error) · server/pip **3.17.0** · npm source **3.17.0** (registry still serves `0.5.2` — see *Channel state* below). 379 lib + 555 unit + 190 integration + 59 property + 258 Python, **0 failures**. See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v3.17.0 — KARM Contract Surface
+
+Closes the KARM-readiness gap: `CognitiveSnapshot` was real and cursor-aware but incomplete for the KARM handover loop — Laws, Policies, uncertainty, and failures were absent from the view; no Provider/Sink trait boundary existed; no unified TransitionView or PredictionError read model.
+
+| Change | Details |
+|--------|---------|
+| **Snapshot completeness** | `CognitiveSnapshot` extended with 4 `#[serde(default)]` fields: `laws: Vec<LawSummary>`, `policies: Vec<PolicySummary>`, `failures: Vec<FailureSummary>`, `uncertainty: UncertaintySummary`; backward-safe (old JSON parses with defaults) |
+| **Provider/Sink trait boundary** | `CognitiveStateProvider` + `CognitiveStateSink` traits in `cognitive_contracts.rs`; `CognitiveHandle<B>` implements both; KARM reads/writes only through these traits — never locks MemoryStore directly |
+| **TransitionView + PredictionError** | `TransitionView` (from `open_intents`, non-Open only) + `PredictionError` (from `CalibrationTracker::snapshot().prediction_error_ewma`) in `transition_view.rs`; `CognitiveHandle::transitions_since()` + `prediction_error()` |
+| **REST surfaces** | `GET /snapshot/:actor/transitions?since=<tx>` + `GET /snapshot/:actor/prediction_error` |
+
+Test coverage: 379 lib + 555 unit (+9) + 190 integration (+4 SIT) + 59 property + 258 Python = **all green, 0 failures**.
 
 ---
 
