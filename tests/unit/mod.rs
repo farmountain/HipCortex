@@ -82,3 +82,5 @@ mod clarify_restate_tests;
 mod memory_type_law_policy_tests;
 mod law_extractor_tests;
 mod policy_registry_tests;
+mod cognitive_snapshot_karm;
+mod transition_view_tests;

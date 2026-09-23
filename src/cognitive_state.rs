@@ -1385,6 +1385,39 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         })
     }
 
+    /// Returns all settled (non-Open) intents for `actor` as TransitionViews.
+    /// `since_tx` is accepted for API compatibility; intents have no tx field.
+    pub fn transitions_since(&self, actor: &str, _since_tx: u64) -> Vec<crate::transition_view::TransitionView> {
+        use crate::action_intent::IntentStatus;
+        let intents = self.open_intents.lock().unwrap_or_else(|e| e.into_inner());
+        intents
+            .iter()
+            .filter(|i| {
+                (actor.is_empty() || i.actor == actor)
+                    && !matches!(i.status, IntentStatus::Open)
+            })
+            .map(|i| crate::transition_view::TransitionView {
+                intent_id: i.id,
+                action: i.op.clone(),
+                target: i.target_entity.clone().unwrap_or_default(),
+                actor: i.actor.clone(),
+                ok: matches!(i.status, IntentStatus::Received),
+                status: format!("{:?}", i.status),
+                timestamp: i.created_tx,
+            })
+            .collect()
+    }
+
+    /// Returns current global prediction error signal from CalibrationTracker.
+    pub fn prediction_error(&self) -> crate::transition_view::PredictionError {
+        let cal = self.calibration.snapshot();
+        crate::transition_view::PredictionError {
+            global_ewma: cal.prediction_error_ewma,
+            uncertain: cal.prediction_error_ewma > 0.3,
+            timestamp: chrono::Utc::now(),
+        }
+    }
+
     pub fn fork(&self) -> Result<SimulationFork<B>, CognitiveError> {
         let base_tx = self.tx_log.as_ref().map(|t| t.current_tx()).unwrap_or(0);
         SimulationFork::from_handle(self, base_tx)
@@ -1518,6 +1551,38 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             )?;
         }
         Ok(())
+    }
+}
+
+// ─── KARM contract trait impls ────────────────────────────────────────────────
+
+impl<B: MemoryBackend + Send + Sync + 'static> crate::cognitive_contracts::CognitiveStateProvider
+    for CognitiveHandle<B>
+{
+    fn provider_snapshot(&self, actor: &str) -> Result<CognitiveSnapshot, CognitiveError> {
+        self.snapshot(actor)
+    }
+    fn provider_transitions_since(&self, actor: &str, since_tx: u64) -> Vec<crate::transition_view::TransitionView> {
+        self.transitions_since(actor, since_tx)
+    }
+}
+
+impl<B: MemoryBackend + Send + Sync + 'static> crate::cognitive_contracts::CognitiveStateSink
+    for CognitiveHandle<B>
+{
+    fn sink_apply_intent(
+        &self,
+        intent: crate::action_intent::ActionIntent,
+        actor: &str,
+    ) -> Result<u64, CognitiveError> {
+        self.transact(CognitiveDelta::OpenIntent(intent), actor)
+    }
+    fn sink_apply_receipt(
+        &self,
+        receipt: crate::action_intent::ActionReceipt,
+        actor: &str,
+    ) -> Result<u64, CognitiveError> {
+        self.transact(CognitiveDelta::AcceptReceipt(receipt), actor)
     }
 }
 
