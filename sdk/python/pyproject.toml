@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hipcortex"
-version = "3.16.0"
-description = "Cognitive reconstruction engine for AI agents — Python SDK + CLI. Anomaly→Law axiomatic write-back (LawExtractor); PolicyRegistry + step_with_policies() — Policies first-class in state evolution; MDL sparsity GC; MemoryType::Law + Policy; lifecycle self-prompting (T0→T3 ClarifyRoute in every gate); 62-tool / 7-resource MCP; WAL-persistent. LangChain, AutoGen, CrewAI, MCP"
+version = "3.17.0"
+description = "Cognitive reconstruction engine for AI agents — Python SDK + CLI. KARM contract surface: CognitiveSnapshot extended with laws/policies/failures/uncertainty; CognitiveStateProvider/Sink traits; TransitionView + PredictionError read models; REST /snapshot/:actor/transitions + /prediction_error; LawExtractor; PolicyRegistry; MDL sparsity GC; 62-tool / 7-resource MCP; WAL-persistent. LangChain, AutoGen, CrewAI, MCP"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.9"
