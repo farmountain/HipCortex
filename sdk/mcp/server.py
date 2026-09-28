@@ -595,6 +595,35 @@ TOOLS = [
         },
     },
     {
+        "name": "snapshot_transitions",
+        "description": (
+            "GET /snapshot/:actor/transitions?since=N — settled intents stamped after cursor N, "
+            "ascending by settled_tx, with next_cursor, horizon_tx and truncated. "
+            "Follow a cognitive_snapshot by paging from its tx_cursor, passing next_cursor back as since. "
+            "truncated=true means settles were evicted past the cursor: re-bootstrap from cognitive_snapshot. "
+            "A settle can arrive twice, so upsert by intent_id."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "actor": {"type": "string", "description": "Actor whose intents to page (default 'mcp', as open_intent)"},
+                "since": {"type": "integer", "minimum": 0, "description": "Cursor: tx_cursor of a snapshot or next_cursor of the previous page (default 0)"},
+            },
+        },
+    },
+    {
+        "name": "snapshot_scm",
+        "description": (
+            "GET /snapshot/:actor/scm — structural causal model read view: nodes with parents in canonical "
+            "order (equation weights[i] binds to parents[i]), edges, interventions, acyclic, as_of_tx. "
+            "The SCM is global; actor only fills the path."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"actor": {"type": "string", "description": "Path segment only (default '_global')"}},
+        },
+    },
+    {
         "name": "fork_create",
         "description": "POST /v1/fork — create a SimulationFork (CoW snapshot of cognitive state).",
         "inputSchema": {"type": "object", "properties": {}},
@@ -1335,6 +1364,16 @@ def handle_cognitive_snapshot(args: dict) -> str:
     resp.raise_for_status()
     return json.dumps(resp.json())
 
+def handle_snapshot_transitions(args: dict) -> str:
+    # `or`, not a get() default: an empty actor would leave `/snapshot//...`, which never routes.
+    actor = urllib.parse.quote(args.get("actor") or "mcp", safe="")
+    qs = urllib.parse.urlencode({"since": args.get("since", 0)})
+    return json.dumps(_req("GET", f"/snapshot/{actor}/transitions?{qs}"))
+
+def handle_snapshot_scm(args: dict) -> str:
+    actor = urllib.parse.quote(args.get("actor") or "_global", safe="")
+    return json.dumps(_req("GET", f"/snapshot/{actor}/scm"))
+
 def handle_fork_create(_args: dict) -> str:
     return json.dumps(_post("/v1/fork", {}))
 
@@ -1846,6 +1885,8 @@ def dispatch_tool(name: str, args: dict) -> str:
         "cognitive_diff":       handle_cognitive_diff,
         "self_health":          handle_self_health,
         "cognitive_snapshot":   handle_cognitive_snapshot,
+        "snapshot_transitions": handle_snapshot_transitions,
+        "snapshot_scm":         handle_snapshot_scm,
         "fork_create":          handle_fork_create,
         "fork_step":            handle_fork_step,
         "fork_snapshot":        handle_fork_snapshot,

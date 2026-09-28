@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import time
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 import requests
 
@@ -727,6 +728,17 @@ class HipCortexClient:
     def cognitive_snapshot(self, actor: str = "") -> Dict[str, Any]:
         """GET /v1/cognitive/snapshot."""
         return self._get("/v1/cognitive/snapshot", params={"actor": actor})
+
+    def snapshot_transitions(self, actor: str, since: int = 0) -> Dict[str, Any]:
+        """GET /snapshot/{actor}/transitions — settled intents stamped after cursor `since`.
+
+        Page with `next_cursor`; `truncated` means re-bootstrap from `cognitive_snapshot`.
+        """
+        return self._get(f"/snapshot/{quote(actor, safe='')}/transitions", params={"since": since})
+
+    def snapshot_scm(self, actor: str = "_global") -> Dict[str, Any]:
+        """GET /snapshot/{actor}/scm — structural causal model read view (global)."""
+        return self._get(f"/snapshot/{quote(actor, safe='')}/scm")
 
     def fork_create(self) -> Dict[str, Any]:
         """POST /v1/fork — create a new SimulationFork (CoW snapshot)."""

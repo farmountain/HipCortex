@@ -1,7 +1,7 @@
 # Loop-Ready Contract (v3.18.0) — Design
 
 **Date:** 2026-09-27
-**Status:** Implemented (Rust + REST; MCP/SDK parity deferred)
+**Status:** Implemented (Rust + REST + MCP + Python SDK)
 **Builds on:** v3.17.0 contract surface (`CognitiveSnapshot.tx_cursor`, `TransitionView`,
 `CognitiveStateProvider` / `CognitiveStateSink`, `GET /snapshot/:actor/transitions`).
 
@@ -126,9 +126,20 @@ InterventionView { var, value, direction: Option<[f64]> }
   `/policies/:entity_id`, `/snapshot/:actor/transitions`, `/snapshot/:actor/prediction_error`) plus
   `/snapshot/:actor/scm`.
 
-### 2.8 Out of scope
+### 2.8 MCP and Python SDK
 
-- MCP / Python SDK / VSIX parity (next release).
+- MCP tools `snapshot_transitions` (`actor` default `mcp`, as `open_intent`; `since` default 0) and
+  `snapshot_scm` (`actor` default `_global`) return the REST JSON unchanged. Both go through
+  `_req`, so a transport failure or non-2xx status comes back as `{"error"}` instead of raising.
+  An empty `actor` falls back to the default, because an empty path segment never routes.
+- `HipCortexClient.snapshot_transitions(actor, since=0)` and `snapshot_scm(actor="_global")`.
+- Both surfaces percent-encode `actor` as one path segment (`/` → `%2F`).
+- The VSIX has no MCP code of its own: `vscode:prepublish` copies `sdk/mcp/server.py` into the
+  package, so a rebuilt VSIX carries both tools.
+
+### 2.9 Out of scope
+
+- VSIX `languageModelTools` entries for the new routes.
 - A producer for `Denied`.
 - Side effects of duplicate receipts.
 - Snapshot performance.
@@ -159,6 +170,7 @@ InterventionView { var, value, direction: Option<[f64]> }
 | AC-17 | REST exposes the new page fields and `/snapshot/:actor/scm`; `route_table_matches_build_app` passes |
 | AC-18 | A caught-up page (≤ 16 new) over 4096 retained takes < 2 ms mean; a full 4096 page takes < 50 ms (debug build) |
 | AC-19 | lib/unit/integration/property suites ≥ baseline with no new failures; clippy `-D warnings` introduces no new findings |
+| AC-20 | MCP `snapshot_transitions` / `snapshot_scm` and the client methods request the right path (escaped actor, defaults, cursor), return the page fields intact, and the MCP tools are fail-silent (`sdk/python/tests/test_loop_ready_surface.py`) |
 
 **Baseline (HEAD `6f0c744`):**
 
@@ -180,6 +192,18 @@ InterventionView { var, value, direction: Option<[f64]> }
 - clippy `-D warnings` still fails on findings that predate this change. None of its 342 findings
   is on a line this change adds.
 
+**Result, MCP and SDK (verified 2026-09-28):**
+
+- Python: 269 passed (258 before, plus the 11 AC-20 tests), including the bundled-mirror
+  byte-identity and tool-surface checks.
+- Live, against a v3.18 `webserver` with an API key set:
+  - Paging from the snapshot's `tx_cursor` returned exactly the two settles made after it, in
+    stamp order, with `ok` true and false and the open intent absent. A page from `next_cursor`
+    was empty.
+  - The actor `team/a b` round-trips through `%2F` and does not collapse into actor `team`.
+  - `snapshot_scm` returned the view. MCP and SDK results were identical.
+  - Without a key both routes return 401, which the MCP tools report as `{"error"}`.
+
 ## 4. Implementation order
 
 1. Canonical parent order (AC-13).
@@ -192,3 +216,4 @@ InterventionView { var, value, direction: Option<[f64]> }
 8. REST and `ROUTE_TABLE` (AC-17).
 9. SIT: consumer loop, concurrency, restart, performance (AC-10, 12, 18).
 10. Full suites and clippy (AC-19).
+11. MCP tools and client methods (AC-20).
