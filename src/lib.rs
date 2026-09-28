@@ -30,6 +30,7 @@ pub mod cognitive_gc;
 pub mod clarify_engine;
 pub mod cognitive_state;
 pub mod transition_view;
+pub mod scm_view;
 pub mod cognitive_contracts;
 pub mod continuous_dynamics;
 pub mod digital_twin;

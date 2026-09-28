@@ -26,6 +26,8 @@ pub enum TxKind {
     ForgetActor,
     ArchiveRecord,
     WorkspaceOp,
+    /// An intent passed its deadline unanswered; `record_ids` holds the intent id.
+    IntentExpire,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

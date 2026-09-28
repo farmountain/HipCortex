@@ -166,6 +166,8 @@ pub fn compute_tx_diff<B: MemoryBackend>(
             TxKind::WorkspaceOp => {
                 health_delta.workspace_ops += 1;
             }
+            // Settles an intent; no memory record changes.
+            TxKind::IntentExpire => {}
         }
     }
 

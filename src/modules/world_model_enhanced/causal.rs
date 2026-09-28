@@ -19,6 +19,8 @@ pub enum SeShape {
     Directional { dim: usize },
 }
 
+/// `parents` slices are ordered as [`CausalGraph::get_parents`] returns them (ascending
+/// id), so `weights[i]` of an equation binds to the i-th parent in that order.
 pub trait StructuralEquation: Send + Sync + std::fmt::Debug {
     fn evaluate(&self, parents: &[f64], u: f64) -> f64;
     fn invert_for_u(&self, parents: &[f64], observed: f64) -> f64;
@@ -44,6 +46,17 @@ pub trait StructuralEquation: Send + Sync + std::fmt::Debug {
     fn invert_for_u_directional(&self, parents: &[f64], _dir: &[f64], observed: f64) -> f64 {
         self.invert_for_u(parents, observed)
     }
+
+    /// v3.18.0: coefficients on the parents, in canonical parent order. Defaulted
+    /// `None` for an equation that does not expose them; `ScmView` then shows none.
+    fn weights(&self) -> Option<&[f64]> {
+        None
+    }
+
+    /// v3.18.0: coefficients on the direction block of a directional equation.
+    fn dir_weights(&self) -> Option<&[f64]> {
+        None
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -57,6 +70,9 @@ impl StructuralEquation for LinearSE {
     }
     fn invert_for_u(&self, parents: &[f64], observed: f64) -> f64 {
         observed - self.weights.iter().zip(parents).map(|(w, p)| w * p).sum::<f64>()
+    }
+    fn weights(&self) -> Option<&[f64]> {
+        Some(&self.weights)
     }
 }
 
@@ -117,6 +133,14 @@ impl StructuralEquation for DirectionalSE {
 
     fn invert_for_u_directional(&self, parents: &[f64], dir: &[f64], observed: f64) -> f64 {
         observed - self.parent_dot(parents) - self.dir_dot(dir)
+    }
+
+    fn weights(&self) -> Option<&[f64]> {
+        Some(&self.weights)
+    }
+
+    fn dir_weights(&self) -> Option<&[f64]> {
+        Some(&self.dir_weights)
     }
 }
 
@@ -453,9 +477,14 @@ impl CausalGraph {
         }
     }
 
-    /// Get parents of a node
+    /// Get parents of a node, in ascending id order.
+    ///
+    /// The order is part of the contract: `weights[i]` of a structural equation binds to
+    /// the i-th parent returned here. `edges` is a `HashMap`, so without the sort the
+    /// binding would change with every graph's hash seed.
     pub fn get_parents(&self, node: &str) -> Vec<String> {
-        self.edges
+        let mut parents: Vec<String> = self
+            .edges
             .iter()
             .filter_map(|(parent, children)| {
                 if children.contains(node) {
@@ -464,7 +493,9 @@ impl CausalGraph {
                     None
                 }
             })
-            .collect()
+            .collect();
+        parents.sort_unstable();
+        parents
     }
 
     /// Get children of a node
@@ -736,17 +767,24 @@ impl CausalGraph {
         self.nodes.contains_key(id)
     }
 
+    pub fn node(&self, id: &str) -> Option<&CausalNode> {
+        self.nodes.get(id)
+    }
+
     pub fn node_mut(&mut self, id: &str) -> Option<&mut CausalNode> {
         self.nodes.get_mut(id)
     }
 
+    /// Variables pinned by an intervention, ascending.
+    pub fn pinned_vars(&self) -> Vec<String> {
+        let mut vars: Vec<String> = self.pinned.keys().cloned().collect();
+        vars.sort();
+        vars
+    }
+
+    /// Alias of [`CausalGraph::get_parents`]; same canonical order.
     pub fn parents_of(&self, id: &str) -> Vec<String> {
-        self.edges
-            .iter()
-            .filter_map(|(from, targets)| {
-                if targets.contains(id) { Some(from.clone()) } else { None }
-            })
-            .collect()
+        self.get_parents(id)
     }
 
     /// Abduction-Action-Prediction credit assignment.

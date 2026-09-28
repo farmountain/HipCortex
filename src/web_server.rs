@@ -2400,9 +2400,15 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
                 let cog = cog.clone();
                 async move {
                     let since_tx: u64 = params.get("since").and_then(|s| s.parse().ok()).unwrap_or(0);
-                    let views = cog.transitions_since(&actor, since_tx);
-                    let count = views.len();
-                    (axum::http::StatusCode::OK, axum::Json(serde_json::json!({"transitions": views, "count": count})))
+                    let page = cog.transitions_page(&actor, since_tx);
+                    let count = page.transitions.len();
+                    (axum::http::StatusCode::OK, axum::Json(serde_json::json!({
+                        "transitions": page.transitions,
+                        "count": count,
+                        "next_cursor": page.next_cursor,
+                        "horizon_tx": page.horizon_tx,
+                        "truncated": page.truncated
+                    })))
                 }
             })
         })
@@ -2417,6 +2423,22 @@ pub fn build_app<B: MemoryBackend + Send + Sync + 'static>(
                         "uncertain": pe.uncertain,
                         "timestamp": pe.timestamp
                     })))
+                }
+            })
+        })
+        // The SCM is global; `actor` is accepted for path symmetry, as prediction_error does.
+        .route("/snapshot/:actor/scm", {
+            let cog = cognitive.clone();
+            axum::routing::get(move |Path(_actor): Path<String>| {
+                let cog = cog.clone();
+                async move {
+                    match cog.scm_view() {
+                        Ok(view) => (axum::http::StatusCode::OK, axum::Json(serde_json::json!(view))),
+                        Err(e) => (
+                            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                            axum::Json(serde_json::json!({"error": e.to_string()})),
+                        ),
+                    }
                 }
             })
         })

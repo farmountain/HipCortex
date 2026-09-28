@@ -101,3 +101,4 @@ mod scorecard_metrics_sit;
 mod clarify_gate_422_sit;
 mod reconstruction_engine_sit;
 mod karm_readiness_sit;
+mod loop_ready_contract_sit;

@@ -152,6 +152,13 @@ pub struct ActionIntent {
     pub deadline_tx: DateTime<Utc>,
     pub status: IntentStatus,
     pub created_tx: DateTime<Utc>,
+    /// Transaction that settled this intent (receipt or expiry). Server-owned: the
+    /// transition feed pages on it, so it is cleared when an intent is opened.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settled_tx: Option<u64>,
+    /// `ok` of the receipt that settled this intent; `None` until a receipt lands.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub receipt_ok: Option<bool>,
 }
 
 impl ActionIntent {
@@ -174,6 +181,8 @@ impl ActionIntent {
             deadline_tx: now + Duration::milliseconds(deadline_ms as i64),
             status: IntentStatus::Open,
             created_tx: now,
+            settled_tx: None,
+            receipt_ok: None,
         }
     }
 

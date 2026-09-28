@@ -1090,6 +1090,12 @@ impl WorldModelEnhanced {
             .map(|g| g.node_ids())
             .unwrap_or_default()
     }
+
+    /// Read model of the causal SCM, stamped `as_of_tx`; see [`crate::scm_view::ScmView`].
+    pub fn scm_view(&self, as_of_tx: u64) -> Result<crate::scm_view::ScmView, String> {
+        let graph = self.causal_graph.read().map_err(|e| format!("causal lock: {}", e))?;
+        Ok(crate::scm_view::ScmView::from_graph(&graph, as_of_tx))
+    }
 }
 
 impl Default for WorldModelEnhanced {

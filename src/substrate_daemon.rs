@@ -605,11 +605,7 @@ impl SubstrateDaemon {
 
                     // Stage 6b: Expire stale intents — host silence is a measurable fact.
                     {
-                        let expired_ids = if let Ok(mut intents) = cognitive.open_intents.lock() {
-                            crate::grounding_gate::GroundingGate::expire_stale(&mut intents)
-                        } else {
-                            vec![]
-                        };
+                        let expired_ids = cognitive.expire_stale_intents();
                         for eid in expired_ids {
                             let _ = cognitive.transact(
                                 crate::cognitive_state::CognitiveDelta::CreditAssign(

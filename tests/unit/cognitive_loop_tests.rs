@@ -1441,3 +1441,24 @@ fn q10_clarify_pending_trumps_react_loop() {
         "clarify_needed belief must override react_loop recommendation"
     );
 }
+
+#[test]
+fn daemon_expiry_settles_the_overdue_intent() {
+    use hipcortex::action_intent::{ActionIntent, IntentStatus};
+    use hipcortex::cognitive_state::CognitiveDelta;
+
+    let cog = make_cognitive();
+    let mut intent = ActionIntent::new_probe("runner".to_string(), "filesystem".to_string(), None, 0);
+    intent.deadline_tx = chrono::Utc::now() - chrono::Duration::seconds(1);
+    let intent_id = intent.id;
+    cog.transact(CognitiveDelta::OpenIntent(intent), "runner").unwrap();
+
+    let mut daemon = SubstrateDaemon::new();
+    let id = daemon.subscribe_with_config("runner".to_string(), Arc::clone(&cog), fast_config(1));
+    assert!(wait_iterations(&daemon, id, 1, 5000), "daemon must finish one iteration");
+
+    let intents = cog.open_intents.lock().unwrap();
+    let expired = intents.iter().find(|i| i.id == intent_id).unwrap();
+    assert_eq!(expired.status, IntentStatus::Expired);
+    assert_eq!(expired.settled_tx, Some(1), "the daemon's expiry must stamp the intent");
+}

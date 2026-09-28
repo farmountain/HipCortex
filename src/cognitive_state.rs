@@ -6,6 +6,7 @@
 //! transact(), all reads go through snapshot().
 
 use std::fmt;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
@@ -263,7 +264,16 @@ pub struct CognitiveHandle<B: MemoryBackend + Send + Sync + 'static> {
     pub open_intents: Arc<Mutex<Vec<crate::action_intent::ActionIntent>>>,
     /// Registered actuators and their health.
     pub actuator_registry: Arc<Mutex<crate::action_intent::ActuatorRegistry>>,
+    /// Settle stamps when there is no TxLog to allocate them from.
+    settle_seq: AtomicU64,
+    /// Newest settle stamp evicted from `open_intents`; see `TransitionPage::truncated`.
+    horizon_tx: AtomicU64,
+    /// How many settled intents `open_intents` keeps for the transition feed.
+    transition_retention: usize,
 }
+
+/// Default for `CognitiveHandle::with_transition_retention`.
+pub const DEFAULT_TRANSITION_RETENTION: usize = 4096;
 
 /// Mean binary entropy over a slice of confidence values in [0,1].
 /// h(p) = -p*log2(p) - (1-p)*log2(1-p). Returns 0.0 for empty slice.
@@ -281,6 +291,23 @@ pub fn compute_epistemic_entropy(confs: &[f32]) -> f32 {
     h_sum / confs.len() as f32
 }
 
+/// Settled intents of `actor` (every actor when empty) stamped after `since_tx`, ascending.
+fn settled_views(
+    intents: &[crate::action_intent::ActionIntent],
+    actor: &str,
+    since_tx: u64,
+) -> Vec<crate::transition_view::TransitionView> {
+    // Filter on the stamp before building views, so a caught-up poll allocates nothing.
+    let mut views: Vec<_> = intents
+        .iter()
+        .filter(|i| matches!(i.settled_tx, Some(s) if s > since_tx))
+        .filter(|i| actor.is_empty() || i.actor == actor)
+        .filter_map(crate::transition_view::TransitionView::from_intent)
+        .collect();
+    views.sort_by_key(|v| v.settled_tx);
+    views
+}
+
 impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
     pub fn new(
         memory: Arc<Mutex<MemoryStore<B>>>,
@@ -291,6 +318,9 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         calibration: Arc<CalibrationTracker>,
         gc: Arc<CognitiveGC>,
     ) -> Self {
+        // Intents are not rehydrated on restart: every stamp issued before this handle
+        // existed is gone, so a cursor older than the log's is behind the horizon.
+        let horizon_tx = AtomicU64::new(tx_log.as_ref().map_or(0, |t| t.current_tx()));
         Self {
             memory, world, self_model, tx_log, coherence, calibration, gc,
             emergence: Arc::new(Mutex::new(crate::emergence::EmergenceDetector::new())),
@@ -298,7 +328,16 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             workspace_registry: Arc::new(Mutex::new(WorkspaceRegistry::new())),
             open_intents: Arc::new(Mutex::new(Vec::new())),
             actuator_registry: Arc::new(Mutex::new(crate::action_intent::ActuatorRegistry::default())),
+            settle_seq: AtomicU64::new(1),
+            horizon_tx,
+            transition_retention: DEFAULT_TRANSITION_RETENTION,
         }
+    }
+
+    /// Keep at most `n` settled intents (minimum 1) for the transition feed.
+    pub fn with_transition_retention(mut self, n: usize) -> Self {
+        self.transition_retention = n.max(1);
+        self
     }
 
     pub fn with_archive_store(mut self, store: ArchiveStore) -> Self {
@@ -424,9 +463,12 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
 
     fn open_intent_impl(
         &self,
-        intent: crate::action_intent::ActionIntent,
+        mut intent: crate::action_intent::ActionIntent,
         actor: &str,
     ) -> Result<u64, CognitiveError> {
+        // Settle fields are server-owned: a forged stamp would corrupt the transition feed.
+        intent.settled_tx = None;
+        intent.receipt_ok = None;
         let rec = MemoryRecord::new(
             MemoryType::Intent,
             actor.to_string(),
@@ -459,18 +501,15 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         if let Ok(mut reg) = self.actuator_registry.lock() {
             reg.apply_receipt(&receipt.sensor_path, receipt.ts, receipt.ok);
         }
-        // 2. Mark matching intent Received; update WM contact
-        let target_entity = if let Ok(mut intents) = self.open_intents.lock() {
-            let found = intents.iter_mut().find(|i| i.id == receipt.intent_id);
-            if let Some(intent) = found {
-                intent.status = crate::action_intent::IntentStatus::Received;
-                intent.target_entity.clone()
-            } else {
-                None
-            }
-        } else {
-            None
-        };
+        // 2. Update WM contact for the intent's target. The intent itself settles in step 5,
+        //    after every effect of the receipt is in place.
+        let target_entity = self
+            .open_intents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .iter()
+            .find(|i| i.id == receipt.intent_id)
+            .and_then(|i| i.target_entity.clone());
         if let Some(entity) = &target_entity {
             if let Ok(wm) = self.world.read() {
                 let kind = if receipt.ok {
@@ -580,12 +619,55 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             ms.add(obs_rec).map_err(|e| CognitiveError::StoreError(e.to_string()))?;
             ms.add(receipt_rec).map_err(|e| CognitiveError::StoreError(e.to_string()))?;
         }
+        // 5. Settle the intent. The stamp is allocated under the `open_intents` lock, so
+        //    stamps become visible in allocation order and the feed pages without gaps.
+        let mut intents = self.open_intents.lock().unwrap_or_else(|e| e.into_inner());
         let cursor = if let Some(tx) = &self.tx_log {
             tx.append(TxKind::MemoryAdd, ids, actor)
         } else {
             0
         };
+        if let Some(intent) = intents.iter_mut().find(|i| i.id == receipt.intent_id) {
+            // First receipt wins; a late receipt after expiry settles the intent again.
+            if intent.status != crate::action_intent::IntentStatus::Received {
+                intent.status = crate::action_intent::IntentStatus::Received;
+                intent.receipt_ok = Some(receipt.ok);
+                intent.settled_tx = Some(if self.tx_log.is_some() {
+                    cursor
+                } else {
+                    self.settle_seq.fetch_add(1, Ordering::SeqCst)
+                });
+                self.retain_settled(&mut intents);
+            }
+        }
         Ok(cursor)
+    }
+
+    /// Expires every Open/InFlight intent past its deadline and returns their ids.
+    ///
+    /// Each expiry is a settle: it is stamped from its own `TxKind::IntentExpire` entry,
+    /// logged under the intent's actor, while the `open_intents` lock is held.
+    pub fn expire_stale_intents(&self) -> Vec<Uuid> {
+        let mut intents = self.open_intents.lock().unwrap_or_else(|e| e.into_inner());
+        let expired = crate::grounding_gate::GroundingGate::expire_stale(&mut intents);
+        if expired.is_empty() {
+            return expired;
+        }
+        for intent in intents.iter_mut().filter(|i| expired.contains(&i.id)) {
+            intent.settled_tx = Some(match &self.tx_log {
+                Some(tx) => tx.append(TxKind::IntentExpire, vec![intent.id], &intent.actor),
+                None => self.settle_seq.fetch_add(1, Ordering::SeqCst),
+            });
+        }
+        self.retain_settled(&mut intents);
+        expired
+    }
+
+    /// Applies transition retention after a settle; the caller holds the `open_intents` lock.
+    fn retain_settled(&self, intents: &mut Vec<crate::action_intent::ActionIntent>) {
+        if let Some(evicted) = crate::transition_view::evict_settled(intents, self.transition_retention) {
+            self.horizon_tx.fetch_max(evicted, Ordering::SeqCst);
+        }
     }
 
     // ── Phase-4 private helpers ────────────────────────────────────────────────
@@ -1184,6 +1266,9 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
     /// Materialise a complete CognitiveSnapshot for the given actor.
     /// actor = "" → include all actors.
     pub fn snapshot(&self, actor: &str) -> Result<CognitiveSnapshot, CognitiveError> {
+        // Read the cursor before any content: every tx <= tx_cursor is then reflected in this
+        // snapshot, and anything later reaches a consumer through `transitions_page(tx_cursor)`.
+        let tx_cursor = self.tx_log.as_ref().map(|t| t.current_tx()).unwrap_or(0);
         let mem = self.memory.lock().map_err(|_| CognitiveError::LockError)?;
 
         // Temporal view
@@ -1365,8 +1450,6 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             prediction_error_ewma: cal.prediction_error_ewma,
         };
 
-        let tx_cursor = self.tx_log.as_ref().map(|t| t.current_tx()).unwrap_or(0);
-
         Ok(CognitiveSnapshot {
             id: Uuid::new_v4(),
             tx_cursor,
@@ -1385,27 +1468,19 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
         })
     }
 
-    /// Returns all settled (non-Open) intents for `actor` as TransitionViews.
-    /// `since_tx` is accepted for API compatibility; intents have no tx field.
-    pub fn transitions_since(&self, actor: &str, _since_tx: u64) -> Vec<crate::transition_view::TransitionView> {
-        use crate::action_intent::IntentStatus;
+    /// Settled intents of `actor` (every actor when empty) with `settled_tx > since_tx`,
+    /// ascending by `settled_tx`. Open and InFlight intents have not settled and never appear.
+    pub fn transitions_since(&self, actor: &str, since_tx: u64) -> Vec<crate::transition_view::TransitionView> {
         let intents = self.open_intents.lock().unwrap_or_else(|e| e.into_inner());
-        intents
-            .iter()
-            .filter(|i| {
-                (actor.is_empty() || i.actor == actor)
-                    && !matches!(i.status, IntentStatus::Open)
-            })
-            .map(|i| crate::transition_view::TransitionView {
-                intent_id: i.id,
-                action: i.op.clone(),
-                target: i.target_entity.clone().unwrap_or_default(),
-                actor: i.actor.clone(),
-                ok: matches!(i.status, IntentStatus::Received),
-                status: format!("{:?}", i.status),
-                timestamp: i.created_tx,
-            })
-            .collect()
+        settled_views(&intents, actor, since_tx)
+    }
+
+    /// One page of the transition feed for `actor` (every actor when empty) after `since_tx`.
+    pub fn transitions_page(&self, actor: &str, since_tx: u64) -> crate::transition_view::TransitionPage {
+        let intents = self.open_intents.lock().unwrap_or_else(|e| e.into_inner());
+        // Read under the lock that guards eviction, so the horizon matches the retained set.
+        let horizon_tx = self.horizon_tx.load(Ordering::SeqCst);
+        crate::transition_view::TransitionPage::new(settled_views(&intents, actor, since_tx), since_tx, horizon_tx)
     }
 
     /// Returns current global prediction error signal from CalibrationTracker.
@@ -1416,6 +1491,14 @@ impl<B: MemoryBackend + Send + Sync + 'static> CognitiveHandle<B> {
             uncertain: cal.prediction_error_ewma > 0.3,
             timestamp: chrono::Utc::now(),
         }
+    }
+
+    /// Read model of the causal SCM. The cursor is read before the graph, so the view
+    /// reflects at least every transaction up to its `as_of_tx`.
+    pub fn scm_view(&self) -> Result<crate::scm_view::ScmView, CognitiveError> {
+        let as_of_tx = self.tx_log.as_ref().map_or(0, |t| t.current_tx());
+        let world = self.world.read().map_err(|_| CognitiveError::LockError)?;
+        world.scm_view(as_of_tx).map_err(|_| CognitiveError::LockError)
     }
 
     pub fn fork(&self) -> Result<SimulationFork<B>, CognitiveError> {
@@ -1564,6 +1647,12 @@ impl<B: MemoryBackend + Send + Sync + 'static> crate::cognitive_contracts::Cogni
     }
     fn provider_transitions_since(&self, actor: &str, since_tx: u64) -> Vec<crate::transition_view::TransitionView> {
         self.transitions_since(actor, since_tx)
+    }
+    fn provider_transitions_page(&self, actor: &str, since_tx: u64) -> crate::transition_view::TransitionPage {
+        self.transitions_page(actor, since_tx)
+    }
+    fn provider_scm(&self) -> Option<crate::scm_view::ScmView> {
+        self.scm_view().ok()
     }
 }
 

@@ -84,3 +84,5 @@ mod law_extractor_tests;
 mod policy_registry_tests;
 mod cognitive_snapshot_karm;
 mod transition_view_tests;
+mod scm_view_tests;
+mod settle_stamp_tests;
