@@ -53,6 +53,26 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 | Lifecycle gates detected uncertainty but returned no clarification route — agents called `route_uncertainty` separately; agent's ladder position never passed to gates; HC MCP went offline between sessions with no auto-recovery | `check_progress`/`plan_validation`/`should_exit` embed `clarify_route: ClarifyRouteInfo` when uncertainty; `tiers_spent` + `cost_of_wrong_execution` wired agent→REST→MCP; `clarify_exhausted` on `ExitDecision`; SessionStart hook + extension 30 s reconnect (v3.15.0) |
 | Anomaly evidence accumulates but never elevates to reusable structural Laws; Policies not first-class in state evolution; GC has no sparsity pressure on weak Laws | `MemoryType::Law` + `Policy`; `LawExtractor` writes Laws from ≥3 surprising Intents (structural, no LLM); `PolicyRegistry` + `DigitalTwin::step_with_policies()` — Policies first-class in `S_{t+1} = f(S_t, Policy)`; MDL sparsity GC (`gc_action_for_law`, threshold=0.5); `GET /laws` + `GET /policies/:entity_id`; 379 lib + 546 unit + 186 integration + 59 property (v3.16.0) |
 | KARM had no read contract on HC snapshot — Laws/Policies/uncertainty/failures missing from `CognitiveSnapshot`; no Provider/Sink trait boundary; no unified TransitionView or PredictionError | `CognitiveSnapshot` extended with `laws`, `policies`, `failures`, `uncertainty` (`#[serde(default)]`, backward-safe); `CognitiveStateProvider` + `CognitiveStateSink` traits — KARM never locks MemoryStore directly; `transitions_since()` + `prediction_error()` from existing `open_intents` + `CalibrationTracker`; REST `GET /snapshot/:actor/transitions` + `/prediction_error`; 379 lib + 555 unit + 190 integration + 59 property (v3.17.0) |
+| Transitions feed ignored its cursor and grew without bound; failed receipts and in-flight intents reported as settled; a settle during a snapshot read could be missed; no read model for the structural causal model, and parent order (so weight binding) was random per graph | Settle stamps (`settled_tx`, `receipt_ok`) — `transitions?since=N` pages `settled_tx > N` with `next_cursor`, `horizon_tx`, `truncated`; retention 4096 + compaction horizon; snapshot reads `tx_cursor` first; canonical sorted parents (`weights[i]` ↔ `parents[i]`); `ScmView` + `GET /snapshot/:actor/scm`; MCP `snapshot_transitions` + `snapshot_scm` + SDK parity; 379 lib + 597 unit + 194 integration + 59 property (v3.18.0) |
+
+---
+
+## What's new in v3.18.0 — Loop-Ready Contract
+
+Makes HipCortex consumable by an external control loop as "snapshot once, then follow the changes". The v3.17 feed could not carry that loop: it ignored its cursor, never evicted settled intents, reported failed receipts as `ok` and in-flight intents as settled, and a settle landing during a snapshot read could fall between the snapshot and the feed after it.
+
+| Change | Gap | Fix |
+|--------|-----|-----|
+| **Settle stamps** | `transitions_since(actor, since)` ignored `since`; `ok` was `status == Received`, so a receipt with `ok: false` reported `ok: true`; `InFlight` intents appeared as settled | `ActionIntent` gains server-owned `settled_tx` + `receipt_ok`; only settles stamp (first receipt, late receipt after expiry, deadline expiry via new `TxKind::IntentExpire`); the feed returns `settled_tx > since`, ascending; `ok = Received && receipt_ok` |
+| **Paged feed with a horizon** | Settled intents were never removed — unbounded growth | Retention 4096 (`with_transition_retention`); `TransitionPage { transitions, next_cursor, horizon_tx, truncated }` — `truncated` tells the consumer to re-bootstrap from the snapshot. Intents are not rehydrated on restart, so every pre-restart cursor reports `truncated` |
+| **Consistent cut** | `snapshot()` read `tx_cursor` after its content | Cursor read first; stamps allocated under the `open_intents` lock after every effect applies — `snapshot → N` then `transitions(since=N)` delivers every settle at least once (upsert by `intent_id`) |
+| **Canonical parent order** | Parents came out of a `HashMap`, so `weights[i]` bound to a random parent per graph | Parents sorted; `weights[i]` binds to `parents[i]` (documented on `StructuralEquation`) |
+| **SCM read model** | No view of structural equations, weights or interventions | `ScmView` — nodes, equations, edges, interventions, `acyclic`, `as_of_tx`; identical graphs give byte-identical JSON — served at `GET /snapshot/:actor/scm` |
+| **MCP + SDK parity** | New routes were REST-only | MCP `snapshot_transitions` + `snapshot_scm` (64 tools); `HipCortexClient.snapshot_transitions()` + `snapshot_scm()` |
+
+**Upgrade note:** once 3.18 has written `IntentExpire` entries, downgrading to ≤ 3.17 is unsupported — older binaries skip unknown kinds when restoring the tx counter and can reuse tail tx ids.
+
+Test coverage: 379 lib + 597 unit (+42) + 194 integration (+4 SIT) + 59 property + 269 Python (+11) — 0 failures in the petgraph build. The web-server build keeps 3 failures that predate this release (`ac_g1_schema_mismatch_payload_returns_422_not_panic`, `clarify_ladder_sit::react_on_a_goal_that_is_still_unclarifiable_is_rejected`, the `clarify_engine.rs` doctest).
 
 ---
 

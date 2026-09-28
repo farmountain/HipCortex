@@ -139,7 +139,7 @@ HipCortex has two integration profiles:
 
 **Fail-silent invariant:** all passive observers catch all exceptions silently (`except Exception: pass`). They must never raise, never slow the agent loop.
 
-**MCP server** (`sdk/mcp/server.py`, version `3.12.0`): the `TOOLS` literal declares **62 tools** (62 unique names) and `RESOURCES` declares **7 resources**. Resources are auto-injected by MCP hosts at session start (no LLM tool call needed):
+**MCP server** (`sdk/mcp/server.py`, version `3.12.0`): the `TOOLS` literal declares **64 tools** (64 unique names) and `RESOURCES` declares **7 resources**. Resources are auto-injected by MCP hosts at session start (no LLM tool call needed):
 - `hipcortex://context/relevant` — top-k semantically relevant memories
 - `hipcortex://beliefs/current` — active Symbolic records
 - `hipcortex://beliefs/live` — current beliefs as held, before any consolidation pass

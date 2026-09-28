@@ -1,13 +1,31 @@
-# HipCortex Memory Engine & Cognitive Reconstruction Engine for VS Code & Antigravity IDE (`v3.17.0`)
+# HipCortex Memory Engine & Cognitive Reconstruction Engine for VS Code & Antigravity IDE (`v3.18.0`)
 
-[![Version](https://img.shields.io/badge/version-v3.17.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v3.18.0-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
-**Give your AI coding assistant persistent, cross-session causal memory with a full cognitive reconstruction engine — KARM contract surface (CognitiveSnapshot + laws/policies/failures/uncertainty; CognitiveStateProvider/Sink traits; TransitionView + PredictionError), LawExtractor, PolicyRegistry, MDL sparsity GC, lifecycle self-prompting (T0→T3 self-prompt first), decidable AC, universal passive capture, DigitalTwin simulation, WAL persistence.**
+**Give your AI coding assistant persistent, cross-session causal memory with a full cognitive reconstruction engine — Loop-Ready Contract (cursor-paged settle feed with next_cursor/horizon_tx/truncated; ScmView structural causal model), KARM contract surface (CognitiveSnapshot + laws/policies/failures/uncertainty; CognitiveStateProvider/Sink traits; TransitionView + PredictionError), LawExtractor, PolicyRegistry, MDL sparsity GC, lifecycle self-prompting (T0→T3 self-prompt first), decidable AC, universal passive capture, DigitalTwin simulation, WAL persistence.**
 
-VSIX **3.17.0** (KARM Contract Surface · CognitiveSnapshot laws/policies/failures/uncertainty · Provider/Sink traits · TransitionView + PredictionError · REST /snapshot/:actor/transitions + /prediction_error) · server/pip **3.17.0** · npm source **3.17.0** (registry still serves `0.5.2` — see *Channel state* below). 379 lib + 555 unit + 190 integration + 59 property + 258 Python, **0 failures**. See [docs/channels.md](../docs/channels.md).
+VSIX **3.18.0** (Loop-Ready Contract · settle-stamped transitions feed paged by cursor · next_cursor / horizon_tx / truncated · ScmView + REST /snapshot/:actor/scm · MCP snapshot_transitions + snapshot_scm) · server/pip **3.18.0** · npm source **3.12.0** (not bumped since 3.12; registry still serves `0.5.2` — see *Channel state* below). 379 lib + 597 unit + 194 integration + 59 property + 269 Python, **0 failures** (petgraph build). See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v3.18.0 — Loop-Ready Contract
+
+Makes HipCortex consumable by an external control loop as "snapshot once, then follow the changes". The v3.17 transitions feed could not carry that loop: it ignored its cursor, never evicted settled intents, reported failed receipts as `ok` and in-flight intents as settled, and a settle landing during a snapshot read could fall between the snapshot and the feed.
+
+| Change | Details |
+|--------|---------|
+| **Settle stamps** | `ActionIntent` gains server-owned `settled_tx` + `receipt_ok`; only settles stamp (first receipt, late receipt after expiry, deadline expiry via new `TxKind::IntentExpire`); `ok = Received && receipt_ok` |
+| **Paged transitions feed** | `GET /snapshot/:actor/transitions?since=N` returns settles with `settled_tx > N`, ascending, plus `next_cursor`, `horizon_tx`, `truncated`; retention 4096 settled intents; `truncated: true` means re-bootstrap from the snapshot |
+| **Consistent cut** | `snapshot()` reads `tx_cursor` first — `snapshot → N` then `transitions(since=N)` delivers every later settle at least once (upsert by `intent_id`) |
+| **SCM read model** | `ScmView` at `GET /snapshot/:actor/scm` — nodes with parents in canonical sorted order (`weights[i]` binds to `parents[i]`), edges, interventions, `acyclic`, `as_of_tx` |
+| **MCP + Python SDK** | MCP tools `snapshot_transitions` + `snapshot_scm` (64 tools; the VSIX bundles the MCP server at package time); `HipCortexClient.snapshot_transitions()` + `snapshot_scm()` |
+
+Upgrade note: once 3.18 has written `IntentExpire` entries, downgrading to ≤ 3.17 is unsupported.
+
+Test coverage: 379 lib + 597 unit (+42) + 194 integration (+4 SIT) + 59 property + 269 Python (+11) = **0 failures in the petgraph build**. The web-server build keeps 3 failures and the VSIX jest suite 1 failure, all predating this release.
 
 ---
 
@@ -436,10 +454,10 @@ Extension registers **10** tools with `vscode.lm` (requires host LM tool API):
 
 ---
 
-## MCP Integration (62 tools, 7 resources)
+## MCP Integration (64 tools, 7 resources)
 
 MCP hosts (Claude Code, Cursor, Windsurf, …) use the Python MCP server via `hipcortex install`.  
-62 tools + 7 auto-injected resources:
+64 tools + 7 auto-injected resources:
 
 - `hipcortex://context/relevant` — top-k semantically relevant memories
 - `hipcortex://beliefs/current` — active belief records
