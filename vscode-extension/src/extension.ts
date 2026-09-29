@@ -470,7 +470,7 @@ interface QueryMemoryResponse {
  * Crate / bundled server binary version (CARGO_PKG_VERSION), NOT vscode package.json.
  * Keep in sync with Cargo.toml [package].version and published hipcortex-* assets.
  */
-export const EXPECTED_SERVER_VERSION = '3.18.1';
+export const EXPECTED_SERVER_VERSION = '3.18.2';
 
 /** Parse listen port from hipcortex.apiUrl / HipCortexAPI.baseUrl. */
 export function extractPortFromBaseUrl(baseUrl: string): { port: number; portStr: string } {
@@ -559,6 +559,23 @@ export function isServerVersionAcceptable(
     return a.major === b.major && a.minor === b.minor;
 }
 
+function parseSemverTriple(v: string): [number, number, number] | null {
+    const m = /^(\d+)\.(\d+)\.(\d+)/.exec((v || '').trim());
+    if (!m) { return null; }
+    return [parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10)];
+}
+
+/** True only when serverVersion is a strictly higher x.y.z than expected (numeric compare). */
+export function isServerNewerThanExpected(serverVersion: string | undefined, expected: string): boolean {
+    const a = parseSemverTriple(serverVersion ?? '');
+    const b = parseSemverTriple(expected);
+    if (!a || !b) { return false; }
+    for (let i = 0; i < 3; i++) {
+        if (a[i] !== b[i]) { return a[i] > b[i]; }
+    }
+    return false;
+}
+
 export function shouldReuseRunningServer(opts: {
     healthy: boolean;
     serverVersion?: string;
@@ -567,6 +584,12 @@ export function shouldReuseRunningServer(opts: {
 }): boolean {
     if (!opts.healthy) {
         return false;
+    }
+    // A newer server is reused in both modes: replacing it would start this extension's older
+    // bundled binary on data the newer server wrote (a 3.17 binary can reuse the tx ids of a
+    // 3.18 IntentExpire). A window still on an old extension must never downgrade the server.
+    if (isServerNewerThanExpected(opts.serverVersion, opts.expectedVersion)) {
+        return true;
     }
     return isServerVersionAcceptable(opts.serverVersion, opts.expectedVersion, opts.strict);
 }
@@ -653,6 +676,12 @@ export class HipCortexAPI {
                 `Reusing active HipCortex server on port ${portStr}` +
                     (serverVersion ? ` (version ${serverVersion})` : ' (version unknown)')
             );
+            if (isServerNewerThanExpected(serverVersion, EXPECTED_SERVER_VERSION)) {
+                log(
+                    `Server ${serverVersion} is newer than this extension's bundled ${EXPECTED_SERVER_VERSION}; ` +
+                        'kept running instead of being replaced by the older binary. Update the HipCortex extension.'
+                );
+            }
             return true;
         }
 
@@ -1063,10 +1092,12 @@ export class HipCortexAPI {
 class HipCortexChatParticipant {
     private api: HipCortexAPI;
     private tokenTracker: TokenTracker;
+    private extensionVersion: string;
 
-    constructor(tokenTracker: TokenTracker) {
+    constructor(tokenTracker: TokenTracker, extensionVersion: string) {
         this.api = new HipCortexAPI();
         this.tokenTracker = tokenTracker;
+        this.extensionVersion = extensionVersion;
     }
 
     async provideResponse(
@@ -1402,7 +1433,7 @@ class HipCortexChatParticipant {
     }
 
     private async handleHelp(stream: vscode.ChatResponseStream): Promise<void> {
-        stream.markdown(`# 🧠 HipCortex Memory Assistant (Official Extension v3.14.0)
+        stream.markdown(`# 🧠 HipCortex Memory Assistant (Official Extension v${this.extensionVersion})
 
 **✅ You are now talking to the OFFICIAL HipCortex VS Code Extension!**
 
@@ -1815,7 +1846,9 @@ export { detectPythonPath, readJsonFile, isMcpEntryValid, writeMcpEntries };
 
 export function activate(context: vscode.ExtensionContext) {
     extensionInstallPath = context.extensionPath;
-    console.log('🧠 HipCortex Memory Extension v3.14.0 active');
+    // Read from the installed package.json: a literal here said v3.14.0 through 3.18.1.
+    const extensionVersion: string = context.extension?.packageJSON?.version ?? 'unknown';
+    console.log(`🧠 HipCortex Memory Extension v${extensionVersion} active`);
     console.log('🔧 Registering chat participant: hipcortex');
 
     const tokenTracker = new TokenTracker();
@@ -2216,7 +2249,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register chat participant — guarded: vscode.chat unavailable on Antigravity/older VS Code
     if (typeof (vscode.chat as any)?.createChatParticipant === 'function') {
-        const chatParticipant = new HipCortexChatParticipant(tokenTracker);
+        const chatParticipant = new HipCortexChatParticipant(tokenTracker, extensionVersion);
         const participant = vscode.chat.createChatParticipant('hipcortex', chatParticipant.provideResponse.bind(chatParticipant));
         participant.iconPath = vscode.Uri.file(context.asAbsolutePath('icon.png'));
         participant.followupProvider = {

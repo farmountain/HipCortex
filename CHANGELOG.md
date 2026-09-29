@@ -92,6 +92,36 @@ runtime via the minimal parser in `sdk/python/hipcortex/cli.py`), so these are d
 edits. The embedded `_fallback_channels()` in that file already named
 `hipcortex-memory-3.11.0.vsix`, so the published 3.11.0 wheel is unaffected and was not rebuilt.
 
+## [3.18.2] - 2026-09-29 — Server Downgrade Guard
+
+Patch release for the VS Code extension; the engine is unchanged.
+
+### Fixed
+
+- The extension replaced a newer running server with its older bundled binary. `doAutoStartServer`
+  reused a healthy server only when `isServerVersionAcceptable` passed (same major.minor, or an
+  exact match under `hipcortex.strictServerVersion`), and otherwise stopped the server and spawned
+  its own binary. A window still on an older extension therefore downgraded a newer server onto
+  data that server had written; after 3.18 has written `IntentExpire` entries, that is the
+  unsupported downgrade from the 3.18.0 upgrade note (on 2026-09-29 a 3.17.0 window replaced a
+  3.18.1 server about 70 s after it started). `shouldReuseRunningServer` now reuses a healthy
+  server that is newer than `EXPECTED_SERVER_VERSION` in both modes (numeric `x.y.z` compare in
+  `isServerNewerThanExpected`) and logs that the extension should be updated. Unhealthy servers
+  and older servers outside the policy are still replaced.
+- The `@hipcortex /help` header and the activation log said `v3.14.0` in every release since
+  3.14.0. Both now read the installed extension's `package.json` version; a test fails if a
+  literal `Extension vX.Y.Z` string returns to `extension.ts`.
+- On the Marketplace page the README's `../LICENSE`, `../docs/*.md` and `package.json` links
+  returned 404: vsce resolved them against `blob/HEAD/` at the repository root, not
+  `vscode-extension/`. `release.yml` and `npm run package:vsix` now pass `--baseContentUrl` and
+  `--baseImagesUrl` for `vscode-extension/`, and a test checks every `vsce package` call.
+- The jest health-check test still expected the 3 s timeout that 3.13.0 raised to 30 s.
+
+### Unchanged
+
+- Extensions older than 3.18.2 still replace newer servers; every VS Code window has to run 3.18.2
+  before the guard holds.
+
 ## [3.18.1] - 2026-09-29 — Version Alignment
 
 Patch release with no engine behaviour change: every surface that reports a version now reports
@@ -103,7 +133,7 @@ on the GitHub releases.
 - `GET /openapi.json` reported `info.version` `3.12.0` from 3.12.0 through 3.18.0 while `/health`
   reported the crate version. The `OPENAPI_SPEC` literal now reads 3.18.1, and
   `route_parity_sit::served_spec_version_matches_the_crate` pins it to `CARGO_PKG_VERSION`.
-- `hipcortex.client.VERSION` read `3.12.0`; it now matches `hipcortex.__version__`.
+- `HipCortexClient.VERSION` read `3.12.0`; it now matches `hipcortex.__version__`.
 - `hipcortex channels` on a PyPI install (no `docs/channels.yaml` on disk) printed an embedded
   fallback naming `hipcortex-memory-3.12.0.vsix`. The name now derives from `__version__`, pinned
   by `test_fallback_channels_names_the_vsix_of_this_release`.

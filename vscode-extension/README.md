@@ -1,13 +1,27 @@
-# HipCortex Memory Engine & Cognitive Reconstruction Engine for VS Code & Antigravity IDE (`v3.18.1`)
+# HipCortex Memory Engine & Cognitive Reconstruction Engine for VS Code & Antigravity IDE (`v3.18.2`)
 
-[![Version](https://img.shields.io/badge/version-v3.18.1-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v3.18.2-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
 **Give your AI coding assistant persistent, cross-session causal memory with a full cognitive reconstruction engine — Loop-Ready Contract (cursor-paged settle feed with next_cursor/horizon_tx/truncated; ScmView structural causal model), KARM contract surface (CognitiveSnapshot + laws/policies/failures/uncertainty; CognitiveStateProvider/Sink traits; TransitionView + PredictionError), LawExtractor, PolicyRegistry, MDL sparsity GC, lifecycle self-prompting (T0→T3 self-prompt first), decidable AC, universal passive capture, DigitalTwin simulation, WAL persistence.**
 
-VSIX **3.18.1** (Loop-Ready Contract · settle-stamped transitions feed paged by cursor · next_cursor / horizon_tx / truncated · ScmView + REST /snapshot/:actor/scm · MCP snapshot_transitions + snapshot_scm) · server/pip **3.18.1** · npm source **3.12.0** (not bumped since 3.12; registry still serves `0.5.2` — see *Channel state* below). 379 lib + 597 unit + 194 integration + 59 property + 269 Python, **0 failures** (petgraph build). See [docs/channels.md](../docs/channels.md).
+VSIX **3.18.2** (Loop-Ready Contract · settle-stamped transitions feed paged by cursor · next_cursor / horizon_tx / truncated · ScmView + REST /snapshot/:actor/scm · MCP snapshot_transitions + snapshot_scm) · server/pip **3.18.2** · npm source **3.12.0** (not bumped since 3.12; registry still serves `0.5.2` — see *Channel state* below). 379 lib + 597 unit + 194 integration + 59 property + 270 Python, **0 failures** (petgraph build). See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v3.18.2 — server downgrade guard
+
+Patch release for this extension; the engine is unchanged.
+
+| Fix | Before | Now |
+|-----|--------|-----|
+| **A newer server is kept** | The extension replaced any running server whose major.minor differed from its bundled binary, including a newer one: a window still on an older extension stopped a newer server and started its own older binary on data the newer server had written | A healthy server newer than the bundled binary is reused in both `hipcortex.strictServerVersion` modes, and the *HipCortex Server* output channel asks you to update the extension. An unhealthy server, or an older one outside the policy (a lower major.minor by default, any lower version in strict mode), is still replaced |
+| **Version shown** | The `@hipcortex /help` header and the activation log said `v3.14.0` in every release since 3.14 | Read from the installed extension's `package.json` |
+| **Marketplace links** | `LICENSE`, `docs/*.md` and `package.json` links on the Marketplace page returned 404 | The VSIX is packaged with `--baseContentUrl`/`--baseImagesUrl` at `vscode-extension/` |
+
+Extensions older than 3.18.2 still replace newer servers, so after updating reload **every** VS Code window; one window left on an older extension can still downgrade the server.
 
 ---
 
@@ -514,22 +528,27 @@ cd vscode-extension
 npm install
 npm run compile
 npm test
-npx @vscode/vsce package --no-dependencies
+npx @vscode/vsce package --no-dependencies \
+  --baseContentUrl https://github.com/farmountain/HipCortex/blob/HEAD/vscode-extension \
+  --baseImagesUrl https://github.com/farmountain/HipCortex/raw/HEAD/vscode-extension
 ```
 
-Produces `hipcortex-memory-3.18.1.vsix` (the version comes from `package.json`, so the name follows the release automatically).
+The two base URLs make this README's relative links resolve on the Marketplace page;
+`npm run package:vsix` passes them too.
+
+Produces `hipcortex-memory-3.18.2.vsix` (the version comes from `package.json`, so the name follows the release automatically).
 
 ---
 
 ## Channel state for this release
 
-Published at **3.18.1**: the [GitHub release](https://github.com/farmountain/HipCortex/releases/tag/v3.18.1)
-with its five platform binaries and this VSIX, and **pip** — `pip install hipcortex` gets 3.18.1,
-with the bundled MCP server reporting `serverInfo` 3.18.1 and exposing 64 tools / 7 resources.
+Published at **3.18.2**: the [GitHub release](https://github.com/farmountain/HipCortex/releases/tag/v3.18.2)
+with its five platform binaries and this VSIX, and **pip** — `pip install hipcortex` gets 3.18.2,
+with the bundled MCP server reporting `serverInfo` 3.18.2 and exposing 64 tools / 7 resources.
 The VS Code Marketplace and Open VSX listings are uploaded by hand from the VSIX attached to the
 GitHub release.
 
-Two channels do **not** carry 3.18.1:
+Two channels do **not** carry 3.18.2:
 
 - **npm** — the registry still serves `0.5.2`. The TypeScript SDK source in this repository is
   `3.12.0`: it lacks the methods added since 3.12, so it is not stamped with a version it does not

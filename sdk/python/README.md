@@ -1,4 +1,4 @@
-# HipCortex Python SDK (`v3.18.1`)
+# HipCortex Python SDK (`v3.18.2`)
 
 **Persistent causal topological memory, recursive Bayesian world-model prediction (`/worldmodel/rollout`), and automatic FSM skill compilation for autonomous AI agents.**
 
@@ -15,7 +15,7 @@ hipcortex install  # wizard: MCP hosts + copies ~/.hipcortex-mcp/server.py (64 t
 hipcortex channels # honesty matrix (native / mcp / framework / guide)
 ```
 
-**Version matrix:** pip / Cargo / MCP `serverInfo` / VS Code VSIX = **3.18.1**; the TypeScript SDK source is **3.12.0** (npm registry `0.5.2`). See [docs/channels.md](../../docs/channels.md).
+**Version matrix:** pip / Cargo / MCP `serverInfo` / VS Code VSIX = **3.18.2**; the TypeScript SDK source is **3.12.0** (npm registry `0.5.2`). See [docs/channels.md](../../docs/channels.md).
 
 ---
 

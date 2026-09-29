@@ -91,7 +91,7 @@ describe('HipCortex Extension Unit Tests', () => {
             expect(result).toBe(true);
             expect(mockedAxios.get).toHaveBeenCalledWith(
                 'http://localhost:3030/health',
-                { timeout: 3000 }
+                { timeout: 30000 }
             );
         });
 
@@ -359,6 +359,39 @@ describe('HipCortex Extension Unit Tests', () => {
             }
             mockContext.subscriptions.length = 0;
             deactivate();
+        });
+
+        test('chat help header names the installed extension version', async () => {
+            jest.spyOn(HipCortexAPI.prototype, 'autoStartServer').mockResolvedValue(false);
+            const createParticipant = vscode.chat.createChatParticipant as unknown as jest.Mock;
+            const mockContext: any = {
+                subscriptions: [],
+                asAbsolutePath: (p: string) => p,
+                extension: { packageJSON: { version: '9.8.7' } },
+            };
+            activate(mockContext);
+            try {
+                const handler = createParticipant.mock.calls[0][1];
+                const stream: any = { markdown: jest.fn() };
+                await handler({ prompt: 'help' }, {}, stream, {});
+                const shown = stream.markdown.mock.calls.map((c: unknown[]) => String(c[0])).join('');
+                expect(shown).toContain('Official Extension v9.8.7');
+            } finally {
+                // A failed assertion must not leak activate()'s timers: jest would never exit.
+                await Promise.resolve();
+                for (const sub of mockContext.subscriptions) {
+                    if (sub && typeof sub.dispose === 'function') {
+                        sub.dispose();
+                    }
+                }
+                deactivate();
+            }
+        });
+
+        test('extension.ts hard-codes no extension version in user-visible strings', () => {
+            // "v3.14.0" stayed in the chat header and activation log through 3.18.1
+            const src = fs.readFileSync(path.join(__dirname, '..', 'extension.ts'), 'utf8');
+            expect(src.match(/Extension v\d+\.\d+\.\d+/g) ?? []).toEqual([]);
         });
 
         test('onSave should ensure server and send richer metadata (not silently drop)', async () => {
@@ -866,6 +899,38 @@ describe('server lifecycle helpers', () => {
         })).toBe(true);
     });
 
+    test('shouldReuseRunningServer: a newer server is reused, never replaced, in either mode', () => {
+        // Replacing it starts this extension's older bundled binary on data the newer server
+        // wrote: after a 3.18 server writes IntentExpire entries, a 3.17 binary can reuse tx ids.
+        const [major, minor] = EXPECTED_SERVER_VERSION.split('.').map(Number);
+        for (const serverVersion of [`${major}.${minor + 1}.0`, `${major + 1}.0.0`]) {
+            for (const strict of [false, true]) {
+                expect(shouldReuseRunningServer({
+                    healthy: true,
+                    serverVersion,
+                    expectedVersion: EXPECTED_SERVER_VERSION,
+                    strict,
+                })).toBe(true);
+            }
+        }
+    });
+
+    test('shouldReuseRunningServer: versions compare numerically, not as strings', () => {
+        // strict mode isolates the newer-than rule from the same-major.minor rule
+        expect(shouldReuseRunningServer({
+            healthy: true, serverVersion: '3.18.10', expectedVersion: '3.18.9', strict: true,
+        })).toBe(true);
+        expect(shouldReuseRunningServer({
+            healthy: true, serverVersion: '3.18.9', expectedVersion: '3.18.10', strict: true,
+        })).toBe(false);
+    });
+
+    test('shouldReuseRunningServer: an older minor is still replaced', () => {
+        expect(shouldReuseRunningServer({
+            healthy: true, serverVersion: '3.17.0', expectedVersion: '3.18.2', strict: false,
+        })).toBe(false);
+    });
+
     test('sharedDataDir: ~/.hipcortex/data (CLI-aligned)', () => {
         expect(sharedInstallDir()).toBe(path.join(os.homedir(), '.hipcortex'));
         expect(sharedDataDir()).toBe(path.join(os.homedir(), '.hipcortex', 'data'));
@@ -912,5 +977,26 @@ describe('server lifecycle helpers', () => {
             '  TCP    127.0.0.1:3030         127.0.0.1:9            ESTABLISHED     1',
             3030,
         )).toBe(false);
+    });
+});
+
+describe('VSIX packaging', () => {
+    test('every vsce package call resolves README links against vscode-extension/', () => {
+        // vsce's default link base is <repo>/blob/HEAD with no subdirectory, so this README's
+        // ../LICENSE, ../docs/*.md and package.json links 404 on the Marketplace page.
+        const root = path.join(__dirname, '..', '..', '..');
+        const manifest = JSON.parse(fs.readFileSync(path.join(root, 'vscode-extension', 'package.json'), 'utf8'));
+        const sources: string[] = [
+            fs.readFileSync(path.join(root, '.github', 'workflows', 'release.yml'), 'utf8'),
+            manifest.scripts['package:vsix'],
+        ];
+        for (const src of sources) {
+            const calls = src.match(/vsce package[^\n]*/g) ?? [];
+            expect(calls.length).toBeGreaterThan(0);
+            for (const call of calls) {
+                expect(call).toContain('--baseContentUrl https://github.com/farmountain/HipCortex/blob/HEAD/vscode-extension');
+                expect(call).toContain('--baseImagesUrl https://github.com/farmountain/HipCortex/raw/HEAD/vscode-extension');
+            }
+        }
     });
 });

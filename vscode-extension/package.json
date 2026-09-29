@@ -1,8 +1,8 @@
 {
   "name": "hipcortex-memory",
   "displayName": "HipCortex Memory Engine & Cognitive OS",
-  "description": "Cognitive reconstruction engine for VS Code: Loop-Ready Contract — cursor-paged settle feed (REST /snapshot/:actor/transitions + snapshot_transitions tool: next_cursor, horizon_tx, truncated) and structural causal model view (/snapshot/:actor/scm + snapshot_scm); KARM contract surface — CognitiveSnapshot with laws/policies/failures/uncertainty, Provider/Sink traits; LawExtractor; PolicyRegistry; MDL sparsity GC; lifecycle gates embed clarify_route (T0→T3 self-prompt first); 64 MCP tools + 7 resources; WAL persistence; v3.18.1: extension, bundled server, /openapi.json, pip and MCP report one version; 1,229 Rust + 270 Python tests — MCP + REST",
-  "version": "3.18.1",
+  "description": "Cognitive reconstruction engine for VS Code: Loop-Ready Contract — cursor-paged settle feed (REST /snapshot/:actor/transitions + snapshot_transitions tool: next_cursor, horizon_tx, truncated) and structural causal model view (/snapshot/:actor/scm + snapshot_scm); KARM contract surface — CognitiveSnapshot with laws/policies/failures/uncertainty, Provider/Sink traits; LawExtractor; PolicyRegistry; MDL sparsity GC; lifecycle gates embed clarify_route (T0→T3 self-prompt first); 64 MCP tools + 7 resources; WAL persistence; v3.18.2: a newer running server is kept, never replaced by the older bundled binary; extension, bundled server, /openapi.json, pip and MCP report one version; 1,229 Rust + 270 Python tests — MCP + REST",
+  "version": "3.18.2",
   "publisher": "farmountain",
   "repository": {
     "type": "git",
@@ -181,7 +181,7 @@
         "hipcortex.strictServerVersion": {
           "type": "boolean",
           "default": false,
-          "description": "When true, only reuse a local server if /health.version exactly matches the expected crate/server binary version. When false (default), reuse any healthy server with same major.minor (or missing version field)."
+          "description": "When true, only reuse a local server if /health.version exactly matches the expected crate/server binary version. When false (default), reuse any healthy server with same major.minor (or missing version field). In both modes a server newer than the bundled binary is reused, never replaced by the older binary."
         },
         "hipcortex.passiveCapture": {
           "type": "boolean",
@@ -411,7 +411,7 @@
     "package": "webpack --mode production --devtool hidden-source-map",
     "fetch-bins": "node scripts/fetch-bins.js",
     "fetch-bins:force": "node scripts/fetch-bins.js --force",
-    "package:vsix": "node scripts/fetch-bins.js --force && npm run package && npx --yes @vscode/vsce package --no-dependencies",
+    "package:vsix": "node scripts/fetch-bins.js --force && npm run package && npx --yes @vscode/vsce package --no-dependencies --baseContentUrl https://github.com/farmountain/HipCortex/blob/HEAD/vscode-extension --baseImagesUrl https://github.com/farmountain/HipCortex/raw/HEAD/vscode-extension",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile && npm run lint",

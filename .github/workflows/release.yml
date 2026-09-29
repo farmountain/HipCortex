@@ -146,7 +146,7 @@ jobs:
           rm -f *.vsix
           npm ci || npm install
           npm run package
-          npx --yes @vscode/vsce package --no-dependencies
+          npx --yes @vscode/vsce package --no-dependencies --baseContentUrl https://github.com/farmountain/HipCortex/blob/HEAD/vscode-extension --baseImagesUrl https://github.com/farmountain/HipCortex/raw/HEAD/vscode-extension
           ls -la *.vsix
           count=$(ls -1 *.vsix 2>/dev/null | wc -l)
           if [ "$count" != "1" ]; then

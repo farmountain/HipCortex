@@ -11,7 +11,7 @@ import requests
 
 
 class HipCortexClient:
-    VERSION = "3.18.1"
+    VERSION = "3.18.2"
 
     """Synchronous HTTP client for the HipCortex memory server.
 
