@@ -1,13 +1,19 @@
-# HipCortex Memory Engine & Cognitive Reconstruction Engine for VS Code & Antigravity IDE (`v3.18.0`)
+# HipCortex Memory Engine & Cognitive Reconstruction Engine for VS Code & Antigravity IDE (`v3.18.1`)
 
-[![Version](https://img.shields.io/badge/version-v3.18.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-v3.18.1-blue.svg)](package.json)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](../LICENSE)
 ![Latency](https://img.shields.io/badge/write_p50-0.48ms__--__0.61ms-brightgreen.svg)
 ![Token Savings](https://img.shields.io/badge/token_savings-59%25__--__88%25-blueviolet.svg)
 
 **Give your AI coding assistant persistent, cross-session causal memory with a full cognitive reconstruction engine — Loop-Ready Contract (cursor-paged settle feed with next_cursor/horizon_tx/truncated; ScmView structural causal model), KARM contract surface (CognitiveSnapshot + laws/policies/failures/uncertainty; CognitiveStateProvider/Sink traits; TransitionView + PredictionError), LawExtractor, PolicyRegistry, MDL sparsity GC, lifecycle self-prompting (T0→T3 self-prompt first), decidable AC, universal passive capture, DigitalTwin simulation, WAL persistence.**
 
-VSIX **3.18.0** (Loop-Ready Contract · settle-stamped transitions feed paged by cursor · next_cursor / horizon_tx / truncated · ScmView + REST /snapshot/:actor/scm · MCP snapshot_transitions + snapshot_scm) · server/pip **3.18.0** · npm source **3.12.0** (not bumped since 3.12; registry still serves `0.5.2` — see *Channel state* below). 379 lib + 597 unit + 194 integration + 59 property + 269 Python, **0 failures** (petgraph build). See [docs/channels.md](../docs/channels.md).
+VSIX **3.18.1** (Loop-Ready Contract · settle-stamped transitions feed paged by cursor · next_cursor / horizon_tx / truncated · ScmView + REST /snapshot/:actor/scm · MCP snapshot_transitions + snapshot_scm) · server/pip **3.18.1** · npm source **3.12.0** (not bumped since 3.12; registry still serves `0.5.2` — see *Channel state* below). 379 lib + 597 unit + 194 integration + 59 property + 269 Python, **0 failures** (petgraph build). See [docs/channels.md](../docs/channels.md).
+
+---
+
+## What's new in v3.18.1 — version alignment
+
+Patch release with no engine behaviour change. In 3.18.0 the bundled server's `/openapi.json` reported `3.12.0`, the Python client's `VERSION` constant said `3.12.0`, and this file's channel section described 3.14.0. The VSIX, its bundled binaries (`/health` and `/openapi.json`), the server version the extension expects, pip and the MCP `serverInfo` now all report 3.18.1.
 
 ---
 
@@ -511,28 +517,28 @@ npm test
 npx @vscode/vsce package --no-dependencies
 ```
 
-Produces `hipcortex-memory-3.14.0.vsix` (the version comes from `package.json`, so the name follows the release automatically).
+Produces `hipcortex-memory-3.18.1.vsix` (the version comes from `package.json`, so the name follows the release automatically).
 
 ---
 
 ## Channel state for this release
 
-Published at **3.14.0**: the [GitHub release](https://github.com/farmountain/HipCortex/releases/tag/v3.14.0)
-with its five platform binaries, and **pip** — `pip install hipcortex` genuinely gets 3.14.0, with the
-bundled MCP server reporting `serverInfo` 3.14.0 and exposing 62 tools / 7 resources.
+Published at **3.18.1**: the [GitHub release](https://github.com/farmountain/HipCortex/releases/tag/v3.18.1)
+with its five platform binaries and this VSIX, and **pip** — `pip install hipcortex` gets 3.18.1,
+with the bundled MCP server reporting `serverInfo` 3.18.1 and exposing 64 tools / 7 resources.
+The VS Code Marketplace and Open VSX listings are uploaded by hand from the VSIX attached to the
+GitHub release.
 
-Two channels are **not** at 3.14.0, and in both cases it is a credential or namespace matter rather
-than a code one:
+Two channels do **not** carry 3.18.1:
 
-- **npm** — the registry still serves `0.5.2`. The TypeScript source in this repository is `3.14.0`
-  and its build and test steps pass; the publish job stops at `ENEEDAUTH` because no `NPM_TOKEN`
-  is configured.
-- **Open VSX** — no publisher holds this extension's namespace there, so nothing is published.
-  The text in this file is the copy intended for that listing.
+- **npm** — the registry still serves `0.5.2`. The TypeScript SDK source in this repository is
+  `3.12.0`: it lacks the methods added since 3.12, so it is not stamped with a version it does not
+  implement, and its publish job stops at `ENEEDAUTH` because no `NPM_TOKEN` is configured.
+- **crates.io** — the name `hipcortex` is unclaimed and no publish workflow exists; use the release
+  binaries or build from source.
 
-**crates.io** does not carry the crate either: the name `hipcortex` is currently unclaimed and no
-publish workflow exists. This is stated plainly rather than left in a footnote, so that the version
-you install matches the version you were told to expect.
+This is stated plainly rather than left in a footnote, so that the version you install matches the
+version you were told to expect.
 
 ---
 

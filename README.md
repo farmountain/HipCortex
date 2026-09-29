@@ -54,6 +54,13 @@ HipCortex is the substrate that closes it: a **local causal graph** of goals, be
 | Anomaly evidence accumulates but never elevates to reusable structural Laws; Policies not first-class in state evolution; GC has no sparsity pressure on weak Laws | `MemoryType::Law` + `Policy`; `LawExtractor` writes Laws from ≥3 surprising Intents (structural, no LLM); `PolicyRegistry` + `DigitalTwin::step_with_policies()` — Policies first-class in `S_{t+1} = f(S_t, Policy)`; MDL sparsity GC (`gc_action_for_law`, threshold=0.5); `GET /laws` + `GET /policies/:entity_id`; 379 lib + 546 unit + 186 integration + 59 property (v3.16.0) |
 | KARM had no read contract on HC snapshot — Laws/Policies/uncertainty/failures missing from `CognitiveSnapshot`; no Provider/Sink trait boundary; no unified TransitionView or PredictionError | `CognitiveSnapshot` extended with `laws`, `policies`, `failures`, `uncertainty` (`#[serde(default)]`, backward-safe); `CognitiveStateProvider` + `CognitiveStateSink` traits — KARM never locks MemoryStore directly; `transitions_since()` + `prediction_error()` from existing `open_intents` + `CalibrationTracker`; REST `GET /snapshot/:actor/transitions` + `/prediction_error`; 379 lib + 555 unit + 190 integration + 59 property (v3.17.0) |
 | Transitions feed ignored its cursor and grew without bound; failed receipts and in-flight intents reported as settled; a settle during a snapshot read could be missed; no read model for the structural causal model, and parent order (so weight binding) was random per graph | Settle stamps (`settled_tx`, `receipt_ok`) — `transitions?since=N` pages `settled_tx > N` with `next_cursor`, `horizon_tx`, `truncated`; retention 4096 + compaction horizon; snapshot reads `tx_cursor` first; canonical sorted parents (`weights[i]` ↔ `parents[i]`); `ScmView` + `GET /snapshot/:actor/scm`; MCP `snapshot_transitions` + `snapshot_scm` + SDK parity; 379 lib + 597 unit + 194 integration + 59 property (v3.18.0) |
+| Version strings disagreed across surfaces — `GET /openapi.json` served `3.12.0`, `HipCortexClient.VERSION` was `3.12.0`, the PyPI page described v3.12.0 and the VSIX README's channel section 3.14.0; `hipcortex channels` named the 3.12.0 VSIX | Every surface at 3.18.1; `route_parity_sit` pins OpenAPI `info.version` to the crate version; the fallback VSIX name derives from `__version__`; channel docs rewritten (v3.18.1) |
+
+---
+
+## What's new in v3.18.1 — version alignment
+
+Patch release with no engine behaviour change. 3.18.0 shipped version strings that disagreed with the binary: `GET /openapi.json` reported `3.12.0`, `HipCortexClient.VERSION` was `3.12.0`, the PyPI project page described v3.12.0, and the VSIX README's channel section described 3.14.0. Every surface now reports 3.18.1, and a test pins the OpenAPI version to the crate version so that literal cannot drift again. Everything below about v3.18.0 still applies.
 
 ---
 
@@ -676,4 +683,4 @@ Engine internals are not reviewed here. See [DUAL_REPO.md](DUAL_REPO.md).
 | [DEPLOY.md](DEPLOY.md) | Self-host / Fly / Docker |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Historical in-tree build notes |
 
-**License:** [Apache-2.0](LICENSE) for this public repository · **Version:** `3.14.0` · VSIX `3.14.0` · MCP `3.14.0`
+**License:** [Apache-2.0](LICENSE) for this public repository · **Version:** `3.18.1` · VSIX `3.18.1` · MCP `3.18.1`

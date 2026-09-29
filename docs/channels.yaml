@@ -12,7 +12,7 @@
 # Print: hipcortex channels
 
 version: 1
-updated: "2026-09-14"  # v3.12.0: graceful backup, actor merge, HIPCORTEX_ACTOR, VSIX dedup guard
+updated: "2026-09-29"  # v3.18.1: one version across VSIX, bundled server, /openapi.json, pip and MCP
 
 channels:
   # ── Distribution surfaces ──────────────────────────────────────────────
@@ -21,14 +21,14 @@ channels:
     category: distribution
     status: native
     install: "cargo build / GitHub Releases"
-    notes: "Crate version 3.12.0; CLI + webserver"
+    notes: "Crate version 3.18.1; CLI + webserver; not published to crates.io"
 
   - id: pip
     name: pip (Python SDK + CLI)
     category: distribution
     status: native
     install: "pip install hipcortex && hipcortex install"
-    notes: "Wizard + SDK; package 3.12.0"
+    notes: "Wizard + SDK; package 3.18.1"
 
   - id: npm
     name: npm (TypeScript SDK)
@@ -56,14 +56,14 @@ channels:
     category: distribution
     status: mcp
     install: "hipcortex install (copies ~/.hipcortex-mcp/server.py; PyPI ships hipcortex/install/mcp_server.py)"
-    notes: "serverInfo 3.12.0; 62 tools / 7 resources incl. topo/rollout/can_execute/merge_actor; stamped from VERSION"
+    notes: "serverInfo 3.18.1; 64 tools / 7 resources incl. snapshot_transitions/snapshot_scm/topo/rollout/can_execute/merge_actor; stamped from VERSION"
 
   - id: vscode-extension
     name: VS Code / Antigravity VSIX
     category: distribution
     status: native
-    install: "code --install-extension hipcortex-memory-3.12.0.vsix"
-    notes: "Extension 3.12.0; chmod +x bundled Mac/Linux bins; 10 LM tools + dual health; expects server 3.12.0 (same major.minor OK); Antigravity = VS Code-compatible host"
+    install: "code --install-extension hipcortex-memory-3.18.1.vsix"
+    notes: "Extension 3.18.1; chmod +x bundled Mac/Linux bins; 11 LM tools + dual health; expects server 3.18.1 (same major.minor OK); Antigravity = VS Code-compatible host"
 
   - id: chrome-extension
     name: Chrome / Edge (MV3 extension)

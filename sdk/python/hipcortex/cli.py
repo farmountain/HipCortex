@@ -1399,11 +1399,13 @@ def _parse_channels_yaml(text: str) -> list[dict]:
 
 def _fallback_channels() -> list[dict]:
     """Hardcoded subset when channels.yaml is not on disk (PyPI install)."""
+    from . import __version__
+
     return [
         {"id": "claude-code", "name": "Claude Code", "status": "native", "install": "hipcortex install"},
         {"id": "cursor", "name": "Cursor", "status": "mcp", "install": "hipcortex install"},
         {"id": "windsurf", "name": "Windsurf", "status": "mcp", "install": "hipcortex install"},
-        {"id": "vscode-extension", "name": "VS Code VSIX", "status": "native", "install": "hipcortex-memory-3.12.0.vsix"},
+        {"id": "vscode-extension", "name": "VS Code VSIX", "status": "native", "install": f"hipcortex-memory-{__version__}.vsix"},
         {"id": "vscode-mcp", "name": "VS Code MCP", "status": "mcp", "install": "hipcortex install"},
         {"id": "cline", "name": "Cline", "status": "mcp", "install": "hipcortex install"},
         {"id": "roocode", "name": "RooCode", "status": "mcp", "install": "hipcortex install"},

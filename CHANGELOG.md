@@ -92,6 +92,32 @@ runtime via the minimal parser in `sdk/python/hipcortex/cli.py`), so these are d
 edits. The embedded `_fallback_channels()` in that file already named
 `hipcortex-memory-3.11.0.vsix`, so the published 3.11.0 wheel is unaffected and was not rebuilt.
 
+## [3.18.1] - 2026-09-29 — Version Alignment
+
+Patch release with no engine behaviour change: every surface that reports a version now reports
+the one in `VERSION`. Entries for 3.12.0 through 3.18.0 are not backfilled here yet; their notes are
+on the GitHub releases.
+
+### Fixed
+
+- `GET /openapi.json` reported `info.version` `3.12.0` from 3.12.0 through 3.18.0 while `/health`
+  reported the crate version. The `OPENAPI_SPEC` literal now reads 3.18.1, and
+  `route_parity_sit::served_spec_version_matches_the_crate` pins it to `CARGO_PKG_VERSION`.
+- `hipcortex.client.VERSION` read `3.12.0`; it now matches `hipcortex.__version__`.
+- `hipcortex channels` on a PyPI install (no `docs/channels.yaml` on disk) printed an embedded
+  fallback naming `hipcortex-memory-3.12.0.vsix`. The name now derives from `__version__`, pinned
+  by `test_fallback_channels_names_the_vsix_of_this_release`.
+- `docs/channels.md` / `docs/channels.yaml` / `docs/capabilities.md` described 3.12.0, 62 MCP
+  tools and 10 VS Code LM tools; they now describe 3.18.1, 64 tools / 7 resources and 11 LM tools.
+- The PyPI long description (`sdk/python/README.md`) was headed `v3.12.0` and did not document the
+  3.18 Loop-Ready Contract; it now shows the `cognitive_snapshot` → `snapshot_transitions` loop
+  and `snapshot_scm`.
+
+### Unchanged
+
+- The TypeScript SDK source stays at 3.12.0 and npm at 0.5.2: the SDK lacks the 3.13+ methods and
+  `publish-npm.yml` stops at `ENEEDAUTH`.
+
 ## [3.11.0] - 2026-09-12 — Gap Closure H1–H10 + Pipeline Enforcement
 
 Design: `docs/superpowers/specs/2026-09-12-hipcortex-gap-closure-design.md`.

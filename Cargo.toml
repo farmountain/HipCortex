@@ -1,6 +1,6 @@
 [package]
 name = "hipcortex"
-version = "3.18.0"
+version = "3.18.1"
 edition = "2021"
 description = "Cognitive reconstruction engine for AI agents. Loop-Ready Contract: settle-stamped transitions feed paged by cursor (next_cursor, horizon_tx, truncated; bounded retention) and ScmView structural causal model read model; REST /snapshot/:actor/transitions + /snapshot/:actor/scm. KARM contract surface: CognitiveSnapshot extended with laws/policies/failures/uncertainty; CognitiveStateProvider/Sink traits — KARM never locks MemoryStore directly. LawExtractor; PolicyRegistry; MDL sparsity GC; lifecycle self-prompting (T0→T3 ClarifyRoute in every gate); 64 MCP tools + 7 resources; WAL-persistent; universal passive capture."
 repository = "https://github.com/farmountain/HipCortex"

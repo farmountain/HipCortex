@@ -1,8 +1,8 @@
 {
   "name": "hipcortex-memory",
   "displayName": "HipCortex Memory Engine & Cognitive OS",
-  "description": "Cognitive reconstruction engine for VS Code: Loop-Ready Contract — cursor-paged settle feed (REST /snapshot/:actor/transitions + snapshot_transitions tool: next_cursor, horizon_tx, truncated) and structural causal model view (/snapshot/:actor/scm + snapshot_scm); KARM contract surface — CognitiveSnapshot with laws/policies/failures/uncertainty, Provider/Sink traits; LawExtractor; PolicyRegistry; MDL sparsity GC; lifecycle gates embed clarify_route (T0→T3 self-prompt first); 64 MCP tools + 7 resources; WAL persistence — MCP + REST",
-  "version": "3.18.0",
+  "description": "Cognitive reconstruction engine for VS Code: Loop-Ready Contract — cursor-paged settle feed (REST /snapshot/:actor/transitions + snapshot_transitions tool: next_cursor, horizon_tx, truncated) and structural causal model view (/snapshot/:actor/scm + snapshot_scm); KARM contract surface — CognitiveSnapshot with laws/policies/failures/uncertainty, Provider/Sink traits; LawExtractor; PolicyRegistry; MDL sparsity GC; lifecycle gates embed clarify_route (T0→T3 self-prompt first); 64 MCP tools + 7 resources; WAL persistence; v3.18.1: extension, bundled server, /openapi.json, pip and MCP report one version; 1,229 Rust + 270 Python tests — MCP + REST",
+  "version": "3.18.1",
   "publisher": "farmountain",
   "repository": {
     "type": "git",

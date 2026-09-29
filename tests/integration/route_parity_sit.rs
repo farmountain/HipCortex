@@ -416,6 +416,19 @@ mod tests {
         );
     }
 
+    /// AC: the document reports the version of the binary serving it. The
+    /// literal in `OPENAPI_SPEC` sat at 3.12.0 through six releases while
+    /// `/health` reported the crate version.
+    #[test]
+    fn served_spec_version_matches_the_crate() {
+        let doc = spec_with_route_table();
+        assert_eq!(
+            doc["info"]["version"].as_str(),
+            Some(env!("CARGO_PKG_VERSION")),
+            "GET /openapi.json info.version must equal the crate version /health reports"
+        );
+    }
+
     // ── 2. soundness (runtime) ───────────────────────────────────────────────
 
     fn make_test_state() -> TestState {

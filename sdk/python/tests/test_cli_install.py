@@ -2239,3 +2239,13 @@ def test_detect_host_presence_signals(tmp_path, monkeypatch):
     assert "claude-code" in present
     assert "cursor" in present
     assert "grok-build" in present
+
+
+def test_fallback_channels_names_the_vsix_of_this_release():
+    """A PyPI install has no docs/channels.yaml, so `hipcortex channels` prints the
+    embedded fallback — its VSIX file name must be the one this release ships."""
+    from hipcortex import __version__
+    from hipcortex.cli import _fallback_channels
+
+    vsix = next(c for c in _fallback_channels() if c["id"] == "vscode-extension")
+    assert vsix["install"] == f"hipcortex-memory-{__version__}.vsix"

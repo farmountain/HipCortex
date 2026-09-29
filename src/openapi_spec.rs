@@ -359,7 +359,7 @@ pub const OPENAPI_SPEC: &str = r##"{
   "info": {
     "title": "HipCortex Memory Engine",
     "description": "Persistent causal memory for AI agents. Sub-millisecond writes, temporal decay, causal world model, GDPR-compliant.",
-    "version": "3.12.0",
+    "version": "3.18.1",
     "license": { "name": "Apache 2.0", "url": "https://opensource.org/licenses/Apache-2.0" },
     "contact": { "url": "https://github.com/farmountain/HipCortex" }
   },

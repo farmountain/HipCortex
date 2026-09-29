@@ -2,7 +2,7 @@
 
 **Source of truth:** [`docs/channels.yaml`](channels.yaml)  
 **Print CLI:** `hipcortex channels`  
-**Updated:** 2026-09-14 (v3.12.0 — graceful backup, actor merge, HIPCORTEX_ACTOR, VSIX dedup guard)
+**Updated:** 2026-09-29 (v3.18.1 — one version across VSIX, bundled server, `/openapi.json`, pip and MCP; v3.18.0 Loop-Ready Contract)
 
 ## Status legend
 
@@ -23,13 +23,13 @@
 
 | Channel | Status | Install | Notes |
 |---------|--------|---------|-------|
-| Rust binary / Cargo | native | `cargo build` / GitHub Releases | Crate **3.12.0** (Win/macOS/Linux amd64+arm64) |
-| pip (Python SDK + CLI) | native | `pip install hipcortex` | Wizard + SDK **3.12.0** (platform-agnostic) |
+| Rust binary / Cargo | native | `cargo build` / GitHub Releases | Crate **3.18.1** (Win/macOS/Linux amd64+arm64); not published to crates.io |
+| pip (Python SDK + CLI) | native | `pip install hipcortex` | Wizard + SDK **3.18.1** (platform-agnostic) |
 | npm (TypeScript SDK) | native | `npm install hipcortex` | Client only; no wizard. Source **3.12.0**; registry still serves **0.5.2** (publish stops at `ENEEDAUTH`) |
 | Docker | native | `docker run -p 3030:3030 …` | Image may lag releases |
 | Managed tier (Fly) | native | `hipcortex install --url https://hipcortex.fly.dev` | Remote HTTP |
-| MCP server (Python stdio) | mcp | `hipcortex install` → `~/.hipcortex-mcp/` | Banner **3.12.0**; **62 tools** (topo PPR, deconstruct, check_edge, rollout MCTS, can_execute, merge_actor, …) |
-| VS Code / Antigravity VSIX | native | `hipcortex-memory-3.12.0.vsix` | Ext **3.12.0**; **chmod +x** bundled Mac/Linux; **10 LM tools** + dual `/health`; expects server **3.12.0** (same major.minor OK) |
+| MCP server (Python stdio) | mcp | `hipcortex install` → `~/.hipcortex-mcp/` | Banner **3.18.1**; **64 tools** + 7 resources (snapshot_transitions, snapshot_scm, topo PPR, deconstruct, check_edge, rollout MCTS, can_execute, merge_actor, …) |
+| VS Code / Antigravity VSIX | native | `hipcortex-memory-3.18.1.vsix` | Ext **3.18.1**; **chmod +x** bundled Mac/Linux; **11 LM tools** + dual `/health`; expects server **3.18.1** (same major.minor OK) |
 | Chrome / Edge (MV3 extension) | native | Chrome Web Store, or load unpacked from `dist/` | **HipCortex Memory 0.1.0** — perception layer in a separate repo (`hipcortex_memory_chrome_extension`). Captures ChatGPT/Claude/Grok/Gemini/DeepSeek; delivers by native messaging or loopback HTTP. Versioned independently and **gates on no core version**; measured against core 3.11.0 |
 
 ---
@@ -84,11 +84,11 @@
 
 | Surface | Version |
 |---------|---------|
-| Cargo / pip (product) | 3.12.0 |
+| Cargo / pip (product) | 3.18.1 |
 | npm (TypeScript SDK) | source 3.12.0 · **registry 0.5.2** — publish blocked on `NPM_TOKEN` |
-| VS Code extension (VSIX) | 3.12.0 (expects server 3.12.0, same major.minor OK) |
+| VS Code extension (VSIX) | 3.18.1 (expects server 3.18.1, same major.minor OK) |
 | Chrome / Edge extension | 0.1.0 (versioned independently; gates on no core version) |
-| MCP `serverInfo.version` | 3.12.0 (stamped from VERSION) |
+| MCP `serverInfo.version` | 3.18.1 (stamped from VERSION) |
 
 See also: [host install notes](hosts/README.md), [cross-channel UX plan](superpowers/plans/2026-07-18-cross-channel-ux-enhancement-plan.md), [problem catalog](superpowers/specs/2026-07-18-cross-channel-ux-problem-catalog.md).
 

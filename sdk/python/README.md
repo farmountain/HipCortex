@@ -1,4 +1,4 @@
-# HipCortex Python SDK (`v3.12.0`)
+# HipCortex Python SDK (`v3.18.1`)
 
 **Persistent causal topological memory, recursive Bayesian world-model prediction (`/worldmodel/rollout`), and automatic FSM skill compilation for autonomous AI agents.**
 
@@ -15,7 +15,30 @@ hipcortex install  # wizard: MCP hosts + copies ~/.hipcortex-mcp/server.py (64 t
 hipcortex channels # honesty matrix (native / mcp / framework / guide)
 ```
 
-**Version matrix:** product pip/Cargo/MCP `serverInfo` = **3.12.0**; VS Code VSIX = **3.12.0**. See [docs/channels.md](../../docs/channels.md).
+**Version matrix:** pip / Cargo / MCP `serverInfo` / VS Code VSIX = **3.18.1**; the TypeScript SDK source is **3.12.0** (npm registry `0.5.2`). See [docs/channels.md](../../docs/channels.md).
+
+---
+
+## What's new in 3.18 — Loop-Ready Contract
+
+An external control loop can now take one snapshot and then follow the changes:
+
+```python
+snap = client.cognitive_snapshot(actor="agent")         # bootstrap once
+cursor = snap["tx_cursor"]
+
+page = client.snapshot_transitions("agent", since=cursor)
+if page["truncated"]:
+    snap = client.cognitive_snapshot(actor="agent")     # fell behind the horizon: re-bootstrap
+else:
+    for t in page["transitions"]:
+        ...                                             # upsert by t["intent_id"]
+    cursor = page["next_cursor"]
+
+scm = client.snapshot_scm()   # ScmView: nodes, equations, edges, interventions, acyclic, as_of_tx
+```
+
+Settled intents are stamped by the server, `ok` is true only for a received receipt that reported success, and the feed keeps the newest 4096 settles; `horizon_tx` is the newest evicted stamp, and a cursor below it gets `truncated: true`. MCP exposes the same pair as `snapshot_transitions` and `snapshot_scm` (64 tools, 7 resources).
 
 ---
 
